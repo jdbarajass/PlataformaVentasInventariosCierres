@@ -1,0 +1,239 @@
+Plan rápido + prompt maestro (soy tu UX senior de 20 años)
+
+Perfecto — con todo el contexto que diste armé (1) una pila tecnológica recomendada, (2) la estructura y modelos de datos clave, (3) endpoints y componentes UI, (4) integraciones (pagos, imágenes, monitoreo) y al final (5) el prompt definitivo que puedes pegar en un generador de código / equipo de devs o en una IA para que construya el proyecto. Lo hago pensando en una web responsive móvil-first, estética futurista y minimalista, y la carpeta local ~/Downloads/APP_YB_MOTOCOM como raíz del proyecto.
+
+1) Stack recomendado (por qué)
+
+Frontend: Next.js (App Router) + TypeScript — SEO, rutas, SSR/SSG/ISR cuando necesites, buen soporte para APIs, despliegue en Vercel.
+
+Alternativa ligera: Vite + React si quieres SPA pura y build muy rápida.
+
+UI / diseño: Tailwind CSS + shadcn/ui (mencionaste shadcn) para componentes modernos y consistentes. Usa inspiración de Mobbin para flujos UI y microinteracciones.
+
+Backend / Auth / DB: Supabase (Postgres gestionado, Auth y Storage para imágenes). Fácil CRUD, realtime y respaldos.
+
+Pagos: Stripe (global, Webhooks, tarjetas). Para mercado colombiano añade MercadoPago (o PayU) como opción local / wallets. (Para Daviplata/Nequi normalmente necesitas integraciones específicas o pasarelas locales — lo revisamos en la implementación).
+
+Monitoreo & errores: Sentry (frontend + backend).
+
+Observabilidad / auditoría: Normatron (mencionado) para documentación y auditorías IA; logs + auditoría en Postgres.
+
+Tests: Vitest (unit) + Playwright (E2E).
+
+CI/CD: GitHub Actions → desplegar en Vercel (Next.js) o Netlify.
+
+Dev tooling: ESLint, Prettier, Husky (pre-commit), Commitlint.
+
+Extras: Webhooks para sincronizar cierres / pagos; backups regulares de DB.
+
+2) Estructura de carpetas (local)
+
+Comandos para crear la carpeta en Descargas:
+
+cd ~/Downloads
+mkdir APP_YB_MOTOCOM
+cd APP_YB_MOTOCOM
+
+
+Estructura sugerida:
+
+APP_YB_MOTOCOM/
+├─ apps/
+│  ├─ web/                # Next.js (frontend + server components)
+│  └─ admin/              # admin panel (puede ser Next.js o app React separada)
+├─ services/
+│  ├─ payments/           # funciones serverless / webhooks
+│  └─ reports/            # generación de reportes
+├─ infra/
+│  ├─ supabase/           # scripts SQL / migrations
+│  └─ terraform/ (opt)    # infra as code
+├─ scripts/
+├─ docs/
+│  └─ UX/
+└─ README.md
+
+3) Modelo de datos esencial (Postgres / Supabase)
+
+Tablas clave (columnas principales):
+
+users: id, email, name, role (admin|seller|viewer), created_at
+
+products: id, sku, title, description, price_cents, cost_cents, category, images[] (storage keys), stock_qty, active, created_at, updated_at
+
+inventory_movements: id, product_id, qty, type (in|out|adjustment|sale), note, created_by, created_at
+
+orders: id, user_id (customer), total_cents, currency, status (pending|paid|cancelled|refunded), payment_provider, created_at
+
+order_items: id, order_id, product_id, qty, price_cents
+
+payments: id, order_id, provider, provider_payment_id, amount_cents, method (card|transfer|wallet), status, created_at
+
+daily_closures: id, date, cash_amount_cents, transfers_amount_cents, other_amount_cents, created_by, notes
+
+audit_logs: id, actor_id, action, table_name, record_id, diff_json, created_at
+
+Nota: imágenes en Supabase Storage y guarda la ruta en products.images.
+
+4) Endpoints / funciones API (servidor / serverless)
+
+Autenticados con JWT (Supabase Auth). Versiona API: /api/v1/...
+
+POST /api/v1/auth/login (o usar Supabase Auth)
+
+GET /api/v1/products — filtros (q, category, price range, active)
+
+GET /api/v1/products/:id
+
+POST /api/v1/products (admin) — subir imágenes -> Storage + guardar rutas
+
+PUT /api/v1/products/:id (admin)
+
+DELETE /api/v1/products/:id (admin)
+
+POST /api/v1/orders — checkout (crea order + items + inicia payment)
+
+POST /api/v1/payments/webhook — recibir webhooks Stripe/MercadoPago
+
+GET /api/v1/reports/sales?from=&to=&group_by=day|week|month
+
+POST /api/v1/inventory/adjust — registrar movimientos de inventario
+
+POST /api/v1/daily_closures — registrar cierre diario (cash, transfers)
+
+GET /api/v1/analytics/top-products?from=&to=&limit=10
+
+GET /api/v1/admin/audit_logs (admin)
+
+5) UX / pantallas y componentes clave (mobile-first)
+
+Páginas públicas:
+
+Home (carrusel de destacados, categorías, búsqueda rápida)
+
+Listing de categoría (filtros, sort)
+
+Producto (galería, descripción, stock, CTA comprar)
+
+Carrito & Checkout (método de pago, resumen)
+
+About / Contacto
+
+Páginas admin (protegidas):
+
+Dashboard (ventas hoy / semana / mes, top productos, alertas stock bajo)
+
+Inventario (CRUD + cargar imágenes por lote)
+
+Cierres diarios (formulario + historial)
+
+Reportes (selector de rango, export CSV)
+
+Usuarios y roles
+
+Auditoría
+
+Componentes:
+
+Top bar minimal (icono, búsqueda), bottom nav para móvil (home, categories, cart, admin si autorizado)
+
+Cards de producto (imagen cuadrada, badge stock, precio y botón comprar)
+
+Modal de checkout rápido (one-click pay)
+
+Builder de promociones / descuentos (opcional)
+
+Toasts y loaders, microinteracciones (inspiración Mobbin)
+
+Diseño: tipografía geométrica, gradientes suaves, neón sutil en CTA, sombras suaves, bordes 2xl. Dark mode opcional.
+
+6) Pagos y wallet locales
+
+Implementa Stripe para tarjetas y wallets soportadas por Stripe.
+
+Para Nequi/Daviplata: normalmente requieren integración directa con pasarelas locales o con MercadoPago / PayU que ofrecen canales locales. Recomendación inicial: Stripe + MercadoPago y exponer como opciones en checkout; dejar “otros” que registren pago manual y conciliación en daily_closures.
+
+Implementa webhooks para confirmar pagos y actualizar inventario / orders.
+
+7) Monitoreo, auditoría y seguridad
+
+Sentry en frontend + backend.
+
+Registra todas las acciones críticas en audit_logs (quién, qué, antes/después).
+
+Roles & permisos en Supabase (RLS) o en la capa API.
+
+Validaciones server-side siempre para stock y cambios monetarios.
+
+HTTPS obligatorio, CORS restringido.
+
+Backups automáticos de Postgres.
+
+8) Testing y despliegue
+
+Unit tests con Vitest (components, utils).
+
+E2E con Playwright (checkout flow, admin flows).
+
+GitHub Actions: lint → tests → build → deploy (Vercel).
+
+Env: usar Vault/Secrets en deploy (no env en repo).
+
+9) Prompt maestro (listo para pegar)
+
+Usa este prompt con una IA generadora de código (o dáselo a tu equipo). Está en español y es específico:
+
+Eres un equipo de desarrollo full-stack: frontend (Next.js app-router + TypeScript + Tailwind + shadcn/ui), backend serverless y DB en Supabase (Postgres + Auth + Storage). Diseña y genera un proyecto completo mobile-first llamado APP_YB_MOTOCOM (carpeta raíz). La app es una tienda de accesorios de motos pública y una zona admin privada. Requisitos funcionales y no funcionales:
+
+Autenticación con Supabase Auth (roles: admin, seller, viewer).
+
+CRUD completo de productos con imágenes (upload a Supabase Storage), control de stock y auditoría de cambios (audit_logs).
+
+Checkout y pasarela de pagos con Stripe como primaria; arquitectura preparada para añadir MercadoPago (LatAm) y wallets locales (Daviplata/Nequi) más tarde. Implementar webhooks para confirmar pagos y actualizar órdenes e inventario.
+
+Registro de cierres diarios (cash/transfers/otros), con conciliación manual posible; export CSV de cierres.
+
+Reportes: ventas por día/semana/mes/rango, top productos, órdenes con filtros por fecha y status.
+
+Panel admin con dashboard (KPIs: ventas día/semana/mes, stock bajo, top 10 productos), CRUD inventario, reportes y auditoría.
+
+UX: diseño futurista y moderno, móvil-first, microinteracciones, inspiración Mobbin. Usa shadcn/ui para componentes y patrones, y añade dark mode.
+
+Calidad: TypeScript, ESLint + Prettier, tests unit (Vitest) y e2e (Playwright), Sentry para errores.
+
+Infra/DevOps: GitHub Actions para CI, despliegue en Vercel (frontend) y Supabase Edge Functions (server). Variables sensibles en secrets.
+
+Entregar: scaffolding del proyecto en ~/Downloads/APP_YB_MOTOCOM, SQL de migraciones para crear tablas mencionadas, ejemplos de seed data, Postman collection (o openapi spec), y README con instrucciones para correr local (dev) y pasos de despliegue.
+
+Entregables concretos (priorizar MVP):
+
+Frontend Next.js con rutas públicas (home, category, product, cart, checkout) y admin protegido.
+
+Endpoints API listados (products, orders, payments/webhook, reports, daily_closures, inventory adjustments).
+
+Supabase schema SQL + script para crear buckets de storage.
+
+Implementación de carga de imágenes con previews y optimización responsive.
+
+Implementación mínima de Stripe (checkout session + webhook) con pruebas locales (modo test).
+
+Dashboard admin con gráficos básicos (ventas por día, top productos).
+
+Sentry integrado y script para imprimir logs y auditorías.
+
+Tests básicos: 5 unit tests y 2 e2e flows (registro + checkout).
+
+Estilo visual: paleta fría con acento neón, tipografías geométricas, tarjetas con suavizado 2xl, micro-animations en botones, ilustraciones minimal vectoriales. Incluye un archivo UX/guide.md con referencias a pantallas Mobbin que inspiren cada flujo.
+
+Nota: Si en algún punto la integración con Daviplata/Nequi requiere documentación oficial o claves, crea un “TODO: integrar wallet local” que exponga el punto exacto en el código para completar y un endpoint /api/v1/payments/manual para reconciliaciones mientras tanto.
+
+10) Siguientes pasos prácticos (rápidos)
+
+Pega el prompt en tu generador de código/encargo al equipo.
+
+Decide si quieres Next.js (recomendado) o Vite+React.
+
+Abro un repo en GitHub y configura secrets: SUPABASE_URL, SUPABASE_KEY, STRIPE_KEY, SENTRY_DSN.
+
+Si quieres, te puedo devolver (A) un README + SQL de migración listo, (B) un ejemplo de next.config + snippet de integración Stripe + Supabase Storage, o (C) un kit UI (Tailwind + shadcn) con 8 componentes listos (cards, product gallery, admin table, modal checkout). Dime cuál prefieres y lo genero ya.
+
+¿Quieres que genere README + SQL de migración ahora (opción A) o prefieres que escriba el kit UI con componentes listos (opción C)? Me pongo a hacerlo ya con lo que elijas.
