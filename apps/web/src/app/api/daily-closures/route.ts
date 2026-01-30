@@ -52,12 +52,13 @@ export async function POST(request: NextRequest) {
       data.other_amount_cents
 
     // Create closure
-    const { data: closure, error } = await supabase
-      .from('daily_closures')
-      .insert({
-        ...data,
-        total_amount_cents,
-      })
+    const insertData = {
+      ...data,
+      total_amount_cents,
+    }
+    const { data: closure, error } = await (supabase
+      .from('daily_closures') as any)
+      .insert(insertData)
       .select()
       .single()
 
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create audit log
-    await supabase.from('audit_logs').insert({
+    await (supabase.from('audit_logs') as any).insert({
       actor_id: data.created_by,
       action: 'create',
       table_name: 'daily_closures',
@@ -113,7 +114,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate summary
-    const summary = data?.reduce(
+    const closures = (data as any[]) || []
+    const summary = closures.reduce(
       (acc, closure) => ({
         total_cash: acc.total_cash + closure.cash_amount_cents,
         total_card: acc.total_card + closure.card_amount_cents,
@@ -197,8 +199,8 @@ export async function PUT(request: NextRequest) {
         (updates.other_amount_cents ?? current.other_amount_cents)
     }
 
-    const { data: closure, error } = await supabase
-      .from('daily_closures')
+    const { data: closure, error } = await (supabase
+      .from('daily_closures') as any)
       .update(updateData)
       .eq('id', id)
       .select()
@@ -209,7 +211,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Create audit log
-    await supabase.from('audit_logs').insert({
+    await (supabase.from('audit_logs') as any).insert({
       actor_id: verified_by || updates.created_by,
       action: 'update',
       table_name: 'daily_closures',
