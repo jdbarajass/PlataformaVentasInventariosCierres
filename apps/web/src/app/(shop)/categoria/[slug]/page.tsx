@@ -149,17 +149,18 @@ export default function CategoryPage() {
           return
         }
 
-        setCategory(categoryData)
+        const typedCategory = categoryData as Category
+        setCategory(typedCategory)
 
         // Obtener productos de la categoría
         const { data: productsData } = await supabase
           .from('products')
           .select('*')
-          .eq('category_id', categoryData.id)
+          .eq('category_id', typedCategory.id)
           .eq('active', true)
           .order('created_at', { ascending: false })
 
-        setProducts(productsData || [])
+        setProducts((productsData as Product[]) || [])
       } catch (err) {
         console.error('Error fetching category:', err)
         // Fallback a datos mock
