@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
-import { DailyClosure } from '@/types/database'
+import { DailyClosure, Inserts } from '@/types/database'
 
 export default function DailyClosuresPage() {
   const [closures, setClosures] = useState<DailyClosure[]>([])
@@ -49,7 +49,7 @@ export default function DailyClosuresPage() {
     const other = parseInt(formData.other_amount || '0') * 100
     const total = cash + card + transfer + wallet + other
 
-    const { error } = await supabase.from('daily_closures').insert({
+    const insertData: Inserts<'daily_closures'> = {
       date: formData.date,
       cash_amount_cents: cash,
       card_amount_cents: card,
@@ -58,7 +58,8 @@ export default function DailyClosuresPage() {
       other_amount_cents: other,
       total_amount_cents: total,
       notes: formData.notes,
-    })
+    }
+    const { error } = await (supabase.from('daily_closures') as any).insert(insertData)
 
     if (!error) {
       setShowForm(false)
