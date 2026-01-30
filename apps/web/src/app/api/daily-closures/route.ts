@@ -161,18 +161,20 @@ export async function PUT(request: NextRequest) {
     const supabase = getServiceSupabase()
 
     // Get current closure
-    const { data: current, error: fetchError } = await supabase
+    const { data: currentData, error: fetchError } = await supabase
       .from('daily_closures')
       .select('*')
       .eq('id', id)
       .single()
 
-    if (fetchError || !current) {
+    if (fetchError || !currentData) {
       return NextResponse.json(
         { error: 'Cierre no encontrado' },
         { status: 404 }
       )
     }
+
+    const current = currentData as any
 
     // Prepare update data
     const updateData: Record<string, unknown> = { ...updates }
