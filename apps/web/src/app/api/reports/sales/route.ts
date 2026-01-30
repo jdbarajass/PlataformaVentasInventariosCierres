@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 
+interface OrderData {
+  id: string
+  total_cents: number
+  subtotal_cents: number
+  discount_cents: number
+  payment_status: string
+  created_at: string
+  order_items: Array<{
+    id: string
+    qty: number
+    price_cents: number
+    product_id: string | null
+  }>
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -42,6 +57,8 @@ export async function GET(request: NextRequest) {
       throw ordersError
     }
 
+    const typedOrders = (orders as OrderData[]) || []
+
     // Group sales by period
     const salesByPeriod: Record<string, {
       period: string
@@ -51,7 +68,7 @@ export async function GET(request: NextRequest) {
       average_order_cents: number
     }> = {}
 
-    orders?.forEach((order) => {
+    typedOrders.forEach((order) => {
       const date = new Date(order.created_at)
       let periodKey: string
 
