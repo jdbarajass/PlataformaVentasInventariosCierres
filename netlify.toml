@@ -1,0 +1,12 @@
+[build]
+  base = "apps/web"
+  command = "npm install && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Next.js requires special plugin
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
