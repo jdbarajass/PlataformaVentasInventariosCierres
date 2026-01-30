@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Order, Product, OrderItem } from '@/types/database'
 import {
   DollarSign,
   ShoppingCart,
@@ -11,6 +12,23 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react'
+
+interface SalesData {
+  total_cents: number
+}
+
+interface LowStockProduct {
+  id: string
+  title: string
+  stock_qty: number
+  low_stock_threshold: number
+}
+
+interface TopProductItem {
+  product_id: string | null
+  product_title: string
+  qty: number
+}
 
 async function getDashboardStats() {
   const today = new Date()
@@ -25,7 +43,8 @@ async function getDashboardStats() {
     .eq('payment_status', 'paid')
     .gte('created_at', startOfDay)
 
-  const todayTotal = todaySales?.reduce((sum, order) => sum + order.total_cents, 0) || 0
+  const typedTodaySales = (todaySales as SalesData[]) || []
+  const todayTotal = typedTodaySales.reduce((sum, order) => sum + order.total_cents, 0)
 
   // Sales this week
   const { data: weekSales } = await supabase
@@ -34,7 +53,8 @@ async function getDashboardStats() {
     .eq('payment_status', 'paid')
     .gte('created_at', startOfWeek)
 
-  const weekTotal = weekSales?.reduce((sum, order) => sum + order.total_cents, 0) || 0
+  const typedWeekSales = (weekSales as SalesData[]) || []
+  const weekTotal = typedWeekSales.reduce((sum, order) => sum + order.total_cents, 0)
 
   // Orders count
   const { count: ordersToday } = await supabase
@@ -55,6 +75,8 @@ async function getDashboardStats() {
     .filter('stock_qty', 'lte', 'low_stock_threshold')
     .limit(5)
 
+  const typedLowStock = (lowStockProducts as LowStockProduct[]) || []
+
   // Top products
   const { data: topProducts } = await supabase
     .from('order_items')
@@ -62,8 +84,9 @@ async function getDashboardStats() {
     .gte('created_at', startOfMonth)
     .limit(100)
 
+  const typedTopProducts = (topProducts as TopProductItem[]) || []
   const productSales: Record<string, { title: string; qty: number }> = {}
-  topProducts?.forEach((item) => {
+  typedTopProducts.forEach((item) => {
     if (item.product_id) {
       if (!productSales[item.product_id]) {
         productSales[item.product_id] = { title: item.product_title, qty: 0 }
@@ -84,14 +107,16 @@ async function getDashboardStats() {
     .order('created_at', { ascending: false })
     .limit(5)
 
+  const typedRecentOrders = (recentOrders as Order[]) || []
+
   return {
     todayTotal,
     weekTotal,
     ordersToday: ordersToday || 0,
     pendingOrders: pendingOrders || 0,
-    lowStockProducts: lowStockProducts || [],
+    lowStockProducts: typedLowStock,
     topProducts: topProductsList,
-    recentOrders: recentOrders || [],
+    recentOrders: typedRecentOrders,
   }
 }
 
