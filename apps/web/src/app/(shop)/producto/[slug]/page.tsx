@@ -7,12 +7,17 @@ import { formatPrice, getStockStatus, getStockLabel } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { AddToCartButton } from './add-to-cart-button'
+import { Product } from '@/types/database'
 
 interface ProductPageProps {
   params: { slug: string }
 }
 
-async function getProduct(slug: string) {
+interface ProductWithCategory extends Product {
+  categories: { name: string; slug: string } | null
+}
+
+async function getProduct(slug: string): Promise<ProductWithCategory | null> {
   const { data: product } = await supabase
     .from('products')
     .select('*, categories(name, slug)')
@@ -20,10 +25,10 @@ async function getProduct(slug: string) {
     .eq('active', true)
     .single()
 
-  return product
+  return product as ProductWithCategory | null
 }
 
-async function getRelatedProducts(categoryId: string, excludeId: string) {
+async function getRelatedProducts(categoryId: string, excludeId: string): Promise<Product[]> {
   const { data } = await supabase
     .from('products')
     .select('*')
@@ -32,7 +37,7 @@ async function getRelatedProducts(categoryId: string, excludeId: string) {
     .neq('id', excludeId)
     .limit(4)
 
-  return data || []
+  return (data as Product[]) || []
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {

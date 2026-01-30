@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProductCard } from '@/components/products/product-card'
 import { supabase } from '@/lib/supabase'
+import { Product } from '@/types/database'
 
 const features = [
   {
@@ -36,7 +37,7 @@ const categories = [
   { name: 'Accesorios', slug: 'accesorios', image: '/images/categories/accesorios.jpg' },
 ]
 
-async function getFeaturedProducts() {
+async function getFeaturedProducts(): Promise<Product[]> {
   const { data } = await supabase
     .from('products')
     .select('*')
@@ -45,7 +46,7 @@ async function getFeaturedProducts() {
     .limit(8)
     .order('created_at', { ascending: false })
 
-  return data || []
+  return (data as Product[]) || []
 }
 
 export default async function HomePage() {
