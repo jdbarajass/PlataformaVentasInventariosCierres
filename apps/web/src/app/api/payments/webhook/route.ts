@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
 
       if (orderId) {
         // Update order status
-        await serviceSupabase
-          .from('orders')
+        await (serviceSupabase
+          .from('orders') as any)
           .update({
             status: 'confirmed',
             payment_status: 'paid',
@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
           .eq('id', orderId)
 
         // Update payment status
-        await serviceSupabase
-          .from('payments')
+        await (serviceSupabase
+          .from('payments') as any)
           .update({
             status: 'succeeded',
             provider_payment_id: session.payment_intent as string,
@@ -54,44 +54,46 @@ export async function POST(request: NextRequest) {
           .eq('provider_session_id', session.id)
 
         // Reduce stock for each item
-        const { data: orderItems } = await serviceSupabase
+        const { data: orderItemsData } = await serviceSupabase
           .from('order_items')
           .select('product_id, qty')
           .eq('order_id', orderId)
 
-        if (orderItems) {
-          for (const item of orderItems) {
-            if (item.product_id) {
-              // Get current stock
-              const { data: product } = await serviceSupabase
-                .from('products')
-                .select('stock_qty')
+        const orderItems = (orderItemsData as any[]) || []
+
+        for (const item of orderItems) {
+          if (item.product_id) {
+            // Get current stock
+            const { data: productData } = await serviceSupabase
+              .from('products')
+              .select('stock_qty')
+              .eq('id', item.product_id)
+              .single()
+
+            const product = productData as any
+
+            if (product) {
+              // Update stock
+              await (serviceSupabase
+                .from('products') as any)
+                .update({ stock_qty: Math.max(0, product.stock_qty - item.qty) })
                 .eq('id', item.product_id)
-                .single()
 
-              if (product) {
-                // Update stock
-                await serviceSupabase
-                  .from('products')
-                  .update({ stock_qty: Math.max(0, product.stock_qty - item.qty) })
-                  .eq('id', item.product_id)
-
-                // Record inventory movement
-                await serviceSupabase.from('inventory_movements').insert({
-                  product_id: item.product_id,
-                  qty: -item.qty,
-                  type: 'sale',
-                  reference_id: orderId,
-                  reference_type: 'order',
-                  note: `Venta - Orden ${orderId}`,
-                })
-              }
+              // Record inventory movement
+              await (serviceSupabase.from('inventory_movements') as any).insert({
+                product_id: item.product_id,
+                qty: -item.qty,
+                type: 'sale',
+                reference_id: orderId,
+                reference_type: 'order',
+                note: `Venta - Orden ${orderId}`,
+              })
             }
           }
         }
 
         // Log audit
-        await serviceSupabase.from('audit_logs').insert({
+        await (serviceSupabase.from('audit_logs') as any).insert({
           action: 'payment_completed',
           table_name: 'orders',
           record_id: orderId,
@@ -106,13 +108,13 @@ export async function POST(request: NextRequest) {
       const orderId = session.metadata?.order_id
 
       if (orderId) {
-        await serviceSupabase
-          .from('orders')
+        await (serviceSupabase
+          .from('orders') as any)
           .update({ payment_status: 'failed' })
           .eq('id', orderId)
 
-        await serviceSupabase
-          .from('payments')
+        await (serviceSupabase
+          .from('payments') as any)
           .update({ status: 'cancelled' })
           .eq('provider_session_id', session.id)
       }
@@ -123,23 +125,25 @@ export async function POST(request: NextRequest) {
       const charge = event.data.object as Stripe.Charge
       const paymentIntentId = charge.payment_intent as string
 
-      const { data: payment } = await serviceSupabase
+      const { data: paymentData } = await serviceSupabase
         .from('payments')
         .select('order_id')
         .eq('provider_payment_id', paymentIntentId)
         .single()
 
+      const payment = paymentData as any
+
       if (payment) {
-        await serviceSupabase
-          .from('orders')
+        await (serviceSupabase
+          .from('orders') as any)
           .update({
             status: 'refunded',
             payment_status: 'refunded',
           })
           .eq('id', payment.order_id)
 
-        await serviceSupabase
-          .from('payments')
+        await (serviceSupabase
+          .from('payments') as any)
           .update({ status: 'refunded' })
           .eq('provider_payment_id', paymentIntentId)
       }
