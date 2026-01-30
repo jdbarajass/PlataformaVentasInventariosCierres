@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 
+interface OrderId {
+  id: string
+}
+
+interface OrderItemData {
+  product_id: string | null
+  product_title: string
+  product_image: string | null
+  qty: number
+  price_cents: number
+  total_cents: number
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -24,13 +37,14 @@ export async function GET(request: NextRequest) {
       ordersQuery = ordersQuery.lte('created_at', to)
     }
 
-    const { data: orders, error: ordersError } = await ordersQuery
+    const { data: ordersData, error: ordersError } = await ordersQuery
 
     if (ordersError) {
       throw ordersError
     }
 
-    const orderIds = orders?.map((o) => o.id) || []
+    const orders = (ordersData as OrderId[]) || []
+    const orderIds = orders.map((o) => o.id)
 
     if (orderIds.length === 0) {
       return NextResponse.json({
@@ -44,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get order items with product info
-    const { data: orderItems, error: itemsError } = await supabase
+    const { data: orderItemsData, error: itemsError } = await supabase
       .from('order_items')
       .select(`
         product_id,
@@ -60,6 +74,8 @@ export async function GET(request: NextRequest) {
       throw itemsError
     }
 
+    const orderItems = (orderItemsData as OrderItemData[]) || []
+
     // Aggregate by product
     const productStats: Record<
       string,
@@ -73,7 +89,7 @@ export async function GET(request: NextRequest) {
       }
     > = {}
 
-    orderItems?.forEach((item) => {
+    orderItems.forEach((item) => {
       const key = item.product_id || item.product_title
 
       if (!productStats[key]) {
