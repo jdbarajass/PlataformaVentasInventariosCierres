@@ -6,107 +6,49 @@ import { supabase } from '@/lib/supabase'
 import { ProductCard } from '@/components/products/product-card'
 import { Button } from '@/components/ui/button'
 import { SlidersHorizontal, Grid3X3, List, Loader2 } from 'lucide-react'
+import { Product, Category } from '@/types/database'
 
 // Datos de prueba para cuando Supabase no está disponible
-const mockCategories: Record<string, { id: string; name: string; slug: string; description: string }> = {
-  cascos: { id: '1', name: 'Cascos', slug: 'cascos', description: 'Protege tu cabeza con los mejores cascos del mercado' },
-  guantes: { id: '2', name: 'Guantes', slug: 'guantes', description: 'Guantes de alta calidad para todo tipo de conduccion' },
-  chaquetas: { id: '3', name: 'Chaquetas', slug: 'chaquetas', description: 'Chaquetas con proteccion y estilo' },
-  accesorios: { id: '4', name: 'Accesorios', slug: 'accesorios', description: 'Accesorios esenciales para tu moto' },
-  repuestos: { id: '5', name: 'Repuestos', slug: 'repuestos', description: 'Repuestos y partes para motos' },
-  lubricantes: { id: '6', name: 'Lubricantes', slug: 'lubricantes', description: 'Aceites y lubricantes' },
+const mockCategories: Record<string, Category> = {
+  cascos: { id: '1', name: 'Cascos', slug: 'cascos', description: 'Protege tu cabeza con los mejores cascos del mercado', image_url: null, parent_id: null, sort_order: 1, active: true, created_at: '', updated_at: '' },
+  guantes: { id: '2', name: 'Guantes', slug: 'guantes', description: 'Guantes de alta calidad para todo tipo de conduccion', image_url: null, parent_id: null, sort_order: 2, active: true, created_at: '', updated_at: '' },
+  chaquetas: { id: '3', name: 'Chaquetas', slug: 'chaquetas', description: 'Chaquetas con proteccion y estilo', image_url: null, parent_id: null, sort_order: 3, active: true, created_at: '', updated_at: '' },
+  accesorios: { id: '4', name: 'Accesorios', slug: 'accesorios', description: 'Accesorios esenciales para tu moto', image_url: null, parent_id: null, sort_order: 4, active: true, created_at: '', updated_at: '' },
+  repuestos: { id: '5', name: 'Repuestos', slug: 'repuestos', description: 'Repuestos y partes para motos', image_url: null, parent_id: null, sort_order: 5, active: true, created_at: '', updated_at: '' },
+  lubricantes: { id: '6', name: 'Lubricantes', slug: 'lubricantes', description: 'Aceites y lubricantes', image_url: null, parent_id: null, sort_order: 6, active: true, created_at: '', updated_at: '' },
 }
 
-const mockProducts = [
-  {
-    id: '1',
-    title: 'Casco Integral Pro Carbon',
-    slug: 'casco-integral-pro-carbon',
-    price_cents: 45000000,
-    compare_at_price_cents: 55000000,
-    images: [],
-    stock_qty: 15,
-    category_id: '1',
-  },
-  {
-    id: '2',
-    title: 'Casco Modular Adventure',
-    slug: 'casco-modular-adventure',
-    price_cents: 38000000,
-    compare_at_price_cents: null,
-    images: [],
-    stock_qty: 8,
-    category_id: '1',
-  },
-  {
-    id: '3',
-    title: 'Casco Jet Urban Style',
-    slug: 'casco-jet-urban-style',
-    price_cents: 25000000,
-    compare_at_price_cents: 30000000,
-    images: [],
-    stock_qty: 20,
-    category_id: '1',
-  },
-  {
-    id: '4',
-    title: 'Guantes Racing Pro',
-    slug: 'guantes-racing-pro',
-    price_cents: 12000000,
-    compare_at_price_cents: null,
-    images: [],
-    stock_qty: 25,
-    category_id: '2',
-  },
-  {
-    id: '5',
-    title: 'Guantes Touring Premium',
-    slug: 'guantes-touring-premium',
-    price_cents: 15000000,
-    compare_at_price_cents: 18000000,
-    images: [],
-    stock_qty: 18,
-    category_id: '2',
-  },
-  {
-    id: '6',
-    title: 'Chaqueta Moto Adventure',
-    slug: 'chaqueta-moto-adventure',
-    price_cents: 28000000,
-    compare_at_price_cents: null,
-    images: [],
-    stock_qty: 10,
-    category_id: '3',
-  },
-  {
-    id: '7',
-    title: 'Candado Alarma Premium',
-    slug: 'candado-alarma-premium',
-    price_cents: 8500000,
-    compare_at_price_cents: 10000000,
-    images: [],
-    stock_qty: 30,
-    category_id: '4',
-  },
+const createMockProduct = (id: string, title: string, slug: string, priceCents: number, compareAtPriceCents: number | null, stockQty: number, categoryId: string): Product => ({
+  id,
+  sku: `SKU-${id}`,
+  title,
+  slug,
+  description: null,
+  price_cents: priceCents,
+  cost_cents: 0,
+  compare_at_price_cents: compareAtPriceCents,
+  category_id: categoryId,
+  images: [],
+  stock_qty: stockQty,
+  low_stock_threshold: 5,
+  weight_grams: null,
+  dimensions: null,
+  tags: [],
+  active: true,
+  featured: false,
+  created_at: '',
+  updated_at: '',
+})
+
+const mockProducts: Product[] = [
+  createMockProduct('1', 'Casco Integral Pro Carbon', 'casco-integral-pro-carbon', 45000000, 55000000, 15, '1'),
+  createMockProduct('2', 'Casco Modular Adventure', 'casco-modular-adventure', 38000000, null, 8, '1'),
+  createMockProduct('3', 'Casco Jet Urban Style', 'casco-jet-urban-style', 25000000, 30000000, 20, '1'),
+  createMockProduct('4', 'Guantes Racing Pro', 'guantes-racing-pro', 12000000, null, 25, '2'),
+  createMockProduct('5', 'Guantes Touring Premium', 'guantes-touring-premium', 15000000, 18000000, 18, '2'),
+  createMockProduct('6', 'Chaqueta Moto Adventure', 'chaqueta-moto-adventure', 28000000, null, 10, '3'),
+  createMockProduct('7', 'Candado Alarma Premium', 'candado-alarma-premium', 8500000, 10000000, 30, '4'),
 ]
-
-interface Category {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-}
-
-interface Product {
-  id: string
-  title: string
-  slug: string
-  price_cents: number
-  compare_at_price_cents: number | null
-  images: string[]
-  stock_qty: number
-  category_id: string | null
-}
 
 export default function CategoryPage() {
   const params = useParams()
