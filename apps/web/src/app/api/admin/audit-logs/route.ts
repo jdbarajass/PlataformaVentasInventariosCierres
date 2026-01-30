@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
       .select('table_name')
       .limit(100)
 
-    const uniqueActions = [...new Set(actions?.map((a) => a.action) || [])]
-    const uniqueTables = [...new Set(tables?.map((t) => t.table_name) || [])]
+    const uniqueActions = Array.from(new Set(actions?.map((a) => a.action) || []))
+    const uniqueTables = Array.from(new Set(tables?.map((t) => t.table_name) || []))
 
     return NextResponse.json({
       data,

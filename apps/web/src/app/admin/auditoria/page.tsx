@@ -162,8 +162,8 @@ export default function AuditoriaPage() {
     })
   }
 
-  const uniqueActions = [...new Set(logs.map((l) => l.action))]
-  const uniqueTables = [...new Set(logs.map((l) => l.table_name))]
+  const uniqueActions = Array.from(new Set(logs.map((l) => l.action)))
+  const uniqueTables = Array.from(new Set(logs.map((l) => l.table_name)))
 
   return (
     <div className="space-y-8">
