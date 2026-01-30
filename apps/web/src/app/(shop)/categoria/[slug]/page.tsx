@@ -1,52 +1,209 @@
-import { notFound } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ProductCard } from '@/components/products/product-card'
 import { Button } from '@/components/ui/button'
-import { SlidersHorizontal, Grid3X3, List } from 'lucide-react'
+import { SlidersHorizontal, Grid3X3, List, Loader2 } from 'lucide-react'
 
-interface CategoryPageProps {
-  params: { slug: string }
-  searchParams: { sort?: string; min?: string; max?: string }
+// Datos de prueba para cuando Supabase no está disponible
+const mockCategories: Record<string, { id: string; name: string; slug: string; description: string }> = {
+  cascos: { id: '1', name: 'Cascos', slug: 'cascos', description: 'Protege tu cabeza con los mejores cascos del mercado' },
+  guantes: { id: '2', name: 'Guantes', slug: 'guantes', description: 'Guantes de alta calidad para todo tipo de conduccion' },
+  chaquetas: { id: '3', name: 'Chaquetas', slug: 'chaquetas', description: 'Chaquetas con proteccion y estilo' },
+  accesorios: { id: '4', name: 'Accesorios', slug: 'accesorios', description: 'Accesorios esenciales para tu moto' },
+  repuestos: { id: '5', name: 'Repuestos', slug: 'repuestos', description: 'Repuestos y partes para motos' },
+  lubricantes: { id: '6', name: 'Lubricantes', slug: 'lubricantes', description: 'Aceites y lubricantes' },
 }
 
-async function getCategoryWithProducts(slug: string) {
-  const { data: category } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('slug', slug)
-    .eq('active', true)
-    .single()
+const mockProducts = [
+  {
+    id: '1',
+    title: 'Casco Integral Pro Carbon',
+    slug: 'casco-integral-pro-carbon',
+    price_cents: 45000000,
+    compare_at_price_cents: 55000000,
+    images: [],
+    stock_qty: 15,
+    category_id: '1',
+  },
+  {
+    id: '2',
+    title: 'Casco Modular Adventure',
+    slug: 'casco-modular-adventure',
+    price_cents: 38000000,
+    compare_at_price_cents: null,
+    images: [],
+    stock_qty: 8,
+    category_id: '1',
+  },
+  {
+    id: '3',
+    title: 'Casco Jet Urban Style',
+    slug: 'casco-jet-urban-style',
+    price_cents: 25000000,
+    compare_at_price_cents: 30000000,
+    images: [],
+    stock_qty: 20,
+    category_id: '1',
+  },
+  {
+    id: '4',
+    title: 'Guantes Racing Pro',
+    slug: 'guantes-racing-pro',
+    price_cents: 12000000,
+    compare_at_price_cents: null,
+    images: [],
+    stock_qty: 25,
+    category_id: '2',
+  },
+  {
+    id: '5',
+    title: 'Guantes Touring Premium',
+    slug: 'guantes-touring-premium',
+    price_cents: 15000000,
+    compare_at_price_cents: 18000000,
+    images: [],
+    stock_qty: 18,
+    category_id: '2',
+  },
+  {
+    id: '6',
+    title: 'Chaqueta Moto Adventure',
+    slug: 'chaqueta-moto-adventure',
+    price_cents: 28000000,
+    compare_at_price_cents: null,
+    images: [],
+    stock_qty: 10,
+    category_id: '3',
+  },
+  {
+    id: '7',
+    title: 'Candado Alarma Premium',
+    slug: 'candado-alarma-premium',
+    price_cents: 8500000,
+    compare_at_price_cents: 10000000,
+    images: [],
+    stock_qty: 30,
+    category_id: '4',
+  },
+]
 
-  if (!category) return null
-
-  const { data: products } = await supabase
-    .from('products')
-    .select('*')
-    .eq('category_id', category.id)
-    .eq('active', true)
-    .order('created_at', { ascending: false })
-
-  return { category, products: products || [] }
+interface Category {
+  id: string
+  name: string
+  slug: string
+  description: string | null
 }
 
-export async function generateMetadata({ params }: CategoryPageProps) {
-  const data = await getCategoryWithProducts(params.slug)
-  if (!data) return { title: 'Categoria no encontrada' }
+interface Product {
+  id: string
+  title: string
+  slug: string
+  price_cents: number
+  compare_at_price_cents: number | null
+  images: string[]
+  stock_qty: number
+  category_id: string | null
+}
 
-  return {
-    title: `${data.category.name} - YB MOTOCOM`,
-    description: data.category.description || `Explora nuestra coleccion de ${data.category.name}`,
+export default function CategoryPage() {
+  const params = useParams()
+  const slug = params?.slug as string
+
+  const [category, setCategory] = useState<Category | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!slug) return
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        // Intentar obtener de Supabase
+        const { data: categoryData, error: catError } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('slug', slug)
+          .eq('active', true)
+          .single()
+
+        if (catError || !categoryData) {
+          // Usar datos mock
+          const mockCategory = mockCategories[slug]
+          if (mockCategory) {
+            setCategory(mockCategory)
+            const categoryProducts = mockProducts.filter(
+              (p) => p.category_id === mockCategory.id
+            )
+            setProducts(categoryProducts)
+          } else {
+            setError('Categoría no encontrada')
+          }
+          setLoading(false)
+          return
+        }
+
+        setCategory(categoryData)
+
+        // Obtener productos de la categoría
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('category_id', categoryData.id)
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+
+        setProducts(productsData || [])
+      } catch (err) {
+        console.error('Error fetching category:', err)
+        // Fallback a datos mock
+        const mockCategory = mockCategories[slug]
+        if (mockCategory) {
+          setCategory(mockCategory)
+          const categoryProducts = mockProducts.filter(
+            (p) => p.category_id === mockCategory.id
+          )
+          setProducts(categoryProducts)
+        } else {
+          setError('Error al cargar la categoría')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [slug])
+
+  if (loading) {
+    return (
+      <div className="container flex min-h-[50vh] items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+      </div>
+    )
   }
-}
 
-export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const data = await getCategoryWithProducts(params.slug)
-
-  if (!data) {
-    notFound()
+  if (error || !category) {
+    return (
+      <div className="container py-8">
+        <div className="rounded-2xl border-2 border-dashed p-12 text-center">
+          <p className="text-lg font-medium">Categoría no encontrada</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            La categoría que buscas no existe o no está disponible.
+          </p>
+          <Button asChild className="mt-4">
+            <a href="/">Volver al inicio</a>
+          </Button>
+        </div>
+      </div>
+    )
   }
-
-  const { category, products } = data
 
   return (
     <div className="container py-8">

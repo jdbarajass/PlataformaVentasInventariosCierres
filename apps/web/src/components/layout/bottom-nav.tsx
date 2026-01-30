@@ -37,8 +37,8 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname()
-  const { items } = useCart()
-  const cartCount = items.reduce((sum, item) => sum + item.quantity, 0)
+  const { items = [] } = useCart()
+  const cartCount = items?.reduce((sum, item) => sum + item.quantity, 0) || 0
 
   // Don't show on admin pages
   if (pathname?.startsWith('/admin')) {
