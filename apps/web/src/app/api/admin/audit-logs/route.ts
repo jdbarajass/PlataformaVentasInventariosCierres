@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 
+interface ActionRecord {
+  action: string
+}
+
+interface TableRecord {
+  table_name: string
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -47,18 +55,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Get unique actions and tables for filters
-    const { data: actions } = await supabase
+    const { data: actionsData } = await supabase
       .from('audit_logs')
       .select('action')
       .limit(100)
 
-    const { data: tables } = await supabase
+    const { data: tablesData } = await supabase
       .from('audit_logs')
       .select('table_name')
       .limit(100)
 
-    const uniqueActions = Array.from(new Set(actions?.map((a) => a.action) || []))
-    const uniqueTables = Array.from(new Set(tables?.map((t) => t.table_name) || []))
+    const actions = (actionsData as ActionRecord[]) || []
+    const tables = (tablesData as TableRecord[]) || []
+
+    const uniqueActions = Array.from(new Set(actions.map((a) => a.action)))
+    const uniqueTables = Array.from(new Set(tables.map((t) => t.table_name)))
 
     return NextResponse.json({
       data,
