@@ -21,6 +21,18 @@ interface TopProduct {
   revenue: number
 }
 
+interface OrderWithItems {
+  id: string
+  total_cents: number
+  created_at: string
+  order_items: Array<{
+    product_id: string
+    product_title: string
+    qty: number
+    total_cents: number
+  }>
+}
+
 export default function ReportsPage() {
   const [dateFrom, setDateFrom] = useState(() => {
     const date = new Date()
@@ -41,7 +53,7 @@ export default function ReportsPage() {
     setIsLoading(true)
 
     // Fetch orders in date range
-    const { data: orders } = await supabase
+    const { data: ordersData } = await supabase
       .from('orders')
       .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents)')
       .eq('payment_status', 'paid')
@@ -49,7 +61,9 @@ export default function ReportsPage() {
       .lte('created_at', `${dateTo}T23:59:59`)
       .order('created_at', { ascending: true })
 
-    if (orders) {
+    const orders = (ordersData as OrderWithItems[]) || []
+
+    if (orders.length > 0) {
       // Calculate daily sales
       const dailySales: Record<string, { total: number; orders: number }> = {}
       const productSales: Record<string, { title: string; qty: number; revenue: number }> = {}
