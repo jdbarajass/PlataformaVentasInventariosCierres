@@ -26,18 +26,20 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceSupabase()
 
     // Get current product stock
-    const { data: product, error: productError } = await supabase
+    const { data: productData, error: productError } = await supabase
       .from('products')
       .select('id, title, stock_qty')
       .eq('id', product_id)
       .single()
 
-    if (productError || !product) {
+    if (productError || !productData) {
       return NextResponse.json(
         { error: 'Producto no encontrado' },
         { status: 404 }
       )
     }
+
+    const product = productData as { id: string; title: string; stock_qty: number }
 
     // Calculate new stock
     let newStock = product.stock_qty
@@ -60,15 +62,16 @@ export async function POST(request: NextRequest) {
 
     // Start transaction-like operation
     // 1. Create inventory movement
-    const { data: movement, error: movementError } = await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id,
-        qty: type === 'adjustment' ? qty - product.stock_qty : qty,
-        type,
-        note,
-        created_by,
-      })
+    const movementData = {
+      product_id,
+      qty: type === 'adjustment' ? qty - product.stock_qty : qty,
+      type,
+      note,
+      created_by,
+    }
+    const { data: movement, error: movementError } = await (supabase
+      .from('inventory_movements') as any)
+      .insert(movementData)
       .select()
       .single()
 
@@ -77,8 +80,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Update product stock
-    const { error: updateError } = await supabase
-      .from('products')
+    const { error: updateError } = await (supabase
+      .from('products') as any)
       .update({ stock_qty: newStock })
       .eq('id', product_id)
 
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create audit log
-    await supabase.from('audit_logs').insert({
+    await (supabase.from('audit_logs') as any).insert({
       actor_id: created_by,
       action: 'inventory_adjustment',
       table_name: 'products',
