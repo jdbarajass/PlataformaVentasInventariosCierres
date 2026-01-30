@@ -17,11 +17,12 @@ export async function GET(request: NextRequest) {
     .range(offset, offset + limit - 1)
 
   if (category) {
-    const { data: cat } = await supabase
+    const { data: catData } = await supabase
       .from('categories')
       .select('id')
       .eq('slug', category)
       .single()
+    const cat = catData as { id: string } | null
     if (cat) {
       query = query.eq('category_id', cat.id)
     }
@@ -53,12 +54,14 @@ export async function POST(request: NextRequest) {
   const serviceSupabase = getServiceSupabase()
   const body = await request.json()
 
-  const { data, error } = await serviceSupabase
-    .from('products')
-    .insert({
-      ...body,
-      slug: body.slug || body.title.toLowerCase().replace(/\s+/g, '-'),
-    })
+  const productData = {
+    ...body,
+    slug: body.slug || body.title.toLowerCase().replace(/\s+/g, '-'),
+  }
+
+  const { data, error } = await (serviceSupabase
+    .from('products') as any)
+    .insert(productData)
     .select()
     .single()
 
