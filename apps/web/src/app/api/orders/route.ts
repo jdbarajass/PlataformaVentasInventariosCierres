@@ -14,23 +14,24 @@ export async function POST(request: NextRequest) {
 
   try {
     // Create order in database
-    const { data: order, error: orderError } = await serviceSupabase
-      .from('orders')
-      .insert({
-        customer_email: customer.email,
-        customer_name: customer.name,
-        customer_phone: customer.phone,
-        shipping_address: {
-          address: customer.address,
-          city: customer.city,
-        },
-        subtotal_cents,
-        shipping_cents,
-        total_cents,
-        notes: customer.notes,
-        status: 'pending',
-        payment_status: 'pending',
-      })
+    const orderData = {
+      customer_email: customer.email,
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      shipping_address: {
+        address: customer.address,
+        city: customer.city,
+      },
+      subtotal_cents,
+      shipping_cents,
+      total_cents,
+      notes: customer.notes,
+      status: 'pending',
+      payment_status: 'pending',
+    }
+    const { data: order, error: orderError } = await (serviceSupabase
+      .from('orders') as any)
+      .insert(orderData)
       .select()
       .single()
 
@@ -49,8 +50,8 @@ export async function POST(request: NextRequest) {
       total_cents: item.price_cents * item.qty,
     }))
 
-    const { error: itemsError } = await serviceSupabase
-      .from('order_items')
+    const { error: itemsError } = await (serviceSupabase
+      .from('order_items') as any)
       .insert(orderItems)
 
     if (itemsError) {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Create payment record
-      await serviceSupabase.from('payments').insert({
+      await (serviceSupabase.from('payments') as any).insert({
         order_id: order.id,
         provider: 'stripe',
         provider_session_id: session.id,
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // For other payment methods (transfer, nequi, daviplata)
-      await serviceSupabase.from('payments').insert({
+      await (serviceSupabase.from('payments') as any).insert({
         order_id: order.id,
         provider: 'manual',
         amount_cents: total_cents,
