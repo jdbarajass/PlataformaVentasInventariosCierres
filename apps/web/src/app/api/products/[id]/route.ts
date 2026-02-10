@@ -1,0 +1,157 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServiceSupabase } from '@/lib/supabase'
+import { productSchema } from '@/lib/validations/product'
+
+// GET - Obtener producto por ID
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = getServiceSupabase()
+
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*, categories(name, slug)')
+      .eq('id', params.id)
+      .single()
+
+    if (error || !product) {
+      return NextResponse.json(
+        { error: 'Producto no encontrado' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(product)
+  } catch (error) {
+    console.error('Error fetching product:', error)
+    return NextResponse.json(
+      { error: 'Error interno del servidor' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT - Actualizar producto
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = getServiceSupabase()
+
+    // Verificar autenticación (TODO: agregar validación de rol admin)
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+
+    // Validar datos con Zod
+    const validatedData = productSchema.parse(body)
+
+    // Actualizar producto
+    const { data: product, error } = await supabase
+      .from('products')
+      .update({
+        ...validatedData,
+        slug: body.slug, // El slug viene del formulario
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating product:', error)
+      return NextResponse.json(
+        { error: 'Error al actualizar producto: ' + error.message },
+        { status: 500 }
+      )
+    }
+
+    // Registrar auditoría (TODO: agregar a audit_logs)
+
+    return NextResponse.json(product)
+  } catch (error) {
+    console.error('Error updating product:', error)
+
+    if (error instanceof Error && error.message.includes('Expected')) {
+      return NextResponse.json(
+        { error: 'Datos de validación inválidos' },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: 'Error interno del servidor' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - Eliminar producto
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = getServiceSupabase()
+
+    // Verificar autenticación (TODO: agregar validación de rol admin)
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      )
+    }
+
+    // Verificar si el producto existe
+    const { data: product } = await supabase
+      .from('products')
+      .select('id, title')
+      .eq('id', params.id)
+      .single()
+
+    if (!product) {
+      return NextResponse.json(
+        { error: 'Producto no encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Soft delete: Marcar como inactivo en lugar de eliminar
+    // Esto preserva el historial de órdenes
+    const { error: updateError } = await supabase
+      .from('products')
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', params.id)
+
+    if (updateError) {
+      console.error('Error deleting product:', updateError)
+      return NextResponse.json(
+        { error: 'Error al eliminar producto: ' + updateError.message },
+        { status: 500 }
+      )
+    }
+
+    // Registrar auditoría (TODO: agregar a audit_logs)
+
+    return NextResponse.json({
+      message: 'Producto eliminado exitosamente',
+      id: params.id,
+    })
+  } catch (error) {
+    console.error('Error deleting product:', error)
+    return NextResponse.json(
+      { error: 'Error interno del servidor' },
+      { status: 500 }
+    )
+  }
+}

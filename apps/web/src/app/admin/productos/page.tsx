@@ -1,16 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Plus, Search, Edit, Trash2, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/components/ui/use-toast'
 import { formatPrice, getStockStatus } from '@/lib/utils'
 import { Product } from '@/types/database'
+import { supabase } from '@/lib/supabase'
 
 export default function ProductsPage() {
+  const router = useRouter()
+  const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -36,6 +41,46 @@ export default function ProductsPage() {
     product.sku?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`¿Estás seguro de eliminar el producto "${title}"?`)) {
+      return
+    }
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al eliminar')
+      }
+
+      toast({
+        title: 'Producto eliminado',
+        description: 'El producto se eliminó exitosamente',
+        variant: 'success',
+      })
+
+      // Refrescar lista
+      fetchProducts()
+    } catch (error) {
+      console.error('Error deleting product:', error)
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Error al eliminar producto',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -46,7 +91,7 @@ export default function ProductsPage() {
             Gestiona el catalogo de productos de la tienda
           </p>
         </div>
-        <Button>
+        <Button onClick={() => router.push('/admin/productos/nuevo')}>
           <Plus className="mr-2 h-4 w-4" />
           Nuevo Producto
         </Button>
@@ -157,13 +202,18 @@ export default function ProductsPage() {
                         </td>
                         <td className="py-4">
                           <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                            <Button variant="ghost" size="icon">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => router.push(`/admin/productos/${product.id}/editar`)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="text-destructive"
+                              onClick={() => handleDelete(product.id, product.title)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
