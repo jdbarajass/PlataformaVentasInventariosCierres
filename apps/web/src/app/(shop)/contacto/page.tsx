@@ -190,9 +190,9 @@ export default function ContactoPage() {
                   <div>
                     <h3 className="font-semibold">Dirección</h3>
                     <p className="text-muted-foreground">
-                      Calle 123 #45-67, Local 101
+                      Av Caracas No. 17-47 Local 111 Isla S
                     </p>
-                    <p className="text-muted-foreground">Bogotá, Colombia</p>
+                    <p className="text-muted-foreground">Cc Megacentro Puerta 1, Bogotá, Colombia</p>
                   </div>
                 </div>
 

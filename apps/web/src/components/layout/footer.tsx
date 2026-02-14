@@ -97,15 +97,19 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Phone className="h-4 w-4" />
-                <span>+57 300 123 4567</span>
+                <span>+57 321 411 1371</span>
+              </li>
+              <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="h-4 w-4" />
+                <span>+57 314 406 5520</span>
               </li>
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="h-4 w-4" />
-                <span>info@ybmotocom.com</span>
+                <span>ybmotocom@gmail.com</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 mt-0.5" />
-                <span>Calle Principal #123, Bogota, Colombia</span>
+                <span>Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1, Bogotá, Colombia</span>
               </li>
             </ul>
           </div>
