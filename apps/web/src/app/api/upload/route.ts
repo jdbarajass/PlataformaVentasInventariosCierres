@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import sharp from 'sharp'
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,21 +41,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generar nombre único
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-    const filePath = `products/${fileName}`
-
     // Convertir File a ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    let buffer = Buffer.from(arrayBuffer)
+
+    // Convertir automáticamente a WebP si es JPG/PNG (mejor compresión)
+    let contentType = file.type
+    let fileExt = file.name.split('.').pop()
+
+    const shouldConvertToWebP = ['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)
+
+    if (shouldConvertToWebP) {
+      try {
+        buffer = await sharp(buffer)
+          .webp({ quality: 85 }) // Calidad optimizada: balance entre tamaño y calidad
+          .toBuffer()
+
+        contentType = 'image/webp'
+        fileExt = 'webp'
+      } catch (conversionError) {
+        console.error('Error convirtiendo a WebP:', conversionError)
+        // Si falla la conversión, continuar con el archivo original
+      }
+    }
+
+    // Generar nombre único
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const filePath = `products/${fileName}`
 
     // Subir a Supabase Storage
     const { data, error } = await supabase.storage
       .from('product-images')
       .upload(filePath, buffer, {
-        contentType: file.type,
-        cacheControl: '3600',
+        contentType: contentType,
+        cacheControl: '31536000', // 1 año de cache para imágenes optimizadas
         upsert: false,
       })
 
