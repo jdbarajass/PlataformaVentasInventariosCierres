@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabase'
+import { sendOrderConfirmation } from '@/lib/email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -99,6 +100,14 @@ export async function POST(request: NextRequest) {
           record_id: orderId,
           new_data: { payment_status: 'paid', stripe_session_id: session.id },
         })
+
+        // Send order confirmation email
+        try {
+          await sendOrderConfirmation(orderId)
+        } catch (emailError) {
+          console.error('Confirmation email send failed:', emailError)
+          // Don't block webhook processing if email fails
+        }
       }
       break
     }

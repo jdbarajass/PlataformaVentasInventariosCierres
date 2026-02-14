@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { sendPaymentInstructions } from '@/lib/email'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -106,7 +107,13 @@ export async function POST(request: NextRequest) {
         status: 'pending',
       })
 
-      // TODO: Send email with payment instructions
+      // Send payment instructions email
+      try {
+        await sendPaymentInstructions(order.id, payment_method)
+      } catch (emailError) {
+        console.error('Email send failed:', emailError)
+        // Don't block order creation if email fails
+      }
 
       return NextResponse.json({
         order_id: order.id,
