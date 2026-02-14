@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, getServiceSupabase } from '@/lib/supabase'
+import { supabase, getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth-helpers'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -51,7 +52,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const serviceSupabase = getServiceSupabase()
+  // Validate authentication and role
+  const auth = await requireAuth(request, ['admin', 'seller'])
+  if (!auth.success) {
+    return auth.response
+  }
+
+  // Use authenticated client (respects RLS)
+  const supabase = createAuthenticatedClient(auth.token)
   const body = await request.json()
 
   const productData = {
@@ -59,7 +67,7 @@ export async function POST(request: NextRequest) {
     slug: body.slug || body.title.toLowerCase().replace(/\s+/g, '-'),
   }
 
-  const { data, error } = await (serviceSupabase
+  const { data, error } = await (supabase
     .from('products') as any)
     .insert(productData)
     .select()

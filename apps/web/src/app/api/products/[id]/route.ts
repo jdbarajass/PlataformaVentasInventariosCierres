@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServiceSupabase } from '@/lib/supabase'
+import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { productSchema } from '@/lib/validations/product'
+import { requireAuth } from '@/lib/auth-helpers'
 
 // GET - Obtener producto por ID
 export async function GET(
@@ -39,16 +40,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = getServiceSupabase()
-
-    // Verificar autenticación (TODO: agregar validación de rol admin)
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
     }
+
+    // Use authenticated client (respects RLS)
+    const supabase = createAuthenticatedClient(auth.token)
 
     const body = await request.json()
 
@@ -101,16 +100,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = getServiceSupabase()
-
-    // Verificar autenticación (TODO: agregar validación de rol admin)
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
     }
+
+    // Use authenticated client (respects RLS)
+    const supabase = createAuthenticatedClient(auth.token)
 
     // Verificar si el producto existe
     const { data: product } = await supabase

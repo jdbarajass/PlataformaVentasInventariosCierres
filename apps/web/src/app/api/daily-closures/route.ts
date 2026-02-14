@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServiceSupabase } from '@/lib/supabase'
+import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
 const closureSchema = z.object({
@@ -16,6 +17,12 @@ const closureSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
+    }
+
     const body = await request.json()
     const validation = closureSchema.safeParse(body)
 
@@ -27,6 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data
+    // Use service role for system operations
     const supabase = getServiceSupabase()
 
     // Check if closure already exists for this date
@@ -87,12 +95,19 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
+    }
+
     const { searchParams } = new URL(request.url)
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const limit = parseInt(searchParams.get('limit') || '30')
 
-    const supabase = getServiceSupabase()
+    // Use authenticated client (respects RLS)
+    const supabase = createAuthenticatedClient(auth.token)
 
     let query = supabase
       .from('daily_closures')
@@ -148,6 +163,12 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
+    }
+
     const body = await request.json()
     const { id, verified, verified_by, ...updates } = body
 
@@ -158,6 +179,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Use service role for system operations
     const supabase = getServiceSupabase()
 
     // Get current closure

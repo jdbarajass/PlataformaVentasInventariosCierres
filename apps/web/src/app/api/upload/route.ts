@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth-helpers'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getServiceSupabase()
-
-    // Verificar autenticación (opcional: agregar validación de rol admin aquí)
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
     }
+
+    const supabase = getServiceSupabase()
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -90,16 +88,13 @@ export async function POST(request: NextRequest) {
 // DELETE endpoint para eliminar imágenes
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = getServiceSupabase()
-
-    // Verificar autenticación
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
     }
+
+    const supabase = getServiceSupabase()
 
     const { searchParams } = new URL(request.url)
     const path = searchParams.get('path')

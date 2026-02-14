@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServiceSupabase } from '@/lib/supabase'
+import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
 const adjustmentSchema = z.object({
@@ -12,6 +13,12 @@ const adjustmentSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
+    }
+
     const body = await request.json()
     const validation = adjustmentSchema.safeParse(body)
 
@@ -23,6 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { product_id, qty, type, note, created_by } = validation.data
+    // Use service role for system operations
     const supabase = getServiceSupabase()
 
     // Get current product stock
@@ -119,6 +127,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
+    }
+
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('product_id')
     const from = searchParams.get('from')
@@ -126,7 +140,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    const supabase = getServiceSupabase()
+    // Use authenticated client (respects RLS)
+    const supabase = createAuthenticatedClient(auth.token)
 
     let query = supabase
       .from('inventory_movements')

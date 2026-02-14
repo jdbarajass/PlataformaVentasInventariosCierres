@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { requireAuth } from '@/lib/auth-helpers'
 
 interface OrderData {
   id: string
@@ -18,6 +19,12 @@ interface OrderData {
 
 export async function GET(request: NextRequest) {
   try {
+    // Validate authentication and role
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) {
+      return auth.response
+    }
+
     const { searchParams } = new URL(request.url)
     const from = searchParams.get('from')
     const to = searchParams.get('to')
