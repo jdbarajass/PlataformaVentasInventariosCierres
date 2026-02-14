@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { AddToCartButton } from './add-to-cart-button'
 import { Product } from '@/types/database'
+import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
 
 interface ProductPageProps {
   params: { slug: string }
@@ -44,9 +45,27 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const product = await getProduct(params.slug)
   if (!product) return { title: 'Producto no encontrado' }
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
+  const imageUrl = product.images[0] || `${baseUrl}/images/placeholder.jpg`
+
   return {
     title: `${product.title} - YB MOTOCOM`,
-    description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+    description: product.description || `Compra ${product.title} en YB MOTOCOM. Accesorios y equipamiento para motociclistas en Colombia.`,
+    keywords: [product.title, 'motos', 'accesorios', 'Colombia', product.categories?.name || ''].filter(Boolean),
+    openGraph: {
+      title: `${product.title} - YB MOTOCOM`,
+      description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+      images: [imageUrl],
+      url: `${baseUrl}/producto/${product.slug}`,
+      type: 'product',
+      siteName: 'YB MOTOCOM',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${product.title} - YB MOTOCOM`,
+      description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+      images: [imageUrl],
+    },
   }
 }
 
@@ -64,8 +83,37 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const stockStatus = getStockStatus(product.stock_qty, product.low_stock_threshold)
   const category = product.categories as { name: string; slug: string } | null
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
+  const productUrl = `${baseUrl}/producto/${product.slug}`
+  const imageUrl = product.images[0] || `${baseUrl}/images/placeholder.jpg`
+
+  // Breadcrumb items for structured data
+  const breadcrumbItems = [
+    { name: 'Inicio', url: baseUrl },
+    ...(category ? [{ name: category.name, url: `${baseUrl}/categoria/${category.slug}` }] : []),
+    { name: product.title, url: productUrl },
+  ]
+
+  // Stock availability for schema
+  const availability = product.stock_qty > 0 ? 'InStock' : 'OutOfStock'
+
   return (
     <div className="container py-8">
+      {/* Structured Data */}
+      <ProductSchema
+        product={{
+          name: product.title,
+          description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+          image: imageUrl,
+          price: product.price_cents / 100,
+          currency: 'COP',
+          availability,
+          sku: product.sku || undefined,
+          brand: 'YB MOTOCOM',
+        }}
+        url={productUrl}
+      />
+      <BreadcrumbSchema items={breadcrumbItems} />
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground">

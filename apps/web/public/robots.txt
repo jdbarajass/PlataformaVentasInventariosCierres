@@ -1,0 +1,25 @@
+# Robots.txt para YB MOTOCOM
+
+# Permitir todos los bots
+User-agent: *
+Allow: /
+
+# Bloquear áreas privadas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /orden/*/confirmacion
+
+# Bloquear checkout (no indexar páginas de pago)
+Disallow: /checkout
+
+# Permitir explícitamente páginas importantes
+Allow: /productos
+Allow: /categoria/*
+Allow: /ofertas
+Allow: /categorias
+
+# Sitemap
+Sitemap: https://ybmotocom.com/sitemap.xml
+
+# Crawl-delay para evitar sobrecarga
+Crawl-delay: 1

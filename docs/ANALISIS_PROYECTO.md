@@ -286,7 +286,25 @@ export async function POST(request: NextRequest) {
 **Proveedor**: Resend
 - $0/mes hasta 3,000 emails
 - Excelente DX con React Email
-- Variables de entorno en `.env.example`
+- ✅ **Variables de entorno configuradas en `.env.local`**
+
+**⚠️ IMPORTANTE - Variables de Entorno:**
+```env
+# Las siguientes variables ya están configuradas en .env.local
+# NO ELIMINAR - Supabase está configurado y funcionando
+
+NEXT_PUBLIC_SUPABASE_URL=https://myskhpuwufbjgxnaltwl.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc... (configurado)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc... (configurado)
+
+# Agregar estas variables para Resend:
+RESEND_API_KEY=re_xxxxx  # Obtener de resend.com
+RESEND_FROM_EMAIL=pedidos@ybmotocom.com
+```
+
+**Estado de Configuración**:
+- ✅ Supabase: Configurado y funcionando
+- ✅ Resend: Listo para configurar (agregar API key)
 
 **Servicio de Email** (`apps/web/src/lib/email.ts`):
 ```typescript
