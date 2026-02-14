@@ -79,7 +79,7 @@ export default function PaymentInstructionsEmail({
           <Section style={instructionsBox}>
             <Text style={instructionsTitle}>Instrucciones Nequi:</Text>
             <Text style={instructionsDetail}>
-              <strong>Número de celular:</strong> 300 123 4567
+              <strong>Número de celular:</strong> 321 411 1371
               <br />
               <strong>Nombre:</strong> YB MOTOCOM
             </Text>
@@ -97,7 +97,7 @@ export default function PaymentInstructionsEmail({
           <Section style={instructionsBox}>
             <Text style={instructionsTitle}>Instrucciones Daviplata:</Text>
             <Text style={instructionsDetail}>
-              <strong>Número de celular:</strong> 310 987 6543
+              <strong>Número de celular:</strong> 314 406 5520
               <br />
               <strong>Nombre:</strong> YB MOTOCOM
             </Text>

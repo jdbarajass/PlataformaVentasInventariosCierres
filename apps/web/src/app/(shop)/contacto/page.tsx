@@ -108,7 +108,7 @@ export default function ContactoPage() {
                   <label className="text-sm font-medium">Teléfono</label>
                   <Input
                     {...register('phone')}
-                    placeholder="+57 300 123 4567"
+                    placeholder="+57 321 411 1371"
                     className="rounded-xl"
                   />
                 </div>
@@ -168,8 +168,8 @@ export default function ContactoPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Teléfono</h3>
-                    <p className="text-muted-foreground">+57 300 123 4567</p>
-                    <p className="text-muted-foreground">+57 601 234 5678</p>
+                    <p className="text-muted-foreground">+57 321 411 1371</p>
+                    <p className="text-muted-foreground">+57 314 406 5520</p>
                   </div>
                 </div>
 
@@ -179,8 +179,7 @@ export default function ContactoPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Email</h3>
-                    <p className="text-muted-foreground">info@ybmotocom.com</p>
-                    <p className="text-muted-foreground">ventas@ybmotocom.com</p>
+                    <p className="text-muted-foreground">ybmotocom@gmail.com</p>
                   </div>
                 </div>
 
