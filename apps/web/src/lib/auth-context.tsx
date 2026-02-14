@@ -35,16 +35,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
 
       if (session?.user) {
+        // Fetch user profile with role from database
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role, name')
+          .eq('id', session.user.id)
+          .single()
+
         setUserProfile({
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.email?.split('@')[0] || 'Usuario',
-          role: 'admin',
+          name: userData?.name || session.user.email?.split('@')[0] || 'Usuario',
+          role: userData?.role || 'viewer', // Default to viewer if not found
         })
       }
 
@@ -53,17 +60,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth event:', event)
         setSession(session)
         setUser(session?.user ?? null)
 
         if (session?.user) {
+          // Fetch user profile with role from database
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role, name')
+            .eq('id', session.user.id)
+            .single()
+
           setUserProfile({
             id: session.user.id,
             email: session.user.email || '',
-            name: session.user.email?.split('@')[0] || 'Usuario',
-            role: 'admin',
+            name: userData?.name || session.user.email?.split('@')[0] || 'Usuario',
+            role: userData?.role || 'viewer', // Default to viewer if not found
           })
         } else {
           setUserProfile(null)
