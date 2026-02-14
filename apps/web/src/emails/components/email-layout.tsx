@@ -1,6 +1,7 @@
 import {
   Html,
   Head,
+  Preview,
   Body,
   Container,
   Section,
@@ -19,7 +20,7 @@ export default function EmailLayout({ children, preview }: EmailLayoutProps) {
   return (
     <Html>
       <Head />
-      {preview && <preview>{preview}</preview>}
+      {preview && <Preview>{preview}</Preview>}
       <Body style={main}>
         <Container style={container}>
           {/* Header */}
