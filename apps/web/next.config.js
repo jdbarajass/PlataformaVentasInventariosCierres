@@ -3,6 +3,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  // Optimización de imágenes
   images: {
     // Formatos modernos con mejor compresión
     formats: ['image/webp', 'image/avif'],
@@ -24,6 +26,35 @@ const nextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
     ],
+  },
+
+  // Optimización de producción
+  productionBrowserSourceMaps: false, // Deshabilitar source maps en producción
+  poweredByHeader: false, // Remover header X-Powered-By
+  compress: true, // Habilitar compresión gzip
+
+  // Headers de seguridad y cache
+  async headers() {
+    return [
+      {
+        source: '/:all*(svg|jpg|jpeg|png|webp|avif|gif|ico|woff|woff2)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ]
   },
 }
 
