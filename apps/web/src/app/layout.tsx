@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { Providers } from '@/components/providers'
 import { WebVitals } from './web-vitals'
+import { AnalyticsProvider } from '@/components/analytics/analytics-provider'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' })
 
@@ -69,6 +70,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </Providers>
+        <AnalyticsProvider />
         <WebVitals />
       </body>
     </html>
