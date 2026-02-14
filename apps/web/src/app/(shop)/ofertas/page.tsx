@@ -45,11 +45,11 @@ export default async function OfertasPage() {
 
   // Filter products where compare_at_price_cents > price_cents
   const discountedProducts =
-    products?.filter((p) => p.compare_at_price_cents && p.compare_at_price_cents > p.price_cents) || []
+    products?.filter((p: any) => p.compare_at_price_cents && p.compare_at_price_cents > p.price_cents) || []
 
   // Calculate discount percentage and sort by discount (highest first)
   const productsWithDiscount = discountedProducts
-    .map((product) => ({
+    .map((product: any) => ({
       ...product,
       discountPercent: product.compare_at_price_cents
         ? Math.round(
@@ -59,13 +59,13 @@ export default async function OfertasPage() {
           )
         : 0,
     }))
-    .sort((a, b) => b.discountPercent - a.discountPercent)
+    .sort((a: any, b: any) => b.discountPercent - a.discountPercent)
 
   // Calculate average discount
   const averageDiscount =
     productsWithDiscount.length > 0
       ? Math.round(
-          productsWithDiscount.reduce((sum, p) => sum + p.discountPercent, 0) /
+          productsWithDiscount.reduce((sum: number, p: any) => sum + p.discountPercent, 0) /
             productsWithDiscount.length
         )
       : 0
@@ -73,7 +73,7 @@ export default async function OfertasPage() {
   // Find max discount
   const maxDiscount =
     productsWithDiscount.length > 0
-      ? Math.max(...productsWithDiscount.map((p) => p.discountPercent))
+      ? Math.max(...productsWithDiscount.map((p: any) => p.discountPercent))
       : 0
 
   return (

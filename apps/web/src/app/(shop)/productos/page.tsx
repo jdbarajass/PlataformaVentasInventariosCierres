@@ -111,7 +111,7 @@ export default async function ProductosPage({ searchParams }: PageProps) {
     .limit(1)
     .single()
 
-  const maxPriceValue = priceRange ? Math.ceil(priceRange.price_cents / 100) : 1000000
+  const maxPriceValue = priceRange ? Math.ceil((priceRange as any).price_cents / 100) : 1000000
 
   // Generate pagination params
   const buildPageUrl = (newPage: number) => {
@@ -168,7 +168,7 @@ export default async function ProductosPage({ searchParams }: PageProps) {
           {products && products.length > 0 ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-                {products.map((product) => (
+                {products.map((product: any) => (
                   <ProductCard key={product.id} product={product as Product} />
                 ))}
               </div>

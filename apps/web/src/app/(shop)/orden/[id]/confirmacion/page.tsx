@@ -20,7 +20,7 @@ export default async function OrderConfirmationPage({
   const supabase = getServiceSupabase()
 
   // Fetch order with items and payment info
-  const { data: order, error } = await supabase
+  const { data: orderData, error } = await supabase
     .from('orders')
     .select(`
       *,
@@ -30,9 +30,11 @@ export default async function OrderConfirmationPage({
     .eq('id', params.id)
     .single()
 
-  if (error || !order) {
+  if (error || !orderData) {
     notFound()
   }
+
+  const order = orderData as any
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -104,7 +106,7 @@ export default async function OrderConfirmationPage({
       case 'nequi':
         instructions = (
           <div className="space-y-2">
-            <p className="text-sm"><strong>Número de celular:</strong> 300 123 4567</p>
+            <p className="text-sm"><strong>Número de celular:</strong> 321 411 1371</p>
             <p className="text-sm"><strong>Nombre:</strong> YB MOTOCOM</p>
           </div>
         )
@@ -112,7 +114,7 @@ export default async function OrderConfirmationPage({
       case 'daviplata':
         instructions = (
           <div className="space-y-2">
-            <p className="text-sm"><strong>Número de celular:</strong> 310 987 6543</p>
+            <p className="text-sm"><strong>Número de celular:</strong> 314 406 5520</p>
             <p className="text-sm"><strong>Nombre:</strong> YB MOTOCOM</p>
           </div>
         )

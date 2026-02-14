@@ -13,7 +13,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import {
-  Helmet,
+  HardHat,
   Shield,
   Zap,
   Wrench,
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 
 // Map category names to icons (customize based on your actual categories)
 const categoryIcons: Record<string, React.ReactNode> = {
-  cascos: <Helmet className="h-8 w-8" />,
+  cascos: <HardHat className="h-8 w-8" />,
   protecciones: <Shield className="h-8 w-8" />,
   guantes: <Boxes className="h-8 w-8" />,
   chaquetas: <Backpack className="h-8 w-8" />,
@@ -74,7 +74,7 @@ export default async function CategoriasPage() {
   )
 
   // Fallback: if RPC doesn't exist, use regular query
-  let categories
+  let categories: any = null
   if (error || !categoriesData) {
     const { data: categoriesRaw } = await supabase
       .from('categories')
@@ -85,7 +85,7 @@ export default async function CategoriasPage() {
     if (categoriesRaw) {
       // Get product counts manually
       const categoriesWithCount = await Promise.all(
-        categoriesRaw.map(async (category) => {
+        categoriesRaw.map(async (category: any) => {
           const { count } = await supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
@@ -105,7 +105,7 @@ export default async function CategoriasPage() {
   }
 
   const totalCategories = categories?.length || 0
-  const totalProducts = categories?.reduce((sum, cat) => sum + (cat.product_count || 0), 0) || 0
+  const totalProducts = categories?.reduce((sum: number, cat: any) => sum + (cat.product_count || 0), 0) || 0
 
   return (
     <div className="container py-8 md:py-12">
@@ -158,7 +158,7 @@ export default async function CategoriasPage() {
       {/* Categories Grid */}
       {categories && categories.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {categories.map((category, index) => {
+          {categories.map((category: any, index: number) => {
             const gradient = gradients[index % gradients.length]
             const productCount = category.product_count || 0
 
