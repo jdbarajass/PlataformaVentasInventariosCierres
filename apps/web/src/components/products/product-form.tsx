@@ -60,6 +60,15 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     setIsLoading(true)
 
     try {
+      // Obtener token de autenticación
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('No estás autenticado. Por favor inicia sesión nuevamente.')
+      }
+
       // Preparar datos para validación
       const dataToValidate: ProductFormData = {
         title: formData.title,
@@ -96,7 +105,10 @@ export function ProductForm({ product, mode }: ProductFormProps) {
         // Crear producto
         const response = await fetch('/api/products', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({
             ...validatedData,
             slug,
@@ -119,7 +131,10 @@ export function ProductForm({ product, mode }: ProductFormProps) {
         // Editar producto
         const response = await fetch(`/api/products/${product!.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({
             ...validatedData,
             slug,
