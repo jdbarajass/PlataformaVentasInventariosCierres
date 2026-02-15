@@ -2,13 +2,14 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { getServiceSupabase } from '@/lib/supabase'
 import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { AddToCartButton } from './add-to-cart-button'
 import { Product } from '@/types/database'
-import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
+
+export const dynamic = 'force-dynamic'
 
 interface ProductPageProps {
   params: { slug: string }
@@ -19,26 +20,42 @@ interface ProductWithCategory extends Product {
 }
 
 async function getProduct(slug: string): Promise<ProductWithCategory | null> {
-  const { data: product } = await supabase
-    .from('products')
-    .select('*, categories(name, slug)')
-    .eq('slug', slug)
-    .eq('active', true)
-    .single()
+  try {
+    const supabase = getServiceSupabase()
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*, categories(name, slug)')
+      .eq('slug', slug)
+      .eq('active', true)
+      .single()
 
-  return product as ProductWithCategory | null
+    if (error || !product) {
+      console.error('Error fetching product:', error)
+      return null
+    }
+
+    return product as unknown as ProductWithCategory
+  } catch (error) {
+    console.error('Error in getProduct:', error)
+    return null
+  }
 }
 
 async function getRelatedProducts(categoryId: string, excludeId: string): Promise<Product[]> {
-  const { data } = await supabase
-    .from('products')
-    .select('*')
-    .eq('category_id', categoryId)
-    .eq('active', true)
-    .neq('id', excludeId)
-    .limit(4)
+  try {
+    const supabase = getServiceSupabase()
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category_id', categoryId)
+      .eq('active', true)
+      .neq('id', excludeId)
+      .limit(4)
 
-  return (data as Product[]) || []
+    return (data as Product[]) || []
+  } catch {
+    return []
+  }
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
@@ -46,7 +63,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
   if (!product) return { title: 'Producto no encontrado' }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
-  const imageUrl = getProductImage(product.images) || `${baseUrl}/images/placeholder.jpg`
+  const imageUrl = getProductImage(product.images)
 
   return {
     title: `${product.title} - YB MOTOCOM`,
@@ -89,37 +106,61 @@ export default async function ProductPage({ params }: ProductPageProps) {
     try { new URL(img); return true } catch { return false }
   })
 
+  const mainImage = getProductImage(product.images)
+
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
   const productUrl = `${baseUrl}/producto/${product.slug}`
-  const imageUrl = getProductImage(product.images) || `${baseUrl}/images/placeholder.jpg`
 
-  // Breadcrumb items for structured data
+  // Breadcrumb items
   const breadcrumbItems = [
     { name: 'Inicio', url: baseUrl },
     ...(category ? [{ name: category.name, url: `${baseUrl}/categoria/${category.slug}` }] : []),
     { name: product.title, url: productUrl },
   ]
 
-  // Stock availability for schema
   const availability = product.stock_qty > 0 ? 'InStock' : 'OutOfStock'
 
   return (
     <div className="container py-8">
       {/* Structured Data */}
-      <ProductSchema
-        product={{
-          name: product.title,
-          description: product.description || `Compra ${product.title} en YB MOTOCOM`,
-          image: imageUrl,
-          price: product.price_cents / 100,
-          currency: 'COP',
-          availability,
-          sku: product.sku || undefined,
-          brand: 'YB MOTOCOM',
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: product.title,
+            description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+            image: mainImage,
+            sku: product.sku || 'N/A',
+            brand: { '@type': 'Brand', name: 'YB MOTOCOM' },
+            offers: {
+              '@type': 'Offer',
+              url: productUrl,
+              priceCurrency: 'COP',
+              price: product.price_cents / 100,
+              availability: `https://schema.org/${availability}`,
+              seller: { '@type': 'Organization', name: 'YB MOTOCOM' },
+            },
+          }),
         }}
-        url={productUrl}
       />
-      <BreadcrumbSchema items={breadcrumbItems} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: breadcrumbItems.map((item, index) => ({
+              '@type': 'ListItem',
+              position: index + 1,
+              name: item.name,
+              item: item.url,
+            })),
+          }),
+        }}
+      />
+
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
@@ -143,7 +184,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden rounded-2xl bg-white dark:bg-secondary">
             <Image
-              src={getProductImage(product.images)}
+              src={mainImage}
               alt={product.title}
               fill
               className="object-contain p-6"
@@ -257,8 +298,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <section className="mt-16">
           <h2 className="mb-6 text-2xl font-bold">Productos relacionados</h2>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {relatedProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {relatedProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </section>
