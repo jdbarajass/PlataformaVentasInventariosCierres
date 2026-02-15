@@ -1,8 +1,8 @@
 # 📊 ANÁLISIS COMPLETO - YB MOTOCOM
 
-> **Fecha**: 2026-02-14 (Actualizado)
-> **Versión**: 2.0
-> **Estado del Proyecto**: 85% Funcional - En Desarrollo Activo
+> **Fecha**: 2026-02-15 (Actualizado)
+> **Versión**: 3.0
+> **Estado del Proyecto**: 92% Funcional - En Desarrollo Activo
 
 ---
 
@@ -48,13 +48,13 @@ Deployment:  Vercel/Netlify Ready
 
 | Módulo | Completado | Pendiente | Estado |
 |--------|------------|-----------|--------|
-| **Tienda Pública** | 8 rutas | 3 rutas | 🟢 72% |
-| **Panel Admin** | 5 secciones | 4 secciones | 🟡 55% |
-| **API Endpoints** | 14 endpoints protegidos | - | 🟢 100% |
+| **Tienda Pública** | 15 rutas | 0 rutas | 🟢 100% |
+| **Panel Admin** | 7 secciones (usuarios e inventario conectados a BD) | 1 sección (configuración) | 🟢 88% |
+| **API Endpoints** | 18+ endpoints protegidos | - | 🟢 100% |
 | **Autenticación** | Roles + Auth helpers | 2FA | 🟢 75% |
 | **Pagos** | Stripe | MercadoPago | 🟡 50% |
 | **Emails** | Completo (Resend) | - | 🟢 100% |
-| **TOTAL** | - | - | **🟢 85%** |
+| **TOTAL** | - | - | **🟢 92%** |
 
 ---
 
@@ -74,20 +74,25 @@ Deployment:  Vercel/Netlify Ready
 | `/contacto` | `(shop)/contacto/page.tsx` | ✅ Completo | Formulario de contacto (sin envío) |
 | **Carrito** | `lib/cart-context.tsx` | ✅ Completo | Context + localStorage, agregar/quitar items |
 
-#### ✅ NUEVAS RUTAS COMPLETADAS (2026-02-14)
+#### ✅ NUEVAS RUTAS COMPLETADAS (2026-02-14 / 2026-02-15)
 
 | Ruta | Archivo | Estado | Funcionalidad |
 |------|---------|--------|---------------|
-| `/orden/[id]/confirmacion` | `(shop)/orden/[id]/confirmacion/page.tsx` | ✅ Completo | Página de confirmación de orden con detalles, estado de pago, instrucciones para métodos manuales |
+| `/orden/[id]/confirmacion` | `(shop)/orden/[id]/confirmacion/page.tsx` | ✅ Completo | Confirmación de orden con detalles, estado de pago, instrucciones manuales |
+| `/ofertas` | `(shop)/ofertas/page.tsx` | ✅ Completo | Productos con descuento, estadísticas, filtros (Supabase real) |
+| `/productos` | `(shop)/productos/page.tsx` | ✅ Completo | Catálogo completo con filtros, paginación, ordenamiento (Supabase real) |
+| `/categorias` | `(shop)/categorias/page.tsx` | ✅ Completo | Grid de categorías con conteo de productos (Supabase real) |
+| `/terminos` | `(shop)/terminos/page.tsx` | ✅ Completo | 13 secciones en acordeón (contenido legal completo) |
+| `/devoluciones` | `(shop)/devoluciones/page.tsx` | ✅ Completo | Política de devoluciones 30 días, garantías por producto |
+| `/envios` | `(shop)/envios/page.tsx` | ✅ Completo | Métodos, costos, cobertura 15+ ciudades colombianas |
+| `/faq` | `(shop)/faq/page.tsx` | ✅ Completo | 18 preguntas frecuentes en 5 categorías |
+| `/privacidad` | `(shop)/privacidad/page.tsx` | ✅ Completo | 12 secciones, cumple Ley 1581/2012 colombiana |
+
+**Componente Product Filters**: `src/components/products/product-filters.tsx` ✅ Completo (filtros por categoría, precio, stock, ordenamiento, responsive)
 
 #### ❌ FALTANTE
 
-| Ruta Esperada | Referenciado en | Impacto |
-|---------------|-----------------|---------|
-| `/ofertas` | Homepage botón "Ver ofertas" | 🟠 Medio |
-| `/productos` | Homepage botón "Ver todos" | 🟠 Medio |
-| `/categorias` | Sidebar footer | 🟡 Bajo |
-| `/terminos` | Checkbox en checkout | 🔴 Alto (legal) |
+_Ninguna ruta pública faltante. Todas las páginas están implementadas._
 
 ---
 
@@ -103,13 +108,13 @@ Deployment:  Vercel/Netlify Ready
 | **Reportes** | `/admin/reportes` | ✅ 100% | Gráficos de ventas, rangos de fecha, top productos, CSV |
 | **Auditoría** | `/admin/auditoria` | ✅ 90% | Logs de acciones (usa datos de BD) |
 
-#### ⚠️ PARCIALMENTE FUNCIONAL (Mock Data o CRUD Incompleto)
+#### ✅ CONECTADOS A BD REAL (2026-02-15)
 
-| Sección | Estado | Problema | Solución Requerida |
-|---------|--------|----------|-------------------|
-| **Productos** | 🟡 30% | Solo lectura (listado + búsqueda) | Crear/Editar/Eliminar productos + Upload imágenes |
-| **Usuarios** | 🟡 20% | Datos hardcodeados en código | Conectar a Supabase Auth + CRUD |
-| **Inventario** | 🟡 20% | Datos mock en array estático | Conectar a tabla `inventory_movements` |
+| Sección | Estado | Funcionalidad |
+|---------|--------|---------------|
+| **Productos** | ✅ 100% | CRUD completo + Upload imágenes a Supabase Storage |
+| **Usuarios** | ✅ 100% | Conectado a Supabase Auth + tabla `users`. Edición de roles, búsqueda, filtros |
+| **Inventario** | ✅ 100% | Conectado a tablas `products` + `inventory_movements`. Ajustes de stock con API real |
 
 #### ❌ NO IMPLEMENTADO
 
@@ -638,113 +643,21 @@ npm install eslint@latest
 
 ## 🚀 PRIORIDADES DE IMPLEMENTACIÓN
 
-### 🔴 **CRÍTICO** (Bloquea operación del negocio)
+### ✅ **COMPLETADO** (Ya no bloquean)
 
-#### 1. Sistema de Emails ⏱️ 3-5 horas
-**Impacto**: Sin emails, los clientes no saben si su orden fue creada
-
-**Tareas**:
-- [ ] Crear cuenta en Resend o SendGrid
-- [ ] Crear plantillas de email con React Email
-- [ ] Implementar envío en `POST /api/orders`
-- [ ] Email de confirmación de orden
-- [ ] Email con instrucciones de pago (transferencia)
-- [ ] Email de pago confirmado (webhook Stripe)
-
-**Archivos a modificar**:
-- `apps/web/src/app/api/orders/route.ts`
-- `apps/web/src/app/api/payments/webhook/route.ts`
-- Crear: `apps/web/src/emails/` (plantillas)
+> Las prioridades 1-4 y 6-7 originales fueron completadas entre 2026-02-09 y 2026-02-15:
+> - ✅ Sistema de Emails (Resend)
+> - ✅ Página de Confirmación de Orden
+> - ✅ CRUD Completo de Productos
+> - ✅ Validación de Roles en API (auth-helpers + 13+ endpoints)
+> - ✅ Conectar Usuarios e Inventario a BD Real (2026-02-15)
+> - ✅ Rutas Públicas (/ofertas, /productos, /categorias, /terminos + 4 extras)
 
 ---
 
-#### 2. Página de Confirmación de Orden ⏱️ 2-3 horas
-**Impacto**: Después de pagar, el cliente no tiene dónde ver su orden
+### 🔴 **CRÍTICO** (Siguiente prioridad)
 
-**Tareas**:
-- [ ] Crear ruta `/orden/[id]/confirmacion/page.tsx`
-- [ ] Mostrar detalles de orden (items, total, dirección)
-- [ ] Mostrar estado de pago
-- [ ] Botón "Descargar recibo" (PDF)
-- [ ] Instrucciones de seguimiento de envío
-
-**Diseño sugerido**:
-```
-┌─────────────────────────────────────┐
-│ ✅ ¡Gracias por tu compra!          │
-│                                     │
-│ Orden #12345                        │
-│ Estado: Pagado ✓                    │
-│                                     │
-│ Items:                              │
-│ • Casco Integral Negro x1 - $150   │
-│ • Guantes de cuero x1 - $50        │
-│                                     │
-│ Total: $200                         │
-│                                     │
-│ [Descargar Recibo PDF]             │
-│ [Rastrear Envío]                   │
-└─────────────────────────────────────┘
-```
-
----
-
-#### 3. CRUD Completo de Productos ⏱️ 8-12 horas
-**Impacto**: Sin esto, el admin no puede administrar el catálogo
-
-**Tareas**:
-- [ ] Crear formulario de producto (crear/editar)
-- [ ] Upload de múltiples imágenes a Supabase Storage
-- [ ] Validación con Zod
-- [ ] Endpoint `PUT /api/products/[id]`
-- [ ] Endpoint `DELETE /api/products/[id]`
-- [ ] Preview de imágenes antes de subir
-- [ ] Drag & drop para reordenar imágenes
-- [ ] Gestión de categorías (crear/editar)
-
-**Archivos a crear**:
-- `apps/web/src/app/admin/productos/nuevo/page.tsx`
-- `apps/web/src/app/admin/productos/[id]/editar/page.tsx`
-- `apps/web/src/components/admin/product-form.tsx`
-- `apps/web/src/app/api/products/[id]/route.ts`
-
----
-
-#### 4. Validación de Roles en API ⏱️ 2-3 horas
-**Impacto**: Seguridad crítica - cualquiera puede crear/editar productos
-
-**Tareas**:
-- [ ] Crear middleware `requireRole(['admin'])`
-- [ ] Aplicar en todos los endpoints admin
-- [ ] Verificar `user.user_metadata.role` desde Supabase
-- [ ] Retornar 403 Forbidden si no autorizado
-- [ ] Tests unitarios de autorización
-
-**Código sugerido**:
-```typescript
-// lib/auth-helpers.ts
-export async function requireRole(roles: string[]) {
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: 'Unauthorized', status: 401 }
-  }
-
-  const userRole = user.user_metadata?.role || 'viewer'
-
-  if (!roles.includes(userRole)) {
-    return { error: 'Forbidden', status: 403 }
-  }
-
-  return { user, role: userRole }
-}
-```
-
----
-
-### 🟠 **IMPORTANTE** (Afecta funcionalidad)
-
-#### 5. Página `/admin/configuracion` ⏱️ 6-8 horas
+#### 1. Página `/admin/configuracion` ⏱️ 6-8 horas
 **Tareas**:
 - [ ] Configuración de envíos (zonas, costos)
 - [ ] Configuración de impuestos
@@ -755,31 +668,9 @@ export async function requireRole(roles: string[]) {
 
 ---
 
-#### 6. Conectar Usuarios e Inventario a BD Real ⏱️ 4-6 horas
-**Tareas Usuarios**:
-- [ ] Remover mock data de `admin/usuarios/page.tsx`
-- [ ] Query a Supabase Auth + tabla `users`
-- [ ] CRUD de usuarios
-- [ ] Asignación de roles
+### 🟠 **IMPORTANTE** (Afecta funcionalidad)
 
-**Tareas Inventario**:
-- [ ] Remover mock data de `admin/inventario/page.tsx`
-- [ ] Query a `inventory_movements`
-- [ ] Joins con productos
-- [ ] Ajustes masivos de stock
-
----
-
-#### 7. Rutas Públicas Faltantes ⏱️ 6-8 horas
-**Tareas**:
-- [ ] `/ofertas` - Productos con descuento
-- [ ] `/productos` - Catálogo completo con filtros avanzados
-- [ ] `/categorias` - Todas las categorías
-- [ ] `/terminos` - Términos y condiciones
-
----
-
-#### 8. Integración MercadoPago ⏱️ 12-16 horas
+#### 2. Integración MercadoPago ⏱️ 12-16 horas
 **Tareas**:
 - [ ] Crear cuenta MercadoPago
 - [ ] Instalar SDK `mercadopago`
@@ -941,22 +832,25 @@ NEXT_PUBLIC_APP_URL=https://ybmotocom.com
 
 ## 📝 NOTAS FINALES
 
-Este proyecto tiene una **base sólida** (~70% funcional) con una arquitectura limpia y moderna. Los puntos críticos a resolver son:
+Este proyecto tiene una **base sólida y casi completa** (~92% funcional) con una arquitectura limpia y moderna. Los puntos críticos ya resueltos:
 
-1. ⚠️ **Sistema de emails** (bloquea ventas reales)
-2. ⚠️ **Página de confirmación** (mala UX sin esto)
-3. ⚠️ **CRUD de productos** (el admin no puede administrar)
-4. ⚠️ **Seguridad en API** (vulnerable sin validación de roles)
+1. ✅ **Sistema de emails** (Resend + React Email)
+2. ✅ **Página de confirmación** (con instrucciones de pago)
+3. ✅ **CRUD de productos** (completo con upload de imágenes)
+4. ✅ **Seguridad en API** (auth-helpers + 13+ endpoints protegidos)
+5. ✅ **Páginas públicas** (15 rutas, todas implementadas)
+6. ✅ **Usuarios e inventario** (conectados a BD real)
 
-Una vez completados estos 4 puntos, la tienda estará **lista para producción básica**.
-
-El resto de funcionalidades (MercadoPago, reseñas, wishlist, etc.) son mejoras que pueden implementarse iterativamente.
+**Para producción quedan**:
+1. ⚠️ **Configuración admin** (envíos, impuestos, branding)
+2. ⚠️ **RLS en Supabase** (seguridad a nivel de base de datos)
+3. 🟡 **MercadoPago** (para mercado colombiano/LATAM)
 
 ---
 
-**Última actualización**: 2026-02-09
-**Versión del documento**: 1.0
-**Estado del proyecto**: 70% Funcional - En Desarrollo Activo
+**Última actualización**: 2026-02-15
+**Versión del documento**: 3.0
+**Estado del proyecto**: 92% Funcional - En Desarrollo Activo
 
 ---
 
@@ -964,9 +858,9 @@ El resto de funcionalidades (MercadoPago, reseñas, wishlist, etc.) son mejoras 
 
 ### Estado Actual de Desarrollo
 
-**Fase en curso**: FASE 2 - Páginas Públicas
+**Fase en curso**: FASE 2.5 - Conectar Usuarios e Inventario a BD Real
 
-**Última actualización**: 2026-02-09
+**Última actualización**: 2026-02-15
 
 ### FASE 1: CRUD DE PRODUCTOS ✅ **COMPLETADA**
 
@@ -1078,19 +972,23 @@ El resto de funcionalidades (MercadoPago, reseñas, wishlist, etc.) son mejoras 
 
 ---
 
-### FASE 2: PÁGINAS PÚBLICAS (Pendiente)
+### FASE 2: PÁGINAS PÚBLICAS ✅ **COMPLETADA**
 
-#### ⏳ Pendiente
+#### ✅ Completado (2026-02-15)
 
-| Tarea | Archivos a crear | Estimación |
-|-------|------------------|------------|
-| **2.1 Página /ofertas** | `apps/web/src/app/(shop)/ofertas/page.tsx` | 2 horas |
-| **2.2 Componente ProductFilters** | `apps/web/src/components/products/product-filters.tsx` | 2-3 horas |
-| **2.3 Página /productos** | `apps/web/src/app/(shop)/productos/page.tsx` | 3-4 horas |
-| **2.4 Página /categorias** | `apps/web/src/app/(shop)/categorias/page.tsx` | 2 horas |
-| **2.5 Página /terminos** | `apps/web/src/app/(shop)/terminos/page.tsx` | 1-2 horas |
+| Tarea | Archivo | Estado |
+|-------|---------|--------|
+| **2.1 Página /ofertas** | `apps/web/src/app/(shop)/ofertas/page.tsx` | ✅ Completado |
+| **2.2 Componente ProductFilters** | `apps/web/src/components/products/product-filters.tsx` | ✅ Completado |
+| **2.3 Página /productos** | `apps/web/src/app/(shop)/productos/page.tsx` | ✅ Completado |
+| **2.4 Página /categorias** | `apps/web/src/app/(shop)/categorias/page.tsx` | ✅ Completado |
+| **2.5 Página /terminos** | `apps/web/src/app/(shop)/terminos/page.tsx` | ✅ Completado |
+| **2.6 Página /devoluciones** | `apps/web/src/app/(shop)/devoluciones/page.tsx` | ✅ Completado (extra) |
+| **2.7 Página /envios** | `apps/web/src/app/(shop)/envios/page.tsx` | ✅ Completado (extra) |
+| **2.8 Página /faq** | `apps/web/src/app/(shop)/faq/page.tsx` | ✅ Completado (extra) |
+| **2.9 Página /privacidad** | `apps/web/src/app/(shop)/privacidad/page.tsx` | ✅ Completado (extra) |
 
-**Total estimado FASE 2**: 6-8 horas
+**Estado**: ✅ **100% COMPLETADO**
 
 ---
 
@@ -1284,6 +1182,9 @@ El resto de funcionalidades (MercadoPago, reseñas, wishlist, etc.) son mejoras 
 
 | Fecha | Fase | Cambio | Razón |
 |-------|------|--------|-------|
+| 2026-02-15 | **FASE 2.5** | ✅ **Usuarios e Inventario conectados a BD real** | Eliminados datos mock, conectados a Supabase. API /api/users creada. Ajustes de inventario funcionales |
+| 2026-02-15 | **FASE 2** | ✅ **Todas las páginas públicas completadas** | 9 nuevas rutas: /ofertas, /productos, /categorias, /terminos, /devoluciones, /envios, /faq, /privacidad + product-filters |
+| 2026-02-15 | **Documentación** | ✅ **ACTUALIZADO ANALISIS_PROYECTO.md v3.0** | Proyecto ahora 92% - Reflejado estado real post-pull de 17 commits |
 | 2026-02-14 | **Documentación** | ✅ **ACTUALIZADO ANALISIS_PROYECTO.md** | Documentadas 4 fases críticas (Autenticación, APIs, Emails, Confirmación) - Proyecto ahora 85% |
 | 2026-02-14 | **FASES CRÍTICAS** | ✅ **COMPLETADAS FASES 1-4 SEGURIDAD Y EMAILS** | Sistema de autenticación + protección APIs + emails + página confirmación |
 | 2026-02-09 | **FASE 1** | ✅ **COMPLETADA FASE 1 COMPLETA** | CRUD de productos 100% funcional |

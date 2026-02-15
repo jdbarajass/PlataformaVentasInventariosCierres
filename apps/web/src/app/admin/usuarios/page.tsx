@@ -1,66 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Users,
   Search,
-  Plus,
-  MoreHorizontal,
   Shield,
   ShieldCheck,
   Eye,
   Pencil,
-  Trash2,
   Mail,
   Phone,
+  Loader2,
+  Check,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/ui/use-toast'
 
-// Mock data for users
-const mockUsers = [
-  {
-    id: '1',
-    email: 'admin@ybmotocom.com',
-    name: 'Administrador Principal',
-    phone: '+57 300 123 4567',
-    role: 'admin' as const,
-    avatar_url: null,
-    created_at: '2024-01-15T10:00:00Z',
-    last_login: '2024-12-20T14:30:00Z',
-  },
-  {
-    id: '2',
-    email: 'vendedor1@ybmotocom.com',
-    name: 'Carlos Rodríguez',
-    phone: '+57 301 234 5678',
-    role: 'seller' as const,
-    avatar_url: null,
-    created_at: '2024-03-10T09:00:00Z',
-    last_login: '2024-12-19T16:45:00Z',
-  },
-  {
-    id: '3',
-    email: 'vendedor2@ybmotocom.com',
-    name: 'María García',
-    phone: '+57 302 345 6789',
-    role: 'seller' as const,
-    avatar_url: null,
-    created_at: '2024-05-20T11:00:00Z',
-    last_login: '2024-12-20T09:15:00Z',
-  },
-  {
-    id: '4',
-    email: 'visor@ybmotocom.com',
-    name: 'Juan Pérez',
-    phone: null,
-    role: 'viewer' as const,
-    avatar_url: null,
-    created_at: '2024-08-01T14:00:00Z',
-    last_login: '2024-12-18T11:00:00Z',
-  },
-]
+interface UserData {
+  id: string
+  email: string
+  name: string | null
+  phone: string | null
+  role: 'admin' | 'seller' | 'viewer'
+  avatar_url: string | null
+  created_at: string
+  updated_at: string
+}
 
 const roleConfig = {
   admin: {
@@ -80,17 +49,97 @@ const roleConfig = {
   },
 }
 
+const roles: Array<'admin' | 'seller' | 'viewer'> = ['admin', 'seller', 'viewer']
+
 export default function UsuariosPage() {
+  const [users, setUsers] = useState<UserData[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRole, setSelectedRole] = useState<string>('all')
+  const [editingUser, setEditingUser] = useState<string | null>(null)
+  const [editRole, setEditRole] = useState<'admin' | 'seller' | 'viewer'>('viewer')
+  const [saving, setSaving] = useState(false)
+  const { session } = useAuth()
+  const { toast } = useToast()
 
-  const filteredUsers = mockUsers.filter((user) => {
-    const matchesSearch =
-      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesRole = selectedRole === 'all' || user.role === selectedRole
-    return matchesSearch && matchesRole
-  })
+  const fetchUsers = useCallback(async () => {
+    if (!session?.access_token) return
+
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      if (searchQuery) params.set('search', searchQuery)
+      if (selectedRole !== 'all') params.set('role', selectedRole)
+
+      const res = await fetch(`/api/users?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!res.ok) {
+        throw new Error('Error al obtener usuarios')
+      }
+
+      const { data } = await res.json()
+      setUsers(data || [])
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar los usuarios',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [session?.access_token, searchQuery, selectedRole, toast])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  const handleEditRole = (user: UserData) => {
+    setEditingUser(user.id)
+    setEditRole(user.role)
+  }
+
+  const handleSaveRole = async (userId: string) => {
+    if (!session?.access_token) return
+
+    try {
+      setSaving(true)
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId, role: editRole }),
+      })
+
+      if (!res.ok) {
+        throw new Error('Error al actualizar rol')
+      }
+
+      toast({
+        title: 'Rol actualizado',
+        description: `El rol fue cambiado a ${roleConfig[editRole].label}`,
+      })
+
+      setEditingUser(null)
+      fetchUsers()
+    } catch (error) {
+      console.error('Error updating role:', error)
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el rol',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CO', {
@@ -98,6 +147,12 @@ export default function UsuariosPage() {
       month: 'short',
       day: 'numeric',
     })
+  }
+
+  const roleCounts = {
+    admin: users.filter((u) => u.role === 'admin').length,
+    seller: users.filter((u) => u.role === 'seller').length,
+    viewer: users.filter((u) => u.role === 'viewer').length,
   }
 
   return (
@@ -110,10 +165,6 @@ export default function UsuariosPage() {
             Gestiona los usuarios y sus permisos
           </p>
         </div>
-        <Button className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600">
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo usuario
-        </Button>
       </div>
 
       {/* Stats */}
@@ -124,13 +175,13 @@ export default function UsuariosPage() {
               <Users className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{mockUsers.length}</p>
+              <p className="text-2xl font-bold">{users.length}</p>
               <p className="text-sm text-muted-foreground">Total usuarios</p>
             </div>
           </div>
         </div>
         {Object.entries(roleConfig).map(([role, config]) => {
-          const count = mockUsers.filter((u) => u.role === role).length
+          const count = roleCounts[role as keyof typeof roleCounts]
           const Icon = config.icon
           return (
             <div key={role} className="rounded-xl border bg-card p-4">
@@ -182,121 +233,150 @@ export default function UsuariosPage() {
 
       {/* Users Table */}
       <div className="rounded-xl border bg-card">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Usuario
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Contacto
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Rol
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Creado
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Último acceso
-                </th>
-                <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => {
-                const roleInfo = roleConfig[user.role]
-                const RoleIcon = roleInfo.icon
-                return (
-                  <tr key={user.id} className="border-b last:border-0">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600">
-                          <span className="text-sm font-bold text-white">
-                            {user.name?.charAt(0) || user.email.charAt(0)}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {user.name || 'Sin nombre'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {user.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-3 w-3 text-muted-foreground" />
-                          <span>{user.email}</span>
-                        </div>
-                        {user.phone && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            <span>{user.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge
-                        variant="outline"
-                        className={`${roleInfo.color} gap-1`}
-                      >
-                        <RoleIcon className="h-3 w-3" />
-                        {roleInfo.label}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {formatDate(user.created_at)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {formatDate(user.last_login)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-500/10 hover:text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredUsers.length === 0 && (
-          <div className="p-8 text-center">
-            <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">
-              No se encontraron usuarios
-            </p>
+        {loading ? (
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="ml-3 text-muted-foreground">Cargando usuarios...</span>
           </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      Usuario
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      Contacto
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      Rol
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                      Creado
+                    </th>
+                    <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => {
+                    const roleInfo = roleConfig[user.role]
+                    const RoleIcon = roleInfo.icon
+                    const isEditing = editingUser === user.id
+                    return (
+                      <tr key={user.id} className="border-b last:border-0">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600">
+                              <span className="text-sm font-bold text-white">
+                                {user.name?.charAt(0) || user.email.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {user.name || 'Sin nombre'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {user.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="h-3 w-3 text-muted-foreground" />
+                              <span>{user.email}</span>
+                            </div>
+                            {user.phone && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Phone className="h-3 w-3" />
+                                <span>{user.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={editRole}
+                                onChange={(e) => setEditRole(e.target.value as 'admin' | 'seller' | 'viewer')}
+                                className="rounded-lg border bg-background px-2 py-1 text-sm"
+                              >
+                                {roles.map((r) => (
+                                  <option key={r} value={r}>
+                                    {roleConfig[r].label}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleSaveRole(user.id)}
+                                disabled={saving}
+                              >
+                                {saving ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => setEditingUser(null)}
+                              >
+                                <X className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={`${roleInfo.color} gap-1`}
+                            >
+                              <RoleIcon className="h-3 w-3" />
+                              {roleInfo.label}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {formatDate(user.created_at)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg"
+                              onClick={() => handleEditRole(user)}
+                              title="Editar rol"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {users.length === 0 && (
+              <div className="p-8 text-center">
+                <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+                <p className="mt-4 text-muted-foreground">
+                  No se encontraron usuarios
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
