@@ -409,6 +409,48 @@ export interface Database {
           user_agent?: string | null
         }
       }
+      store_settings: {
+        Row: {
+          id: number
+          store_name: string
+          store_description: string | null
+          contact_info: Json
+          shipping_config: Json
+          tax_config: Json
+          payment_methods: Json
+          social_links: Json
+          branding: Json
+          updated_by: string | null
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          store_name?: string
+          store_description?: string | null
+          contact_info?: Json
+          shipping_config?: Json
+          tax_config?: Json
+          payment_methods?: Json
+          social_links?: Json
+          branding?: Json
+          updated_by?: string | null
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          store_name?: string
+          store_description?: string | null
+          contact_info?: Json
+          shipping_config?: Json
+          tax_config?: Json
+          payment_methods?: Json
+          social_links?: Json
+          branding?: Json
+          updated_by?: string | null
+          updated_at?: string
+        }
+      }
       coupons: {
         Row: {
           id: string
@@ -472,3 +514,4 @@ export type InventoryMovement = Tables<'inventory_movements'>
 export type DailyClosure = Tables<'daily_closures'>
 export type AuditLog = Tables<'audit_logs'>
 export type Coupon = Tables<'coupons'>
+export type StoreSettings = Tables<'store_settings'>
