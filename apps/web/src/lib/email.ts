@@ -4,7 +4,13 @@ import OrderConfirmationEmail from '@/emails/order-confirmation'
 import PaymentInstructionsEmail from '@/emails/payment-instructions'
 import { getServiceSupabase } from './supabase'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResend() {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return _resend
+}
 const fromEmail = process.env.RESEND_FROM_EMAIL || 'YB MOTOCOM <pedidos@ybmotocom.com>'
 
 interface OrderWithItems {
@@ -58,7 +64,7 @@ export async function sendOrderConfirmation(orderId: string): Promise<boolean> {
     const emailHtml = await render(OrderConfirmationEmail({ order: typedOrder }))
 
     // Send email via Resend
-    const { data, error: sendError } = await resend.emails.send({
+    const { data, error: sendError } = await getResend().emails.send({
       from: fromEmail,
       to: typedOrder.customer_email,
       subject: `Pedido confirmado #${typedOrder.order_number}`,
@@ -111,7 +117,7 @@ export async function sendPaymentInstructions(
     )
 
     // Send email via Resend
-    const { data, error: sendError } = await resend.emails.send({
+    const { data, error: sendError } = await getResend().emails.send({
       from: fromEmail,
       to: typedOrder.customer_email,
       subject: `Instrucciones de pago - Orden #${typedOrder.order_number}`,
