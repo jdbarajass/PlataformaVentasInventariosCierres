@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { useCart } from '@/lib/cart-context'
-import { formatPrice, getStockStatus, getStockLabel } from '@/lib/utils'
+import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { useToast } from '@/components/ui/use-toast'
 
@@ -29,7 +29,7 @@ export function ProductCard({ product }: ProductCardProps) {
       id: product.id,
       title: product.title,
       price_cents: product.price_cents,
-      image: product.images[0] || '/images/placeholder.jpg',
+      image: getProductImage(product.images),
       stock_qty: product.stock_qty,
     })
 
@@ -46,7 +46,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Image */}
         <div className="relative aspect-square overflow-hidden bg-secondary/50">
           <Image
-            src={product.images[0] || '/images/placeholder.jpg'}
+            src={getProductImage(product.images)}
             alt={product.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"

@@ -64,3 +64,29 @@ export function getStockLabel(qty: number, threshold: number = 5): string {
       return 'Agotado'
   }
 }
+
+const PLACEHOLDER_IMAGE = '/images/placeholder.jpg'
+
+/**
+ * Returns a safe image URL from a product's images array.
+ * Falls back to placeholder if the URL is invalid or empty.
+ */
+export function getProductImage(images: string[], index: number = 0): string {
+  const url = images[index]
+  if (!url) return PLACEHOLDER_IMAGE
+
+  // Accept local paths
+  if (url.startsWith('/')) return url
+
+  // Validate remote URLs
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return url
+    }
+  } catch {
+    // Invalid URL
+  }
+
+  return PLACEHOLDER_IMAGE
+}

@@ -71,7 +71,7 @@ function ImagePreview({
       </button>
 
       {/* Overlay hover */}
-      <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+      <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
     </Card>
   )
 }

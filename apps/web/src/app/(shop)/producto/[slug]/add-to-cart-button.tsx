@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useCart } from '@/lib/cart-context'
 import { useToast } from '@/components/ui/use-toast'
 import { Product } from '@/types/database'
+import { getProductImage } from '@/lib/utils'
 
 interface AddToCartButtonProps {
   product: Product
@@ -27,7 +28,7 @@ export function AddToCartButton({ product }: AddToCartButtonProps) {
         id: product.id,
         title: product.title,
         price_cents: product.price_cents,
-        image: product.images[0] || '/images/placeholder.jpg',
+        image: getProductImage(product.images),
         stock_qty: product.stock_qty,
       })
     }

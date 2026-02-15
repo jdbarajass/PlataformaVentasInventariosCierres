@@ -3,7 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { formatPrice, getStockStatus, getStockLabel } from '@/lib/utils'
+import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { AddToCartButton } from './add-to-cart-button'
@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
   if (!product) return { title: 'Producto no encontrado' }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
-  const imageUrl = product.images[0] || `${baseUrl}/images/placeholder.jpg`
+  const imageUrl = getProductImage(product.images) || `${baseUrl}/images/placeholder.jpg`
 
   return {
     title: `${product.title} - YB MOTOCOM`,
@@ -83,9 +83,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const stockStatus = getStockStatus(product.stock_qty, product.low_stock_threshold)
   const category = product.categories as { name: string; slug: string } | null
 
+  // Filter valid image URLs to avoid Next.js Image crashes
+  const validImages = product.images.filter((img) => {
+    if (img.startsWith('/')) return true
+    try { new URL(img); return true } catch { return false }
+  })
+
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
   const productUrl = `${baseUrl}/producto/${product.slug}`
-  const imageUrl = product.images[0] || `${baseUrl}/images/placeholder.jpg`
+  const imageUrl = getProductImage(product.images) || `${baseUrl}/images/placeholder.jpg`
 
   // Breadcrumb items for structured data
   const breadcrumbItems = [
@@ -137,7 +143,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary">
             <Image
-              src={product.images[0] || '/images/placeholder.jpg'}
+              src={getProductImage(product.images)}
               alt={product.title}
               fill
               className="object-cover"
@@ -149,9 +155,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </Badge>
             )}
           </div>
-          {product.images.length > 1 && (
+          {validImages.length > 1 && (
             <div className="grid grid-cols-4 gap-4">
-              {product.images.slice(0, 4).map((image, index) => (
+              {validImages.slice(0, 4).map((image, index) => (
                 <button
                   key={index}
                   className="relative aspect-square overflow-hidden rounded-xl bg-secondary ring-2 ring-transparent transition-all hover:ring-primary focus:ring-primary"
