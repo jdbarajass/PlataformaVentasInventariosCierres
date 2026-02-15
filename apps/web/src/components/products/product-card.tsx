@@ -44,12 +44,12 @@ export function ProductCard({ product }: ProductCardProps) {
     <Link href={`/producto/${product.slug}`}>
       <Card className="group h-full overflow-hidden border-0 bg-card/50 backdrop-blur transition-all duration-300 hover:shadow-xl hover:shadow-primary/10">
         {/* Image */}
-        <div className="relative aspect-square overflow-hidden bg-secondary/50">
+        <div className="relative aspect-square overflow-hidden bg-white dark:bg-secondary/50">
           <Image
             src={getProductImage(product.images)}
             alt={product.title}
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
+            className="object-contain p-4 transition-transform duration-500 group-hover:scale-110"
           />
 
           {/* Badges */}

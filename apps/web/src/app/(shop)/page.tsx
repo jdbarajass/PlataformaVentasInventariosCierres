@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, Shield, Truck, CreditCard, Headphones } from 'lucide-react'
+import { ArrowRight, Shield, Truck, CreditCard, Headphones, HardHat, Hand, Shirt, Wrench, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProductCard } from '@/components/products/product-card'
@@ -30,11 +30,11 @@ const features = [
   },
 ]
 
-const categories = [
-  { name: 'Cascos', slug: 'cascos', image: '/images/categories/cascos.jpg' },
-  { name: 'Guantes', slug: 'guantes', image: '/images/categories/guantes.jpg' },
-  { name: 'Chaquetas', slug: 'chaquetas', image: '/images/categories/chaquetas.jpg' },
-  { name: 'Accesorios', slug: 'accesorios', image: '/images/categories/accesorios.jpg' },
+const categories: { name: string; slug: string; icon: LucideIcon; description: string }[] = [
+  { name: 'Cascos', slug: 'cascos', icon: HardHat, description: 'Proteccion certificada' },
+  { name: 'Guantes', slug: 'guantes', icon: Hand, description: 'Agarre y comodidad' },
+  { name: 'Chaquetas', slug: 'chaquetas', icon: Shirt, description: 'Estilo y proteccion' },
+  { name: 'Accesorios', slug: 'accesorios', icon: Wrench, description: 'Todo para tu moto' },
 ]
 
 async function getFeaturedProducts(): Promise<Product[]> {
@@ -142,15 +142,22 @@ export default async function HomePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categories.map((category) => (
               <Link key={category.slug} href={`/categoria/${category.slug}`}>
-                <Card className="group h-48 overflow-hidden border-0">
-                  <CardContent className="relative flex h-full items-end p-0">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-600/20" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent" />
-                    <div className="relative z-10 p-6">
-                      <h3 className="text-xl font-semibold transition-colors group-hover:text-primary">
-                        {category.name}
-                      </h3>
-                      <span className="mt-1 flex items-center text-sm text-muted-foreground">
+                <Card className="group h-48 overflow-hidden border-0 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10">
+                  <CardContent className="relative flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-600/10 transition-all duration-300 group-hover:from-cyan-500/20 group-hover:to-blue-600/20" />
+                    <div className="relative z-10 flex flex-col items-center gap-3">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-all duration-300 group-hover:bg-primary/20 group-hover:scale-110">
+                        <category.icon className="h-8 w-8 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold transition-colors group-hover:text-primary">
+                          {category.name}
+                        </h3>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {category.description}
+                        </p>
+                      </div>
+                      <span className="flex items-center text-sm font-medium text-primary opacity-0 transition-all duration-300 group-hover:opacity-100">
                         Explorar
                         <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-1" />
                       </span>

@@ -141,12 +141,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
         {/* Images */}
         <div className="space-y-4">
-          <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary">
+          <div className="relative aspect-square overflow-hidden rounded-2xl bg-white dark:bg-secondary">
             <Image
               src={getProductImage(product.images)}
               alt={product.title}
               fill
-              className="object-cover"
+              className="object-contain p-6"
               priority
             />
             {product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents && (
@@ -160,13 +160,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {validImages.slice(0, 4).map((image, index) => (
                 <button
                   key={index}
-                  className="relative aspect-square overflow-hidden rounded-xl bg-secondary ring-2 ring-transparent transition-all hover:ring-primary focus:ring-primary"
+                  className="relative aspect-square overflow-hidden rounded-xl bg-white dark:bg-secondary ring-2 ring-transparent transition-all hover:ring-primary focus:ring-primary"
                 >
                   <Image
                     src={image}
                     alt={`${product.title} - imagen ${index + 1}`}
                     fill
-                    className="object-cover"
+                    className="object-contain p-2"
                   />
                 </button>
               ))}
