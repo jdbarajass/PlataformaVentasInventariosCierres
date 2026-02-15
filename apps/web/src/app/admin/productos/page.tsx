@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Plus, Search, Edit, Trash2, MoreHorizontal } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, MoreHorizontal, ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,34 @@ import { useToast } from '@/components/ui/use-toast'
 import { formatPrice, getStockStatus } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { supabase } from '@/lib/supabase'
+
+function ProductThumbnail({ src, alt }: { src: string; alt: string }) {
+  const [hasError, setHasError] = useState(false)
+
+  let isValid = false
+  try {
+    new URL(src)
+    isValid = true
+  } catch {}
+
+  if (!isValid || hasError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted">
+        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      className="object-cover"
+      onError={() => setHasError(true)}
+    />
+  )
+}
 
 export default function ProductsPage() {
   const router = useRouter()
@@ -148,11 +176,9 @@ export default function ProductsPage() {
                         <td className="py-4">
                           <div className="flex items-center gap-3">
                             <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-secondary">
-                              <Image
-                                src={product.images[0] || '/images/placeholder.jpg'}
+                              <ProductThumbnail
+                                src={product.images[0] || ''}
                                 alt={product.title}
-                                fill
-                                className="object-cover"
                               />
                             </div>
                             <div>

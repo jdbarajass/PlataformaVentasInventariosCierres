@@ -69,6 +69,16 @@ export function ProductForm({ product, mode }: ProductFormProps) {
         throw new Error('No estás autenticado. Por favor inicia sesión nuevamente.')
       }
 
+      // Filtrar URLs de imágenes inválidas/rotas antes de guardar
+      const validImages = formData.images.filter((url) => {
+        try {
+          new URL(url)
+          return true
+        } catch {
+          return false
+        }
+      })
+
       // Preparar datos para validación
       const dataToValidate: ProductFormData = {
         title: formData.title,
@@ -80,7 +90,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
           ? parseFloat(formData.compareAtPrice) * 100
           : null,
         category_id: formData.categoryId || null,
-        images: formData.images,
+        images: validImages,
         stock_qty: parseInt(formData.stock),
         low_stock_threshold: parseInt(formData.lowStockThreshold),
         tags: formData.tags

@@ -2,16 +2,78 @@
 
 import { useState, useRef } from 'react'
 import Image from 'next/image'
-import { Upload, X, Loader2, ImageIcon } from 'lucide-react'
+import { Upload, X, Loader2, ImageIcon, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
 import { supabase } from '@/lib/supabase'
 
+function isValidUrl(str: string): boolean {
+  try {
+    new URL(str)
+    return true
+  } catch {
+    return false
+  }
+}
+
 interface ImageUploaderProps {
   images: string[]
   onChange: (images: string[]) => void
   maxImages?: number
+}
+
+function ImagePreview({
+  url,
+  index,
+  onRemove,
+}: {
+  url: string
+  index: number
+  onRemove: () => void
+}) {
+  const [hasError, setHasError] = useState(false)
+  const isBroken = !isValidUrl(url) || hasError
+
+  return (
+    <Card className="group relative aspect-square overflow-hidden">
+      {isBroken ? (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <span className="text-xs text-muted-foreground">Imagen rota</span>
+        </div>
+      ) : (
+        <Image
+          src={url}
+          alt={`Imagen ${index + 1}`}
+          fill
+          className="object-cover transition-transform group-hover:scale-105"
+          onError={() => setHasError(true)}
+        />
+      )}
+
+      {/* Badge de imagen principal */}
+      {index === 0 && (
+        <div className="absolute left-2 top-2 rounded-full bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">
+          Principal
+        </div>
+      )}
+
+      {/* Botón eliminar */}
+      <button
+        type="button"
+        onClick={onRemove}
+        className={`absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground transition-opacity hover:bg-destructive/90 ${
+          isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        <X className="h-4 w-4" />
+      </button>
+
+      {/* Overlay hover */}
+      <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+    </Card>
+  )
 }
 
 export function ImageUploader({ images, onChange, maxImages = 5 }: ImageUploaderProps) {
@@ -235,33 +297,12 @@ export function ImageUploader({ images, onChange, maxImages = 5 }: ImageUploader
       {images.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {images.map((url, index) => (
-            <Card key={index} className="group relative aspect-square overflow-hidden">
-              <Image
-                src={url}
-                alt={`Imagen ${index + 1}`}
-                fill
-                className="object-cover transition-transform group-hover:scale-105"
-              />
-
-              {/* Badge de imagen principal */}
-              {index === 0 && (
-                <div className="absolute left-2 top-2 rounded-full bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">
-                  Principal
-                </div>
-              )}
-
-              {/* Botón eliminar */}
-              <button
-                type="button"
-                onClick={() => handleRemove(index)}
-                className="absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground opacity-0 transition-opacity hover:bg-destructive/90 group-hover:opacity-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-
-              {/* Overlay hover */}
-              <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
-            </Card>
+            <ImagePreview
+              key={`${url}-${index}`}
+              url={url}
+              index={index}
+              onRemove={() => handleRemove(index)}
+            />
           ))}
         </div>
       )}
