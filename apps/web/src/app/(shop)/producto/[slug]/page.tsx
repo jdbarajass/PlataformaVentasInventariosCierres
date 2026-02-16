@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase'
@@ -10,10 +9,6 @@ import { AddToCartButton } from './add-to-cart-button'
 import { Product } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
-
-interface ProductPageProps {
-  params: { slug: string }
-}
 
 interface ProductWithCategory extends Product {
   categories: { name: string; slug: string } | null
@@ -29,14 +24,9 @@ async function getProduct(slug: string): Promise<ProductWithCategory | null> {
       .eq('active', true)
       .single()
 
-    if (error || !product) {
-      console.error('Error fetching product:', error)
-      return null
-    }
-
+    if (error || !product) return null
     return product as unknown as ProductWithCategory
-  } catch (error) {
-    console.error('Error in getProduct:', error)
+  } catch {
     return null
   }
 }
@@ -58,35 +48,17 @@ async function getRelatedProducts(categoryId: string, excludeId: string): Promis
   }
 }
 
-export async function generateMetadata({ params }: ProductPageProps) {
+export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getProduct(params.slug)
   if (!product) return { title: 'Producto no encontrado' }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
-  const imageUrl = getProductImage(product.images)
-
   return {
     title: `${product.title} - YB MOTOCOM`,
-    description: product.description || `Compra ${product.title} en YB MOTOCOM. Accesorios y equipamiento para motociclistas en Colombia.`,
-    keywords: [product.title, 'motos', 'accesorios', 'Colombia', product.categories?.name || ''].filter(Boolean),
-    openGraph: {
-      title: `${product.title} - YB MOTOCOM`,
-      description: product.description || `Compra ${product.title} en YB MOTOCOM`,
-      images: [imageUrl],
-      url: `${baseUrl}/producto/${product.slug}`,
-      type: 'product',
-      siteName: 'YB MOTOCOM',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: `${product.title} - YB MOTOCOM`,
-      description: product.description || `Compra ${product.title} en YB MOTOCOM`,
-      images: [imageUrl],
-    },
+    description: product.description || `Compra ${product.title} en YB MOTOCOM`,
   }
 }
 
-export default async function ProductPage({ params }: ProductPageProps) {
+export default async function ProductPage({ params }: { params: { slug: string } }) {
   const product = await getProduct(params.slug)
 
   if (!product) {
@@ -98,26 +70,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
     : []
 
   const stockStatus = getStockStatus(product.stock_qty, product.low_stock_threshold)
-  const category = product.categories as { name: string; slug: string } | null
+  const category = product.categories
 
-  // Filter valid image URLs to avoid Next.js Image crashes
   const validImages = product.images.filter((img) => {
     if (img.startsWith('/')) return true
     try { new URL(img); return true } catch { return false }
   })
 
   const mainImage = getProductImage(product.images)
-
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
   const productUrl = `${baseUrl}/producto/${product.slug}`
-
-  // Breadcrumb items
-  const breadcrumbItems = [
-    { name: 'Inicio', url: baseUrl },
-    ...(category ? [{ name: category.name, url: `${baseUrl}/categoria/${category.slug}` }] : []),
-    { name: product.title, url: productUrl },
-  ]
-
   const availability = product.stock_qty > 0 ? 'InStock' : 'OutOfStock'
 
   return (
@@ -140,32 +102,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
               priceCurrency: 'COP',
               price: product.price_cents / 100,
               availability: `https://schema.org/${availability}`,
-              seller: { '@type': 'Organization', name: 'YB MOTOCOM' },
             },
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'BreadcrumbList',
-            itemListElement: breadcrumbItems.map((item, index) => ({
-              '@type': 'ListItem',
-              position: index + 1,
-              name: item.name,
-              item: item.url,
-            })),
           }),
         }}
       />
 
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-foreground">
-          Inicio
-        </Link>
+        <Link href="/" className="hover:text-foreground">Inicio</Link>
         <ChevronRight className="h-4 w-4" />
         {category && (
           <>
@@ -183,12 +127,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
         {/* Images */}
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden rounded-2xl bg-white dark:bg-secondary">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={mainImage}
               alt={product.title}
-              fill
-              className="object-contain p-6"
-              priority
+              className="h-full w-full object-contain p-6"
             />
             {product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents && (
               <Badge variant="destructive" className="absolute left-4 top-4">
@@ -199,17 +142,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {validImages.length > 1 && (
             <div className="grid grid-cols-4 gap-4">
               {validImages.slice(0, 4).map((image, index) => (
-                <button
+                <div
                   key={index}
-                  className="relative aspect-square overflow-hidden rounded-xl bg-white dark:bg-secondary ring-2 ring-transparent transition-all hover:ring-primary focus:ring-primary"
+                  className="relative aspect-square overflow-hidden rounded-xl bg-white dark:bg-secondary ring-2 ring-transparent"
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={image}
                     alt={`${product.title} - imagen ${index + 1}`}
-                    fill
-                    className="object-contain p-2"
+                    className="h-full w-full object-contain p-2"
                   />
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -274,18 +217,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Categoria</dt>
                   <dd>{category.name}</dd>
-                </div>
-              )}
-              {product.weight_grams && (
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Peso</dt>
-                  <dd>{product.weight_grams}g</dd>
-                </div>
-              )}
-              {product.tags && product.tags.length > 0 && (
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Etiquetas</dt>
-                  <dd>{product.tags.join(', ')}</dd>
                 </div>
               )}
             </dl>
