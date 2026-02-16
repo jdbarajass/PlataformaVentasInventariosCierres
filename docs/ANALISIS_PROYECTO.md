@@ -1,8 +1,8 @@
 # 📊 ANÁLISIS COMPLETO - YB MOTOCOM
 
 > **Fecha**: 2026-02-15 (Actualizado)
-> **Versión**: 4.0
-> **Estado del Proyecto**: 95% Funcional - En Desarrollo Activo
+> **Versión**: 5.0
+> **Estado del Proyecto**: 97% Funcional - En Desarrollo Activo
 
 ---
 
@@ -48,14 +48,15 @@ Deployment:  Vercel/Netlify Ready
 
 | Módulo | Completado | Pendiente | Estado |
 |--------|------------|-----------|--------|
-| **Tienda Pública** | 15 rutas | 0 rutas | 🟢 100% |
+| **Tienda Pública** | 15 rutas funcionales | - | 🟢 100% |
 | **Panel Admin** | 8/8 secciones completas (incluye configuración) | - | 🟢 100% |
 | **API Endpoints** | 20+ endpoints protegidos | - | 🟢 100% |
 | **Autenticación** | Roles + Auth helpers | 2FA | 🟢 75% |
 | **Pagos** | Stripe | MercadoPago | 🟡 50% |
 | **Emails** | Completo (Resend) | - | 🟢 100% |
+| **Storage** | Supabase Storage bucket configurado | - | 🟢 100% |
 | **Base de Datos** | 10 tablas + store_settings | RLS políticas | 🟢 90% |
-| **TOTAL** | - | - | **🟢 95%** |
+| **TOTAL** | - | - | **🟢 97%** |
 
 ---
 
@@ -67,9 +68,9 @@ Deployment:  Vercel/Netlify Ready
 
 | Ruta | Archivo | Estado | Funcionalidad |
 |------|---------|--------|---------------|
-| `/` | `(shop)/page.tsx` | ✅ Completo | Homepage con hero, categorías, productos destacados |
+| `/` | `(shop)/page.tsx` | ✅ Completo | Homepage con hero, categorías (con iconos), productos destacados |
 | `/categoria/[slug]` | `(shop)/categoria/[slug]/page.tsx` | ✅ Completo | Listado de productos por categoría con filtros |
-| `/producto/[slug]` | `(shop)/producto/[slug]/page.tsx` | ✅ Completo | Detalle de producto con galería, stock, agregar al carrito |
+| `/producto/[slug]` | `(shop)/producto/[slug]/page.tsx` | ✅ Completo | Detalle de producto con galería (native img), stock, agregar al carrito, structured data |
 | `/checkout` | `(shop)/checkout/page.tsx` | ✅ Completo | Checkout con múltiples métodos de pago |
 | `/nosotros` | `(shop)/nosotros/page.tsx` | ✅ Completo | Información de la empresa |
 | `/contacto` | `(shop)/contacto/page.tsx` | ✅ Completo | Formulario de contacto (sin envío) |
@@ -113,7 +114,7 @@ _Ninguna ruta pública faltante. Todas las páginas están implementadas._
 
 | Sección | Estado | Funcionalidad |
 |---------|--------|---------------|
-| **Productos** | ✅ 100% | CRUD completo + Upload imágenes a Supabase Storage |
+| **Productos** | ✅ 100% | CRUD completo + Upload imágenes a Supabase Storage + manejo de imágenes rotas |
 | **Usuarios** | ✅ 100% | Conectado a Supabase Auth + tabla `users`. Edición de roles, búsqueda, filtros |
 | **Inventario** | ✅ 100% | Conectado a tablas `products` + `inventory_movements`. Ajustes de stock con API real |
 
@@ -491,50 +492,33 @@ USING (auth.jwt() ->> 'role' IN ('admin', 'seller'));
 ### 8️⃣ STORAGE (Supabase Storage)
 
 #### Estado Actual
-**Configuración**: ⚠️ **NO CONFIGURADO**
+**Configuración**: ✅ **CONFIGURADO Y FUNCIONANDO**
 
-**Problema**:
-- No existe bucket `product-images`
-- Las imágenes de productos se guardan como URLs en `products.images[]`
-- Actualmente usan placeholders locales
+**Estado**: 🟢 100% funcional
+- ✅ Bucket `product-images` creado (público)
+- ✅ Upload de imágenes desde admin (`/api/upload`)
+- ✅ Eliminación de imágenes desde admin
+- ✅ URLs públicas generadas automáticamente
+- ✅ Validación de tipo de archivo (JPG, PNG, WebP, GIF) y tamaño (máx 5MB)
+- ✅ Autenticación requerida para upload/delete (admin/seller)
 
-#### Configuración Necesaria
+#### Manejo de Imágenes Rotas
 
-1. **Crear bucket en Supabase**:
-```sql
--- Ir a Supabase Dashboard > Storage > Create Bucket
--- Nombre: product-images
--- Public: true
-```
-
-2. **Políticas de Storage**:
-```sql
--- Lectura pública
-CREATE POLICY "Public Access"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'product-images');
-
--- Escritura solo admin
-CREATE POLICY "Admin Upload"
-ON storage.objects FOR INSERT
-WITH CHECK (
-  bucket_id = 'product-images' AND
-  auth.jwt() ->> 'role' = 'admin'
-);
-```
-
-3. **Upload de imágenes desde admin**:
+Se implementó la utilidad `getProductImage()` en `lib/utils.ts` para manejar URLs inválidas de forma segura:
 ```typescript
-// Ejemplo de upload
-const { data, error } = await supabase.storage
-  .from('product-images')
-  .upload(`${productId}/${fileName}`, file)
-
-// URL pública
-const publicURL = supabase.storage
-  .from('product-images')
-  .getPublicUrl(`${productId}/${fileName}`)
+export function getProductImage(images: string[], index: number = 0): string {
+  // Valida URL, retorna placeholder si es inválida
+}
 ```
+
+**Usado en**: ProductCard, producto detail page, add-to-cart, admin productos
+
+#### Nota Técnica Importante - next/image en Netlify
+
+> **IMPORTANTE**: La página de detalle de producto (`/producto/[slug]/page.tsx`) usa `<img>` nativo
+> en lugar de `next/image` (`<Image>`). Esto es intencional: `next/image` causa error 500 en
+> Server Components cuando se despliega en Netlify. El componente `ProductCard` (Client Component)
+> sí puede usar `next/image` sin problemas.
 
 ---
 
@@ -851,16 +835,18 @@ NEXT_PUBLIC_APP_URL=https://ybmotocom.com
 
 ## 📝 NOTAS FINALES
 
-Este proyecto tiene una **base sólida y prácticamente completa** (~95% funcional) con una arquitectura limpia y moderna. Todos los módulos core están implementados:
+Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcional) con una arquitectura limpia y moderna. Todos los módulos core están implementados:
 
 1. ✅ **Sistema de emails** (Resend + React Email)
 2. ✅ **Página de confirmación** (con instrucciones de pago)
-3. ✅ **CRUD de productos** (completo con upload de imágenes)
+3. ✅ **CRUD de productos** (completo con upload de imágenes a Supabase Storage)
 4. ✅ **Seguridad en API** (auth-helpers + 20+ endpoints protegidos)
-5. ✅ **Páginas públicas** (15 rutas, todas implementadas)
+5. ✅ **Páginas públicas** (15 rutas, todas implementadas y funcionales en Netlify)
 6. ✅ **Usuarios e inventario** (conectados a BD real)
 7. ✅ **Configuración admin** (envíos, impuestos, contacto, pagos, redes sociales)
 8. ✅ **Panel admin completo** (8/8 secciones: dashboard, productos, órdenes, inventario, cierres, reportes, usuarios, configuración)
+9. ✅ **Supabase Storage** (bucket product-images configurado, upload/delete funcional)
+10. ✅ **Manejo robusto de imágenes** (validación, fallbacks, placeholder, compatibilidad Netlify)
 
 **Para producción quedan**:
 1. ⚠️ **RLS en Supabase** (seguridad a nivel de base de datos)
@@ -871,8 +857,8 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~95% funcion
 ---
 
 **Última actualización**: 2026-02-15
-**Versión del documento**: 4.0
-**Estado del proyecto**: 95% Funcional - En Desarrollo Activo
+**Versión del documento**: 5.0
+**Estado del proyecto**: 97% Funcional - En Desarrollo Activo
 
 ---
 
@@ -880,7 +866,7 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~95% funcion
 
 ### Estado Actual de Desarrollo
 
-**Fase en curso**: FASE 4 - RLS + Consumir Settings + MercadoPago
+**Fase en curso**: FASE 4 - RLS + Consumir Settings + MercadoPago (FASE 3.5 completada)
 
 **Última actualización**: 2026-02-15
 
@@ -1030,22 +1016,44 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~95% funcion
 
 ---
 
+### FASE 3.5: CORRECCIONES DE IMÁGENES Y UX ✅ **COMPLETADA**
+
+#### ✅ Completado (2026-02-15) - 8 commits
+
+| Tarea | Archivo(s) | Estado |
+|-------|------------|--------|
+| **3.5.1 Auth header en product form** | `components/products/product-form.tsx` | ✅ Completado |
+| **3.5.2 Manejo de imágenes rotas en admin** | `components/products/image-uploader.tsx`, `admin/productos/page.tsx` | ✅ Completado |
+| **3.5.3 Manejo de imágenes rotas en tienda** | `lib/utils.ts`, `components/products/product-card.tsx`, `producto/[slug]/page.tsx` | ✅ Completado |
+| **3.5.4 Botón X eliminar imagen** | `components/products/image-uploader.tsx` | ✅ Completado |
+| **3.5.5 Categorías homepage con iconos** | `(shop)/page.tsx` | ✅ Completado |
+| **3.5.6 Escala de imágenes en product cards** | `components/products/product-card.tsx`, `producto/[slug]/page.tsx` | ✅ Completado |
+| **3.5.7 Error 500 en detalle de producto** | `(shop)/producto/[slug]/page.tsx` | ✅ Completado |
+| **3.5.8 Supabase Storage bucket** | Configuración en Supabase Dashboard | ✅ Completado |
+
+**Detalle de correcciones**:
+
+1. **Auth header** (`e4770ca`): product-form.tsx no enviaba Authorization header en POST/PUT → Agregado `Bearer ${session.access_token}`
+2. **Imágenes rotas admin** (`226de8e`): Componente `ImagePreview` con detección de URL inválida, icono AlertTriangle, botón eliminar siempre visible
+3. **Imágenes rotas tienda** (`3435948`): Utilidad `getProductImage()` en `lib/utils.ts` valida URLs y retorna placeholder. Aplicada en ProductCard, detalle, add-to-cart
+4. **Botón X** (`3435948`): Overlay div `absolute inset-0` bloqueaba clicks → Agregado `pointer-events-none`
+5. **Categorías** (`45f05ec`): Cards vacías reemplazadas con iconos Lucide (HardHat, Hand, Shirt, Wrench), descripciones y hover animations
+6. **Escala imágenes** (`45f05ec`): `object-cover` → `object-contain` con `p-4` y fondo blanco en ProductCard y detalle
+7. **Error 500 Netlify** (`0597fe6`): `next/image` (`<Image>`) causa crash en Server Components en Netlify → Reemplazado con `<img>` nativo. También: `getServiceSupabase()`, `force-dynamic`, try-catch, structured data con `<script>` nativo
+8. **Storage bucket**: Bucket `product-images` creado en Supabase Dashboard (público)
+
+**Estado**: ✅ **100% COMPLETADO**
+
+---
+
 ### 🎯 Próximos Pasos Inmediatos
 
-**FASE 1 COMPLETADA** ✅ - Ahora puedes continuar con la FASE 2:
+**FASES 1-3 COMPLETADAS** ✅ - **FASE 4 en curso**:
 
-1. **FASE 2.1**: Crear página `/ofertas` - Productos con descuento
-2. **FASE 2.2**: Crear componente `ProductFilters` con filtros interactivos
-3. **FASE 2.3**: Crear página `/productos` con catálogo completo y filtros
-4. **FASE 2.4**: Crear página `/categorias` - Grid de categorías
-5. **FASE 2.5**: Crear página `/terminos` - Términos y condiciones expandibles
-
-**Configuración Pendiente de Supabase para FASE 1**:
-⚠️ Para que el upload de imágenes funcione, necesitas crear el bucket en Supabase:
-1. Ir a Supabase Dashboard → Storage → Create Bucket
-2. Nombre: `product-images`
-3. Public: `true`
-4. Configurar RLS policies (ver sección de Storage en el documento)
+1. **RLS en Supabase** - Habilitar Row Level Security en todas las tablas
+2. **Consumir settings en páginas públicas** - Checkout, footer, contacto leen de store_settings
+3. **MercadoPago** - Integración de pagos para mercado colombiano
+4. **Registro público de clientes** - Signup, perfil, historial de órdenes
 
 ---
 
@@ -1061,14 +1069,18 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~95% funcion
 - ✅ Conversión automática de pesos a centavos (multiplicar por 100)
 - ✅ Primera imagen del array es la imagen principal
 
-**Configuración de Supabase Pendiente**:
-- ⚠️ Crear bucket `product-images` (público) - **REQUERIDO PARA UPLOAD**
-- ⚠️ Configurar RLS policies para upload solo admin
-- ⚠️ Configurar CORS para permitir uploads desde el dominio
-- ℹ️ Ver sección "Storage (Supabase Storage)" en este documento para instrucciones
+**Configuración de Supabase Storage**:
+- ✅ Bucket `product-images` creado y funcionando
+- ✅ Upload/delete de imágenes operativo desde admin
+- ✅ Manejo de imágenes rotas con `getProductImage()` utility
 
-**Problemas Encontrados**:
-- Ninguno hasta el momento
+**Problemas Encontrados y Resueltos (2026-02-15)**:
+- ✅ **Auth header faltante en product form** - Las peticiones POST/PUT no enviaban Authorization header → Agregado Bearer token
+- ✅ **Imágenes rotas en admin y tienda** - URLs inválidas en BD causaban crashes → Creada utilidad `getProductImage()` con fallback a placeholder
+- ✅ **Botón X de eliminar imagen no funcionaba** - Overlay div bloqueaba clicks → Agregado `pointer-events-none`
+- ✅ **Error 500 en página de producto (Netlify)** - `next/image` crash en Server Components en Netlify → Reemplazado con `<img>` nativo
+- ✅ **Imágenes de producto ampliadas/cortadas** - `object-cover` recortaba productos → Cambiado a `object-contain` con padding
+- ✅ **Categorías homepage vacías** - Solo gradientes sin contenido → Agregados iconos Lucide y descripciones
 
 **Cambios al Plan Original**:
 - Ninguno - Se siguió el plan exactamente como estaba diseñado
@@ -1204,6 +1216,7 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~95% funcion
 
 | Fecha | Fase | Cambio | Razón |
 |-------|------|--------|-------|
+| 2026-02-15 | **FASE 3.5** | ✅ **Correcciones de imágenes, UX y Storage** | Auth headers, getProductImage utility, fix error 500 Netlify (native img), categorías con iconos, object-contain, Storage bucket. 8 commits. Proyecto 97% |
 | 2026-02-15 | **FASE 3** | ✅ **Página /admin/configuracion implementada** | Tabla store_settings, API settings, 7 secciones de configuración (tienda, contacto, horarios, envíos, impuestos, pagos, redes sociales). Proyecto 95% |
 | 2026-02-15 | **FASE 2.5** | ✅ **Usuarios e Inventario conectados a BD real** | Eliminados datos mock, conectados a Supabase. API /api/users creada. Ajustes de inventario funcionales |
 | 2026-02-15 | **FASE 2** | ✅ **Todas las páginas públicas completadas** | 9 nuevas rutas: /ofertas, /productos, /categorias, /terminos, /devoluciones, /envios, /faq, /privacidad + product-filters |
