@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { sendPaymentInstructions } from '@/lib/email'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-})
+import { createCheckoutSession, isStripeConfigured } from '@/lib/stripe-helpers'
 
 export async function POST(request: NextRequest) {
   const serviceSupabase = getServiceSupabase()
@@ -61,26 +57,26 @@ export async function POST(request: NextRequest) {
 
     // Handle payment based on method
     if (payment_method === 'card') {
+      // Validate Stripe configuration
+      if (!isStripeConfigured()) {
+        console.error('Stripe is not properly configured')
+        return NextResponse.json(
+          { error: 'Payment system is not configured. Please contact support.' },
+          { status: 500 }
+        )
+      }
+
       // Create Stripe checkout session
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: items.map((item: { title: string; price_cents: number; qty: number; image: string }) => ({
-          price_data: {
-            currency: 'cop',
-            product_data: {
-              name: item.title,
-              images: item.image ? [item.image] : [],
-            },
-            unit_amount: item.price_cents,
-          },
-          quantity: item.qty,
+      const session = await createCheckoutSession({
+        orderId: order.id,
+        items: items.map((item: { id: string; title: string; price_cents: number; qty: number; image?: string }) => ({
+          title: item.title,
+          price_cents: item.price_cents,
+          qty: item.qty,
+          image: item.image,
         })),
-        mode: 'payment',
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/orden/${order.id}/confirmacion?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout`,
-        metadata: {
-          order_id: order.id,
-        },
+        customerEmail: customer.email,
+        currency: 'cop',
       })
 
       // Create payment record
