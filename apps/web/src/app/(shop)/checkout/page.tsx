@@ -1,20 +1,38 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, CreditCard, Banknote, Smartphone, Loader2 } from 'lucide-react'
+import { ChevronLeft, CreditCard, Banknote, Smartphone, Loader2, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCart } from '@/lib/cart-context'
 import { formatPrice } from '@/lib/utils'
+import type { PaymentMethod, ShippingConfig } from '@/lib/settings'
 
-const paymentMethods = [
-  { id: 'card', name: 'Tarjeta de credito/debito', icon: CreditCard },
-  { id: 'transfer', name: 'Transferencia bancaria', icon: Banknote },
-  { id: 'nequi', name: 'Nequi', icon: Smartphone },
-  { id: 'daviplata', name: 'Daviplata', icon: Smartphone },
+// Icono por método de pago
+const PAYMENT_ICONS: Record<string, React.ElementType> = {
+  card:         CreditCard,
+  transfer:     Banknote,
+  nequi:        Smartphone,
+  daviplata:    Smartphone,
+  cash:         Banknote,
+  mercadopago:  ShoppingBag,
+}
+
+// Valores por defecto mientras carga la BD
+const DEFAULT_SHIPPING: ShippingConfig = {
+  free_shipping_threshold_cents: 20000000,
+  default_shipping_cost_cents: 1500000,
+  enabled: true,
+}
+
+const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
+  { id: 'card',      name: 'Tarjeta de credito/debito', enabled: true },
+  { id: 'transfer',  name: 'Transferencia bancaria',    enabled: true },
+  { id: 'nequi',     name: 'Nequi',                     enabled: true },
+  { id: 'daviplata', name: 'Daviplata',                  enabled: true },
 ]
 
 export default function CheckoutPage() {
@@ -30,7 +48,33 @@ export default function CheckoutPage() {
     notes: '',
   })
 
-  const shippingCost = totalPrice >= 20000000 ? 0 : 1500000 // Envio gratis sobre $200,000
+  // Settings desde BD
+  const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(DEFAULT_PAYMENT_METHODS)
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then(({ data }) => {
+        if (!data) return
+        if (data.shipping_config) setShippingConfig(data.shipping_config)
+        if (data.payment_methods) {
+          // Solo mostrar métodos habilitados
+          const enabled = (data.payment_methods as PaymentMethod[]).filter((m) => m.enabled)
+          if (enabled.length > 0) setPaymentMethods(enabled)
+        }
+      })
+      .catch(() => {
+        // Si falla, mantiene los defaults — la tienda sigue funcionando
+      })
+  }, [])
+
+  // Calcular envío con valores de la BD
+  const shippingCost =
+    shippingConfig.enabled && totalPrice < shippingConfig.free_shipping_threshold_cents
+      ? shippingConfig.default_shipping_cost_cents
+      : 0
+
   const finalTotal = totalPrice + shippingCost
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,21 +234,24 @@ export default function CheckoutPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {paymentMethods.map((method) => (
-                    <button
-                      key={method.id}
-                      type="button"
-                      onClick={() => setSelectedPayment(method.id)}
-                      className={`flex items-center gap-3 rounded-xl border p-4 transition-all ${
-                        selectedPayment === method.id
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary'
-                          : 'hover:border-primary/50'
-                      }`}
-                    >
-                      <method.icon className="h-5 w-5" />
-                      <span className="font-medium">{method.name}</span>
-                    </button>
-                  ))}
+                  {paymentMethods.map((method) => {
+                    const Icon = PAYMENT_ICONS[method.id] ?? CreditCard
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setSelectedPayment(method.id)}
+                        className={`flex items-center gap-3 rounded-xl border p-4 transition-all ${
+                          selectedPayment === method.id
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary'
+                            : 'hover:border-primary/50'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="font-medium">{method.name}</span>
+                      </button>
+                    )
+                  })}
                 </div>
                 {(selectedPayment === 'nequi' || selectedPayment === 'daviplata') && (
                   <p className="mt-4 text-sm text-muted-foreground">
@@ -265,6 +312,12 @@ export default function CheckoutPage() {
                       )}
                     </span>
                   </div>
+                  {shippingCost > 0 && shippingConfig.free_shipping_threshold_cents > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Envio gratis en compras mayores a{' '}
+                      {formatPrice(shippingConfig.free_shipping_threshold_cents)}
+                    </p>
+                  )}
                   <div className="flex justify-between border-t pt-2 text-lg font-semibold">
                     <span>Total</span>
                     <span className="text-primary">{formatPrice(finalTotal)}</span>

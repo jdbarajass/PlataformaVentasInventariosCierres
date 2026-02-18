@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from 'lucide-react'
+import { Facebook, Instagram, Twitter, MessageCircle, Mail, Phone, MapPin } from 'lucide-react'
+import { getStoreSettings } from '@/lib/settings'
 
 const footerLinks = {
   tienda: [
@@ -21,13 +22,29 @@ const footerLinks = {
   ],
 }
 
-const socialLinks = [
-  { name: 'Facebook', href: '#', icon: Facebook },
-  { name: 'Instagram', href: '#', icon: Instagram },
-  { name: 'Twitter', href: '#', icon: Twitter },
-]
+// Fallbacks para cuando no hay settings en BD
+const FALLBACK_CONTACT = {
+  phone_primary: '+57 321 411 1371',
+  phone_secondary: '+57 314 406 5520',
+  email: 'ybmotocom@gmail.com',
+  address: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
+  city: 'Bogotá, Colombia',
+}
 
-export function Footer() {
+export async function Footer() {
+  const settings = await getStoreSettings()
+
+  const contact = settings?.contact_info ?? FALLBACK_CONTACT
+  const social = settings?.social_links
+
+  // Solo mostrar redes sociales que tienen URL configurada
+  const socialLinks = [
+    social?.facebook   && { name: 'Facebook',  href: social.facebook,                                          icon: Facebook     },
+    social?.instagram  && { name: 'Instagram', href: social.instagram,                                         icon: Instagram    },
+    social?.twitter    && { name: 'Twitter',   href: social.twitter,                                           icon: Twitter      },
+    social?.whatsapp   && { name: 'WhatsApp',  href: `https://wa.me/${social.whatsapp.replace(/\D/g, '')}`,    icon: MessageCircle },
+  ].filter(Boolean) as { name: string; href: string; icon: React.ElementType }[]
+
   return (
     <footer className="border-t bg-secondary/30">
       <div className="container py-12">
@@ -44,17 +61,22 @@ export function Footer() {
               Tu tienda de confianza para accesorios y equipamiento de motos.
               Calidad y seguridad para cada viaje.
             </p>
-            <div className="flex gap-3">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.name}
-                  href={social.href}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary transition-colors hover:bg-primary hover:text-primary-foreground"
-                >
-                  <social.icon className="h-4 w-4" />
-                </a>
-              ))}
-            </div>
+            {socialLinks.length > 0 && (
+              <div className="flex gap-3">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.name}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.name}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary transition-colors hover:bg-primary hover:text-primary-foreground"
+                  >
+                    <social.icon className="h-4 w-4" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Tienda */}
@@ -95,22 +117,34 @@ export function Footer() {
           <div>
             <h3 className="mb-4 font-semibold">Contacto</h3>
             <ul className="space-y-3">
-              <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>+57 321 411 1371</span>
-              </li>
-              <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>+57 314 406 5520</span>
-              </li>
-              <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span>ybmotocom@gmail.com</span>
-              </li>
-              <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4 mt-0.5" />
-                <span>Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1, Bogotá, Colombia</span>
-              </li>
+              {contact.phone_primary && (
+                <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4 shrink-0" />
+                  <span>{contact.phone_primary}</span>
+                </li>
+              )}
+              {contact.phone_secondary && (
+                <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4 shrink-0" />
+                  <span>{contact.phone_secondary}</span>
+                </li>
+              )}
+              {contact.email && (
+                <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span>{contact.email}</span>
+                </li>
+              )}
+              {(contact.address || contact.city) && (
+                <li className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    {contact.address}
+                    {contact.address && contact.city ? ', ' : ''}
+                    {contact.city}
+                  </span>
+                </li>
+              )}
             </ul>
           </div>
         </div>

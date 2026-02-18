@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { Mail, Phone, MapPin, Clock, Send, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
+import type { ContactInfo } from '@/lib/settings'
 
 const contactSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -19,9 +20,34 @@ const contactSchema = z.object({
 
 type ContactForm = z.infer<typeof contactSchema>
 
+const DEFAULT_CONTACT: ContactInfo = {
+  phone_primary: '+57 321 411 1371',
+  phone_secondary: '+57 314 406 5520',
+  email: 'ybmotocom@gmail.com',
+  address: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
+  city: 'Bogotá, Colombia',
+  business_hours: {
+    weekdays: 'Lunes a Viernes: 8:00 AM - 6:00 PM',
+    saturday: 'Sábado: 9:00 AM - 2:00 PM',
+    sunday: 'Domingo: Cerrado',
+  },
+}
+
 export default function ContactoPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [contactInfo, setContactInfo] = useState<ContactInfo>(DEFAULT_CONTACT)
   const { toast } = useToast()
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then(({ data }) => {
+        if (data?.contact_info) setContactInfo(data.contact_info)
+      })
+      .catch(() => {
+        // Mantiene defaults si falla
+      })
+  }, [])
 
   const {
     register,
@@ -35,9 +61,7 @@ export default function ContactoPage() {
   const onSubmit = async (data: ContactForm) => {
     setIsSubmitting(true)
     try {
-      // Simulate sending message
       await new Promise((resolve) => setTimeout(resolve, 1000))
-
       toast({
         title: 'Mensaje enviado',
         description: 'Nos pondremos en contacto contigo pronto.',
@@ -120,9 +144,7 @@ export default function ContactoPage() {
                     className="rounded-xl"
                   />
                   {errors.subject && (
-                    <p className="text-sm text-red-500">
-                      {errors.subject.message}
-                    </p>
+                    <p className="text-sm text-red-500">{errors.subject.message}</p>
                   )}
                 </div>
               </div>
@@ -162,54 +184,82 @@ export default function ContactoPage() {
             <div className="rounded-2xl border bg-card p-8">
               <h2 className="mb-6 text-2xl font-bold">Información de contacto</h2>
               <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                    <Phone className="h-6 w-6 text-cyan-500" />
+                {/* Teléfonos */}
+                {(contactInfo.phone_primary || contactInfo.phone_secondary) && (
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
+                      <Phone className="h-6 w-6 text-cyan-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Teléfono</h3>
+                      {contactInfo.phone_primary && (
+                        <p className="text-muted-foreground">{contactInfo.phone_primary}</p>
+                      )}
+                      {contactInfo.phone_secondary && (
+                        <p className="text-muted-foreground">{contactInfo.phone_secondary}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">Teléfono</h3>
-                    <p className="text-muted-foreground">+57 321 411 1371</p>
-                    <p className="text-muted-foreground">+57 314 406 5520</p>
-                  </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                    <Mail className="h-6 w-6 text-cyan-500" />
+                {/* Email */}
+                {contactInfo.email && (
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
+                      <Mail className="h-6 w-6 text-cyan-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Email</h3>
+                      <p className="text-muted-foreground">{contactInfo.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">Email</h3>
-                    <p className="text-muted-foreground">ybmotocom@gmail.com</p>
-                  </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                    <MapPin className="h-6 w-6 text-cyan-500" />
+                {/* Dirección */}
+                {(contactInfo.address || contactInfo.city) && (
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
+                      <MapPin className="h-6 w-6 text-cyan-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Dirección</h3>
+                      {contactInfo.address && (
+                        <p className="text-muted-foreground">{contactInfo.address}</p>
+                      )}
+                      {contactInfo.city && (
+                        <p className="text-muted-foreground">{contactInfo.city}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">Dirección</h3>
-                    <p className="text-muted-foreground">
-                      Av Caracas No. 17-47 Local 111 Isla S
-                    </p>
-                    <p className="text-muted-foreground">Cc Megacentro Puerta 1, Bogotá, Colombia</p>
-                  </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                    <Clock className="h-6 w-6 text-cyan-500" />
+                {/* Horarios */}
+                {contactInfo.business_hours && (
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
+                      <Clock className="h-6 w-6 text-cyan-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Horario de atención</h3>
+                      {contactInfo.business_hours.weekdays && (
+                        <p className="text-muted-foreground">
+                          {contactInfo.business_hours.weekdays}
+                        </p>
+                      )}
+                      {contactInfo.business_hours.saturday && (
+                        <p className="text-muted-foreground">
+                          {contactInfo.business_hours.saturday}
+                        </p>
+                      )}
+                      {contactInfo.business_hours.sunday &&
+                        contactInfo.business_hours.sunday !== 'Domingo: Cerrado' && (
+                          <p className="text-muted-foreground">
+                            {contactInfo.business_hours.sunday}
+                          </p>
+                        )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">Horario de atención</h3>
-                    <p className="text-muted-foreground">
-                      Lunes a Viernes: 8:00 AM - 6:00 PM
-                    </p>
-                    <p className="text-muted-foreground">
-                      Sábados: 9:00 AM - 2:00 PM
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 

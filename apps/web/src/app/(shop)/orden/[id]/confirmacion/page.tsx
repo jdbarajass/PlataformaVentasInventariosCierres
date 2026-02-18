@@ -61,6 +61,7 @@ export default async function OrderConfirmationPage({
       nequi: 'Nequi',
       daviplata: 'Daviplata',
       cash: 'Efectivo',
+      mercadopago: 'MercadoPago',
     }
     return methods[method] || method
   }

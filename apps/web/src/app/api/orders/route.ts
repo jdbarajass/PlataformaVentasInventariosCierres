@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { sendPaymentInstructions } from '@/lib/email'
 import { createCheckoutSession, isStripeConfigured } from '@/lib/stripe-helpers'
+import { createPreference, isMercadoPagoConfigured } from '@/lib/mercadopago-helpers'
 
 export async function POST(request: NextRequest) {
   const serviceSupabase = getServiceSupabase()
@@ -92,6 +93,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         order_id: order.id,
         checkout_url: session.url,
+      })
+    } else if (payment_method === 'mercadopago') {
+      // Validate MercadoPago configuration
+      if (!isMercadoPagoConfigured()) {
+        console.error('MercadoPago is not properly configured')
+        return NextResponse.json(
+          { error: 'Payment system is not configured. Please contact support.' },
+          { status: 500 }
+        )
+      }
+
+      // Create MercadoPago preference
+      const initPoint = await createPreference({
+        orderId: order.id,
+        items: items.map((item: { id: string; title: string; price_cents: number; qty: number }) => ({
+          title: item.title,
+          price_cents: item.price_cents,
+          qty: item.qty,
+        })),
+        customerEmail: customer.email,
+        total_cents,
+      })
+
+      // Create payment record
+      await (serviceSupabase.from('payments') as any).insert({
+        order_id: order.id,
+        provider: 'mercadopago',
+        amount_cents: total_cents,
+        method: 'mercadopago',
+        status: 'pending',
+      })
+
+      return NextResponse.json({
+        order_id: order.id,
+        checkout_url: initPoint,
       })
     } else {
       // For other payment methods (transfer, nequi, daviplata)
