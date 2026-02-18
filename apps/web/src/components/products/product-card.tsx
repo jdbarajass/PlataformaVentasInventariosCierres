@@ -10,6 +10,7 @@ import { useCart } from '@/lib/cart-context'
 import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { useToast } from '@/components/ui/use-toast'
+import { WishlistButton } from '@/components/products/wishlist-button'
 
 interface ProductCardProps {
   product: Product
@@ -64,6 +65,11 @@ export function ProductCard({ product }: ProductCardProps) {
                 -{Math.round((1 - product.price_cents / product.compare_at_price_cents) * 100)}%
               </Badge>
             )}
+          </div>
+
+          {/* Wishlist Button */}
+          <div className="absolute left-3 bottom-3 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+            <WishlistButton productId={product.id} productTitle={product.title} />
           </div>
 
           {/* Stock Badge */}

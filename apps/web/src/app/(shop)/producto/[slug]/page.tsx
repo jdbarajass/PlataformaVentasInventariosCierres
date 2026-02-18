@@ -6,6 +6,7 @@ import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/l
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { AddToCartButton } from './add-to-cart-button'
+import { ReviewSection } from '@/components/reviews/review-section'
 import { Product } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -223,6 +224,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
           </div>
         </div>
       </div>
+
+      {/* Reviews Section */}
+      <ReviewSection productId={product.id} productTitle={product.title} />
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (

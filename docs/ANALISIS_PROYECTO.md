@@ -1,7 +1,7 @@
 # 📊 ANÁLISIS COMPLETO - YB MOTOCOM
 
 > **Fecha**: 2026-02-17 (Actualizado)
-> **Versión**: 8.0
+> **Versión**: 9.0
 > **Estado del Proyecto**: 100% Funcional - Listo para Producción
 
 ---
@@ -714,15 +714,15 @@ export function getProductImage(images: string[], index: number = 0): string {
 | ~~**Registro de clientes**~~ | ~~🔴 Alto~~ | ~~🟢 Baja~~ | ✅ Implementado (2026-02-18) |
 | ~~**Perfil de cliente**~~ | ~~🟠 Medio~~ | ~~🟢 Baja~~ | ✅ Implementado (2026-02-18) |
 | ~~**Historial de órdenes del cliente**~~ | ~~🔴 Alto~~ | ~~🟡 Media~~ | ✅ Implementado (2026-02-18) |
-| **Wishlist/Favoritos** | 🟡 Bajo | 🟢 Baja |
-| **Sistema de reseñas/ratings** | 🟠 Medio | 🟡 Media |
+| ~~**Wishlist/Favoritos**~~ | ~~🟡 Bajo~~ | ~~🟢 Baja~~ | ✅ Implementado (2026-02-18) |
+| ~~**Sistema de reseñas/ratings**~~ | ~~🟠 Medio~~ | ~~🟡 Media~~ | ✅ Implementado (2026-02-18) |
 | **Notificaciones de restock** | 🟡 Bajo | 🟡 Media |
 | **Comparador de productos** | 🟡 Bajo | 🟢 Baja |
-| **Cupones de descuento** | 🟠 Medio | 🔴 Alta |
+| ~~**Cupones de descuento**~~ | ~~🟠 Medio~~ | ~~🔴 Alta~~ | ✅ Implementado (2026-02-18) |
 | **Programa de puntos/loyalty** | 🟡 Bajo | 🔴 Alta |
-| **Live chat/soporte** | 🟡 Bajo | 🟡 Media |
-| **Tracking de envío** | 🟠 Medio | 🟡 Media |
-| **Facturas/Invoices PDF** | 🔴 Alto | 🟡 Media |
+| ~~**Live chat/soporte**~~ | ~~🟡 Bajo~~ | ~~🟡 Media~~ | ✅ Implementado (2026-02-18) |
+| ~~**Tracking de envío**~~ | ~~🟠 Medio~~ | ~~🟡 Media~~ | ✅ Implementado (2026-02-18) |
+| ~~**Facturas/Invoices PDF**~~ | ~~🔴 Alto~~ | ~~🟡 Media~~ | ✅ Implementado (2026-02-18) |
 
 #### Detalles de Implementación Recomendada
 
@@ -885,10 +885,10 @@ npm install eslint@latest
 ### 🟡 **MEJORA** (UX/Operacional)
 
 #### 9. ~~Registro de Clientes~~ ✅ COMPLETADO (2026-02-18)
-#### 10. Sistema de Reseñas ⏱️ 8-10 horas
-#### 11. Wishlist ⏱️ 4-6 horas
+#### 10. ~~Sistema de Reseñas~~ ✅ COMPLETADO (2026-02-18)
+#### 11. ~~Wishlist~~ ✅ COMPLETADO (2026-02-18)
 #### 12. Filtros Avanzados ⏱️ 6-8 horas
-#### 13. Facturas PDF ⏱️ 6-8 horas
+#### 13. ~~Facturas PDF~~ ✅ COMPLETADO (2026-02-18)
 
 ---
 
@@ -1002,23 +1002,247 @@ NEXT_PUBLIC_APP_URL=https://ybmotocom.com
 ### Checklist Pre-Producción
 
 - [x] Configurar RLS en Supabase (26 políticas aplicadas — `infra/supabase/rls_policies.sql`)
-- [ ] Agregar credenciales MercadoPago en `.env.local` (ACCESS_TOKEN + WEBHOOK_SECRET)
-- [ ] Configurar webhook URL en MercadoPago Dashboard
-- [ ] Activar `mercadopago` en `store_settings.payment_methods` (Supabase)
-- [ ] Cambiar Stripe a modo live (sk_live_xxx)
-- [ ] Cambiar MercadoPago a producción (APP_USR-xxx)
-- [ ] Configurar dominio personalizado
-- [ ] Configurar SSL/HTTPS
-- [ ] Configurar DNS
-- [ ] Optimizar imágenes (WebP)
-- [ ] Configurar CDN (Vercel automático)
-- [ ] Configurar Sentry
-- [ ] Configurar Google Analytics
-- [ ] Configurar robots.txt y sitemap.xml
-- [ ] Configurar políticas de privacidad
-- [ ] Tests E2E (Playwright)
+- [ ] Configurar Stripe en modo live (ver guía abajo)
+- [ ] Configurar MercadoPago (ver guía abajo)
+- [ ] Configurar Resend para emails (ver guía abajo)
+- [ ] Configurar Sentry (ver guía abajo)
+- [ ] Configurar Google Analytics (ver guía abajo)
+- [ ] Configurar dominio + DNS + SSL
 - [ ] Backup de base de datos
 - [ ] Monitoreo de uptime (UptimeRobot)
+
+---
+
+## 🛠️ GUÍA DE CONFIGURACIÓN PARA PRODUCCIÓN
+
+> **IMPORTANTE**: Esta sección contiene los pasos exactos que debe hacer el propietario del proyecto para activar cada servicio. Todo el código ya está implementado — solo falta configurar credenciales y activar servicios.
+
+---
+
+### 1. STRIPE — Pasar a modo producción
+
+**Estado actual**: Modo test (`sk_test_xxx`). Para aceptar pagos reales se necesita modo live.
+
+**Pasos**:
+
+1. Ir a [Stripe Dashboard](https://dashboard.stripe.com/)
+2. Completar la verificación de identidad del negocio si no lo has hecho (Stripe lo pide para modo live)
+3. En el dashboard, cambiar el toggle de "Test mode" a **"Live mode"** (esquina superior derecha)
+4. Ir a **Developers → API Keys** en modo live
+5. Copiar las nuevas claves:
+   - `Publishable key` → empieza con `pk_live_`
+   - `Secret key` → empieza con `sk_live_`
+6. Ir a **Developers → Webhooks** en modo live
+7. Crear un nuevo webhook endpoint:
+   - **URL**: `https://ybmotocom.com/api/payments/webhook`
+   - **Eventos a escuchar**:
+     - `checkout.session.completed`
+     - `checkout.session.expired`
+     - `charge.refunded`
+   - Copiar el **Signing secret** → empieza con `whsec_`
+8. Actualizar `.env.local` (o variables de entorno en Vercel/Netlify):
+
+```env
+STRIPE_SECRET_KEY=sk_live_TU_SECRET_KEY_AQUI
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_TU_PUBLISHABLE_KEY_AQUI
+STRIPE_WEBHOOK_SECRET=whsec_TU_WEBHOOK_SECRET_AQUI
+```
+
+9. **Verificar**: Hacer una compra de prueba real con una tarjeta (se puede reembolsar desde el dashboard de Stripe)
+
+---
+
+### 2. MERCADOPAGO — Configurar credenciales
+
+**Estado actual**: Código 100% implementado, faltan credenciales.
+
+**Pasos para modo TEST (sandbox)**:
+
+1. Ir a [MercadoPago Developers](https://www.mercadopago.com.co/developers/panel)
+2. Crear una aplicación (o usar existente)
+3. En **Credenciales de prueba** copiar:
+   - `Access Token` → empieza con `TEST-`
+   - `Public Key` → empieza con `TEST-`
+4. Ir a **Notificaciones → Webhooks** en el dashboard de MP
+5. Agregar URL de webhook:
+   - **Para desarrollo local**: usar [ngrok](https://ngrok.com/) → `https://xxxx.ngrok.io/api/payments/mercadopago/webhook`
+   - **Para producción**: `https://ybmotocom.com/api/payments/mercadopago/webhook`
+6. Seleccionar evento: **Pagos** (`payment`)
+7. Copiar el **Secret** que genera MP
+8. Actualizar `.env.local`:
+
+```env
+MERCADOPAGO_ACCESS_TOKEN=TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+MERCADOPAGO_PUBLIC_KEY=TEST-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+MERCADOPAGO_WEBHOOK_SECRET=el_secret_del_webhook_copiado_del_dashboard
+```
+
+9. **Activar MercadoPago en la tienda** — Ejecutar en Supabase SQL Editor:
+
+```sql
+UPDATE store_settings
+SET payment_methods = payment_methods || '[{"id": "mercadopago", "name": "MercadoPago", "enabled": true}]'::jsonb
+WHERE id = 1;
+```
+
+O ir a **Admin Panel → /admin/configuracion → Métodos de Pago** y agregar MercadoPago.
+
+10. **Probar en sandbox** con tarjeta de prueba de MP:
+    - Número: `4013 5406 8274 6260`
+    - Vencimiento: cualquier fecha futura
+    - CVV: `123`
+    - Nombre del titular: `APRO` (para que apruebe)
+
+**Pasos para modo PRODUCCIÓN**:
+
+1. En MercadoPago Developers ir a **Credenciales de producción**
+2. Copiar:
+   - `Access Token` → empieza con `APP_USR-`
+   - `Public Key` → empieza con `APP_USR-`
+3. Actualizar `.env.local`:
+
+```env
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+MERCADOPAGO_PUBLIC_KEY=APP_USR-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+---
+
+### 3. RESEND — Configurar servicio de emails
+
+**Estado actual**: Templates de email creados y funciones integradas, falta API key.
+
+**Pasos**:
+
+1. Ir a [resend.com](https://resend.com/) y crear cuenta (gratis hasta 3,000 emails/mes)
+2. Ir a **API Keys** y crear una nueva API key
+3. Copiar la key → empieza con `re_`
+4. **Configurar dominio** (recomendado para que los emails no caigan en spam):
+   - Ir a **Domains** → Add Domain
+   - Agregar `ybmotocom.com`
+   - Resend te dará registros DNS (TXT, MX, CNAME) que debes agregar en tu proveedor de dominio
+   - Esperar verificación (puede tomar hasta 48 horas)
+5. Actualizar `.env.local`:
+
+```env
+RESEND_API_KEY=re_TU_API_KEY_AQUI
+RESEND_FROM_EMAIL=pedidos@ybmotocom.com
+ADMIN_NOTIFICATION_EMAIL=ybmotocom@gmail.com
+```
+
+6. **Sin dominio verificado**: Puedes usar `onboarding@resend.dev` como remitente temporal (solo envía a tu propio email)
+7. **Verificar**: Crear una orden de prueba y confirmar que llega el email de confirmación
+
+---
+
+### 4. SENTRY — Monitoreo de errores (opcional pero recomendado)
+
+**Pasos**:
+
+1. Ir a [sentry.io](https://sentry.io/) y crear cuenta (gratis hasta 5,000 eventos/mes)
+2. Crear un nuevo proyecto → Elegir **Next.js**
+3. Copiar el **DSN** que te da Sentry
+4. Actualizar `.env.local`:
+
+```env
+SENTRY_DSN=https://xxxxxxxxx@oXXXXXX.ingest.sentry.io/XXXXXXX
+```
+
+5. **Verificar**: Los errores del servidor se reportarán automáticamente
+
+---
+
+### 5. GOOGLE ANALYTICS — Analíticas web (opcional)
+
+**Pasos**:
+
+1. Ir a [Google Analytics](https://analytics.google.com/)
+2. Crear una nueva propiedad → Elegir **Web**
+3. Configurar el stream de datos con tu dominio `ybmotocom.com`
+4. Copiar el **Measurement ID** → formato `G-XXXXXXXXXX`
+5. Actualizar `.env.local`:
+
+```env
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+```
+
+6. **Nota**: El script de GA se carga automáticamente si la variable está configurada
+
+---
+
+### 6. DOMINIO, DNS Y SSL
+
+**Pasos generales** (varían según hosting):
+
+**Si usas Vercel**:
+1. Ir a Vercel Dashboard → tu proyecto → Settings → Domains
+2. Agregar `ybmotocom.com` y `www.ybmotocom.com`
+3. Vercel te dará registros DNS (A, CNAME) para configurar en tu proveedor de dominio
+4. SSL es automático con Vercel
+
+**Si usas Netlify**:
+1. Ir a Netlify Dashboard → tu sitio → Domain Settings
+2. Agregar custom domain `ybmotocom.com`
+3. Configurar DNS según instrucciones de Netlify
+4. SSL es automático con Netlify (Let's Encrypt)
+
+**Variables de entorno a actualizar en producción**:
+```env
+NEXT_PUBLIC_APP_URL=https://ybmotocom.com
+NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+```
+
+---
+
+### 7. SUPABASE — Verificar configuración
+
+**Lo que ya está hecho**:
+- ✅ Tablas creadas
+- ✅ RLS aplicado (26 políticas)
+- ✅ Storage configurado (bucket product-images)
+- ✅ Auth configurado
+
+**Lo que debes verificar**:
+1. En [Supabase Dashboard](https://supabase.com/dashboard) → Authentication → URL Configuration:
+   - **Site URL**: `https://ybmotocom.com`
+   - **Redirect URLs**: agregar `https://ybmotocom.com/nueva-contrasena` y `https://ybmotocom.com/mi-cuenta`
+2. En Authentication → Email Templates:
+   - Personalizar el template de "Reset Password" con la marca YB MOTOCOM si se desea
+3. Verificar que las variables de Supabase en producción apunten al proyecto correcto
+
+---
+
+### RESUMEN — Variables de entorno necesarias para `.env.local`
+
+```env
+# === SUPABASE (ya configurado) ===
+NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+
+# === STRIPE (cambiar a live para producción) ===
+STRIPE_SECRET_KEY=sk_live_XXXXXXXX
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_XXXXXXXX
+STRIPE_WEBHOOK_SECRET=whsec_XXXXXXXX
+
+# === MERCADOPAGO (cambiar a APP_USR- para producción) ===
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-XXXXXXXX
+MERCADOPAGO_PUBLIC_KEY=APP_USR-XXXXXXXX
+MERCADOPAGO_WEBHOOK_SECRET=XXXXXXXX
+
+# === EMAILS (Resend) ===
+RESEND_API_KEY=re_XXXXXXXX
+RESEND_FROM_EMAIL=pedidos@ybmotocom.com
+ADMIN_NOTIFICATION_EMAIL=ybmotocom@gmail.com
+
+# === MONITOREO (opcionales) ===
+SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# === APP ===
+NEXT_PUBLIC_APP_URL=https://ybmotocom.com
+NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+```
 
 ---
 
@@ -1068,10 +1292,21 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 - ✅ **Notificación admin en nueva orden** — `sendNewOrderAdmin()` integrado en los 3 flujos de pago
 - ✅ **Alerta stock bajo post-pago** — `sendLowStockAlert()` integrado en webhook de Stripe
 
+**Completado en FASE 8 (2026-02-18)**:
+- ✅ **Wishlist/Favoritos** — Context + localStorage (no auth) / Supabase (auth), botón en ProductCard y página `/favoritos`
+- ✅ **Sistema de reseñas** — Estrellas, formulario, aprobación por admin, API CRUD, sección en detalle de producto
+- ✅ **Cupones de descuento** — Validación de códigos, descuento % y fijo, integrado en checkout con UI
+- ✅ **Tracking de envío** — Número de guía + URL en admin ordenes, email automático al marcar como enviado
+- ✅ **Facturas HTML/PDF** — Endpoint `/api/orders/[id]/invoice` genera factura imprimible como PDF
+- ✅ **Live chat** — Integración Tawk.to (solo agregar env vars para activar)
+- ✅ **Rate limiting** — `checkRateLimit()` utility aplicado en creación de órdenes y validación de cupones
+- ✅ **Guía de configuración para producción** — Documentación detallada paso a paso para Stripe, MercadoPago, Resend, Sentry, GA, DNS
+- ✅ **Migración SQL** — `infra/supabase/fase8_mejoras.sql` para tablas wishlists y product_reviews con RLS
+
 ---
 
 **Última actualización**: 2026-02-18
-**Versión del documento**: 8.0
+**Versión del documento**: 9.0
 **Estado del proyecto**: 100% Funcional - Listo para Producción
 
 ---
@@ -1092,7 +1327,8 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 - ✅ FASE 4: Seguridad y Emails
 - ✅ FASE 5: Integración Completa de Stripe
 - ✅ FASE 6: RLS + Settings en páginas públicas + MercadoPago
-- ✅ **FASE 7: Autenticación pública + Emails admin + Stock alerts** ⭐ NUEVO
+- ✅ FASE 7: Autenticación pública + Emails admin + Stock alerts
+- ✅ **FASE 8: Wishlist, Reseñas, Cupones, Tracking, Facturas, Live Chat, Rate Limiting** ⭐ NUEVO
 
 ### FASE 1: CRUD DE PRODUCTOS ✅ **COMPLETADA**
 

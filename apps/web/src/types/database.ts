@@ -451,6 +451,58 @@ export interface Database {
           updated_at?: string
         }
       }
+      wishlists: {
+        Row: {
+          id: string
+          user_id: string
+          product_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          product_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          product_id?: string
+        }
+      }
+      product_reviews: {
+        Row: {
+          id: string
+          product_id: string
+          user_id: string
+          rating: number
+          title: string | null
+          comment: string | null
+          verified_purchase: boolean
+          approved: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          user_id: string
+          rating: number
+          title?: string | null
+          comment?: string | null
+          verified_purchase?: boolean
+          approved?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          rating?: number
+          title?: string | null
+          comment?: string | null
+          verified_purchase?: boolean
+          approved?: boolean
+          updated_at?: string
+        }
+      }
       coupons: {
         Row: {
           id: string
@@ -514,4 +566,6 @@ export type InventoryMovement = Tables<'inventory_movements'>
 export type DailyClosure = Tables<'daily_closures'>
 export type AuditLog = Tables<'audit_logs'>
 export type Coupon = Tables<'coupons'>
+export type Wishlist = Tables<'wishlists'>
+export type ProductReview = Tables<'product_reviews'>
 export type StoreSettings = Tables<'store_settings'>

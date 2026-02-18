@@ -3,6 +3,7 @@ import { Footer } from '@/components/layout/footer'
 import { CartDrawer } from '@/components/cart/cart-drawer'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { OrganizationSchema } from '@/components/seo/structured-data'
+import { LiveChat } from '@/components/chat/live-chat'
 
 export default function ShopLayout({
   children,
@@ -19,6 +20,7 @@ export default function ShopLayout({
       <Footer />
       <CartDrawer />
       <BottomNav />
+      <LiveChat />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, CreditCard, Banknote, Smartphone, Loader2, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, CreditCard, Banknote, Smartphone, Loader2, ShoppingBag, Tag, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -48,6 +48,15 @@ export default function CheckoutPage() {
     notes: '',
   })
 
+  // Cupón de descuento
+  const [couponCode, setCouponCode] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    id: string; code: string; description: string | null;
+    discount_type: string; discount_value: number; discount_cents: number;
+  } | null>(null)
+  const [couponError, setCouponError] = useState('')
+
   // Settings desde BD
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(DEFAULT_PAYMENT_METHODS)
@@ -75,7 +84,41 @@ export default function CheckoutPage() {
       ? shippingConfig.default_shipping_cost_cents
       : 0
 
-  const finalTotal = totalPrice + shippingCost
+  const discountCents = appliedCoupon?.discount_cents || 0
+  const finalTotal = Math.max(0, totalPrice - discountCents + shippingCost)
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError('')
+
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode, subtotal_cents: totalPrice }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setCouponError(data.error || 'Cupon no valido')
+        setAppliedCoupon(null)
+      } else {
+        setAppliedCoupon(data.coupon)
+        setCouponError('')
+      }
+    } catch {
+      setCouponError('Error al validar cupon')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode('')
+    setCouponError('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,6 +133,8 @@ export default function CheckoutPage() {
           customer: formData,
           payment_method: selectedPayment,
           subtotal_cents: totalPrice,
+          discount_cents: discountCents,
+          coupon_code: appliedCoupon?.code || null,
           shipping_cents: shippingCost,
           total_cents: finalTotal,
         }),
@@ -296,12 +341,61 @@ export default function CheckoutPage() {
                   ))}
                 </ul>
 
+                {/* Coupon */}
+                <div className="border-t pt-4">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                          {appliedCoupon.code}
+                        </span>
+                        <span className="text-xs text-green-600 dark:text-green-500">
+                          (-{formatPrice(appliedCoupon.discount_cents)})
+                        </span>
+                      </div>
+                      <button onClick={handleRemoveCoupon} className="text-green-600 hover:text-green-800">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Codigo de cupon"
+                          value={couponCode}
+                          onChange={(e) => { setCouponCode(e.target.value); setCouponError('') }}
+                          className="text-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleApplyCoupon}
+                          disabled={couponLoading || !couponCode.trim()}
+                        >
+                          {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Aplicar'}
+                        </Button>
+                      </div>
+                      {couponError && (
+                        <p className="mt-1 text-xs text-red-500">{couponError}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Totals */}
                 <div className="space-y-2 border-t pt-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>{formatPrice(totalPrice)}</span>
                   </div>
+                  {discountCents > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Descuento</span>
+                      <span>-{formatPrice(discountCents)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Envio</span>
                     <span>

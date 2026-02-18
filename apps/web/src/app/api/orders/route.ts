@@ -3,8 +3,13 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { sendPaymentInstructions, sendNewOrderAdmin } from '@/lib/email'
 import { createCheckoutSession, isStripeConfigured } from '@/lib/stripe-helpers'
 import { createPreference, isMercadoPagoConfigured } from '@/lib/mercadopago-helpers'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
+  // Rate limit: max 5 orders per minute per IP
+  const rateLimited = checkRateLimit(request, { limit: 5, windowSeconds: 60 })
+  if (rateLimited) return rateLimited
+
   const serviceSupabase = getServiceSupabase()
   const body = await request.json()
 

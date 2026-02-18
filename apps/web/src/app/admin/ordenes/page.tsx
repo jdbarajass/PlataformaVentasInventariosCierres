@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Eye, Package, Truck, CheckCircle, XCircle } from 'lucide-react'
+import { Search, Eye, Truck, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDateTime } from '@/lib/utils'
 import { Order } from '@/types/database'
+import { useToast } from '@/components/ui/use-toast'
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'secondary' }> = {
   pending: { label: 'Pendiente', variant: 'warning' },
@@ -31,6 +32,13 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [trackingUrl, setTrackingUrl] = useState('')
+  const [newStatus, setNewStatus] = useState('')
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchOrders()
@@ -48,6 +56,45 @@ export default function OrdersPage() {
       console.error('Error fetching orders:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const openOrderModal = (order: Order) => {
+    setSelectedOrder(order)
+    setNewStatus(order.status)
+    const meta = (order.metadata as any) || {}
+    setTrackingNumber(meta.tracking_number || '')
+    setTrackingUrl(meta.tracking_url || '')
+    setShowModal(true)
+  }
+
+  const handleUpdateOrder = async () => {
+    if (!selectedOrder) return
+    setUpdating(true)
+
+    try {
+      const res = await fetch(`/api/orders/${selectedOrder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: newStatus,
+          tracking_number: trackingNumber || undefined,
+          tracking_url: trackingUrl || undefined,
+        }),
+      })
+
+      if (res.ok) {
+        toast({ title: 'Orden actualizada', description: `Estado: ${statusLabels[newStatus]?.label || newStatus}` })
+        setShowModal(false)
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        toast({ title: 'Error', description: data.error, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Error al actualizar', variant: 'destructive' })
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -127,6 +174,7 @@ export default function OrdersPage() {
                   {filteredOrders.map((order) => {
                     const status = statusLabels[order.status] || { label: order.status, variant: 'default' as const }
                     const payment = paymentLabels[order.payment_status] || { label: order.payment_status, variant: 'default' as const }
+                    const meta = (order.metadata as any) || {}
 
                     return (
                       <tr key={order.id} className="group">
@@ -134,6 +182,12 @@ export default function OrdersPage() {
                           <p className="font-mono font-medium">
                             {order.order_number}
                           </p>
+                          {meta.tracking_number && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                              <Truck className="h-3 w-3" />
+                              {meta.tracking_number}
+                            </p>
+                          )}
                         </td>
                         <td className="py-4">
                           <div>
@@ -162,7 +216,7 @@ export default function OrdersPage() {
                           {formatDateTime(order.created_at)}
                         </td>
                         <td className="py-4">
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" onClick={() => openOrderModal(order)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </td>
@@ -179,6 +233,92 @@ export default function OrdersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Order Detail Modal */}
+      {showModal && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Orden {selectedOrder.order_number}</CardTitle>
+              <button onClick={() => setShowModal(false)}>
+                <X className="h-5 w-5" />
+              </button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Customer Info */}
+              <div>
+                <h3 className="mb-2 font-semibold">Cliente</h3>
+                <p className="text-sm">{selectedOrder.customer_name}</p>
+                <p className="text-sm text-muted-foreground">{selectedOrder.customer_email}</p>
+                <p className="text-sm text-muted-foreground">{selectedOrder.customer_phone}</p>
+              </div>
+
+              {/* Order Total */}
+              <div>
+                <h3 className="mb-2 font-semibold">Total</h3>
+                <p className="text-lg font-bold text-primary">{formatPrice(selectedOrder.total_cents)}</p>
+              </div>
+
+              {/* Status Change */}
+              <div>
+                <h3 className="mb-2 font-semibold">Estado de la orden</h3>
+                <select
+                  className="w-full rounded-xl border bg-background px-4 py-2 text-sm"
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                >
+                  <option value="pending">Pendiente</option>
+                  <option value="confirmed">Confirmado</option>
+                  <option value="processing">Procesando</option>
+                  <option value="shipped">Enviado</option>
+                  <option value="delivered">Entregado</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </div>
+
+              {/* Tracking Info */}
+              <div>
+                <h3 className="mb-2 font-semibold flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  Tracking de envio
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-sm text-muted-foreground">Numero de guia</label>
+                    <Input
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value)}
+                      placeholder="Ej: 1234567890"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-muted-foreground">URL de seguimiento (opcional)</label>
+                    <Input
+                      value={trackingUrl}
+                      onChange={(e) => setTrackingUrl(e.target.value)}
+                      placeholder="https://rastreo.transportadora.com/..."
+                    />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Al cambiar el estado a &quot;Enviado&quot; se enviara un email al cliente con el tracking.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <Button onClick={handleUpdateOrder} disabled={updating} className="flex-1">
+                  {updating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Guardar cambios
+                </Button>
+                <Button variant="outline" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
