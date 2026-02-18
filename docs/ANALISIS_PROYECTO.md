@@ -1,7 +1,7 @@
 # 📊 ANÁLISIS COMPLETO - YB MOTOCOM
 
 > **Fecha**: 2026-02-17 (Actualizado)
-> **Versión**: 7.0
+> **Versión**: 8.0
 > **Estado del Proyecto**: 100% Funcional - Listo para Producción
 
 ---
@@ -51,7 +51,7 @@ Deployment:  Vercel/Netlify Ready
 | **Tienda Pública** | 15 rutas funcionales | - | 🟢 100% |
 | **Panel Admin** | 8/8 secciones completas (incluye configuración) | - | 🟢 100% |
 | **API Endpoints** | 20+ endpoints protegidos | - | 🟢 100% |
-| **Autenticación** | Roles + Auth helpers | 2FA | 🟢 75% |
+| **Autenticación** | Roles + Auth helpers + Registro público + Recuperar contraseña | 2FA | 🟢 90% |
 | **Pagos** | Stripe + MercadoPago completos | - | 🟢 100% |
 | **Emails** | Completo (Resend) | - | 🟢 100% |
 | **Storage** | Supabase Storage bucket configurado | - | 🟢 100% |
@@ -91,6 +91,18 @@ Deployment:  Vercel/Netlify Ready
 | `/privacidad` | `(shop)/privacidad/page.tsx` | ✅ Completo | 12 secciones, cumple Ley 1581/2012 colombiana |
 
 **Componente Product Filters**: `src/components/products/product-filters.tsx` ✅ Completo (filtros por categoría, precio, stock, ordenamiento, responsive)
+
+#### ✅ RUTAS DE AUTENTICACIÓN PÚBLICA (2026-02-18)
+
+| Ruta | Archivo | Estado | Funcionalidad |
+|------|---------|--------|---------------|
+| `/registro` | `(shop)/registro/page.tsx` | ✅ Completo | Registro de clientes con Supabase Auth, crea perfil con role 'viewer' |
+| `/iniciar-sesion` | `(shop)/iniciar-sesion/page.tsx` | ✅ Completo | Login público con redirect inteligente por rol (admin→/admin, viewer→/mi-cuenta) |
+| `/mi-cuenta` | `(shop)/mi-cuenta/page.tsx` | ✅ Completo | Perfil del cliente (editar nombre/teléfono) + historial de órdenes con badges de estado |
+| `/recuperar-contrasena` | `(shop)/recuperar-contrasena/page.tsx` | ✅ Completo | Envía email de reset via Supabase Auth |
+| `/nueva-contrasena` | `(shop)/nueva-contrasena/page.tsx` | ✅ Completo | Establecer nueva contraseña, auto-redirect a /mi-cuenta |
+
+**Header dinámico**: `src/components/layout/header.tsx` actualizado con detección de auth state, icono dinámico (LogIn/User), y enlaces contextuales según rol.
 
 #### ❌ FALTANTE
 
@@ -227,10 +239,16 @@ export async function POST(request: NextRequest) {
   - `seller`: CRUD productos, órdenes, inventario, cierres, reportes (sin audit logs)
   - `viewer`: Solo reportes (read-only)
 
+#### ✅ NUEVAS FUNCIONALIDADES DE AUTH (2026-02-18)
+
+- **Registro público** de clientes (`/registro`) — Supabase Auth signup + perfil en `public.users` con role 'viewer'
+- **Login público** (`/iniciar-sesion`) — Redirect inteligente por rol
+- **Mi cuenta** (`/mi-cuenta`) — Editar perfil + historial de órdenes
+- **Recuperación de contraseña** (`/recuperar-contrasena` + `/nueva-contrasena`) — UI completa con Supabase Auth
+- **Header dinámico** — Detecta sesión activa, muestra icono/enlaces según estado de auth y rol
+
 #### ❌ FALTANTE
 
-- **Registro público** de usuarios (solo login)
-- **Recuperación de contraseña** (Supabase tiene la funcionalidad pero no hay UI)
 - **2FA (Two-Factor Authentication)**
 - **Rate limiting** en endpoints sensibles
 - **CSRF protection** en formularios
@@ -494,7 +512,12 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function sendOrderConfirmation(orderId: string)
 export async function sendPaymentInstructions(orderId: string, paymentMethod: string)
+export async function sendOrderShipped(orderId: string, trackingNumber?: string, trackingUrl?: string)
+export async function sendNewOrderAdmin(orderId: string)
+export async function sendLowStockAlert(): Promise<boolean>
 ```
+
+**Variable de entorno adicional**: `ADMIN_NOTIFICATION_EMAIL` — Email del admin que recibe notificaciones (default: `ybmotocom@gmail.com`)
 
 **Templates de Email Creados**:
 1. **`email-layout.tsx`** - Layout compartido con branding de YB MOTOCOM
@@ -509,10 +532,25 @@ export async function sendPaymentInstructions(orderId: string, paymentMethod: st
    - Número de celular (Nequi/Daviplata)
    - Referencia de pago
    - Fecha límite
+4. **`order-shipped.tsx`** - Notificación de envío ✨ NUEVO (2026-02-18)
+   - Número de tracking (opcional)
+   - URL de seguimiento (opcional)
+   - Detalles de la orden
+5. **`new-order-admin.tsx`** - Notificación al admin de nueva orden ✨ NUEVO (2026-02-18)
+   - Datos del cliente (nombre, email, teléfono)
+   - Tabla de productos comprados
+   - Total de la orden
+   - Método de pago
+6. **`low-stock-alert.tsx`** - Alerta de stock bajo ✨ NUEVO (2026-02-18)
+   - Tabla de productos con stock bajo
+   - Badges AGOTADO/BAJO
+   - SKU, stock actual, umbral mínimo
 
 **Integración Completa**:
-- ✅ **Orden creada con método manual** → `sendPaymentInstructions()` en `api/orders/route.ts:109`
+- ✅ **Orden creada con método manual** → `sendPaymentInstructions()` en `api/orders/route.ts`
 - ✅ **Pago confirmado (Stripe)** → `sendOrderConfirmation()` en `api/payments/webhook/route.ts`
+- ✅ **Nueva orden (cualquier método)** → `sendNewOrderAdmin()` en `api/orders/route.ts` (3 puntos: Stripe, MercadoPago, manual)
+- ✅ **Stock bajo post-pago** → `sendLowStockAlert()` en `api/payments/webhook/route.ts` (non-blocking)
 
 **Emails Implementados**:
 
@@ -521,10 +559,10 @@ export async function sendPaymentInstructions(orderId: string, paymentMethod: st
 | **Orden creada** | Cliente | ✅ Implementado | POST /api/orders (métodos manuales) |
 | **Pago confirmado** | Cliente | ✅ Implementado | Stripe webhook checkout.session.completed |
 | **Instrucciones de pago** | Cliente | ✅ Implementado | POST /api/orders (transferencia/Nequi/Daviplata) |
-| **Orden enviada** | Cliente | ❌ Pendiente | - |
-| **Nueva orden** | Admin | ❌ Pendiente | - |
-| **Stock bajo** | Admin | ❌ Pendiente | - |
-| **Recuperar contraseña** | Cliente | ❌ Pendiente | Usar Supabase Auth built-in |
+| **Orden enviada** | Cliente | ✅ Implementado | `sendOrderShipped()` disponible para integrar en admin |
+| **Nueva orden** | Admin | ✅ Implementado | POST /api/orders (todos los métodos de pago) |
+| **Stock bajo** | Admin | ✅ Implementado | Stripe webhook post-pago |
+| **Recuperar contraseña** | Cliente | ✅ Implementado | Supabase Auth built-in + UI en `/recuperar-contrasena` |
 
 ---
 
@@ -621,36 +659,16 @@ update_updated_at_column() -- Actualiza 'updated_at' en UPDATE
 
 #### Row Level Security (RLS)
 
-**Estado**: ⚠️ **NO CONFIGURADO**
+**Estado**: ✅ **CONFIGURADO Y APLICADO** (2026-02-17)
 
-**Problema**: Las tablas NO tienen políticas RLS activadas
-- Cualquier cliente con `anon_key` puede leer/escribir
-- **CRÍTICO** para producción
-
-**Políticas necesarias**:
-```sql
--- Productos: lectura pública, escritura admin
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Public read products"
-ON products FOR SELECT
-USING (active = true);
-
-CREATE POLICY "Admin manage products"
-ON products FOR ALL
-USING (auth.jwt() ->> 'role' = 'admin');
-
--- Órdenes: crear público, leer/modificar admin
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Anyone can create orders"
-ON orders FOR INSERT
-WITH CHECK (true);
-
-CREATE POLICY "Admin read all orders"
-ON orders FOR SELECT
-USING (auth.jwt() ->> 'role' IN ('admin', 'seller'));
-```
+**Archivo**: `infra/supabase/rls_policies.sql`
+- ✅ 26 políticas activas en Supabase
+- ✅ Función `get_user_role()` con SECURITY DEFINER (evita recursión infinita)
+- ✅ RLS habilitado en las 11 tablas + Storage
+- ✅ Productos: lectura pública (activos), escritura admin/seller
+- ✅ Órdenes: crear público (anon), leer admin/seller
+- ✅ Store settings: lectura pública, escritura solo admin
+- ✅ Audit logs: append-only (INSERT para admin/seller, UPDATE/DELETE bloqueado)
 
 ---
 
@@ -693,9 +711,9 @@ export function getProductImage(images: string[], index: number = 0): string {
 
 | Funcionalidad | Impacto | Complejidad |
 |---------------|---------|-------------|
-| **Registro de clientes** | 🔴 Alto | 🟢 Baja |
-| **Perfil de cliente** | 🟠 Medio | 🟢 Baja |
-| **Historial de órdenes del cliente** | 🔴 Alto | 🟡 Media |
+| ~~**Registro de clientes**~~ | ~~🔴 Alto~~ | ~~🟢 Baja~~ | ✅ Implementado (2026-02-18) |
+| ~~**Perfil de cliente**~~ | ~~🟠 Medio~~ | ~~🟢 Baja~~ | ✅ Implementado (2026-02-18) |
+| ~~**Historial de órdenes del cliente**~~ | ~~🔴 Alto~~ | ~~🟡 Media~~ | ✅ Implementado (2026-02-18) |
 | **Wishlist/Favoritos** | 🟡 Bajo | 🟢 Baja |
 | **Sistema de reseñas/ratings** | 🟠 Medio | 🟡 Media |
 | **Notificaciones de restock** | 🟡 Bajo | 🟡 Media |
@@ -866,7 +884,7 @@ npm install eslint@latest
 
 ### 🟡 **MEJORA** (UX/Operacional)
 
-#### 9. Registro de Clientes ⏱️ 4-6 horas
+#### 9. ~~Registro de Clientes~~ ✅ COMPLETADO (2026-02-18)
 #### 10. Sistema de Reseñas ⏱️ 8-10 horas
 #### 11. Wishlist ⏱️ 4-6 horas
 #### 12. Filtros Avanzados ⏱️ 6-8 horas
@@ -1034,17 +1052,26 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 
 **Para producción quedan**:
 1. ⚙️ **Configurar credenciales MercadoPago** (ya está el código, solo faltan las variables de entorno)
-2. 🟡 **Registro público de clientes** (signup, perfil, historial de órdenes)
 
 **Completado en FASE 6 (2026-02-17)**:
 - ✅ **RLS** — 26 políticas activas en Supabase
 - ✅ **Settings en páginas públicas** — footer, checkout y contacto leen de BD
 - ✅ **MercadoPago** — código 100% listo, solo falta configurar credenciales
 
+**Completado en FASE 7 (2026-02-18)**:
+- ✅ **Registro público de clientes** (`/registro`) — Supabase Auth + perfil con role 'viewer'
+- ✅ **Login público** (`/iniciar-sesion`) — Redirect inteligente por rol
+- ✅ **Mi cuenta** (`/mi-cuenta`) — Editar perfil + historial de órdenes
+- ✅ **Recuperar contraseña** (`/recuperar-contrasena` + `/nueva-contrasena`) — Flujo completo
+- ✅ **Header dinámico** — Detecta auth state, icono y enlaces según rol
+- ✅ **3 nuevos templates de email** — order-shipped, new-order-admin, low-stock-alert
+- ✅ **Notificación admin en nueva orden** — `sendNewOrderAdmin()` integrado en los 3 flujos de pago
+- ✅ **Alerta stock bajo post-pago** — `sendLowStockAlert()` integrado en webhook de Stripe
+
 ---
 
-**Última actualización**: 2026-02-17
-**Versión del documento**: 7.0
+**Última actualización**: 2026-02-18
+**Versión del documento**: 8.0
 **Estado del proyecto**: 100% Funcional - Listo para Producción
 
 ---
@@ -1053,9 +1080,9 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 
 ### Estado Actual de Desarrollo
 
-**Fase en curso**: FASE 7 - Registro de Clientes (FASE 6 completada)
+**Fase en curso**: Completada — Todas las fases implementadas
 
-**Última actualización**: 2026-02-17
+**Última actualización**: 2026-02-18
 
 **FASES COMPLETADAS**:
 - ✅ FASE 1: CRUD de Productos
@@ -1064,7 +1091,8 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 - ✅ FASE 3.5: Correcciones de Imágenes y UX
 - ✅ FASE 4: Seguridad y Emails
 - ✅ FASE 5: Integración Completa de Stripe
-- ✅ **FASE 6: RLS + Settings en páginas públicas + MercadoPago** ⭐ NUEVO
+- ✅ FASE 6: RLS + Settings en páginas públicas + MercadoPago
+- ✅ **FASE 7: Autenticación pública + Emails admin + Stock alerts** ⭐ NUEVO
 
 ### FASE 1: CRUD DE PRODUCTOS ✅ **COMPLETADA**
 

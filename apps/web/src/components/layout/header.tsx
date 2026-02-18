@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ShoppingCart, Menu, Search, User, X } from 'lucide-react'
-import { useState } from 'react'
+import { ShoppingCart, Menu, Search, User, X, LogIn } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCart } from '@/lib/cart-context'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { supabase } from '@/lib/supabase'
 
 const navigation = [
   { name: 'Inicio', href: '/' },
@@ -23,6 +24,35 @@ export function Header() {
   const { totalItems, toggleCart } = useCart()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setIsLoggedIn(!!session)
+      if (session?.user) {
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+        setUserRole(data?.role || 'viewer')
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsLoggedIn(!!session)
+      if (!session) setUserRole(null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const accountHref = !isLoggedIn
+    ? '/iniciar-sesion'
+    : userRole === 'admin' || userRole === 'seller'
+      ? '/admin'
+      : '/mi-cuenta'
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -85,10 +115,14 @@ export function Header() {
           {/* Theme Toggle */}
           <ThemeToggle />
 
-          {/* User */}
-          <Link href="/admin">
+          {/* User / Account */}
+          <Link href={accountHref}>
             <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
+              {isLoggedIn ? (
+                <User className="h-5 w-5" />
+              ) : (
+                <LogIn className="h-5 w-5" />
+              )}
             </Button>
           </Link>
 
@@ -146,6 +180,33 @@ export function Header() {
                   {item.name}
                 </Link>
               ))}
+              {!isLoggedIn && (
+                <>
+                  <Link
+                    href="/iniciar-sesion"
+                    className="rounded-lg px-4 py-2 text-sm transition-colors hover:bg-secondary"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Iniciar sesión
+                  </Link>
+                  <Link
+                    href="/registro"
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-secondary"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Crear cuenta
+                  </Link>
+                </>
+              )}
+              {isLoggedIn && (
+                <Link
+                  href={accountHref}
+                  className="rounded-lg px-4 py-2 text-sm transition-colors hover:bg-secondary"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Mi cuenta
+                </Link>
+              )}
             </nav>
           </div>
         </div>

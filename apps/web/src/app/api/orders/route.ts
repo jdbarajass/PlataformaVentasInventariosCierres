@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { sendPaymentInstructions } from '@/lib/email'
+import { sendPaymentInstructions, sendNewOrderAdmin } from '@/lib/email'
 import { createCheckoutSession, isStripeConfigured } from '@/lib/stripe-helpers'
 import { createPreference, isMercadoPagoConfigured } from '@/lib/mercadopago-helpers'
 
@@ -90,6 +90,9 @@ export async function POST(request: NextRequest) {
         status: 'pending',
       })
 
+      // Send admin notification (non-blocking)
+      sendNewOrderAdmin(order.id).catch(console.error)
+
       return NextResponse.json({
         order_id: order.id,
         checkout_url: session.url,
@@ -125,6 +128,9 @@ export async function POST(request: NextRequest) {
         status: 'pending',
       })
 
+      // Send admin notification (non-blocking)
+      sendNewOrderAdmin(order.id).catch(console.error)
+
       return NextResponse.json({
         order_id: order.id,
         checkout_url: initPoint,
@@ -146,6 +152,9 @@ export async function POST(request: NextRequest) {
         console.error('Email send failed:', emailError)
         // Don't block order creation if email fails
       }
+
+      // Send admin notification (non-blocking)
+      sendNewOrderAdmin(order.id).catch(console.error)
 
       return NextResponse.json({
         order_id: order.id,

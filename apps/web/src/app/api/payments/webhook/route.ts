@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
 import { getServiceSupabase } from '@/lib/supabase'
-import { sendOrderConfirmation } from '@/lib/email'
+import { sendOrderConfirmation, sendLowStockAlert } from '@/lib/email'
 import { validateStripeWebhook, mapStripePaymentStatus } from '@/lib/stripe-helpers'
 
 /**
@@ -167,6 +167,9 @@ export async function POST(request: NextRequest) {
           console.error('[Webhook] Confirmation email send error:', emailError)
           // Don't block webhook processing if email fails
         }
+
+        // Check and alert low stock (non-blocking)
+        sendLowStockAlert().catch((err) => console.error('[Webhook] Low stock alert error:', err))
 
         break
       }
