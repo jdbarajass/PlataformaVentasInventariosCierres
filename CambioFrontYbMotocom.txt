@@ -1,0 +1,403 @@
+Hola muy buenos días 
+
+Lo que pasa es que quisiera cambiar todo el front ya que siento que no esta muy bonito y llamativo
+quiero cambiarlo completamente pero Ojo solo la parte visual no la logica ni la operativa ya que el proyecto esta completo 
+
+entonces quisiera que primero que todo vieras por completo el proyecto hay un documento en el que dice en que etapa esta
+en que fase va como esta de avanzado como estas diseñado de que trata y demás pero la idea es que lo sepas no que vayamos a modificar lógica sino ajustar front 
+ajustar parte visual a lo que ya se tiene el cambio visual es bastante retador y grande pero entonces ya teniendo claro todo el proyecto
+y como se puede abarcar y modificar te quiero dar como quisiera hacerlo pero ya que tu sabes todo el proyecto ya sabras como hacerlo lo que 
+te voy a pedir y pueden ser sugerencias ya tu miras como lo llevas acabo
+
+Hay unas imágenes de referencia que están en la carpeta ImagenesDeReferenciaPagina para que las tengas presente
+
+
+El mockup “front brutal” (futurista, moderno, pero vendible)
+
+Esto es lo que yo haría como dirección de diseño:
+
+Estilo / identidad
+
+Dark premium + acento rojo/ámbar (moto/racing) + luces tipo neón suave.
+
+Glass + glow controlado (no exagerado): tarjetas con blur leve, bordes sutiles, sombras profundas.
+
+Tipografía: Sans moderna (Inter / Sora) y títulos con tracking tipo “motorsport”.
+
+Estructura (home)
+
+Header sticky (transparente → sólido al hacer scroll)
+
+Logo, buscador grande, categorías (dropdown), cuenta, carrito, botón WhatsApp.
+
+Hero “cinemático” (video/imagen de moto + textura)
+
+Texto corto potente + 2 CTAs: “Comprar ahora” + “Ver cascos”.
+
+3 badges: “Envío rápido”, “Pago seguro”, “Asesor en WhatsApp”.
+
+Buscador + filtros rápidos (chips): Cascos / Intercom / Luces / Top cases / Guantes / Alarmas.
+
+Sección “Compra por uso” (cards): Urbano / Touring / Off-road / Delivery.
+
+Grid de productos (12–16 items) con:
+
+Hover: quick view, wishlist, “añadir al carrito”
+
+Tag: “Nuevo / Oferta / Top ventas”
+
+Comparador (2–3 productos) “elige tu casco ideal” (flujo corto).
+
+Marcas (carrusel de logos) + “importadores / certificados”
+
+Footer fuerte: sedes, políticas, WhatsApp, confianza.
+
+3) 5 referencias visuales (para que le muestres a la IA el “estilo”)
+
+Te dejo inspiración de UI (no para copiar, sino para guiar el mood):
+(ideas: hero oscuro premium, tarjetas modernas, brillo controlado, e-commerce con buen “peso visual”).
+
+4) “Sentencias” (prompts) listas para enviarle a una IA y que te genere EL front
+
+Te dejo 3 prompts: uno para Figma, otro para código, otro para mejorar micro-interacciones. Cópialos tal cual.
+
+Prompt A — Mockup (Figma / diseño)
+
+Diseña un e-commerce futurista y premium para “YB MOTOCOM” (venta de accesorios de motos en Colombia). Estilo dark mode con acento rojo/ámbar, glassmorphism sutil, iluminación tipo neón controlada, estética motorsport.
+Crea 1 pantalla Home (desktop 1440px) y su versión móvil (390px).
+Componentes obligatorios: header sticky con buscador grande, mega menú de categorías, botón WhatsApp flotante, hero cinemático con 2 CTAs, sección de chips de filtros, “compra por uso” (urbano/touring/offroad/delivery), grid de productos (12) con quick view/wishlist/añadir, sección de beneficios (envío/pago/garantía/retira), carrusel de marcas, y footer completo.
+Define: paleta (hex), tipografías, espaciados 8pt grid, estilos de botón y tarjeta, y un mini design system (tokens).
+Que se vea “de otro mundo” pero 100% vendible y legible.
+
+Prompt B — Front (código) manteniendo tu lógica actual
+
+Genera SOLO FRONT (sin backend) para un e-commerce de accesorios de motos. Usa Next.js + Tailwind + shadcn/ui + Framer Motion.
+Requisitos: tema oscuro por defecto, glassmorphism sutil, animaciones suaves (fade/slide), componentes reutilizables, y responsive perfecto.
+Páginas: Home, Categoría, Producto, Carrito, Cuenta.
+Home debe incluir: sticky header con buscador y mega menú, hero con fondo video/imagen, chips de filtros, secciones de productos (nuevos/top/ofertas), carrusel de marcas, beneficios, y footer.
+Crea datos mock (JSON) para productos/categorías.
+Importante: performance (lazy loading imágenes, skeleton loaders, no animaciones pesadas).
+Entrega: estructura de carpetas, componentes y estilos.
+
+Prompt C — Microinteracciones “wow” (sin recargar)
+
+Mejora el diseño con microinteracciones premium:
+
+hover en cards con elevación + glow sutil
+
+quick view modal con galería
+
+botón “Añadir” con feedback (toast)
+
+sticky cart mini-resumen al hacer scroll
+
+animación de entrada por secciones (Framer Motion)
+Mantén accesibilidad: contraste AA, foco visible, navegación teclado.
+No uses efectos exagerados ni neón fuerte; debe verse premium.
+
+5) Paso a paso para transformar tu web actual (solo visual)
+
+Define el “design system”: colores, tipografías, botones, cards, sombras, radios.
+
+Cambia el header: buscador pro + mega menú + carrito/cuenta + WhatsApp.
+
+Rehaz el hero: menos texto, más impacto, 2 CTAs, badges de confianza.
+
+Reemplaza grid simple por tarjetas e-commerce pro (tags, quick view, wishlist).
+
+Agrega secciones de densidad: compra por uso, marcas, comparador, beneficios.
+
+Mete microinteracciones (solo donde aumenten conversión).
+
+Ajusta móvil primero: filtros tipo bottom sheet + sticky cart.
+Vamos a hacerlo premium oscuro por defecto, pero con modo claro elegante activable con toggle (sol/luna) sin romper tu arquitectura actual.
+
+Voy a darte:
+
+🎨 Dirección visual exacta
+
+🧠 Design system (tokens listos)
+
+🔥 Prompt para que otra IA te genere el front completo
+
+🛠️ Implementación exacta para tu repo (Next + Tailwind + shadcn)
+
+✨ Micro-interacciones pro
+
+📁 Qué archivos modificar en tu proyecto
+
+🎯 CONCEPTO VISUAL: “Racing Dark Premium”
+Default → DARK
+
+Fondo: carbón profundo (no negro puro)
+
+Glow rojo sutil
+
+Glass + bordes suaves
+
+Iluminación tipo showroom
+
+Light Mode → Clean Performance
+
+Blanco cálido (no blanco clínico)
+
+Gris suave
+
+Acento rojo racing
+
+Estética tipo Apple + Porsche + motorsport
+
+🎨 DESIGN SYSTEM (LISTO PARA USAR)
+Colores base
+DARK MODE
+--bg: #0F1115;
+--card: #171A21;
+--muted: #1F232B;
+--primary: #E10600; /* rojo racing */
+--accent: #FF3B3B;
+--text: #F5F7FA;
+--text-muted: #9CA3AF;
+--border: #2A2F3A;
+LIGHT MODE
+--bg: #F7F8FA;
+--card: #FFFFFF;
+--muted: #ECEEF2;
+--primary: #D90429;
+--accent: #FF3B3B;
+--text: #111827;
+--text-muted: #6B7280;
+--border: #E5E7EB;
+🌗 IMPLEMENTACIÓN DEL TOGGLE (Next + Tailwind)
+
+Instala si no lo tienes:
+npm install next-themes
+En app/layout.tsx:
+import { ThemeProvider } from "next-themes"
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="es" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}
+Componente Toggle
+"use client"
+
+import { useTheme } from "next-themes"
+import { Sun, Moon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+export function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="rounded-full"
+    >
+      {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+    </Button>
+  )
+}
+
+Ponlo en el header.
+
+🧠 PROMPT MAESTRO PARA QUE UNA IA TE GENERE EL FRONT COMPLETO
+
+Copia esto EXACTO:
+PROMPT FRONT BRUTAL
+
+Rediseña completamente el frontend de un e-commerce de accesorios de motos llamado YB MOTOCOM.
+
+Stack: Next.js 14 + Tailwind + shadcn/ui + Framer Motion.
+Solo modificar UI, no backend.
+
+Crear un diseño premium, futurista y altamente vendible.
+
+Requisitos:
+
+Dark mode por defecto (estilo showroom racing)
+
+Light mode elegante activable con toggle sol/luna
+
+Sistema de diseño completo con tokens
+
+Animaciones suaves y profesionales
+
+Glassmorphism sutil
+
+Bordes redondeados 12px
+
+Sombra profunda en dark
+
+Responsive perfecto
+
+Home debe incluir:
+
+Sticky header con buscador grande y mega menú
+
+Hero cinemático con fondo video o imagen dinámica
+
+Badges de confianza (envío, pago seguro, garantía)
+
+Filtros rápidos por categoría (chips)
+
+Grid de productos con hover animado
+
+Quick view modal
+
+Wishlist
+
+Carrusel de marcas
+
+Sección “Compra por uso”
+
+Footer completo con WhatsApp
+
+Incluir microinteracciones premium:
+
+Hover elevación + glow
+
+Animación de entrada por secciones
+
+Feedback visual al agregar al carrito
+
+Skeleton loaders
+
+Entregar:
+
+Estructura de carpetas
+
+Componentes reutilizables
+
+Ejemplo de página Home completa
+
+Variables CSS para dark/light
+
+Código limpio listo para pegar en proyecto existente
+
+🔥 MEJORAS VISUALES CLAVE PARA TU PROYECTO
+1️⃣ Header Pro
+
+Fondo transparente
+
+Blur al hacer scroll
+
+Mega menú tipo Apple
+
+Buscador ancho
+
+2️⃣ Hero Cinemático
+
+Imagen moto + overlay oscuro
+
+Texto corto potente
+
+Botón principal rojo
+
+Botón secundario outline
+
+3️⃣ Cards de producto premium
+
+Hover:
+
+Elevación
+
+Glow rojo leve
+
+Imagen zoom 1.05
+
+Botones aparecen suaves
+
+4️⃣ Grid moderno
+
+En vez de plano:
+
+grid-cols-2 md:grid-cols-3 lg:grid-cols-4
+gap-6
+
+
+Con sombras:
+
+shadow-[0_20px_60px_rgba(0,0,0,0.5)]
+
+5️⃣ Beneficios visuales
+
+Iconos minimal:
+
+🚚 Envío rápido
+
+🔒 Pago seguro
+
+🛡 Garantía
+
+📦 Retira en tienda
+
+En cards horizontales con fondo glass.
+
+✨ MICROINTERACCIONES QUE TE SUBEN EL NIVEL
+
+Framer Motion fade-up por sección
+
+Smooth scroll
+
+Navbar con shrink effect
+
+Sticky mini cart lateral
+
+Wishlist animado
+
+Botón “Agregar” con check animado
+
+🛠️ ARCHIVOS QUE DEBES MODIFICAR EN TU REPO
+
+En tu proyecto actual:
+
+1. layout.tsx
+
+→ Agregar ThemeProvider
+
+2. globals.css
+
+→ Añadir variables CSS dark/light
+
+3. components/header.tsx
+
+→ Agregar ThemeToggle + buscador grande
+
+4. components/product-card.tsx
+
+→ Mejorar hover y animaciones
+
+5. app/page.tsx
+
+→ Reestructurar Home
+
+🎯 RESULTADO FINAL
+
+Vas a pasar de:
+
+🧱 Plantilla funcional
+
+a:
+
+🚀 E-commerce tipo marca internacional
+
+Moderno
+
+Profesional
+
+Oscuro premium
+
+Light elegante
+
+Responsive brutal
+
+Sensación de marca fuerte
