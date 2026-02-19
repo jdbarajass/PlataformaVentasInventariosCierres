@@ -125,11 +125,11 @@ export function CartDrawer() {
                 <span>Total</span>
                 <span className="text-primary">{formatPrice(totalPrice)}</span>
               </div>
-              <Link href="/checkout" onClick={() => setCartOpen(false)}>
-                <Button variant="neon" size="lg" className="w-full">
+              <Button asChild variant="neon" size="lg" className="w-full">
+                <Link href="/checkout" onClick={() => setCartOpen(false)}>
                   Proceder al pago
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button
                 variant="ghost"
                 className="mt-2 w-full"

@@ -246,9 +246,9 @@ export default function MiCuentaPage() {
                 <p className="mt-2 text-muted-foreground">
                   Cuando realices tu primera compra, aparecerá aquí.
                 </p>
-                <Link href="/productos">
-                  <Button className="mt-4">Ver productos</Button>
-                </Link>
+                <Button asChild className="mt-4">
+                  <Link href="/productos">Ver productos</Link>
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -305,11 +305,11 @@ export default function MiCuentaPage() {
 
                     {order.payment_status === 'pending' && (
                       <div className="mt-4">
-                        <Link href={`/orden/${order.id}/confirmacion`}>
-                          <Button variant="outline" size="sm">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/orden/${order.id}/confirmacion`}>
                             Ver instrucciones de pago
-                          </Button>
-                        </Link>
+                          </Link>
+                        </Button>
                       </div>
                     )}
                   </CardContent>

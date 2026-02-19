@@ -16,9 +16,8 @@ export function ThemeToggle() {
     if (stored) {
       setTheme(stored)
     } else {
-      // Default based on system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setTheme(prefersDark ? 'dark' : 'light')
+      // Default: light theme on first visit
+      setTheme('light')
     }
   }, [])
 

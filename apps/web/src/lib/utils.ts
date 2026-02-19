@@ -69,23 +69,23 @@ const PLACEHOLDER_IMAGE = '/images/placeholder.jpg'
 
 /**
  * Returns a safe image URL from a product's images array.
- * Falls back to placeholder if the URL is invalid or empty.
+ * Only accepts remote http/https URLs (Supabase storage, CDN).
+ * Local paths like /images/products/ are not served because those
+ * files don't exist in the public folder — falls back to placeholder.
  */
-export function getProductImage(images: string[], index: number = 0): string {
+export function getProductImage(images: string[] | null | undefined, index: number = 0): string {
+  if (!images || !Array.isArray(images)) return PLACEHOLDER_IMAGE
   const url = images[index]
   if (!url) return PLACEHOLDER_IMAGE
 
-  // Accept local paths
-  if (url.startsWith('/')) return url
-
-  // Validate remote URLs
+  // Only accept remote URLs — product images must be in Supabase storage
   try {
     const parsed = new URL(url)
     if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
       return url
     }
   } catch {
-    // Invalid URL
+    // Local or invalid URL → fall back to placeholder
   }
 
   return PLACEHOLDER_IMAGE

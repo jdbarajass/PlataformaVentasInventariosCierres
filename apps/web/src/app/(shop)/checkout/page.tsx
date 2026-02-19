@@ -161,12 +161,12 @@ export default function CheckoutPage() {
         <p className="mt-2 text-muted-foreground">
           Agrega productos antes de continuar al checkout.
         </p>
-        <Link href="/">
-          <Button className="mt-6">
+        <Button asChild className="mt-6">
+          <Link href="/">
             <ChevronLeft className="mr-2 h-4 w-4" />
             Volver a la tienda
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
     )
   }

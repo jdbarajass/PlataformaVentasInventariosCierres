@@ -83,7 +83,13 @@ export default function ContactoPage() {
       <div className="container mx-auto px-4">
         {/* Hero Section */}
         <div className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold">Contáctanos</h1>
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 mb-4">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-xs font-semibold tracking-[0.12em] uppercase text-primary">
+              Estamos para ayudarte
+            </span>
+          </div>
+          <h1 className="mb-4 text-4xl font-black">Contáctanos</h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
             ¿Tienes preguntas sobre nuestros productos? ¿Necesitas asesoría para
             elegir el mejor equipo para tu moto? Estamos aquí para ayudarte.
@@ -92,9 +98,9 @@ export default function ContactoPage() {
 
         <div className="grid gap-12 lg:grid-cols-2">
           {/* Contact Form */}
-          <div className="rounded-2xl border bg-card p-8">
+          <div className="rounded-2xl border border-border/50 bg-card p-8">
             <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
                 <MessageSquare className="h-5 w-5 text-white" />
               </div>
               <h2 className="text-2xl font-bold">Envíanos un mensaje</h2>
@@ -110,7 +116,7 @@ export default function ContactoPage() {
                     className="rounded-xl"
                   />
                   {errors.name && (
-                    <p className="text-sm text-red-500">{errors.name.message}</p>
+                    <p className="text-sm text-destructive">{errors.name.message}</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -122,7 +128,7 @@ export default function ContactoPage() {
                     className="rounded-xl"
                   />
                   {errors.email && (
-                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                    <p className="text-sm text-destructive">{errors.email.message}</p>
                   )}
                 </div>
               </div>
@@ -144,7 +150,7 @@ export default function ContactoPage() {
                     className="rounded-xl"
                   />
                   {errors.subject && (
-                    <p className="text-sm text-red-500">{errors.subject.message}</p>
+                    <p className="text-sm text-destructive">{errors.subject.message}</p>
                   )}
                 </div>
               </div>
@@ -155,17 +161,17 @@ export default function ContactoPage() {
                   {...register('message')}
                   rows={5}
                   placeholder="Cuéntanos más detalles..."
-                  className="w-full rounded-xl border bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 {errors.message && (
-                  <p className="text-sm text-red-500">{errors.message.message}</p>
+                  <p className="text-sm text-destructive">{errors.message.message}</p>
                 )}
               </div>
 
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700"
+                className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isSubmitting ? (
                   'Enviando...'
@@ -179,24 +185,30 @@ export default function ContactoPage() {
             </form>
           </div>
 
-          {/* Contact Info */}
+          {/* Contact Info + Map */}
           <div className="space-y-8">
-            <div className="rounded-2xl border bg-card p-8">
+            <div className="rounded-2xl border border-border/50 bg-card p-8">
               <h2 className="mb-6 text-2xl font-bold">Información de contacto</h2>
               <div className="space-y-6">
                 {/* Teléfonos */}
                 {(contactInfo.phone_primary || contactInfo.phone_secondary) && (
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                      <Phone className="h-6 w-6 text-cyan-500" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                      <Phone className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h3 className="font-semibold">Teléfono</h3>
                       {contactInfo.phone_primary && (
-                        <p className="text-muted-foreground">{contactInfo.phone_primary}</p>
+                        <a href={`tel:${contactInfo.phone_primary.replace(/\s/g,'')}`}
+                           className="block text-muted-foreground hover:text-primary transition-colors">
+                          {contactInfo.phone_primary}
+                        </a>
                       )}
                       {contactInfo.phone_secondary && (
-                        <p className="text-muted-foreground">{contactInfo.phone_secondary}</p>
+                        <a href={`tel:${contactInfo.phone_secondary.replace(/\s/g,'')}`}
+                           className="block text-muted-foreground hover:text-primary transition-colors">
+                          {contactInfo.phone_secondary}
+                        </a>
                       )}
                     </div>
                   </div>
@@ -205,12 +217,15 @@ export default function ContactoPage() {
                 {/* Email */}
                 {contactInfo.email && (
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                      <Mail className="h-6 w-6 text-cyan-500" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                      <Mail className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h3 className="font-semibold">Email</h3>
-                      <p className="text-muted-foreground">{contactInfo.email}</p>
+                      <a href={`mailto:${contactInfo.email}`}
+                         className="text-muted-foreground hover:text-primary transition-colors">
+                        {contactInfo.email}
+                      </a>
                     </div>
                   </div>
                 )}
@@ -218,8 +233,8 @@ export default function ContactoPage() {
                 {/* Dirección */}
                 {(contactInfo.address || contactInfo.city) && (
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                      <MapPin className="h-6 w-6 text-cyan-500" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                      <MapPin className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h3 className="font-semibold">Dirección</h3>
@@ -236,8 +251,8 @@ export default function ContactoPage() {
                 {/* Horarios */}
                 {contactInfo.business_hours && (
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-                      <Clock className="h-6 w-6 text-cyan-500" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                      <Clock className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h3 className="font-semibold">Horario de atención</h3>
@@ -263,16 +278,17 @@ export default function ContactoPage() {
               </div>
             </div>
 
-            {/* Map placeholder */}
-            <div className="overflow-hidden rounded-2xl border bg-card">
-              <div className="flex h-64 items-center justify-center bg-muted">
-                <div className="text-center">
-                  <MapPin className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-2 text-muted-foreground">
-                    Mapa de ubicación
-                  </p>
-                </div>
-              </div>
+            {/* Google Maps embed */}
+            <div className="overflow-hidden rounded-2xl border border-border/50">
+              <iframe
+                src="https://maps.google.com/maps?q=Av+Caracas+%2317-47,+Bogot%C3%A1,+Colombia&output=embed&hl=es&z=16"
+                width="100%"
+                height="280"
+                style={{ border: 0, display: 'block' }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación YB MOTOCOM - Av Caracas No. 17-47, Bogotá"
+              />
             </div>
           </div>
         </div>

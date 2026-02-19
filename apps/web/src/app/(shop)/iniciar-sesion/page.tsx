@@ -58,7 +58,7 @@ export default function IniciarSesionPage() {
     <div className="container py-12">
       <div className="mx-auto max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
             <LogIn className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold">Iniciar sesión</h1>
@@ -121,7 +121,7 @@ export default function IniciarSesionPage() {
           <Button
             type="submit"
             disabled={loading}
-            className="mt-6 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-6 text-base font-semibold hover:from-cyan-600 hover:to-blue-700"
+            className="mt-6 w-full rounded-xl bg-primary py-6 text-base font-semibold hover:bg-primary/90"
           >
             {loading ? (
               <>

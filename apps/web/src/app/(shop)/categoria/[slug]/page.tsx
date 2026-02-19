@@ -127,7 +127,7 @@ export default function CategoryPage() {
   if (loading) {
     return (
       <div className="container flex min-h-[50vh] items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }

@@ -27,7 +27,7 @@ export default function EnviosPage() {
 
       {/* Header */}
       <div className="mb-10 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full mb-6">
+        <div className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-full mb-6">
           <Truck className="h-10 w-10 text-white" />
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">

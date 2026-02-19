@@ -6,7 +6,11 @@ import { Providers } from '@/components/providers'
 import { WebVitals } from './web-vitals'
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-geist-sans',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'),
@@ -65,7 +69,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <head>
+        {/* Aplica el tema guardado antes de que React monte — evita flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme')||'light';document.documentElement.classList.add(t);}catch(e){}`,
+          }}
+        />
+      </head>
+      <body className={`${inter.variable} font-sans antialiased min-h-screen`}>
         <Providers>
           {children}
           <Toaster />

@@ -20,10 +20,20 @@ const nextConfig = {
 
     // Patrones de dominios remotos permitidos
     remotePatterns: [
+      // Supabase Storage (imágenes de producción)
       {
         protocol: 'https',
         hostname: '*.supabase.co',
         pathname: '/storage/v1/object/public/**',
+      },
+      // Picsum Photos (imágenes demo de desarrollo)
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fastly.picsum.photos',
       },
     ],
   },

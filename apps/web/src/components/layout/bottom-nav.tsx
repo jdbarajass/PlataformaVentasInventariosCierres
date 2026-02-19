@@ -30,7 +30,7 @@ const navItems = [
   },
   {
     name: 'Cuenta',
-    href: '/cuenta',
+    href: '/mi-cuenta',
     icon: User,
   },
 ]
@@ -59,21 +59,21 @@ export function BottomNav() {
               className={cn(
                 'relative flex flex-col items-center justify-center gap-1 px-3 py-2 transition-colors',
                 isActive
-                  ? 'text-cyan-500'
+                  ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <div className="relative">
                 <Icon className="h-5 w-5" />
                 {item.showBadge && cartCount > 0 && (
-                  <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
+                  <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
                     {cartCount > 9 ? '9+' : cartCount}
                   </span>
                 )}
               </div>
               <span className="text-[10px] font-medium">{item.name}</span>
               {isActive && (
-                <span className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" />
+                <span className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
               )}
             </Link>
           )
