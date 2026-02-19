@@ -1,15 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react'
 
-export default function IniciarSesionPage() {
+function IniciarSesionForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -34,6 +36,11 @@ export default function IniciarSesionPage() {
       }
 
       if (data.session) {
+        if (redirectTo) {
+          window.location.href = redirectTo
+          return
+        }
+
         // Check if user is admin/seller, redirect accordingly
         const { data: userData } = await supabase
           .from('users')
@@ -142,5 +149,13 @@ export default function IniciarSesionPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function IniciarSesionPage() {
+  return (
+    <Suspense fallback={null}>
+      <IniciarSesionForm />
+    </Suspense>
   )
 }
