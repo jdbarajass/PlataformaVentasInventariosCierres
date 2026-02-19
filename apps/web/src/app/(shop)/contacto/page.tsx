@@ -263,15 +263,21 @@ export default function ContactoPage() {
               </div>
             </div>
 
-            {/* Map placeholder */}
+            {/* Map */}
             <div className="overflow-hidden rounded-2xl border bg-card">
-              <div className="flex h-64 items-center justify-center bg-muted">
-                <div className="text-center">
-                  <MapPin className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-2 text-muted-foreground">
-                    Mapa de ubicación
-                  </p>
-                </div>
+              <iframe
+                src="https://maps.google.com/maps?q=Av+Caracas+No.+17-47+CC+Megacentro+Bogot%C3%A1+Colombia&output=embed&z=16&hl=es"
+                width="100%"
+                height="256"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación YB MOTOCOM — Av Caracas No. 17-47, CC Megacentro, Bogotá"
+              />
+              <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 shrink-0 text-cyan-500" />
+                <span>Av Caracas No. 17-47 Local 111 Isla S, CC Megacentro Puerta 1, Bogotá</span>
               </div>
             </div>
           </div>
