@@ -17,6 +17,8 @@ import {
   Store,
   Loader2,
   Lock,
+  Tag,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -29,6 +31,8 @@ const navigation = [
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },
+  { name: 'Cupones', href: '/admin/cupones', icon: Tag },
+  { name: 'Resenas', href: '/admin/resenas', icon: MessageSquare },
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Auditoria', href: '/admin/auditoria', icon: Shield },
   { name: 'Configuracion', href: '/admin/configuracion', icon: Settings },

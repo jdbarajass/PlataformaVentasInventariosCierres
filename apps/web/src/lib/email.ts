@@ -5,6 +5,7 @@ import PaymentInstructionsEmail from '@/emails/payment-instructions'
 import OrderShippedEmail from '@/emails/order-shipped'
 import NewOrderAdminEmail from '@/emails/new-order-admin'
 import LowStockAlertEmail from '@/emails/low-stock-alert'
+import RestockNotificationEmail from '@/emails/restock-notification'
 import { getServiceSupabase } from './supabase'
 
 let _resend: Resend | null = null
@@ -281,5 +282,77 @@ export async function sendLowStockAlert(): Promise<boolean> {
   } catch (error) {
     console.error('Error in sendLowStockAlert:', error)
     return false
+  }
+}
+
+/**
+ * Sends restock notification emails to all subscribers of a product
+ * and marks them as notified. Called from inventory adjust API.
+ */
+export async function sendRestockNotifications(productId: string): Promise<number> {
+  try {
+    const supabase = getServiceSupabase()
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
+
+    // Get product info
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, title, slug, price_cents, images')
+      .eq('id', productId)
+      .single()
+
+    if (productError || !product) {
+      console.error('Product not found for restock notification:', productId)
+      return 0
+    }
+
+    // Get pending subscribers
+    const { data: subscribers, error: subError } = await (supabase
+      .from('restock_subscriptions') as any)
+      .select('id, email')
+      .eq('product_id', productId)
+      .eq('notified', false)
+
+    if (subError || !subscribers || subscribers.length === 0) return 0
+
+    const productImage = Array.isArray(product.images) ? product.images[0] : null
+
+    let sent = 0
+    for (const sub of subscribers) {
+      try {
+        const emailHtml = await render(
+          RestockNotificationEmail({
+            productTitle: product.title,
+            productSlug: product.slug,
+            productImage,
+            productPrice: product.price_cents,
+            siteUrl,
+          })
+        )
+
+        const { error: sendError } = await getResend().emails.send({
+          from: fromEmail,
+          to: sub.email,
+          subject: `¡${product.title} ya está disponible! — YB MOTOCOM`,
+          html: emailHtml,
+        })
+
+        if (!sendError) {
+          // Mark as notified
+          await (supabase.from('restock_subscriptions') as any)
+            .update({ notified: true })
+            .eq('id', sub.id)
+          sent++
+        }
+      } catch (err) {
+        console.error('Error sending restock email to', sub.email, err)
+      }
+    }
+
+    console.log(`[Restock] Sent ${sent}/${subscribers.length} notifications for "${product.title}"`)
+    return sent
+  } catch (error) {
+    console.error('Error in sendRestockNotifications:', error)
+    return 0
   }
 }

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { CartProvider } from '@/lib/cart-context'
 import { AuthProvider } from '@/lib/auth-context'
 import { WishlistProvider } from '@/lib/wishlist-context'
+import { CompareProvider } from '@/lib/compare-context'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,7 +25,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         <CartProvider>
           <WishlistProvider>
-            {children}
+            <CompareProvider>
+              {children}
+            </CompareProvider>
           </WishlistProvider>
         </CartProvider>
       </AuthProvider>

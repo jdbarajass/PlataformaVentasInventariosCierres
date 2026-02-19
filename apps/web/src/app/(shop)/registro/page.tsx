@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 
 export default function RegistroPage() {
+  const supabase = createClientComponentClient()
   const router = useRouter()
   const { toast } = useToast()
   const [formData, setFormData] = useState({

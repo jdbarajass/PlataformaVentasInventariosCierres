@@ -37,12 +37,6 @@ export async function PUT(
   const body = await request.json()
   const { status, tracking_number, tracking_url } = body
 
-  const updates: Record<string, any> = {}
-  if (status) updates.status = status
-  if (tracking_number !== undefined) {
-    updates.metadata = supabase.rpc ? undefined : undefined
-  }
-
   // Update order status
   if (status) {
     const { error } = await (supabase.from('orders') as any)
