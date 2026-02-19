@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { AddToCartButton } from './add-to-cart-button'
 import { ReviewSection } from '@/components/reviews/review-section'
+import { RestockSubscribe } from '@/components/products/restock-subscribe'
 import { Product } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -201,8 +202,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
             </div>
           )}
 
-          {/* Add to Cart */}
+          {/* Add to Cart / Restock Subscribe */}
           <AddToCartButton product={product} />
+          {product.stock_qty <= 0 && (
+            <RestockSubscribe productId={product.id} productTitle={product.title} />
+          )}
 
           {/* Details */}
           <div className="space-y-4 border-t pt-6">

@@ -1,7 +1,7 @@
 # 📊 ANÁLISIS COMPLETO - YB MOTOCOM
 
-> **Fecha**: 2026-02-17 (Actualizado)
-> **Versión**: 9.0
+> **Fecha**: 2026-02-18 (Actualizado)
+> **Versión**: 10.0
 > **Estado del Proyecto**: 100% Funcional - Listo para Producción
 
 ---
@@ -49,7 +49,7 @@ Deployment:  Vercel/Netlify Ready
 | Módulo | Completado | Pendiente | Estado |
 |--------|------------|-----------|--------|
 | **Tienda Pública** | 15 rutas funcionales | - | 🟢 100% |
-| **Panel Admin** | 8/8 secciones completas (incluye configuración) | - | 🟢 100% |
+| **Panel Admin** | 10/10 secciones completas (incluye cupones y reseñas) | - | 🟢 100% |
 | **API Endpoints** | 20+ endpoints protegidos | - | 🟢 100% |
 | **Autenticación** | Roles + Auth helpers + Registro público + Recuperar contraseña | 2FA | 🟢 90% |
 | **Pagos** | Stripe + MercadoPago completos | - | 🟢 100% |
@@ -1305,8 +1305,25 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 
 ---
 
+**Completado en FASE 9 (2026-02-18)**:
+- ✅ **Bug fix** — Eliminado código muerto en `api/orders/[id]/route.ts` (línea que asignaba `undefined` al objeto `updates`)
+- ✅ **Página /admin/cupones** — CRUD completo: crear, editar, activar/desactivar, eliminar cupones. Estadísticas de usos. Filtros por código y estado.
+- ✅ **Página /admin/resenas** — Moderación: aprobar/rechazar/eliminar reseñas. Estadísticas: total, pendientes, aprobadas, promedio de rating. Filtros por estado y cantidad de estrellas.
+- ✅ **Sidebar actualizado** — Nuevas entradas "Cupones" y "Resenas" en la navegación del panel admin.
+
+---
+
+**Completado en FASE 10 (2026-02-18)**:
+- ✅ **Sentry corregido** — `error.tsx` ahora captura errores con `Sentry.captureException()`. Var `NEXT_PUBLIC_SENTRY_DSN` documentada en `.env.example`.
+- ✅ **Web Vitals activados** — `web-vitals.tsx` reporta métricas (LCP, CLS, FID, etc.) a Google Analytics y Posthog en producción.
+- ✅ **Notificaciones de restock** — Sistema completo: tabla SQL (`restock_subscriptions`), API `/api/restock/subscribe`, email template `restock-notification.tsx`, función `sendRestockNotifications()`, componente UI `RestockSubscribe` en página de producto agotado, trigger automático en `api/inventory/adjust` cuando el stock pasa de 0 a positivo.
+- ✅ **Comparador de productos** — Sistema completo: contexto `compare-context.tsx` (máx 3 productos), botón en `ProductCard` (icono GitCompareArrows), barra flotante `CompareBar`, página `/comparar` con tabla side-by-side (precio, descuento, stock, SKU, peso, tags, descripción), botón "Agregar al carrito" directo desde la comparación.
+- ✅ **Migración SQL** — `infra/supabase/fase10_restock.sql` con tabla `restock_subscriptions`, índices y políticas RLS.
+
+---
+
 **Última actualización**: 2026-02-18
-**Versión del documento**: 9.0
+**Versión del documento**: 11.0
 **Estado del proyecto**: 100% Funcional - Listo para Producción
 
 ---
@@ -1328,7 +1345,8 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
 - ✅ FASE 5: Integración Completa de Stripe
 - ✅ FASE 6: RLS + Settings en páginas públicas + MercadoPago
 - ✅ FASE 7: Autenticación pública + Emails admin + Stock alerts
-- ✅ **FASE 8: Wishlist, Reseñas, Cupones, Tracking, Facturas, Live Chat, Rate Limiting** ⭐ NUEVO
+- ✅ **FASE 8: Wishlist, Reseñas, Cupones, Tracking, Facturas, Live Chat, Rate Limiting**
+- ✅ **FASE 9: Bug fix orders API + Admin Cupones + Admin Reseñas** ⭐ NUEVO
 
 ### FASE 1: CRUD DE PRODUCTOS ✅ **COMPLETADA**
 

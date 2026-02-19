@@ -2,11 +2,12 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart } from 'lucide-react'
+import { ShoppingCart, GitCompareArrows } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { useCart } from '@/lib/cart-context'
+import { useCompare } from '@/lib/compare-context'
 import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { useToast } from '@/components/ui/use-toast'
@@ -18,9 +19,11 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart()
+  const { addItem: addToCompare, removeItem: removeFromCompare, hasItem: isInCompare, isFull } = useCompare()
   const { toast } = useToast()
   const stockStatus = getStockStatus(product.stock_qty, product.low_stock_threshold)
   const isOutOfStock = stockStatus === 'out-of-stock'
+  const inCompare = isInCompare(product.id)
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -39,6 +42,22 @@ export function ProductCard({ product }: ProductCardProps) {
       description: product.title,
       variant: 'success',
     })
+  }
+
+  const handleToggleCompare = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (inCompare) {
+      removeFromCompare(product.id)
+    } else if (!isFull) {
+      addToCompare(product)
+      toast({ title: 'Agregado al comparador', description: product.title })
+    } else {
+      toast({
+        title: 'Comparador lleno',
+        description: 'Puedes comparar hasta 3 productos. Elimina uno para continuar.',
+        variant: 'destructive',
+      })
+    }
   }
 
   return (
@@ -67,9 +86,20 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
 
-          {/* Wishlist Button */}
-          <div className="absolute left-3 bottom-3 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+          {/* Bottom-left: Wishlist + Compare buttons */}
+          <div className="absolute bottom-3 left-3 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
             <WishlistButton productId={product.id} productTitle={product.title} />
+            <button
+              onClick={handleToggleCompare}
+              title={inCompare ? 'Quitar del comparador' : 'Agregar al comparador'}
+              className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${
+                inCompare
+                  ? 'bg-cyan-500 text-white'
+                  : 'bg-background/80 text-foreground hover:bg-cyan-500/20 hover:text-cyan-500'
+              }`}
+            >
+              <GitCompareArrows className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Stock Badge */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { sendRestockNotifications } from '@/lib/email'
 import { z } from 'zod'
 
 const adjustmentSchema = z.object({
@@ -106,6 +107,13 @@ export async function POST(request: NextRequest) {
       old_data: { stock_qty: product.stock_qty },
       new_data: { stock_qty: newStock },
     })
+
+    // 4. If stock went from 0 to positive, notify subscribers (non-blocking)
+    if (product.stock_qty === 0 && newStock > 0) {
+      sendRestockNotifications(product_id).catch((err) =>
+        console.error('[Restock] Error sending notifications:', err)
+      )
+    }
 
     return NextResponse.json({
       success: true,
