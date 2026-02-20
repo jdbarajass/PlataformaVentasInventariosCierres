@@ -2,17 +2,13 @@ import { Metadata } from 'next'
 import { getServiceSupabase } from '@/lib/supabase'
 import { ProductCard } from '@/components/products/product-card'
 import { Product } from '@/types/database'
-import { Flame, Package } from 'lucide-react'
+import { Flame, Package, ArrowRight, Bell, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink,
+  BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
 export const metadata: Metadata = {
@@ -21,8 +17,7 @@ export const metadata: Metadata = {
     'Descubre nuestras ofertas especiales en accesorios para motociclistas. Descuentos de hasta 50% en cascos, guantes, chaquetas y más. ¡Aprovecha ahora!',
   openGraph: {
     title: 'Ofertas Especiales | YB MOTOCOM',
-    description:
-      'Ofertas especiales en accesorios para motos. Descuentos de hasta 50%.',
+    description: 'Ofertas especiales en accesorios para motos. Descuentos de hasta 50%.',
     images: ['/images/ofertas-og.jpg'],
   },
 }
@@ -30,7 +25,6 @@ export const metadata: Metadata = {
 export default async function OfertasPage() {
   const supabase = getServiceSupabase()
 
-  // Fetch products with discounts (compare_at_price_cents > price_cents)
   const { data: products, error } = await supabase
     .from('products')
     .select('*, categories(name, slug)')
@@ -39,158 +33,179 @@ export default async function OfertasPage() {
     .gt('compare_at_price_cents', 0)
     .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching ofertas:', error)
-  }
+  if (error) console.error('Error fetching ofertas:', error)
 
-  // Filter products where compare_at_price_cents > price_cents
   const discountedProducts =
     products?.filter((p: any) => p.compare_at_price_cents && p.compare_at_price_cents > p.price_cents) || []
 
-  // Calculate discount percentage and sort by discount (highest first)
   const productsWithDiscount = discountedProducts
     .map((product: any) => ({
       ...product,
       discountPercent: product.compare_at_price_cents
-        ? Math.round(
-            ((product.compare_at_price_cents - product.price_cents) /
-              product.compare_at_price_cents) *
-              100
-          )
+        ? Math.round(((product.compare_at_price_cents - product.price_cents) / product.compare_at_price_cents) * 100)
         : 0,
     }))
     .sort((a: any, b: any) => b.discountPercent - a.discountPercent)
 
-  // Calculate average discount
   const averageDiscount =
     productsWithDiscount.length > 0
-      ? Math.round(
-          productsWithDiscount.reduce((sum: number, p: any) => sum + p.discountPercent, 0) /
-            productsWithDiscount.length
-        )
+      ? Math.round(productsWithDiscount.reduce((sum: number, p: any) => sum + p.discountPercent, 0) / productsWithDiscount.length)
       : 0
 
-  // Find max discount
   const maxDiscount =
     productsWithDiscount.length > 0
       ? Math.max(...productsWithDiscount.map((p: any) => p.discountPercent))
       : 0
 
   return (
-    <div className="container py-8 md:py-12">
-      {/* Breadcrumbs */}
-      <Breadcrumb className="mb-6">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/">Inicio</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Ofertas</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+    <div className="min-h-screen">
 
-      {/* Hero Section */}
-      <div className="mb-10 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-500 to-orange-500 rounded-full mb-6 animate-pulse">
-          <Flame className="h-10 w-10 text-white" />
+      {/* ─── Hero section ─── */}
+      <section className="relative overflow-hidden bg-secondary/15 border-b border-border/40 py-16 lg:py-20">
+        <div className="absolute inset-0 aurora-bg" />
+        <div className="absolute inset-0 carbon-texture opacity-30" />
+        {/* Flame glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-primary/8 blur-[100px] pointer-events-none animate-breathe" />
+
+        <div className="container relative text-center space-y-5">
+          <Breadcrumb className="justify-center">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Inicio</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Ofertas</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {/* Flame icon */}
+          <div className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 mx-auto"
+               style={{ boxShadow: '0 0 48px rgba(225,6,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+            <Flame className="h-10 w-10 text-white" />
+          </div>
+
+          <h1 className="text-4xl md:text-5xl font-black">
+            <span className="glow-text">Ofertas Especiales</span>
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+            Las mejores ofertas en accesorios para motociclistas.{' '}
+            {maxDiscount > 0 && (
+              <span className="font-semibold text-primary">
+                ¡Descuentos de hasta {maxDiscount}%!
+              </span>
+            )}
+          </p>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
-          Ofertas Especiales
-        </h1>
-        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-          Descubre nuestras mejores ofertas en accesorios para motociclistas.
-          {maxDiscount > 0 && (
-            <span className="block mt-2 font-semibold text-primary">
-              ¡Descuentos de hasta {maxDiscount}%!
-            </span>
-          )}
-        </p>
-      </div>
+      </section>
 
-      {/* Stats */}
-      {productsWithDiscount.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-          <div className="p-6 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 rounded-lg border border-red-200 dark:border-red-900">
-            <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-              {productsWithDiscount.length}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Productos en oferta
-            </div>
-          </div>
-          <div className="p-6 bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950/20 dark:to-yellow-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
-            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-              {maxDiscount}%
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Descuento máximo
-            </div>
-          </div>
-          <div className="p-6 bg-gradient-to-br from-yellow-50 to-green-50 dark:from-yellow-950/20 dark:to-green-950/20 rounded-lg border border-yellow-200 dark:border-yellow-900">
-            <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-              {averageDiscount}%
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Descuento promedio
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="container py-10 md:py-14">
 
-      {/* Products Grid */}
-      {productsWithDiscount.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          {productsWithDiscount.map((product) => (
-            <div key={product.id} className="relative">
-              {/* Discount Badge Overlay */}
-              {product.discountPercent >= 30 && (
-                <div className="absolute -top-2 -right-2 z-10">
-                  <Badge className="bg-gradient-to-r from-red-600 to-orange-600 text-white border-0 text-sm font-bold px-3 py-1 shadow-lg">
-                    -{product.discountPercent}%
-                  </Badge>
+        {/* ─── Stats glass cards ─── */}
+        {productsWithDiscount.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+            {[
+              { value: productsWithDiscount.length, label: 'Productos en oferta', color: 'text-primary' },
+              { value: `${maxDiscount}%`,            label: 'Descuento máximo',   color: 'text-amber-500' },
+              { value: `${averageDiscount}%`,        label: 'Descuento promedio', color: 'text-green-500' },
+            ].map(stat => (
+              <div key={stat.label} className="card-glass rounded-2xl p-6 text-center space-y-1 border border-border/40 hover:border-primary/30 transition-all">
+                <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ─── Products Grid ─── */}
+        {productsWithDiscount.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {productsWithDiscount.map((product) => (
+                <div key={product.id} className="relative">
+                  {product.discountPercent >= 30 && (
+                    <div className="absolute -top-2 -right-2 z-10">
+                      <Badge className="bg-gradient-to-r from-red-600 to-orange-600 text-white border-0 text-sm font-bold px-3 py-1"
+                             style={{ boxShadow: '0 4px 16px rgba(225,6,0,0.4)' }}>
+                        -{product.discountPercent}%
+                      </Badge>
+                    </div>
+                  )}
+                  <ProductCard product={product as Product} />
                 </div>
-              )}
-              <ProductCard product={product as Product} />
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Package className="h-20 w-20 text-muted-foreground mb-6 opacity-50" />
-          <h2 className="text-2xl md:text-3xl font-semibold mb-3">
-            No hay ofertas disponibles
-          </h2>
-          <p className="text-muted-foreground mb-8 max-w-md">
-            En este momento no tenemos productos en oferta. Vuelve pronto para
-            descubrir nuestras próximas promociones o explora nuestro catálogo
-            completo.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button asChild size="lg">
-              <Link href="/productos">Ver todos los productos</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href="/">Ir al inicio</Link>
-            </Button>
-          </div>
-        </div>
-      )}
 
-      {/* Call to Action */}
-      {productsWithDiscount.length > 0 && (
-        <div className="mt-12 p-8 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-lg border border-primary/20 text-center">
-          <h2 className="text-2xl font-bold mb-3">¿No encontraste lo que buscabas?</h2>
-          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            Explora nuestro catálogo completo con cientos de productos para motociclistas
-          </p>
-          <Button asChild size="lg" variant="neon">
-            <Link href="/productos">Ver todos los productos</Link>
-          </Button>
-        </div>
-      )}
+            {/* CTA bottom */}
+            <div className="mt-14 relative overflow-hidden rounded-2xl border border-primary/20 bg-card p-8 text-center">
+              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/8 blur-3xl pointer-events-none" />
+              <div className="relative z-10">
+                <h2 className="text-xl font-bold mb-2">¿No encontraste lo que buscabas?</h2>
+                <p className="text-muted-foreground text-sm mb-5">
+                  Explora nuestro catálogo completo con cientos de productos para motociclistas
+                </p>
+                <Button asChild className="btn-racing inline-flex items-center gap-2 text-sm" variant="default">
+                  <Link href="/productos">
+                    Ver todos los productos <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+
+          /* ─── PREMIUM EMPTY STATE ─── */
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative max-w-lg w-full">
+              {/* Glow behind card */}
+              <div className="absolute inset-4 rounded-3xl bg-primary/8 blur-3xl animate-breathe pointer-events-none" />
+
+              <div className="relative card-glass rounded-3xl border border-border/40 p-10 text-center space-y-7">
+                {/* Top line */}
+                <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+
+                {/* Icon */}
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-secondary/80 to-secondary/40 border border-border/50">
+                  <Package className="h-10 w-10 text-muted-foreground/60" />
+                </div>
+
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-black">Sin ofertas por ahora</h2>
+                  <p className="text-muted-foreground leading-relaxed max-w-sm mx-auto text-sm">
+                    En este momento no tenemos productos en oferta.
+                    Vuelve pronto o suscríbete para ser el primero en enterarte de nuestras próximas promociones.
+                  </p>
+                </div>
+
+                {/* CTAs */}
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href="/productos"
+                    className="btn-racing inline-flex items-center justify-center gap-2 text-sm"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Ver catálogo completo
+                  </Link>
+                  <Link
+                    href="/"
+                    className="btn-outline-racing inline-flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Bell className="h-4 w-4" />
+                    Suscribirme a alertas
+                  </Link>
+                </div>
+
+                {/* Trust pill */}
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/40 px-4 py-2 text-xs text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                  Nuevas ofertas cada semana
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

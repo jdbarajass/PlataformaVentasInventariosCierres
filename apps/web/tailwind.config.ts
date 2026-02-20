@@ -86,20 +86,20 @@ const config: Config = {
           to: { height: '0' },
         },
         'glow-pulse': {
-          '0%, 100%': {
-            boxShadow: '0 0 20px rgba(225,6,0,0.4), 0 0 40px rgba(225,6,0,0.15)'
-          },
-          '50%': {
-            boxShadow: '0 0 30px rgba(225,6,0,0.6), 0 0 60px rgba(225,6,0,0.25)'
-          },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(225,6,0,0.4), 0 0 40px rgba(225,6,0,0.15)' },
+          '50%':       { boxShadow: '0 0 32px rgba(225,6,0,0.65), 0 0 64px rgba(225,6,0,0.25)' },
         },
         'slide-up': {
           from: { transform: 'translateY(12px)', opacity: '0' },
-          to: { transform: 'translateY(0)', opacity: '1' },
+          to:   { transform: 'translateY(0)',    opacity: '1' },
+        },
+        'reveal-up': {
+          from: { transform: 'translateY(40px)', opacity: '0' },
+          to:   { transform: 'translateY(0)',    opacity: '1' },
         },
         'fade-in': {
           from: { opacity: '0' },
-          to: { opacity: '1' },
+          to:   { opacity: '1' },
         },
         'shimmer': {
           '0%':   { transform: 'translateX(-100%)' },
@@ -111,11 +111,23 @@ const config: Config = {
         },
         'slide-in-right': {
           from: { transform: 'translateX(20px)', opacity: '0' },
-          to:   { transform: 'translateX(0)', opacity: '1' },
+          to:   { transform: 'translateX(0)',    opacity: '1' },
         },
         'scale-in': {
           from: { transform: 'scale(0.95)', opacity: '0' },
-          to:   { transform: 'scale(1)', opacity: '1' },
+          to:   { transform: 'scale(1)',    opacity: '1' },
+        },
+        'breathe': {
+          '0%, 100%': { opacity: '0.3', transform: 'scale(1)' },
+          '50%':      { opacity: '0.65', transform: 'scale(1.08)' },
+        },
+        'marquee': {
+          from: { transform: 'translateX(0)' },
+          to:   { transform: 'translateX(-50%)' },
+        },
+        'spin-slow': {
+          from: { transform: 'rotate(0deg)' },
+          to:   { transform: 'rotate(360deg)' },
         },
       },
       animation: {
@@ -123,11 +135,18 @@ const config: Config = {
         'accordion-up':     'accordion-up 0.2s ease-out',
         'glow-pulse':       'glow-pulse 2s ease-in-out infinite',
         'slide-up':         'slide-up 0.3s ease-out',
+        'reveal-up':        'reveal-up 0.7s ease-out both',
         'fade-in':          'fade-in 0.25s ease-out',
-        'shimmer':          'shimmer 1.5s ease-in-out infinite',
+        'shimmer':          'shimmer 1.8s ease-in-out infinite',
         'float':            'float 3s ease-in-out infinite',
         'slide-in-right':   'slide-in-right 0.3s ease-out',
         'scale-in':         'scale-in 0.2s ease-out',
+        'breathe':          'breathe 6s ease-in-out infinite',
+        'breathe-fast':     'breathe 3s ease-in-out infinite',
+        'marquee':          'marquee 32s linear infinite',
+        'marquee-reverse':  'marquee 32s linear infinite reverse',
+        'marquee-slow':     'marquee 50s linear infinite',
+        'spin-slow':        'spin-slow 8s linear infinite',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -136,11 +155,19 @@ const config: Config = {
         'hero-dark':       'linear-gradient(to bottom right, #0F1115 0%, #171A21 60%, rgba(225,6,0,0.08) 100%)',
       },
       boxShadow: {
-        'glow-red':    '0 0 20px rgba(225,6,0,0.35), 0 0 40px rgba(225,6,0,0.15)',
-        'glow-red-sm': '0 0 12px rgba(225,6,0,0.35)',
-        'card-dark':   '0 8px 32px rgba(0,0,0,0.4)',
-        'card-hover':  '0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(225,6,0,0.12)',
-        'deep':        '0 25px 50px rgba(0,0,0,0.6)',
+        'glow-red':       '0 0 20px rgba(225,6,0,0.35), 0 0 40px rgba(225,6,0,0.15)',
+        'glow-red-sm':    '0 0 12px rgba(225,6,0,0.35)',
+        'glow-red-lg':    '0 0 40px rgba(225,6,0,0.50), 0 0 80px rgba(225,6,0,0.20)',
+        'glow-amber':     '0 0 20px rgba(255,107,0,0.35)',
+        'glow-white':     '0 0 20px rgba(255,255,255,0.15)',
+        'card-dark':      '0 8px 32px rgba(0,0,0,0.4)',
+        'card-hover':     '0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(225,6,0,0.12)',
+        'deep':           '0 25px 50px rgba(0,0,0,0.6)',
+        'premium':        '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
+        'premium-hover':  '0 24px 64px rgba(0,0,0,0.5), 0 0 40px rgba(225,6,0,0.15), inset 0 1px 0 rgba(255,255,255,0.08)',
+        'inner-top':      'inset 0 1px 0 rgba(255,255,255,0.08)',
+        'whatsapp':       '0 8px 32px rgba(37,211,102,0.40)',
+        'whatsapp-hover': '0 12px 40px rgba(37,211,102,0.55)',
       },
     },
   },

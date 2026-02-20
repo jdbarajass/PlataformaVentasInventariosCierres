@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart, Eye } from 'lucide-react'
+import { ShoppingCart, Eye, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCart } from '@/lib/cart-context'
@@ -18,10 +18,11 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart()
   const { toast }   = useToast()
-  const stockStatus = getStockStatus(product.stock_qty, product.low_stock_threshold)
+
+  const stockStatus  = getStockStatus(product.stock_qty, product.low_stock_threshold)
   const isOutOfStock = stockStatus === 'out-of-stock'
-  const isOnSale = !!(product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents)
-  const discountPct = isOnSale
+  const isOnSale     = !!(product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents)
+  const discountPct  = isOnSale
     ? Math.round((1 - product.price_cents / product.compare_at_price_cents!) * 100)
     : 0
 
@@ -29,27 +30,32 @@ export function ProductCard({ product }: ProductCardProps) {
     e.preventDefault()
     e.stopPropagation()
     if (isOutOfStock) return
-
     addItem({
-      id:            product.id,
-      title:         product.title,
-      price_cents:   product.price_cents,
-      image:         getProductImage(product.images),
-      stock_qty:     product.stock_qty,
+      id:          product.id,
+      title:       product.title,
+      price_cents: product.price_cents,
+      image:       getProductImage(product.images),
+      stock_qty:   product.stock_qty,
     })
-
     toast({
-      title:       'Agregado al carrito',
+      title:       '¡Agregado!',
       description: product.title,
       variant:     'success',
     })
   }
 
   return (
-    /* Card wrapper — NOT a Link so interactive children stay valid */
-    <div className="group relative h-full overflow-hidden rounded-2xl border border-border/40 bg-card shadow-card-dark transition-all duration-300 hover:border-primary/30 hover:shadow-card-hover hover:-translate-y-1 cursor-pointer">
+    <div className="group relative h-full overflow-hidden rounded-2xl bg-card border border-border/40 transition-all duration-500 hover:border-primary/40 hover:-translate-y-1.5 cursor-pointer"
+         style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)' }}
+    >
+      {/* Hover shadow upgrade */}
+      <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+           style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(225,6,0,0.12)' }} />
 
-      {/* Overlay link — covers whole card, sits below interactive elements */}
+      {/* Top inset highlight */}
+      <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-white/12 to-transparent pointer-events-none z-10" />
+
+      {/* Full-cover link — below interactive elements */}
       <Link
         href={`/producto/${product.slug}`}
         className="absolute inset-0 z-10"
@@ -57,18 +63,23 @@ export function ProductCard({ product }: ProductCardProps) {
       />
 
       {/* ── Image area ── */}
-      <div className="relative aspect-square overflow-hidden bg-secondary/40 dark:bg-secondary/20">
+      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary/50 to-secondary/20">
         <Image
           src={getProductImage(product.images)}
           alt={product.title}
           fill
-          className="object-contain p-5 transition-transform duration-500 group-hover:scale-[1.07]"
+          className="object-contain p-5 transition-transform duration-500 group-hover:scale-[1.06]"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
         />
 
-        {/* Top-left badges */}
-        <div className="absolute left-3 top-3 flex flex-col gap-1.5 z-20">
+        {/* Gradient overlay on hover for buttons */}
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background/95 via-background/50 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-20 pointer-events-none" />
+
+        {/* ── Top-left badges ── */}
+        <div className="absolute left-3 top-3 flex flex-col gap-1.5 z-30">
           {product.featured && (
-            <span className="inline-flex items-center rounded-lg bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-glow-red-sm">
+            <span className="inline-flex items-center rounded-lg bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                  style={{ boxShadow: '0 0 12px rgba(225,6,0,0.5)' }}>
               Top ventas
             </span>
           )}
@@ -79,12 +90,12 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        {/* Top-right: stock */}
-        <div className="absolute right-3 top-3 z-20">
+        {/* ── Top-right: stock ── */}
+        <div className="absolute right-3 top-3 z-30">
           <Badge
             variant={
-              stockStatus === 'in-stock'   ? 'success'  :
-              stockStatus === 'low-stock'  ? 'warning'  : 'error'
+              stockStatus === 'in-stock'  ? 'success' :
+              stockStatus === 'low-stock' ? 'warning' : 'error'
             }
             className="text-[10px] font-medium backdrop-blur-sm"
           >
@@ -92,17 +103,18 @@ export function ProductCard({ product }: ProductCardProps) {
           </Badge>
         </div>
 
-        {/* Bottom-left: Wishlist (appears on hover) — z-30 so it's above the overlay link */}
+        {/* ── Hover actions (z-30, above overlay link) ── */}
+        {/* Wishlist */}
         <div className="absolute bottom-3 left-3 z-30 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
           <WishlistButton productId={product.id} productTitle={product.title} />
         </div>
 
-        {/* Bottom-right: quick-view (appears on hover) — z-30 */}
-        <div className="absolute bottom-3 right-3 z-30 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+        {/* Quick view */}
+        <div className="absolute bottom-3 right-3 z-30 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 delay-75">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50 hover:border-primary/50 hover:text-primary"
+            className="h-8 w-8 rounded-lg bg-card/80 backdrop-blur-sm border border-border/50 hover:border-primary/50 hover:text-primary transition-all"
             onClick={(e) => e.stopPropagation()}
             title="Vista rápida"
           >
@@ -110,11 +122,14 @@ export function ProductCard({ product }: ProductCardProps) {
           </Button>
         </div>
 
-        {/* Slide-up Add to cart — z-30 */}
+        {/* Add to cart — slides up */}
         <div className="absolute bottom-0 left-0 right-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0 z-30">
-          <div className="bg-gradient-to-t from-background/98 via-background/80 to-transparent pt-8 pb-3 px-3">
+          <div className="px-3 pb-3 pt-6">
             <button
-              className={`btn-racing w-full text-xs py-2.5 inline-flex items-center justify-center gap-2 ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={[
+                'btn-racing w-full text-xs py-2.5 inline-flex items-center justify-center gap-2',
+                isOutOfStock ? 'opacity-50 cursor-not-allowed' : '',
+              ].join(' ')}
               onClick={handleAddToCart}
               disabled={isOutOfStock}
             >
@@ -126,12 +141,23 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
 
       {/* ── Info area ── */}
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2.5">
+        {/* Rating (decorative) */}
+        <div className="flex items-center gap-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star
+              key={i}
+              className={`h-3 w-3 ${i < 4 ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'}`}
+            />
+          ))}
+          <span className="text-[10px] text-muted-foreground ml-0.5">(4.8)</span>
+        </div>
+
         <h3 className="line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary">
           {product.title}
         </h3>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-baseline gap-2">
           <span className="text-base font-black text-primary">
             {formatPrice(product.price_cents)}
           </span>
@@ -143,9 +169,9 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Subtle red glow on hover (border effect) */}
-      <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-           style={{ boxShadow: 'inset 0 0 0 1px rgba(225,6,0,0.25)' }} />
+      {/* Red inset border on hover */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+           style={{ boxShadow: 'inset 0 0 0 1px rgba(225,6,0,0.22)' }} />
     </div>
   )
 }
