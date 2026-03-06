@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   ShoppingCart, Menu, Search, User, X, LogIn,
@@ -108,16 +109,15 @@ export function Header() {
         <div className="container flex h-16 items-center justify-between gap-4">
 
           {/* ── Logo ── */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary transition-all duration-300 group-hover:shadow-glow-red">
-              {/* Top highlight */}
-              <div className="absolute top-0 left-1.5 right-1.5 h-px bg-white/30 rounded-full" />
-              <span className="text-sm font-black tracking-tighter text-white relative z-10">YB</span>
-            </div>
-            <div className="hidden sm:flex flex-col leading-none">
-              <span className="font-black text-sm tracking-[0.12em] uppercase">MOTOCOM</span>
-              <span className="text-[9px] text-muted-foreground tracking-widest uppercase">Accesorios · Colombia</span>
-            </div>
+          <Link href="/" className="flex items-center shrink-0 group">
+            <Image
+              src="/images/logo-yjbmotocom.png"
+              alt="YJB MOTOCOM - Accesorios para Motos"
+              width={120}
+              height={48}
+              className="h-12 w-auto object-contain transition-all duration-300 group-hover:scale-105"
+              priority
+            />
           </Link>
 
           {/* ── Desktop Navigation ── */}
