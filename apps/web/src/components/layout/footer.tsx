@@ -30,7 +30,7 @@ const footerLinks = {
 const FALLBACK_CONTACT = {
   phone_primary:   '+57 321 411 1371',
   phone_secondary: '+57 314 406 5520',
-  email:           'ybmotocom@gmail.com',
+  email:           'yjbmotocom@gmail.com',
   address:         'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
   city:            'Bogotá, Colombia',
 }
@@ -253,7 +253,7 @@ export async function Footer() {
       <div className="border-t border-border/30">
         <div className="container py-5 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} YB MOTOCOM · Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} YJBMOTOCOM · Todos los derechos reservados.
           </p>
           <div className="flex gap-5">
             {footerLinks.legal.map((link) => (

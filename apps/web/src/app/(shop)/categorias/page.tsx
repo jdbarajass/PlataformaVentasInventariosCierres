@@ -25,11 +25,11 @@ import {
 } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Categorías de Productos | YB MOTOCOM',
+  title: 'Categorías de Productos | YJBMOTOCOM',
   description:
-    'Explora todas las categorías de accesorios para motociclistas en YB MOTOCOM. Cascos, protecciones, guantes, chaquetas y más.',
+    'Explora todas las categorías de accesorios para motociclistas en YJBMOTOCOM. Cascos, protecciones, guantes, chaquetas y más.',
   openGraph: {
-    title: 'Categorías | YB MOTOCOM',
+    title: 'Categorías | YJBMOTOCOM',
     description: 'Todas las categorías de productos para motociclistas',
   },
 }

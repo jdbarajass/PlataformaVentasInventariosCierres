@@ -47,7 +47,7 @@ export default function NosotrosPage() {
 
             <h1 className="text-4xl md:text-5xl font-black leading-tight">
               Sobre{' '}
-              <span className="glow-text">YB MOTOCOM</span>
+              <span className="glow-text">YJBMOTOCOM</span>
             </h1>
 
             <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">

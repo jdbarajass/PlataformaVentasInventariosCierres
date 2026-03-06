@@ -39,7 +39,7 @@ interface SettingsState {
 }
 
 const defaultSettings: SettingsState = {
-  store_name: 'YB MOTOCOM',
+  store_name: 'YJBMOTOCOM',
   store_description: '',
   contact_info: {
     phone_primary: '',
@@ -491,7 +491,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.facebook}
                   onChange={(e) => updateSocial('facebook', e.target.value)}
-                  placeholder="https://facebook.com/ybmotocom"
+                  placeholder="https://facebook.com/yjbmotocom"
                   className="rounded-xl"
                 />
               </div>
@@ -500,7 +500,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.instagram}
                   onChange={(e) => updateSocial('instagram', e.target.value)}
-                  placeholder="https://instagram.com/ybmotocom"
+                  placeholder="https://instagram.com/yjbmotocom"
                   className="rounded-xl"
                 />
               </div>
@@ -518,7 +518,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.tiktok}
                   onChange={(e) => updateSocial('tiktok', e.target.value)}
-                  placeholder="https://tiktok.com/@ybmotocom"
+                  placeholder="https://tiktok.com/@yjbmotocom"
                   className="rounded-xl"
                 />
               </div>
@@ -527,7 +527,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.twitter}
                   onChange={(e) => updateSocial('twitter', e.target.value)}
-                  placeholder="https://x.com/ybmotocom"
+                  placeholder="https://x.com/yjbmotocom"
                   className="rounded-xl"
                 />
               </div>

@@ -1,4 +1,4 @@
-# Pendientes de Configuración — YB MOTOCOM
+# Pendientes de Configuración — YJBMOTOCOM
 
 > **Documento generado automáticamente** — Fecha: Febrero 2026
 > Contiene todo lo que debes configurar manualmente para que la plataforma funcione en producción.
@@ -69,9 +69,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 1. Supabase Dashboard → **Authentication** → **URL Configuration**
 2. Agregar en **Redirect URLs**:
    - `http://localhost:3000/**` (desarrollo)
-   - `https://ybmotocom.com/**` (producción)
+   - `https://yjbmotocom.com/**` (producción)
    - `https://tu-proyecto.vercel.app/**` (si usas Vercel preview)
-3. En **Site URL** poner: `https://ybmotocom.com`
+3. En **Site URL** poner: `https://yjbmotocom.com`
 
 ### 2.3 Configurar Storage (para imágenes de productos)
 
@@ -107,7 +107,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx  # o pk_test_xxx
 ### 3.3 Configurar Webhook
 
 1. Stripe Dashboard → **Developers** → **Webhooks** → **Add endpoint**
-2. URL: `https://ybmotocom.com/api/stripe/webhook`
+2. URL: `https://yjbmotocom.com/api/stripe/webhook`
 3. Seleccionar eventos:
    - `checkout.session.completed`
    - `payment_intent.succeeded`
@@ -138,7 +138,7 @@ MERCADOPAGO_WEBHOOK_SECRET=tu_secreto_aqui
 ### 4.3 Configurar Webhook / IPN
 
 1. MercadoPago Dashboard → **Tu aplicación** → **Webhooks**
-2. URL: `https://ybmotocom.com/api/mercadopago/webhook`
+2. URL: `https://yjbmotocom.com/api/mercadopago/webhook`
 3. Seleccionar evento: **Payments**
 4. El `MERCADOPAGO_WEBHOOK_SECRET` es opcional; si no lo configuras, comentar la validación de firma en `apps/web/src/app/api/mercadopago/webhook/route.ts`
 
@@ -150,15 +150,15 @@ MERCADOPAGO_WEBHOOK_SECRET=tu_secreto_aqui
 
 1. Ir a [resend.com](https://resend.com) y crear cuenta
 2. Dashboard → **Domains** → **Add Domain**
-3. Agregar `ybmotocom.com` y seguir las instrucciones para verificar los registros DNS
+3. Agregar `yjbmotocom.com` y seguir las instrucciones para verificar los registros DNS
 4. Dashboard → **API Keys** → **Create API Key**
 
 ### 5.2 Variables de entorno
 
 ```env
 RESEND_API_KEY=re_xxxxx
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
-ADMIN_NOTIFICATION_EMAIL=ybmotocom@gmail.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
+ADMIN_NOTIFICATION_EMAIL=yjbmotocom@gmail.com
 ```
 
 > **Nota:** `RESEND_FROM_EMAIL` debe usar un dominio verificado en Resend.
@@ -208,7 +208,7 @@ Solo necesitas agregar el DSN en el `.env.local`.
 ### 7.1 Crear propiedad GA4
 
 1. Ir a [analytics.google.com](https://analytics.google.com)
-2. Crear cuenta / propiedad GA4 para `ybmotocom.com`
+2. Crear cuenta / propiedad GA4 para `yjbmotocom.com`
 3. Obtener el **Measurement ID** (formato: `G-XXXXXXXXXX`)
 
 ### 7.2 Variable de entorno
@@ -247,7 +247,7 @@ NEXT_PUBLIC_POSTHOG_API_HOST=https://app.posthog.com
 ### 9.1 Crear cuenta
 
 1. Ir a [tawk.to](https://tawk.to) y crear cuenta gratuita
-2. Crear propiedad para `ybmotocom.com`
+2. Crear propiedad para `yjbmotocom.com`
 3. Ir a **Administration** → **Channels** → **Chat Widget**
 4. Obtener el **Property ID** y **Widget ID** del script de integración
 
@@ -303,14 +303,14 @@ MERCADOPAGO_WEBHOOK_SECRET=tu_secreto
 # EMAIL - RESEND (OBLIGATORIO para emails)
 # ============================================
 RESEND_API_KEY=re_xxxxx
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
-ADMIN_NOTIFICATION_EMAIL=ybmotocom@gmail.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
+ADMIN_NOTIFICATION_EMAIL=yjbmotocom@gmail.com
 
 # ============================================
 # APP URLs (OBLIGATORIO)
 # ============================================
-NEXT_PUBLIC_APP_URL=https://ybmotocom.com
-NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+NEXT_PUBLIC_APP_URL=https://yjbmotocom.com
+NEXT_PUBLIC_SITE_URL=https://yjbmotocom.com
 
 # ============================================
 # SENTRY (Recomendado — monitoreo de errores)
@@ -352,7 +352,7 @@ NEXT_PUBLIC_TAWKTO_WIDGET_ID=tu_widget_id
 ### 11.3 Configurar dominio
 
 1. Vercel → **Settings** → **Domains**
-2. Agregar `ybmotocom.com`
+2. Agregar `yjbmotocom.com`
 3. Seguir instrucciones para configurar DNS en tu proveedor de dominio
 
 ### 11.4 Configurar Supabase para producción
@@ -431,4 +431,4 @@ Supabase hace backups automáticos diarios en el plan Pro. En el plan gratuito, 
 
 ---
 
-*Documento generado por Claude Code — YB MOTOCOM Platform v11.0*
+*Documento generado por Claude Code — YJBMOTOCOM Platform v11.0*

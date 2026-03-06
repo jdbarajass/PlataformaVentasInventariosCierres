@@ -1,4 +1,4 @@
-# CHANGELOG — YB MOTOCOM
+# CHANGELOG — YJBMOTOCOM
 
 Historial completo de versiones y cambios del proyecto.
 

@@ -12,11 +12,11 @@ import {
 } from '@/components/ui/breadcrumb'
 
 export const metadata: Metadata = {
-  title: 'Ofertas Especiales | YB MOTOCOM',
+  title: 'Ofertas Especiales | YJBMOTOCOM',
   description:
     'Descubre nuestras ofertas especiales en accesorios para motociclistas. Descuentos de hasta 50% en cascos, guantes, chaquetas y más. ¡Aprovecha ahora!',
   openGraph: {
-    title: 'Ofertas Especiales | YB MOTOCOM',
+    title: 'Ofertas Especiales | YJBMOTOCOM',
     description: 'Ofertas especiales en accesorios para motos. Descuentos de hasta 50%.',
     images: ['/images/ofertas-og.jpg'],
   },

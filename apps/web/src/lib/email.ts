@@ -15,8 +15,8 @@ function getResend() {
   }
   return _resend
 }
-const fromEmail = process.env.RESEND_FROM_EMAIL || 'YB MOTOCOM <pedidos@ybmotocom.com>'
-const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'ybmotocom@gmail.com'
+const fromEmail = process.env.RESEND_FROM_EMAIL || 'YJBMOTOCOM <pedidos@yjbmotocom.com>'
+const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'yjbmotocom@gmail.com'
 
 interface OrderWithItems {
   id: string
@@ -292,7 +292,7 @@ export async function sendLowStockAlert(): Promise<boolean> {
 export async function sendRestockNotifications(productId: string): Promise<number> {
   try {
     const supabase = getServiceSupabase()
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
 
     // Get product info
     const { data: product, error: productError } = await supabase
@@ -333,7 +333,7 @@ export async function sendRestockNotifications(productId: string): Promise<numbe
         const { error: sendError } = await getResend().emails.send({
           from: fromEmail,
           to: sub.email,
-          subject: `¡${product.title} ya está disponible! — YB MOTOCOM`,
+          subject: `¡${product.title} ya está disponible! — YJBMOTOCOM`,
           html: emailHtml,
         })
 

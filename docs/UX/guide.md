@@ -1,8 +1,8 @@
-# YB MOTOCOM - Guia de Diseno UX
+# YJBMOTOCOM - Guia de Diseno UX
 
 ## Filosofia de Diseno
 
-YB MOTOCOM utiliza un diseno **futurista y minimalista** enfocado en mobile-first, con inspiracion en referencias de Mobbin y tendencias modernas de e-commerce.
+YJBMOTOCOM utiliza un diseno **futurista y minimalista** enfocado en mobile-first, con inspiracion en referencias de Mobbin y tendencias modernas de e-commerce.
 
 ## Paleta de Colores
 

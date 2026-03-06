@@ -6,7 +6,7 @@
 **Causa**: Las categorías y productos en la base de datos tienen URLs de imágenes que no existen.
 
 ### ❌ Problema 2: No puedes hacer login
-**Causa**: El usuario `admin@ybmotocom.com` no existe en Supabase Auth.
+**Causa**: El usuario `admin@yjbmotocom.com` no existe en Supabase Auth.
 
 ---
 
@@ -24,7 +24,7 @@
 
 3. **Llenar el formulario**:
    ```
-   Email: admin@ybmotocom.com
+   Email: admin@yjbmotocom.com
    Password: asdf4991jesuSS
    ```
    - ✅ Marca: **"Auto Confirm User"** (para que no necesite verificar email)
@@ -55,14 +55,14 @@
    INSERT INTO public.users (id, email, name, role)
    VALUES (
      'UUID_DEL_USUARIO',  -- ← REEMPLAZAR AQUÍ
-     'admin@ybmotocom.com',
+     'admin@yjbmotocom.com',
      'Administrador',
      'admin'
    )
    ON CONFLICT (id) DO UPDATE
    SET role = 'admin',
        name = 'Administrador',
-       email = 'admin@ybmotocom.com';
+       email = 'admin@yjbmotocom.com';
    ```
 
 4. **Verificar que funcionó**:
@@ -78,7 +78,7 @@
    -- Verificar usuario admin
    SELECT id, email, role, name
    FROM public.users
-   WHERE email = 'admin@ybmotocom.com';
+   WHERE email = 'admin@yjbmotocom.com';
    ```
 
    Deberías ver:
@@ -94,7 +94,7 @@
 
 2. **Ingresar credenciales**:
    ```
-   Email: admin@ybmotocom.com
+   Email: admin@yjbmotocom.com
    Password: asdf4991jesuSS
    ```
 
@@ -130,20 +130,20 @@ Aquí está el comando completo (solo reemplaza el UUID):
 -- 1. Primero, verifica el UUID del usuario que creaste
 SELECT id, email
 FROM auth.users
-WHERE email = 'admin@ybmotocom.com';
+WHERE email = 'admin@yjbmotocom.com';
 
 -- 2. Copia el UUID que aparece y pégalo aquí abajo
 INSERT INTO public.users (id, email, name, role)
 VALUES (
   'PEGAR_UUID_AQUI',  -- ← Ejemplo: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-  'admin@ybmotocom.com',
+  'admin@yjbmotocom.com',
   'Administrador',
   'admin'
 )
 ON CONFLICT (id) DO UPDATE
 SET role = 'admin',
     name = 'Administrador',
-    email = 'admin@ybmotocom.com';
+    email = 'admin@yjbmotocom.com';
 ```
 
 ---
@@ -154,12 +154,12 @@ SET role = 'admin',
 
 1. **Verificar que el usuario existe**:
    ```sql
-   SELECT * FROM auth.users WHERE email = 'admin@ybmotocom.com';
+   SELECT * FROM auth.users WHERE email = 'admin@yjbmotocom.com';
    ```
 
 2. **Verificar que el rol está asignado**:
    ```sql
-   SELECT * FROM public.users WHERE email = 'admin@ybmotocom.com';
+   SELECT * FROM public.users WHERE email = 'admin@yjbmotocom.com';
    ```
 
 3. **Verificar las variables de entorno**:
@@ -200,7 +200,7 @@ Después de completar todos los pasos, deberías tener:
 - [ ] Usuario admin con rol 'admin' en tabla public.users
 - [ ] Categorías con image_url correctas
 - [ ] Productos con imágenes placeholder
-- [ ] Login funcionando con admin@ybmotocom.com
+- [ ] Login funcionando con admin@yjbmotocom.com
 - [ ] Imágenes de categorías visibles en la homepage
 - [ ] Imágenes placeholder visibles en productos
 

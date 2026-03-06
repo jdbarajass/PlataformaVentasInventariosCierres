@@ -7,18 +7,18 @@ import {
 } from '@/components/ui/accordion'
 
 export const metadata: Metadata = {
-  title: 'Términos y Condiciones | YB MOTOCOM',
-  description: 'Términos y condiciones de uso de YB MOTOCOM. Lee nuestras políticas antes de realizar tu compra.',
+  title: 'Términos y Condiciones | YJBMOTOCOM',
+  description: 'Términos y condiciones de uso de YJBMOTOCOM. Lee nuestras políticas antes de realizar tu compra.',
   openGraph: {
-    title: 'Términos y Condiciones | YB MOTOCOM',
-    description: 'Términos y condiciones de uso de YB MOTOCOM',
+    title: 'Términos y Condiciones | YJBMOTOCOM',
+    description: 'Términos y condiciones de uso de YJBMOTOCOM',
   },
 }
 
 const sections = [
   {
     title: '1. Aceptación de Términos',
-    content: `Al acceder y usar el sitio web de YB MOTOCOM (en adelante "la Tienda"), aceptas cumplir y estar sujeto a estos Términos y Condiciones. Si no estás de acuerdo con alguna parte de estos términos, no debes utilizar nuestros servicios.
+    content: `Al acceder y usar el sitio web de YJBMOTOCOM (en adelante "la Tienda"), aceptas cumplir y estar sujeto a estos Términos y Condiciones. Si no estás de acuerdo con alguna parte de estos términos, no debes utilizar nuestros servicios.
 
 La Tienda se reserva el derecho de modificar estos términos en cualquier momento. Es tu responsabilidad revisar periódicamente estos términos para estar informado de cualquier cambio.`,
   },
@@ -32,7 +32,7 @@ La Tienda se reserva el derecho de modificar estos términos en cualquier moment
 • Proporcionar información veraz y actualizada durante el proceso de registro y compra.
 • No utilizar la Tienda para actividades fraudulentas o ilegales.
 
-YB MOTOCOM se reserva el derecho de suspender o cancelar el acceso de cualquier usuario que incumpla estos términos.`,
+YJBMOTOCOM se reserva el derecho de suspender o cancelar el acceso de cualquier usuario que incumpla estos términos.`,
   },
   {
     title: '3. Productos y Precios',
@@ -49,7 +49,7 @@ YB MOTOCOM se reserva el derecho de suspender o cancelar el acceso de cualquier 
     content: `Al realizar una compra, el cliente acepta:
 
 • La información proporcionada (nombre, dirección, email, teléfono) es correcta y completa.
-• El pedido constituye una oferta de compra que será aceptada por YB MOTOCOM mediante el envío de un correo electrónico de confirmación.
+• El pedido constituye una oferta de compra que será aceptada por YJBMOTOCOM mediante el envío de un correo electrónico de confirmación.
 • Los pedidos están sujetos a disponibilidad de stock.
 • Nos reservamos el derecho de rechazar o cancelar cualquier pedido por motivos justificados.
 
@@ -72,7 +72,7 @@ Proceso de compra:
 
 Para métodos de pago manuales (transferencia, Nequi, Daviplata), recibirás un correo electrónico con las instrucciones detalladas. Es importante incluir el número de orden como referencia de pago.
 
-Los datos de pago son procesados de manera segura y encriptada. YB MOTOCOM no almacena información completa de tarjetas de crédito.`,
+Los datos de pago son procesados de manera segura y encriptada. YJBMOTOCOM no almacena información completa de tarjetas de crédito.`,
   },
   {
     title: '6. Envíos y Entregas',
@@ -116,7 +116,7 @@ Aceptamos devoluciones dentro de los 30 días siguientes a la recepción del pro
 • Para hacer válida la garantía, se debe presentar la factura de compra.
 
 **Proceso de devolución:**
-1. Contactar a servicio al cliente a través de contacto@ybmotocom.com
+1. Contactar a servicio al cliente a través de contacto@yjbmotocom.com
 2. Proporcionar número de orden y motivo de devolución
 3. Esperar autorización de devolución
 4. Enviar el producto al almacén (costos de envío a cargo del cliente, salvo producto defectuoso)
@@ -159,29 +159,29 @@ Para más detalles, consulta nuestra Política de Privacidad completa.`,
 • Diseño del sitio
 • Código fuente
 
-Es propiedad exclusiva de YB MOTOCOM o de sus respectivos propietarios y está protegido por las leyes de propiedad intelectual de Colombia.
+Es propiedad exclusiva de YJBMOTOCOM o de sus respectivos propietarios y está protegido por las leyes de propiedad intelectual de Colombia.
 
 Queda prohibido:
 • Copiar, reproducir o distribuir cualquier contenido del sitio sin autorización previa.
-• Utilizar las marcas registradas de YB MOTOCOM sin permiso.
+• Utilizar las marcas registradas de YJBMOTOCOM sin permiso.
 • Realizar ingeniería inversa del sitio web.
 
 El uso no autorizado del contenido puede resultar en acciones legales.`,
   },
   {
     title: '10. Limitación de Responsabilidad',
-    content: `YB MOTOCOM se compromete a proporcionar información precisa sobre productos y servicios, sin embargo:
+    content: `YJBMOTOCOM se compromete a proporcionar información precisa sobre productos y servicios, sin embargo:
 
 • No garantizamos que el sitio web estará disponible de manera ininterrumpida o libre de errores.
 • No somos responsables por daños indirectos, incidentales o consecuentes derivados del uso del sitio o productos.
-• La responsabilidad total de YB MOTOCOM no excederá el valor pagado por el producto en cuestión.
+• La responsabilidad total de YJBMOTOCOM no excederá el valor pagado por el producto en cuestión.
 • No somos responsables por retrasos o fallas en la entrega causados por terceros (courier, fuerza mayor, etc.).
 
 El sitio puede contener enlaces a sitios web de terceros. No nos responsabilizamos por el contenido o prácticas de privacidad de estos sitios.`,
   },
   {
     title: '11. Modificaciones a los Términos',
-    content: `YB MOTOCOM se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento.
+    content: `YJBMOTOCOM se reserva el derecho de modificar estos Términos y Condiciones en cualquier momento.
 
 • Las modificaciones entrarán en vigor inmediatamente después de su publicación en el sitio.
 • Es responsabilidad del usuario revisar periódicamente estos términos.
@@ -203,7 +203,7 @@ Si no se alcanza un acuerdo, las partes se someten a la jurisdicción de los tri
     title: '13. Contacto',
     content: `Para cualquier consulta, reclamo o solicitud relacionada con estos Términos y Condiciones, puedes contactarnos a través de:
 
-**Email:** contacto@ybmotocom.com
+**Email:** contacto@yjbmotocom.com
 
 **Horario de atención:**
 Lunes a Viernes: 9:00 AM - 6:00 PM
@@ -231,7 +231,7 @@ export default function TerminosPage() {
       {/* Introduction */}
       <div className="mb-8 p-6 bg-muted/50 rounded-lg border">
         <p className="text-sm md:text-base leading-relaxed">
-          Bienvenido a YB MOTOCOM. Al utilizar nuestro sitio web y realizar compras,
+          Bienvenido a YJBMOTOCOM. Al utilizar nuestro sitio web y realizar compras,
           aceptas estar sujeto a estos Términos y Condiciones. Por favor, léelos
           cuidadosamente antes de realizar cualquier transacción. Si tienes alguna
           pregunta, no dudes en{' '}
@@ -263,7 +263,7 @@ export default function TerminosPage() {
       {/* Footer Note */}
       <div className="mt-8 p-6 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
         <p className="text-sm text-blue-900 dark:text-blue-100">
-          <strong>Nota importante:</strong> Al realizar una compra en YB MOTOCOM,
+          <strong>Nota importante:</strong> Al realizar una compra en YJBMOTOCOM,
           confirmas que has leído, entendido y aceptado estos Términos y Condiciones
           en su totalidad.
         </p>

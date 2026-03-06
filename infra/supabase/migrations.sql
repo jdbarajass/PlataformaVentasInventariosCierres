@@ -1,5 +1,5 @@
 -- =====================================================
--- YB MOTOCOM - Migraciones de Base de Datos
+-- YJBMOTOCOM - Migraciones de Base de Datos
 -- =====================================================
 -- Ejecutar este script en Supabase SQL Editor
 

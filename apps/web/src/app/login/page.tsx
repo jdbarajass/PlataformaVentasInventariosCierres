@@ -54,7 +54,7 @@ function LoginForm() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600">
             <span className="text-2xl font-bold text-white">YB</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">YB MOTOCOM</h1>
+          <h1 className="text-2xl font-bold text-white">YJBMOTOCOM</h1>
           <p className="mt-2 text-slate-400">Panel de Administracion</p>
         </div>
 
@@ -77,7 +77,7 @@ function LoginForm() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@ybmotocom.com"
+                placeholder="admin@yjbmotocom.com"
                 className="rounded-xl border-slate-600 bg-slate-700 text-white placeholder:text-slate-400"
                 required
               />

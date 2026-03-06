@@ -49,7 +49,7 @@ WHERE array_length(images, 1) IS NULL
 -- IMPORTANTE: Primero debes crear el usuario en Supabase Dashboard:
 -- 1. Ve a: https://myskhpuwufbjgxnaltwl.supabase.co/project/myskhpuwufbjgxnaltwl/auth/users
 -- 2. Click en "Add User" → "Create new user"
--- 3. Email: admin@ybmotocom.com
+-- 3. Email: admin@yjbmotocom.com
 -- 4. Password: asdf4991jesuSS
 -- 5. Click "Create user"
 
@@ -60,7 +60,7 @@ WHERE array_length(images, 1) IS NULL
 -- UPDATE public.users
 -- SET role = 'admin',
 --     name = 'Administrador',
---     email = 'admin@ybmotocom.com'
+--     email = 'admin@yjbmotocom.com'
 -- WHERE id = 'UUID_DEL_USUARIO';
 
 -- =====================================================
@@ -81,4 +81,4 @@ LIMIT 10;
 -- Verificar usuario admin (después de crearlo)
 -- SELECT id, email, role, name
 -- FROM public.users
--- WHERE email = 'admin@ybmotocom.com';
+-- WHERE email = 'admin@yjbmotocom.com';

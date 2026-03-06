@@ -32,7 +32,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Factura ${order.order_number} - YB MOTOCOM</title>
+  <title>Factura ${order.order_number} - YJBMOTOCOM</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; }
@@ -69,7 +69,7 @@ export async function GET(
 
   <div class="header">
     <div class="brand">
-      <h1>YB MOTOCOM</h1>
+      <h1>YJBMOTOCOM</h1>
       <p>Accesorios para Motociclistas</p>
       <p>NIT: Pendiente de registro</p>
     </div>
@@ -144,8 +144,8 @@ export async function GET(
   </div>
 
   <div class="footer">
-    <p>YB MOTOCOM - Accesorios para Motociclistas en Colombia</p>
-    <p>ybmotocom@gmail.com | ybmotocom.com</p>
+    <p>YJBMOTOCOM - Accesorios para Motociclistas en Colombia</p>
+    <p>yjbmotocom@gmail.com | yjbmotocom.com</p>
     <p style="margin-top:8px;">Gracias por tu compra</p>
   </div>
 </body>

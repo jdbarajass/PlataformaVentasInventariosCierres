@@ -8,13 +8,13 @@ export function OrganizationSchema({ url }: OrganizationSchemaProps) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Store',
-    name: 'YB MOTOCOM',
+    name: 'YJBMOTOCOM',
     description: 'Tienda especializada en accesorios y equipamiento para motociclistas en Colombia',
     url: url,
     logo: `${url}/logo.png`,
     image: `${url}/og-image.jpg`,
     telephone: '+57-321-411-1371',
-    email: 'ybmotocom@gmail.com',
+    email: 'yjbmotocom@gmail.com',
     address: {
       '@type': 'PostalAddress',
       streetAddress: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
@@ -43,9 +43,9 @@ export function OrganizationSchema({ url }: OrganizationSchemaProps) {
       },
     ],
     sameAs: [
-      'https://facebook.com/ybmotocom',
-      'https://instagram.com/ybmotocom',
-      'https://twitter.com/ybmotocom',
+      'https://facebook.com/yjbmotocom',
+      'https://instagram.com/yjbmotocom',
+      'https://twitter.com/yjbmotocom',
     ],
     priceRange: '$$',
     paymentAccepted: 'Cash, Credit Card, Debit Card, Nequi, Daviplata',
@@ -85,7 +85,7 @@ export function ProductSchema({ product, url }: ProductSchemaProps) {
     sku: product.sku || 'N/A',
     brand: {
       '@type': 'Brand',
-      name: product.brand || 'YB MOTOCOM',
+      name: product.brand || 'YJBMOTOCOM',
     },
     offers: {
       '@type': 'Offer',
@@ -95,7 +95,7 @@ export function ProductSchema({ product, url }: ProductSchemaProps) {
       availability: `https://schema.org/${product.availability}`,
       seller: {
         '@type': 'Organization',
-        name: 'YB MOTOCOM',
+        name: 'YJBMOTOCOM',
       },
     },
   }
@@ -152,7 +152,7 @@ export function WebPageSchema({ name, description, url }: WebPageSchemaProps) {
     url: url,
     publisher: {
       '@type': 'Organization',
-      name: 'YB MOTOCOM',
+      name: 'YJBMOTOCOM',
       logo: {
         '@type': 'ImageObject',
         url: `${url}/logo.png`,

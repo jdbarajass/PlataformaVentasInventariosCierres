@@ -5,8 +5,8 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { RotateCcw, CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Devoluciones y Garantías | YB MOTOCOM',
-  description: 'Política de devoluciones, cambios y garantías de productos. Compra con confianza en YB MOTOCOM.',
+  title: 'Devoluciones y Garantías | YJBMOTOCOM',
+  description: 'Política de devoluciones, cambios y garantías de productos. Compra con confianza en YJBMOTOCOM.',
 }
 
 export default function DevolucionesPage() {
@@ -49,7 +49,7 @@ export default function DevolucionesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              En YB MOTOCOM aceptamos devoluciones dentro de los <strong>30 días</strong> posteriores
+              En YJBMOTOCOM aceptamos devoluciones dentro de los <strong>30 días</strong> posteriores
               a la recepción del producto, siempre que se cumplan las siguientes condiciones:
             </p>
 
@@ -136,7 +136,7 @@ export default function DevolucionesPage() {
                 <div>
                   <h3 className="font-semibold mb-1">Contacta con nosotros</h3>
                   <p className="text-sm text-muted-foreground">
-                    Envía un email a <strong>ybmotocom@gmail.com</strong> con tu número de orden
+                    Envía un email a <strong>yjbmotocom@gmail.com</strong> con tu número de orden
                     y el motivo de la devolución
                   </p>
                 </div>
@@ -261,7 +261,7 @@ export default function DevolucionesPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             <strong>Importante:</strong> Los costos de envío de la devolución corren por cuenta del cliente,
-            excepto en casos de productos defectuosos o error en el envío. En esos casos, YB MOTOCOM asumirá
+            excepto en casos de productos defectuosos o error en el envío. En esos casos, YJBMOTOCOM asumirá
             todos los costos asociados.
           </AlertDescription>
         </Alert>

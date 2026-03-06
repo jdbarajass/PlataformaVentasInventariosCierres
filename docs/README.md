@@ -1,6 +1,6 @@
-# 📚 Documentación - YB MOTOCOM
+# 📚 Documentación - YJBMOTOCOM
 
-Bienvenido a la documentación del proyecto YB MOTOCOM.
+Bienvenido a la documentación del proyecto YJBMOTOCOM.
 
 ## 🗂️ Índice de Documentación
 
@@ -95,10 +95,10 @@ Al agregar nueva funcionalidad:
 
 ## 📞 Contacto
 
-- **Issues**: [GitHub Issues](https://github.com/ybmotocom/yb-motocom/issues)
+- **Issues**: [GitHub Issues](https://github.com/yjbmotocom/yb-motocom/issues)
 - **Documentación externa**: Ver links en cada documento
 
 ---
 
 **Última actualización**: 2026-02-16
-**Mantenido por**: Equipo de desarrollo YB MOTOCOM
+**Mantenido por**: Equipo de desarrollo YJBMOTOCOM

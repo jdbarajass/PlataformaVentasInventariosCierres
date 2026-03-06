@@ -1,4 +1,4 @@
-# Performance Optimization Guide - YB MOTOCOM
+# Performance Optimization Guide - YJBMOTOCOM
 
 ## Lighthouse Audits
 

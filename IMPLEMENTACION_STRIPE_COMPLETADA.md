@@ -8,7 +8,7 @@
 
 ## 📋 Resumen Ejecutivo
 
-La integración de pagos con Stripe para **YB MOTOCOM** ha sido **completamente implementada, mejorada y documentada**.
+La integración de pagos con Stripe para **YJBMOTOCOM** ha sido **completamente implementada, mejorada y documentada**.
 
 ### ✨ Lo que se hizo:
 

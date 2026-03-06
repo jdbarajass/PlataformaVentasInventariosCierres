@@ -1,4 +1,4 @@
-# Analytics Setup - YB MOTOCOM
+# Analytics Setup - YJBMOTOCOM
 
 Guía de configuración e implementación de analytics para la plataforma.
 

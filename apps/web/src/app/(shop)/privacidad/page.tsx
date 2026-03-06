@@ -4,15 +4,15 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Shield, Lock, Eye, UserCheck, Database, Mail } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Política de Privacidad | YB MOTOCOM',
-  description: 'Política de privacidad y protección de datos personales de YB MOTOCOM. Conoce cómo protegemos tu información.',
+  title: 'Política de Privacidad | YJBMOTOCOM',
+  description: 'Política de privacidad y protección de datos personales de YJBMOTOCOM. Conoce cómo protegemos tu información.',
 }
 
 const sections = [
   {
     title: '1. Información que Recopilamos',
     icon: Database,
-    content: `En YB MOTOCOM recopilamos la siguiente información personal cuando utilizas nuestro sitio web o realizas una compra:
+    content: `En YJBMOTOCOM recopilamos la siguiente información personal cuando utilizas nuestro sitio web o realizas una compra:
 
 **Información de Cuenta:**
 - Nombre completo
@@ -154,7 +154,7 @@ Puedes controlar las cookies desde la configuración de tu navegador. Ten en cue
 - Transferir tus datos a otro servicio
 
 **Cómo Ejercer tus Derechos:**
-Envía un correo a **ybmotocom@gmail.com** con tu solicitud. Responderemos en un plazo máximo de 15 días hábiles.`,
+Envía un correo a **yjbmotocom@gmail.com** con tu solicitud. Responderemos en un plazo máximo de 15 días hábiles.`,
   },
   {
     title: '7. Retención de Datos',
@@ -197,7 +197,7 @@ Estos proveedores cumplen con estándares internacionales de protección de dato
 
 No recopilamos intencionalmente información de menores de edad. Si descubrimos que hemos recopilado datos de un menor sin consentimiento parental, eliminaremos esa información de inmediato.
 
-Si eres padre/madre y crees que tu hijo ha proporcionado información personal, contáctanos en ybmotocom@gmail.com.`,
+Si eres padre/madre y crees que tu hijo ha proporcionado información personal, contáctanos en yjbmotocom@gmail.com.`,
   },
   {
     title: '10. Cambios a esta Política',
@@ -216,13 +216,13 @@ Si eres padre/madre y crees que tu hijo ha proporcionado información personal, 
     icon: Mail,
     content: `Si tienes preguntas sobre esta Política de Privacidad o sobre cómo manejamos tus datos personales, contáctanos:
 
-**Email:** ybmotocom@gmail.com
+**Email:** yjbmotocom@gmail.com
 **Teléfono:** +57 321 411 1371 / +57 314 406 5520
 **Dirección:** Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1, Bogotá, Colombia
 **Horario de Atención:** Lunes a Viernes 8:00 AM - 6:00 PM, Sábados 9:00 AM - 2:00 PM
 
 **Responsable del Tratamiento de Datos:**
-YB MOTOCOM
+YJBMOTOCOM
 NIT: [Pendiente de configuración]
 
 Responderemos a todas las consultas relacionadas con privacidad en un plazo máximo de 15 días hábiles.`,
@@ -282,7 +282,7 @@ export default function PrivacidadPage() {
       {/* Intro */}
       <div className="max-w-4xl mx-auto mb-8 p-6 bg-primary/5 border border-primary/20 rounded-lg">
         <p className="text-muted-foreground leading-relaxed">
-          En <strong>YB MOTOCOM</strong>, nos comprometemos a proteger tu privacidad y garantizar la seguridad
+          En <strong>YJBMOTOCOM</strong>, nos comprometemos a proteger tu privacidad y garantizar la seguridad
           de tus datos personales. Esta Política de Privacidad describe cómo recopilamos, utilizamos, almacenamos
           y protegemos tu información cuando utilizas nuestro sitio web y servicios, en cumplimiento con la
           Ley 1581 de 2012 de Protección de Datos Personales de Colombia.
@@ -325,7 +325,7 @@ export default function PrivacidadPage() {
             Tu Confianza es Nuestra Prioridad
           </h3>
           <p className="text-sm text-muted-foreground">
-            En YB MOTOCOM trabajamos constantemente para mejorar nuestras prácticas de privacidad y seguridad.
+            En YJBMOTOCOM trabajamos constantemente para mejorar nuestras prácticas de privacidad y seguridad.
             Si tienes alguna pregunta o inquietud sobre cómo manejamos tus datos, no dudes en contactarnos.
             Estamos aquí para ayudarte.
           </p>

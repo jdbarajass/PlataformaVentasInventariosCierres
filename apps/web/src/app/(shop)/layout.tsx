@@ -11,7 +11,7 @@ export default function ShopLayout({
 }: {
   children: React.ReactNode
 }) {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
 
   return (
     <div className="flex min-h-screen flex-col">

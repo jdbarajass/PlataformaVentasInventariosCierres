@@ -20,7 +20,7 @@ export default function RestockNotificationEmail({
   productSlug,
   productImage,
   productPrice,
-  siteUrl = 'https://ybmotocom.com',
+  siteUrl = 'https://yjbmotocom.com',
 }: RestockNotificationProps) {
   const productUrl = `${siteUrl}/producto/${productSlug}`
 

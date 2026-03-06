@@ -63,7 +63,7 @@ Te dejo 3 prompts: uno para Figma, otro para código, otro para mejorar micro-in
 
 Prompt A — Mockup (Figma / diseño)
 
-Diseña un e-commerce futurista y premium para “YB MOTOCOM” (venta de accesorios de motos en Colombia). Estilo dark mode con acento rojo/ámbar, glassmorphism sutil, iluminación tipo neón controlada, estética motorsport.
+Diseña un e-commerce futurista y premium para “YJBMOTOCOM” (venta de accesorios de motos en Colombia). Estilo dark mode con acento rojo/ámbar, glassmorphism sutil, iluminación tipo neón controlada, estética motorsport.
 Crea 1 pantalla Home (desktop 1440px) y su versión móvil (390px).
 Componentes obligatorios: header sticky con buscador grande, mega menú de categorías, botón WhatsApp flotante, hero cinemático con 2 CTAs, sección de chips de filtros, “compra por uso” (urbano/touring/offroad/delivery), grid de productos (12) con quick view/wishlist/añadir, sección de beneficios (envío/pago/garantía/retira), carrusel de marcas, y footer completo.
 Define: paleta (hex), tipografías, espaciados 8pt grid, estilos de botón y tarjeta, y un mini design system (tokens).
@@ -214,7 +214,7 @@ Ponlo en el header.
 Copia esto EXACTO:
 PROMPT FRONT BRUTAL
 
-Rediseña completamente el frontend de un e-commerce de accesorios de motos llamado YB MOTOCOM.
+Rediseña completamente el frontend de un e-commerce de accesorios de motos llamado YJBMOTOCOM.
 
 Stack: Next.js 14 + Tailwind + shadcn/ui + Framer Motion.
 Solo modificar UI, no backend.

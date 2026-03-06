@@ -1,5 +1,5 @@
 -- =====================================================
--- YB MOTOCOM - Row Level Security (RLS) Completo
+-- YJBMOTOCOM - Row Level Security (RLS) Completo
 -- =====================================================
 -- INSTRUCCIONES:
 --   1. Abrir Supabase Dashboard → SQL Editor

@@ -1,4 +1,4 @@
-● El proyecto YB MOTOCOM ha sido creado exitosamente. Aqui esta el resumen:
+● El proyecto YJBMOTOCOM ha sido creado exitosamente. Aqui esta el resumen:
                                                                                                        Estructura del Proyecto                                                                               
   PROYECTO_YB_MOTOCOM/                                                                               
   ├── apps/web/                    # Aplicacion Next.js

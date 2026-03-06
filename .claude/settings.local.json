@@ -14,7 +14,8 @@
       "Bash(npm run build:*)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(grep:*)",
-      "Bash(npx playwright install:*)"
+      "Bash(npx playwright install:*)",
+      "Bash(find . -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" -o -name \"*.jsx\" -o -name \"*.md\" -o -name \"*.txt\" -o -name \"*.sql\" -o -name \"*.env*\" -o -name \"*.html\" -o -name \"*.css\" -o -name \"robots.txt\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/.git/*\" ! -path \"*/.next/*\" -exec sed -i 's/YB MOTOCOM/YJBMOTOCOM/g; s/ybmotocom/yjbmotocom/g' {} +)"
     ]
   }
 }

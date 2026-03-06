@@ -167,7 +167,7 @@ Ver: `docs/INTEGRACION_PAGOS_STRIPE.md`
 ### 2. Configurar webhook en Stripe Dashboard
 
 ```
-URL: https://ybmotocom.com/api/payments/webhook
+URL: https://yjbmotocom.com/api/payments/webhook
 Eventos:
 - checkout.session.completed
 - checkout.session.expired

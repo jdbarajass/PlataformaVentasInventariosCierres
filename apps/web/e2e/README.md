@@ -1,4 +1,4 @@
-# E2E Tests - YB MOTOCOM
+# E2E Tests - YJBMOTOCOM
 
 Tests end-to-end (E2E) usando Playwright para verificar el funcionamiento completo de la plataforma.
 

@@ -5,7 +5,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Truck, Package, Clock, MapPin, CheckCircle2 } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Envíos y Entregas | YB MOTOCOM',
+  title: 'Envíos y Entregas | YJBMOTOCOM',
   description: 'Información sobre nuestros métodos de envío, tiempos de entrega y cobertura en Colombia.',
 }
 

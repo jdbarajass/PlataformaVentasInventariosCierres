@@ -6,12 +6,12 @@
 -- Crear tabla store_settings (una sola fila)
 CREATE TABLE IF NOT EXISTS public.store_settings (
   id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  store_name TEXT NOT NULL DEFAULT 'YB MOTOCOM',
+  store_name TEXT NOT NULL DEFAULT 'YJBMOTOCOM',
   store_description TEXT DEFAULT 'Tu tienda de confianza para accesorios y equipamiento de motos. Calidad y seguridad para cada viaje.',
   contact_info JSONB NOT NULL DEFAULT '{
     "phone_primary": "+57 321 411 1371",
     "phone_secondary": "+57 314 406 5520",
-    "email": "ybmotocom@gmail.com",
+    "email": "yjbmotocom@gmail.com",
     "address": "Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1",
     "city": "Bogotá, Colombia",
     "business_hours": {

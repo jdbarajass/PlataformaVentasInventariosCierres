@@ -6,7 +6,7 @@ import { HelpCircle, Package, CreditCard, Truck, RotateCcw, Shield } from 'lucid
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Preguntas Frecuentes (FAQ) | YB MOTOCOM',
+  title: 'Preguntas Frecuentes (FAQ) | YJBMOTOCOM',
   description: 'Encuentra respuestas a las preguntas más comunes sobre compras, envíos, devoluciones y más.',
 }
 
@@ -21,7 +21,7 @@ const faqCategories = [
       },
       {
         question: '¿Puedo modificar mi pedido después de realizarlo?',
-        answer: 'Puedes modificar tu pedido contactándonos inmediatamente a ybmotocom@gmail.com o al +57 321 411 1371. Sin embargo, si el pedido ya ha sido procesado y enviado, no podremos realizar cambios.',
+        answer: 'Puedes modificar tu pedido contactándonos inmediatamente a yjbmotocom@gmail.com o al +57 321 411 1371. Sin embargo, si el pedido ya ha sido procesado y enviado, no podremos realizar cambios.',
       },
       {
         question: '¿Cómo puedo rastrear mi pedido?',
@@ -91,7 +91,7 @@ const faqCategories = [
       },
       {
         question: '¿Quién paga el envío de la devolución?',
-        answer: 'El costo de envío de la devolución es responsabilidad del cliente, excepto en casos de productos defectuosos o error en el envío, donde YB MOTOCOM asume todos los costos.',
+        answer: 'El costo de envío de la devolución es responsabilidad del cliente, excepto en casos de productos defectuosos o error en el envío, donde YJBMOTOCOM asume todos los costos.',
       },
       {
         question: '¿Cuándo recibiré mi reembolso?',

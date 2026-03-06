@@ -1,4 +1,4 @@
-# 📊 ANÁLISIS COMPLETO - YB MOTOCOM
+# 📊 ANÁLISIS COMPLETO - YJBMOTOCOM
 
 > **Fecha**: 2026-02-18 (Actualizado)
 > **Versión**: 10.0
@@ -25,7 +25,7 @@
 ## 🎯 RESUMEN EJECUTIVO
 
 ### Descripción del Proyecto
-**YB MOTOCOM** es una plataforma de e-commerce especializada en accesorios para motociclistas, que incluye:
+**YJBMOTOCOM** es una plataforma de e-commerce especializada en accesorios para motociclistas, que incluye:
 - Tienda pública con catálogo de productos
 - Panel administrativo completo
 - Sistema de pagos integrado (Stripe + MercadoPago)
@@ -421,7 +421,7 @@ export async function POST(request: NextRequest) {
 1. Ir a MercadoPago Dashboard → **Notificaciones (Webhooks)**
 2. Agregar URL de webhook:
    - **Desarrollo**: usar [ngrok](https://ngrok.com/) → `https://xxxx.ngrok.io/api/payments/mercadopago/webhook`
-   - **Producción**: `https://ybmotocom.com/api/payments/mercadopago/webhook`
+   - **Producción**: `https://yjbmotocom.com/api/payments/mercadopago/webhook`
 3. Seleccionar evento: **Pagos** (`payment`)
 4. Copiar el **Secret** que genera MP (para validar firmas)
 
@@ -498,7 +498,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc... (configurado)
 
 # Agregar estas variables para Resend:
 RESEND_API_KEY=re_xxxxx  # Obtener de resend.com
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
 ```
 
 **Estado de Configuración**:
@@ -517,10 +517,10 @@ export async function sendNewOrderAdmin(orderId: string)
 export async function sendLowStockAlert(): Promise<boolean>
 ```
 
-**Variable de entorno adicional**: `ADMIN_NOTIFICATION_EMAIL` — Email del admin que recibe notificaciones (default: `ybmotocom@gmail.com`)
+**Variable de entorno adicional**: `ADMIN_NOTIFICATION_EMAIL` — Email del admin que recibe notificaciones (default: `yjbmotocom@gmail.com`)
 
 **Templates de Email Creados**:
-1. **`email-layout.tsx`** - Layout compartido con branding de YB MOTOCOM
+1. **`email-layout.tsx`** - Layout compartido con branding de YJBMOTOCOM
 2. **`order-confirmation.tsx`** - Confirmación de pago exitoso
    - Número de orden
    - Items comprados (tabla con imágenes)
@@ -996,7 +996,7 @@ MERCADOPAGO_WEBHOOK_SECRET=xxx     # Secret del dashboard de MP
 SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
 
 # App
-NEXT_PUBLIC_APP_URL=https://ybmotocom.com
+NEXT_PUBLIC_APP_URL=https://yjbmotocom.com
 ```
 
 ### Checklist Pre-Producción
@@ -1034,7 +1034,7 @@ NEXT_PUBLIC_APP_URL=https://ybmotocom.com
    - `Secret key` → empieza con `sk_live_`
 6. Ir a **Developers → Webhooks** en modo live
 7. Crear un nuevo webhook endpoint:
-   - **URL**: `https://ybmotocom.com/api/payments/webhook`
+   - **URL**: `https://yjbmotocom.com/api/payments/webhook`
    - **Eventos a escuchar**:
      - `checkout.session.completed`
      - `checkout.session.expired`
@@ -1066,7 +1066,7 @@ STRIPE_WEBHOOK_SECRET=whsec_TU_WEBHOOK_SECRET_AQUI
 4. Ir a **Notificaciones → Webhooks** en el dashboard de MP
 5. Agregar URL de webhook:
    - **Para desarrollo local**: usar [ngrok](https://ngrok.com/) → `https://xxxx.ngrok.io/api/payments/mercadopago/webhook`
-   - **Para producción**: `https://ybmotocom.com/api/payments/mercadopago/webhook`
+   - **Para producción**: `https://yjbmotocom.com/api/payments/mercadopago/webhook`
 6. Seleccionar evento: **Pagos** (`payment`)
 7. Copiar el **Secret** que genera MP
 8. Actualizar `.env.local`:
@@ -1119,15 +1119,15 @@ MERCADOPAGO_PUBLIC_KEY=APP_USR-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 3. Copiar la key → empieza con `re_`
 4. **Configurar dominio** (recomendado para que los emails no caigan en spam):
    - Ir a **Domains** → Add Domain
-   - Agregar `ybmotocom.com`
+   - Agregar `yjbmotocom.com`
    - Resend te dará registros DNS (TXT, MX, CNAME) que debes agregar en tu proveedor de dominio
    - Esperar verificación (puede tomar hasta 48 horas)
 5. Actualizar `.env.local`:
 
 ```env
 RESEND_API_KEY=re_TU_API_KEY_AQUI
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
-ADMIN_NOTIFICATION_EMAIL=ybmotocom@gmail.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
+ADMIN_NOTIFICATION_EMAIL=yjbmotocom@gmail.com
 ```
 
 6. **Sin dominio verificado**: Puedes usar `onboarding@resend.dev` como remitente temporal (solo envía a tu propio email)
@@ -1158,7 +1158,7 @@ SENTRY_DSN=https://xxxxxxxxx@oXXXXXX.ingest.sentry.io/XXXXXXX
 
 1. Ir a [Google Analytics](https://analytics.google.com/)
 2. Crear una nueva propiedad → Elegir **Web**
-3. Configurar el stream de datos con tu dominio `ybmotocom.com`
+3. Configurar el stream de datos con tu dominio `yjbmotocom.com`
 4. Copiar el **Measurement ID** → formato `G-XXXXXXXXXX`
 5. Actualizar `.env.local`:
 
@@ -1176,20 +1176,20 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 
 **Si usas Vercel**:
 1. Ir a Vercel Dashboard → tu proyecto → Settings → Domains
-2. Agregar `ybmotocom.com` y `www.ybmotocom.com`
+2. Agregar `yjbmotocom.com` y `www.yjbmotocom.com`
 3. Vercel te dará registros DNS (A, CNAME) para configurar en tu proveedor de dominio
 4. SSL es automático con Vercel
 
 **Si usas Netlify**:
 1. Ir a Netlify Dashboard → tu sitio → Domain Settings
-2. Agregar custom domain `ybmotocom.com`
+2. Agregar custom domain `yjbmotocom.com`
 3. Configurar DNS según instrucciones de Netlify
 4. SSL es automático con Netlify (Let's Encrypt)
 
 **Variables de entorno a actualizar en producción**:
 ```env
-NEXT_PUBLIC_APP_URL=https://ybmotocom.com
-NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+NEXT_PUBLIC_APP_URL=https://yjbmotocom.com
+NEXT_PUBLIC_SITE_URL=https://yjbmotocom.com
 ```
 
 ---
@@ -1204,10 +1204,10 @@ NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
 
 **Lo que debes verificar**:
 1. En [Supabase Dashboard](https://supabase.com/dashboard) → Authentication → URL Configuration:
-   - **Site URL**: `https://ybmotocom.com`
-   - **Redirect URLs**: agregar `https://ybmotocom.com/nueva-contrasena` y `https://ybmotocom.com/mi-cuenta`
+   - **Site URL**: `https://yjbmotocom.com`
+   - **Redirect URLs**: agregar `https://yjbmotocom.com/nueva-contrasena` y `https://yjbmotocom.com/mi-cuenta`
 2. En Authentication → Email Templates:
-   - Personalizar el template de "Reset Password" con la marca YB MOTOCOM si se desea
+   - Personalizar el template de "Reset Password" con la marca YJBMOTOCOM si se desea
 3. Verificar que las variables de Supabase en producción apunten al proyecto correcto
 
 ---
@@ -1232,16 +1232,16 @@ MERCADOPAGO_WEBHOOK_SECRET=XXXXXXXX
 
 # === EMAILS (Resend) ===
 RESEND_API_KEY=re_XXXXXXXX
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
-ADMIN_NOTIFICATION_EMAIL=ybmotocom@gmail.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
+ADMIN_NOTIFICATION_EMAIL=yjbmotocom@gmail.com
 
 # === MONITOREO (opcionales) ===
 SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 
 # === APP ===
-NEXT_PUBLIC_APP_URL=https://ybmotocom.com
-NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+NEXT_PUBLIC_APP_URL=https://yjbmotocom.com
+NEXT_PUBLIC_SITE_URL=https://yjbmotocom.com
 ```
 
 ---
@@ -1589,9 +1589,9 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
   - Crea cliente Supabase con JWT del usuario autenticado
   - Respeta Row Level Security (RLS)
 - ✅ Configurados usuarios con roles reales en Supabase
-  - admin@ybmotocom.com → `admin`
-  - seller@ybmotocom.com → `seller`
-  - viewer@ybmotocom.com → `viewer`
+  - admin@yjbmotocom.com → `admin`
+  - seller@yjbmotocom.com → `seller`
+  - viewer@yjbmotocom.com → `viewer`
 
 **FASE 2: Protección de APIs** (13+ endpoints)
 - ✅ POST `/api/products` - Solo admin/seller
@@ -1623,7 +1623,7 @@ Este proyecto tiene una **base sólida y prácticamente completa** (~97% funcion
   - `sendOrderConfirmation(orderId)` - Envía confirmación de pago exitoso
   - `sendPaymentInstructions(orderId, paymentMethod)` - Envía instrucciones para métodos manuales
 - ✅ Creados 3 templates de email con React Email:
-  - `apps/web/src/emails/components/email-layout.tsx` - Layout compartido con branding YB MOTOCOM
+  - `apps/web/src/emails/components/email-layout.tsx` - Layout compartido con branding YJBMOTOCOM
   - `apps/web/src/emails/order-confirmation.tsx` - Email de confirmación de orden
   - `apps/web/src/emails/payment-instructions.tsx` - Email con instrucciones de pago
 - ✅ Integrado envío de emails en flujo de órdenes:

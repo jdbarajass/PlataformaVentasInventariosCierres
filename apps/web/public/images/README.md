@@ -54,7 +54,7 @@ WHERE slug = 'casco-integral-negro';
 El archivo `placeholder.jpg` se usa cuando un producto no tiene imágenes.
 
 - **Tamaño**: 600x600px (1:1)
-- **Puedes personalizarlo** con el logo de YB MOTOCOM
+- **Puedes personalizarlo** con el logo de YJBMOTOCOM
 
 ## Optimización de Imágenes
 

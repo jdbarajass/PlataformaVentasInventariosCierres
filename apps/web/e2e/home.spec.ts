@@ -5,7 +5,7 @@ test.describe('Home Page', () => {
     await page.goto('/')
 
     // Check page title
-    await expect(page).toHaveTitle(/YB MOTOCOM/)
+    await expect(page).toHaveTitle(/YJBMOTOCOM/)
 
     // Check header is visible
     await expect(page.locator('header')).toBeVisible()

@@ -1,5 +1,5 @@
 -- =====================================================
--- YB MOTOCOM - Migraciones de Base de Datos (FIX)
+-- YJBMOTOCOM - Migraciones de Base de Datos (FIX)
 -- =====================================================
 -- Script que elimina objetos existentes antes de crearlos
 

@@ -55,8 +55,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!product) return { title: 'Producto no encontrado' }
 
   return {
-    title: `${product.title} - YB MOTOCOM`,
-    description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+    title: `${product.title} - YJBMOTOCOM`,
+    description: product.description || `Compra ${product.title} en YJBMOTOCOM`,
   }
 }
 
@@ -80,7 +80,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
   })
 
   const mainImage = getProductImage(product.images)
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ybmotocom.com'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
   const productUrl = `${baseUrl}/producto/${product.slug}`
   const availability = product.stock_qty > 0 ? 'InStock' : 'OutOfStock'
 
@@ -94,10 +94,10 @@ export default async function ProductPage({ params }: { params: { slug: string }
             '@context': 'https://schema.org',
             '@type': 'Product',
             name: product.title,
-            description: product.description || `Compra ${product.title} en YB MOTOCOM`,
+            description: product.description || `Compra ${product.title} en YJBMOTOCOM`,
             image: mainImage,
             sku: product.sku || 'N/A',
-            brand: { '@type': 'Brand', name: 'YB MOTOCOM' },
+            brand: { '@type': 'Brand', name: 'YJBMOTOCOM' },
             offers: {
               '@type': 'Offer',
               url: productUrl,

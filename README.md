@@ -1,4 +1,4 @@
-# YB MOTOCOM — Plataforma de Ventas, Inventarios y Cierres
+# YJBMOTOCOM — Plataforma de Ventas, Inventarios y Cierres
 
 Tienda online premium de accesorios para motos con panel de administración completo.
 Diseño **Racing Dark Premium** — UI/UX de nivel Awwwards con glassmorphism, carbon fiber texture y aurora gradients.
@@ -100,7 +100,7 @@ NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY=tu_public_key
 
 # Email
 RESEND_API_KEY=re_xxx
-EMAIL_FROM=noreply@ybmotocom.co
+EMAIL_FROM=noreply@yjbmotocom.co
 
 # Monitoreo
 SENTRY_DSN=tu_sentry_dsn
@@ -284,4 +284,4 @@ Ver `apps/web/.env.example` para la lista completa (28 variables).
 
 ## Licencia
 
-Proyecto privado — YB MOTOCOM © 2026
+Proyecto privado — YJBMOTOCOM © 2026

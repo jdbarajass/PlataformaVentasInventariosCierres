@@ -35,7 +35,7 @@ const mockLogs: AuditLog[] = [
   {
     id: '1',
     actor_id: '1',
-    actor_email: 'admin@ybmotocom.com',
+    actor_email: 'admin@yjbmotocom.com',
     action: 'create',
     table_name: 'products',
     record_id: 'prod-123',
@@ -48,7 +48,7 @@ const mockLogs: AuditLog[] = [
   {
     id: '2',
     actor_id: '2',
-    actor_email: 'vendedor1@ybmotocom.com',
+    actor_email: 'vendedor1@yjbmotocom.com',
     action: 'update',
     table_name: 'products',
     record_id: 'prod-456',
@@ -61,7 +61,7 @@ const mockLogs: AuditLog[] = [
   {
     id: '3',
     actor_id: '1',
-    actor_email: 'admin@ybmotocom.com',
+    actor_email: 'admin@yjbmotocom.com',
     action: 'inventory_adjustment',
     table_name: 'products',
     record_id: 'prod-789',
@@ -87,7 +87,7 @@ const mockLogs: AuditLog[] = [
   {
     id: '5',
     actor_id: '3',
-    actor_email: 'vendedor2@ybmotocom.com',
+    actor_email: 'vendedor2@yjbmotocom.com',
     action: 'create',
     table_name: 'daily_closures',
     record_id: 'closure-123',

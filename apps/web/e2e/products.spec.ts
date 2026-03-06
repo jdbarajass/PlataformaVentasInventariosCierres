@@ -5,7 +5,7 @@ test.describe('Products', () => {
     await page.goto('/productos')
 
     // Check page title
-    await expect(page).toHaveTitle(/Productos.*YB MOTOCOM/)
+    await expect(page).toHaveTitle(/Productos.*YJBMOTOCOM/)
 
     // Check for products grid or list
     await page.waitForLoadState('networkidle')

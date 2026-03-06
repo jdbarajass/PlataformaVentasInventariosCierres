@@ -1,4 +1,4 @@
-# 💳 Integración de Pagos con Stripe - YB MOTOCOM
+# 💳 Integración de Pagos con Stripe - YJBMOTOCOM
 
 ## 📚 Índice
 1. [Resumen](#resumen)
@@ -16,7 +16,7 @@
 
 ## 🎯 Resumen
 
-Este documento describe la integración completa de pagos con Stripe en YB MOTOCOM. La integración permite:
+Este documento describe la integración completa de pagos con Stripe en YJBMOTOCOM. La integración permite:
 
 - ✅ Pagos con tarjeta de crédito/débito
 - ✅ Checkout seguro con Stripe Checkout
@@ -101,11 +101,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51234567890abcdefg...
 
 # App URLs
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+NEXT_PUBLIC_SITE_URL=https://yjbmotocom.com
 
 # Email (Resend)
 RESEND_API_KEY=re_xxxxx
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
 ```
 
 ### 2. Obtener Claves de Stripe
@@ -146,8 +146,8 @@ stripe listen --forward-to http://localhost:3000/api/payments/webhook
 1. Ir a https://dashboard.stripe.com/webhooks
 2. Click en **"Add endpoint"**
 3. Configurar:
-   - **URL**: `https://ybmotocom.com/api/payments/webhook`
-   - **Descripción**: "YB MOTOCOM Payment Webhooks"
+   - **URL**: `https://yjbmotocom.com/api/payments/webhook`
+   - **Descripción**: "YJBMOTOCOM Payment Webhooks"
    - **Eventos a escuchar**:
      - `checkout.session.completed`
      - `checkout.session.expired`
@@ -473,7 +473,7 @@ npm run dev
 
 **Producción:**
 
-1. Verificar que el endpoint esté público: `https://ybmotocom.com/api/payments/webhook`
+1. Verificar que el endpoint esté público: `https://yjbmotocom.com/api/payments/webhook`
 2. Verificar que responda: debería retornar 400 (Missing signature)
 3. Verificar en Stripe Dashboard > Webhooks > [tu endpoint] > Attempts
 4. Si hay errores 500, revisar logs del servidor

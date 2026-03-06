@@ -23,7 +23,7 @@ type ContactForm = z.infer<typeof contactSchema>
 const DEFAULT_CONTACT: ContactInfo = {
   phone_primary: '+57 321 411 1371',
   phone_secondary: '+57 314 406 5520',
-  email: 'ybmotocom@gmail.com',
+  email: 'yjbmotocom@gmail.com',
   address: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
   city: 'Bogotá, Colombia',
   business_hours: {
@@ -287,7 +287,7 @@ export default function ContactoPage() {
                 style={{ border: 0, display: 'block' }}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación YB MOTOCOM - Av Caracas No. 17-47, Bogotá"
+                title="Ubicación YJBMOTOCOM - Av Caracas No. 17-47, Bogotá"
               />
             </div>
           </div>

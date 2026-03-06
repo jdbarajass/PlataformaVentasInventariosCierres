@@ -99,7 +99,7 @@ export default async function OrderConfirmationPage({
             <p className="text-sm"><strong>Banco:</strong> Bancolombia</p>
             <p className="text-sm"><strong>Tipo de cuenta:</strong> Ahorros</p>
             <p className="text-sm"><strong>Número de cuenta:</strong> 1234567890</p>
-            <p className="text-sm"><strong>Titular:</strong> YB MOTOCOM S.A.S.</p>
+            <p className="text-sm"><strong>Titular:</strong> YJBMOTOCOM S.A.S.</p>
             <p className="text-sm"><strong>NIT:</strong> 900.123.456-7</p>
           </div>
         )
@@ -108,7 +108,7 @@ export default async function OrderConfirmationPage({
         instructions = (
           <div className="space-y-2">
             <p className="text-sm"><strong>Número de celular:</strong> 321 411 1371</p>
-            <p className="text-sm"><strong>Nombre:</strong> YB MOTOCOM</p>
+            <p className="text-sm"><strong>Nombre:</strong> YJBMOTOCOM</p>
           </div>
         )
         break
@@ -116,7 +116,7 @@ export default async function OrderConfirmationPage({
         instructions = (
           <div className="space-y-2">
             <p className="text-sm"><strong>Número de celular:</strong> 314 406 5520</p>
-            <p className="text-sm"><strong>Nombre:</strong> YB MOTOCOM</p>
+            <p className="text-sm"><strong>Nombre:</strong> YJBMOTOCOM</p>
           </div>
         )
         break

@@ -78,7 +78,7 @@ export async function createPreference(params: {
       auto_return: 'approved',
       external_reference: orderId,
       notification_url: `${appUrl}/api/payments/mercadopago/webhook`,
-      statement_descriptor: 'YB MOTOCOM',
+      statement_descriptor: 'YJBMOTOCOM',
     },
   })
 

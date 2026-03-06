@@ -61,7 +61,7 @@ export default function PaymentInstructionsEmail({
               <br />
               <strong>Número de cuenta:</strong> 1234567890
               <br />
-              <strong>Titular:</strong> YB MOTOCOM S.A.S.
+              <strong>Titular:</strong> YJBMOTOCOM S.A.S.
               <br />
               <strong>NIT:</strong> 900.123.456-7
             </Text>
@@ -81,7 +81,7 @@ export default function PaymentInstructionsEmail({
             <Text style={instructionsDetail}>
               <strong>Número de celular:</strong> 321 411 1371
               <br />
-              <strong>Nombre:</strong> YB MOTOCOM
+              <strong>Nombre:</strong> YJBMOTOCOM
             </Text>
             <Text style={referenceText}>
               <strong>Referencia de pago:</strong> {order.order_number}
@@ -99,7 +99,7 @@ export default function PaymentInstructionsEmail({
             <Text style={instructionsDetail}>
               <strong>Número de celular:</strong> 314 406 5520
               <br />
-              <strong>Nombre:</strong> YB MOTOCOM
+              <strong>Nombre:</strong> YJBMOTOCOM
             </Text>
             <Text style={referenceText}>
               <strong>Referencia de pago:</strong> {order.order_number}

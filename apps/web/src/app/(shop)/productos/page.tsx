@@ -13,11 +13,11 @@ import {
 } from '@/components/ui/breadcrumb'
 
 export const metadata: Metadata = {
-  title: 'Todos los Productos | YB MOTOCOM',
+  title: 'Todos los Productos | YJBMOTOCOM',
   description:
     'Explora nuestro catálogo completo de accesorios para motociclistas. Cascos, guantes, chaquetas, protecciones y más. Envíos a toda Colombia.',
   openGraph: {
-    title: 'Todos los Productos | YB MOTOCOM',
+    title: 'Todos los Productos | YJBMOTOCOM',
     description: 'Catálogo completo de accesorios para motos. Encuentra lo que necesitas.',
   },
 }

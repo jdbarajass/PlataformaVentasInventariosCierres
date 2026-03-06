@@ -1,4 +1,4 @@
-# Deployment Guide - YB MOTOCOM
+# Deployment Guide - YJBMOTOCOM
 
 Guía completa de deployment para Vercel y Netlify.
 
@@ -52,11 +52,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxxxx
 
 # Email (Resend)
 RESEND_API_KEY=re_xxxxx
-RESEND_FROM_EMAIL=pedidos@ybmotocom.com
+RESEND_FROM_EMAIL=pedidos@yjbmotocom.com
 
 # App
-NEXT_PUBLIC_APP_URL=https://ybmotocom.com
-NEXT_PUBLIC_SITE_URL=https://ybmotocom.com
+NEXT_PUBLIC_APP_URL=https://yjbmotocom.com
+NEXT_PUBLIC_SITE_URL=https://yjbmotocom.com
 
 # Analytics (Opcional)
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
@@ -80,7 +80,7 @@ URL de producción: `https://tu-proyecto.vercel.app`
 #### 5. Configurar Dominio Custom (Opcional)
 
 1. Ir a "Settings" → "Domains"
-2. Agregar tu dominio: `ybmotocom.com`
+2. Agregar tu dominio: `yjbmotocom.com`
 3. Configurar DNS según instrucciones de Vercel:
    - **Tipo A**: `76.76.21.21`
    - **Tipo CNAME**: `cname.vercel-dns.com`
@@ -89,7 +89,7 @@ URL de producción: `https://tu-proyecto.vercel.app`
 #### 6. Configurar Webhooks de Stripe
 
 1. Ir a [Stripe Dashboard](https://dashboard.stripe.com/webhooks)
-2. Agregar endpoint: `https://ybmotocom.com/api/payments/webhook`
+2. Agregar endpoint: `https://yjbmotocom.com/api/payments/webhook`
 3. Seleccionar eventos:
    - `checkout.session.completed`
    - `payment_intent.succeeded`
@@ -360,9 +360,9 @@ Servicios recomendados:
 ### 4. Google Search Console
 
 1. Ir a [search.google.com/search-console](https://search.google.com/search-console)
-2. Agregar propiedad: `ybmotocom.com`
+2. Agregar propiedad: `yjbmotocom.com`
 3. Verificar ownership con DNS o archivo HTML
-4. Enviar sitemap: `https://ybmotocom.com/sitemap.xml`
+4. Enviar sitemap: `https://yjbmotocom.com/sitemap.xml`
 
 ---
 
@@ -391,7 +391,7 @@ Servicios recomendados:
 
 ### Stripe webhook no funciona
 
-- Verificar que el endpoint sea accesible: `https://ybmotocom.com/api/payments/webhook`
+- Verificar que el endpoint sea accesible: `https://yjbmotocom.com/api/payments/webhook`
 - Verificar que `STRIPE_WEBHOOK_SECRET` sea el correcto
 - Ver logs en Stripe Dashboard → "Webhooks" → "Recent deliveries"
 
@@ -475,4 +475,4 @@ Tu aplicación ahora está en producción. Pasos siguientes:
 2. **Iterate**: Mejorar basado en feedback de usuarios
 3. **Scale**: Upgrade plan si es necesario (más tráfico)
 
-**URL de producción**: https://ybmotocom.com 🚀
+**URL de producción**: https://yjbmotocom.com 🚀

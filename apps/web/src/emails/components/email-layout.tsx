@@ -25,7 +25,7 @@ export default function EmailLayout({ children, preview }: EmailLayoutProps) {
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logoText}>YB MOTOCOM</Text>
+            <Text style={logoText}>YJBMOTOCOM</Text>
             <Text style={tagline}>Accesorios para Motos</Text>
           </Section>
 
@@ -36,7 +36,7 @@ export default function EmailLayout({ children, preview }: EmailLayoutProps) {
           <Hr style={hr} />
           <Section style={footer}>
             <Text style={footerText}>
-              YB MOTOCOM - Tienda de Accesorios para Motociclistas
+              YJBMOTOCOM - Tienda de Accesorios para Motociclistas
             </Text>
             <Text style={footerText}>
               <Link href={process.env.NEXT_PUBLIC_APP_URL} style={link}>
