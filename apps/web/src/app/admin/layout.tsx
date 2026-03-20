@@ -19,6 +19,7 @@ import {
   Lock,
   Tag,
   MessageSquare,
+  Landmark,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
+  { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },
   { name: 'Cupones', href: '/admin/cupones', icon: Tag },
   { name: 'Resenas', href: '/admin/resenas', icon: MessageSquare },
