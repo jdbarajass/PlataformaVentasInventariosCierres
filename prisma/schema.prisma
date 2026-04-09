@@ -1,0 +1,393 @@
+// =====================================================
+// YJBMOTOCOM — Prisma Schema
+// =====================================================
+// Base de datos: PostgreSQL (Supabase)
+// NOTA: Prisma no gestiona RLS ni extensiones de Supabase.
+//       Para RLS ejecutar schema.sql en Supabase SQL Editor.
+// =====================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =====================================================
+// ENUM equivalentes (Prisma usa strings con validación)
+// =====================================================
+
+enum UserRole {
+  admin
+  seller
+  viewer
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+  partial_refund
+}
+
+enum PaymentProvider {
+  stripe
+  mercadopago
+  manual
+  cash
+  transfer
+}
+
+enum PaymentMethod {
+  card
+  transfer
+  wallet
+  cash
+  nequi
+  daviplata
+  other
+}
+
+enum PaymentTransactionStatus {
+  pending
+  processing
+  succeeded
+  failed
+  cancelled
+  refunded
+}
+
+enum InventoryMovementType {
+  in
+  out
+  adjustment
+  sale
+  return
+}
+
+enum DiscountType {
+  percentage
+  fixed
+}
+
+// =====================================================
+// MODELO: User
+// =====================================================
+model User {
+  id         String   @id @db.Uuid
+  email      String
+  name       String?
+  phone      String?
+  role       UserRole @default(viewer)
+  avatarUrl  String?  @map("avatar_url")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  orders              Order[]
+  inventoryMovements  InventoryMovement[]
+  dailyClosuresCreated DailyClosure[] @relation("CreatedBy")
+  dailyClosuresVerified DailyClosure[] @relation("VerifiedBy")
+  auditLogs           AuditLog[]
+  storeSettings       StoreSettings[]
+
+  @@map("users")
+}
+
+// =====================================================
+// MODELO: Category
+// =====================================================
+model Category {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String     @unique
+  description String?
+  imageUrl    String?    @map("image_url")
+  parentId    String?    @map("parent_id") @db.Uuid
+  parent      Category?  @relation("CategoryToParent", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToParent")
+  sortOrder   Int        @default(0) @map("sort_order")
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// =====================================================
+// MODELO: Product
+// =====================================================
+model Product {
+  id                   String    @id @default(uuid()) @db.Uuid
+  sku                  String?   @unique
+  title                String
+  slug                 String    @unique
+  description          String?
+  priceCents           Int       @map("price_cents")
+  costCents            Int       @default(0) @map("cost_cents")
+  compareAtPriceCents  Int?      @map("compare_at_price_cents")
+  categoryId           String?   @map("category_id") @db.Uuid
+  category             Category? @relation(fields: [categoryId], references: [id])
+  images               String[]  @default([])
+  stockQty             Int       @default(0) @map("stock_qty")
+  lowStockThreshold    Int       @default(5) @map("low_stock_threshold")
+  weightGrams          Int?      @map("weight_grams")
+  dimensions           Json?
+  tags                 String[]  @default([])
+  active               Boolean   @default(true)
+  featured             Boolean   @default(false)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  orderItems          OrderItem[]
+  inventoryMovements  InventoryMovement[]
+  wishlists           Wishlist[]
+  reviews             ProductReview[]
+  restockSubscriptions RestockSubscription[]
+
+  @@map("products")
+}
+
+// =====================================================
+// MODELO: InventoryMovement
+// =====================================================
+model InventoryMovement {
+  id            String                @id @default(uuid()) @db.Uuid
+  productId     String                @map("product_id") @db.Uuid
+  product       Product               @relation(fields: [productId], references: [id])
+  qty           Int
+  type          InventoryMovementType
+  note          String?
+  referenceId   String?               @map("reference_id") @db.Uuid
+  referenceType String?               @map("reference_type")
+  createdById   String?               @map("created_by") @db.Uuid
+  createdBy     User?                 @relation(fields: [createdById], references: [id])
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("inventory_movements")
+}
+
+// =====================================================
+// MODELO: Order
+// =====================================================
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  orderNumber     String        @unique @default("") @map("order_number")
+  userId          String?       @map("user_id") @db.Uuid
+  user            User?         @relation(fields: [userId], references: [id])
+  customerEmail   String        @map("customer_email")
+  customerName    String?       @map("customer_name")
+  customerPhone   String?       @map("customer_phone")
+  shippingAddress Json?         @map("shipping_address")
+  billingAddress  Json?         @map("billing_address")
+  subtotalCents   Int           @default(0) @map("subtotal_cents")
+  discountCents   Int           @default(0) @map("discount_cents")
+  shippingCents   Int           @default(0) @map("shipping_cents")
+  taxCents        Int           @default(0) @map("tax_cents")
+  totalCents      Int           @default(0) @map("total_cents")
+  currency        String        @default("COP")
+  status          OrderStatus   @default(pending)
+  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  notes           String?
+  metadata        Json          @default("{}")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  items    OrderItem[]
+  payments Payment[]
+
+  @@map("orders")
+}
+
+// =====================================================
+// MODELO: OrderItem
+// =====================================================
+model OrderItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  orderId       String   @map("order_id") @db.Uuid
+  order         Order    @relation(fields: [orderId], references: [id])
+  productId     String?  @map("product_id") @db.Uuid
+  product       Product? @relation(fields: [productId], references: [id])
+  productTitle  String   @map("product_title")
+  productSku    String?  @map("product_sku")
+  productImage  String?  @map("product_image")
+  qty           Int
+  priceCents    Int      @map("price_cents")
+  totalCents    Int      @map("total_cents")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("order_items")
+}
+
+// =====================================================
+// MODELO: Payment
+// =====================================================
+model Payment {
+  id                String                   @id @default(uuid()) @db.Uuid
+  orderId           String                   @map("order_id") @db.Uuid
+  order             Order                    @relation(fields: [orderId], references: [id])
+  provider          PaymentProvider
+  providerPaymentId String?                  @map("provider_payment_id")
+  providerSessionId String?                  @map("provider_session_id")
+  amountCents       Int                      @map("amount_cents")
+  currency          String                   @default("COP")
+  method            PaymentMethod?
+  status            PaymentTransactionStatus @default(pending)
+  metadata          Json                     @default("{}")
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("payments")
+}
+
+// =====================================================
+// MODELO: DailyClosure
+// =====================================================
+model DailyClosure {
+  id                  String    @id @default(uuid()) @db.Uuid
+  date                DateTime  @unique @db.Date
+  cashAmountCents     Int       @default(0) @map("cash_amount_cents")
+  cardAmountCents     Int       @default(0) @map("card_amount_cents")
+  transferAmountCents Int       @default(0) @map("transfer_amount_cents")
+  walletAmountCents   Int       @default(0) @map("wallet_amount_cents")
+  otherAmountCents    Int       @default(0) @map("other_amount_cents")
+  totalAmountCents    Int       @default(0) @map("total_amount_cents")
+  ordersCount         Int       @default(0) @map("orders_count")
+  notes               String?
+  createdById         String?   @map("created_by") @db.Uuid
+  createdBy           User?     @relation("CreatedBy", fields: [createdById], references: [id])
+  verified            Boolean   @default(false)
+  verifiedById        String?   @map("verified_by") @db.Uuid
+  verifiedBy          User?     @relation("VerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt          DateTime? @map("verified_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("daily_closures")
+}
+
+// =====================================================
+// MODELO: AuditLog
+// =====================================================
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  actor       User?    @relation(fields: [actorId], references: [id])
+  actorEmail  String?  @map("actor_email")
+  action      String
+  tableName   String   @map("table_name")
+  recordId    String?  @map("record_id") @db.Uuid
+  oldData     Json?    @map("old_data")
+  newData     Json?    @map("new_data")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("audit_logs")
+}
+
+// =====================================================
+// MODELO: Coupon
+// =====================================================
+model Coupon {
+  id                 String       @id @default(uuid()) @db.Uuid
+  code               String       @unique
+  description        String?
+  discountType       DiscountType @map("discount_type")
+  discountValue      Int          @map("discount_value")
+  minPurchaseCents   Int          @default(0) @map("min_purchase_cents")
+  maxUses            Int?         @map("max_uses")
+  usedCount          Int          @default(0) @map("used_count")
+  validFrom          DateTime?    @map("valid_from") @db.Timestamptz
+  validUntil         DateTime?    @map("valid_until") @db.Timestamptz
+  active             Boolean      @default(true)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("coupons")
+}
+
+// =====================================================
+// MODELO: StoreSettings (fila única)
+// =====================================================
+model StoreSettings {
+  id               Int      @id @default(1)
+  storeName        String   @default("YJBMOTOCOM") @map("store_name")
+  storeDescription String?  @map("store_description")
+  contactInfo      Json     @map("contact_info")
+  shippingConfig   Json     @map("shipping_config")
+  taxConfig        Json     @map("tax_config")
+  paymentMethods   Json     @map("payment_methods")
+  socialLinks      Json     @map("social_links")
+  branding         Json
+  updatedById      String?  @map("updated_by") @db.Uuid
+  updatedBy        User?    @relation(fields: [updatedById], references: [id])
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("store_settings")
+}
+
+// =====================================================
+// MODELO: Wishlist
+// =====================================================
+model Wishlist {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+// =====================================================
+// MODELO: ProductReview
+// =====================================================
+model ProductReview {
+  id               String   @id @default(uuid()) @db.Uuid
+  productId        String   @map("product_id") @db.Uuid
+  product          Product  @relation(fields: [productId], references: [id])
+  userId           String   @map("user_id") @db.Uuid
+  rating           Int
+  title            String?
+  comment          String?
+  verifiedPurchase Boolean  @default(false) @map("verified_purchase")
+  approved         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([productId, userId])
+  @@map("product_reviews")
+}
+
+// =====================================================
+// MODELO: RestockSubscription
+// =====================================================
+model RestockSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id])
+  email     String
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([productId, email])
+  @@map("restock_subscriptions")
+}
