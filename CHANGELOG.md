@@ -4,6 +4,25 @@ Historial completo de versiones y cambios del proyecto.
 
 ---
 
+## [v10.1] — Fix: carga infinita en Mi Cuenta (2026-06-25)
+
+### Bug fix
+
+Tras login exitoso, `/mi-cuenta` podía quedarse pegada indefinidamente en
+"Cargando tu cuenta..." sin mensaje de error ni forma de salir, cuando la
+carga de perfil/pedidos fallaba o se colgaba (red lenta, VPN/firewall
+corporativo interceptando la petición a Supabase).
+
+#### app/(shop)/mi-cuenta/page.tsx
+- `loadData()` envuelto en `try/catch/finally` — `setLoading(false)` ahora
+  se ejecuta siempre, incluso si falla la carga de sesión, perfil u órdenes
+- Timeout de 10s en `supabase.auth.getSession()` vía `Promise.race` para
+  cubrir el caso de una petición que nunca resuelve ni rechaza
+- Toast de error visible al usuario si la carga falla, en vez de spinner
+  infinito sin feedback
+
+---
+
 ## [v9.0] — Racing Dark Premium Frontend (2026-02-19)
 **Rama:** `racing-dark-premium`
 

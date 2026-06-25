@@ -80,48 +80,61 @@ export default function MiCuentaPage() {
   }, [])
 
   async function loadData() {
-    const { data: { session } } = await supabase.auth.getSession()
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Tiempo de espera agotado')), 10000)
+    )
 
-    if (!session) {
-      router.push('/iniciar-sesion')
-      return
-    }
+    try {
+      const { data: { session } } = await Promise.race([supabase.auth.getSession(), timeout])
 
-    // Load profile
-    const { data: userData } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
+      if (!session) {
+        router.push('/iniciar-sesion')
+        return
+      }
 
-    if (userData) {
-      setProfile(userData as UserProfile)
-      setEditName(userData.name || '')
-      setEditPhone(userData.phone || '')
-    } else {
-      setProfile({
-        id: session.user.id,
-        email: session.user.email || '',
-        name: session.user.user_metadata?.name || null,
-        phone: session.user.user_metadata?.phone || null,
-        role: 'viewer',
+      // Load profile
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      if (userData) {
+        setProfile(userData as UserProfile)
+        setEditName(userData.name || '')
+        setEditPhone(userData.phone || '')
+      } else {
+        setProfile({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.name || null,
+          phone: session.user.user_metadata?.phone || null,
+          role: 'viewer',
+        })
+        setEditName(session.user.user_metadata?.name || '')
+        setEditPhone(session.user.user_metadata?.phone || '')
+      }
+
+      // Load orders
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('customer_email', session.user.email)
+        .order('created_at', { ascending: false })
+
+      if (ordersData) {
+        setOrders(ordersData as unknown as Order[])
+      }
+    } catch (err) {
+      console.error('Error loading account data:', err)
+      toast({
+        title: 'Error al cargar tu cuenta',
+        description: 'No se pudo conectar con el servidor. Intenta recargar la página.',
+        variant: 'destructive',
       })
-      setEditName(session.user.user_metadata?.name || '')
-      setEditPhone(session.user.user_metadata?.phone || '')
+    } finally {
+      setLoading(false)
     }
-
-    // Load orders
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('customer_email', session.user.email)
-      .order('created_at', { ascending: false })
-
-    if (ordersData) {
-      setOrders(ordersData as unknown as Order[])
-    }
-
-    setLoading(false)
   }
 
   async function handleSaveProfile(e: React.FormEvent) {
