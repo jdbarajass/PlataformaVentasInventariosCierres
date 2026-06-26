@@ -23,7 +23,7 @@ function formatCOP(value: number): string {
 function construirBaseExacta(
   todasDenoms: Record<number, number>,
   baseObjetivo: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   _umbralMenudo: number
 ): {
   conteoBase: Record<number, number>
