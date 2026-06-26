@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
+import * as Sentry from '@sentry/nextjs'
 import { getServiceSupabase } from '@/lib/supabase'
 import { sendOrderConfirmation, sendLowStockAlert } from '@/lib/email'
 import { validateStripeWebhook, mapStripePaymentStatus } from '@/lib/stripe-helpers'
+import { markWebhookProcessed } from '@/lib/webhook-idempotency'
+import { decrementStockAtomic } from '@/lib/inventory'
 
 /**
  * Stripe Webhook Handler
@@ -42,6 +45,15 @@ export async function POST(request: NextRequest) {
 
   const serviceSupabase = getServiceSupabase()
 
+  // Idempotency: Stripe retries deliveries reusing the same event.id. If we
+  // already processed this exact event, skip it instead of double-applying
+  // side effects like stock reduction or payment confirmation emails.
+  const isNewEvent = await markWebhookProcessed(serviceSupabase, 'stripe', event.id)
+  if (!isNewEvent) {
+    console.log(`[Webhook] Event ${event.id} already processed, skipping`)
+    return NextResponse.json({ received: true, duplicate: true })
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -54,6 +66,43 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(`[Webhook] Processing payment for order: ${orderId}`)
+
+        // SECURITY: verify the amount actually charged by Stripe matches the
+        // order's total before marking it as paid. Without this check, a
+        // tampered session (or a bug elsewhere) could confirm an order for
+        // less than what it costs and nobody would notice.
+        const { data: orderRow, error: orderLookupError } = await serviceSupabase
+          .from('orders')
+          .select('total_cents')
+          .eq('id', orderId)
+          .single()
+
+        if (orderLookupError || !orderRow) {
+          console.error('[Webhook] Order not found for amount verification:', orderId)
+          return NextResponse.json({ error: 'Order not found' }, { status: 400 })
+        }
+
+        const expectedTotal = (orderRow as any).total_cents
+        const chargedAmount = session.amount_total ?? 0
+
+        if (chargedAmount !== expectedTotal) {
+          console.error(
+            `[Webhook] Amount mismatch for order ${orderId}: charged ${chargedAmount}, expected ${expectedTotal}`
+          )
+          Sentry.captureMessage('Stripe payment amount mismatch', {
+            level: 'error',
+            extra: { orderId, chargedAmount, expectedTotal, sessionId: session.id },
+          })
+          await (serviceSupabase.from('audit_logs') as any).insert({
+            action: 'payment_amount_mismatch',
+            table_name: 'orders',
+            record_id: orderId,
+            new_data: { provider: 'stripe', charged_amount: chargedAmount, expected_total: expectedTotal, session_id: session.id },
+          })
+          // Do NOT mark the order as paid or reduce stock — leave it pending
+          // for manual review. Acknowledge the webhook so Stripe doesn't retry.
+          return NextResponse.json({ received: true, flagged: 'amount_mismatch' })
+        }
 
         // Update order status
         const { error: orderError } = await (serviceSupabase
@@ -98,50 +147,36 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhook] Processing ${orderItems.length} items for stock reduction`)
 
         for (const item of orderItems) {
-          if (item.product_id) {
-            // Get current stock
-            const { data: productData, error: productError } = await serviceSupabase
-              .from('products')
-              .select('stock_qty, title')
-              .eq('id', item.product_id)
-              .single()
+          if (!item.product_id) continue
 
-            if (productError) {
-              console.error(`[Webhook] Error fetching product ${item.product_id}:`, productError)
-              continue // Don't fail the whole webhook for one product
+          try {
+            // Atomic decrement (single UPDATE, row-locked) — avoids the
+            // read-then-write race that a separate SELECT+UPDATE would have.
+            const updated = await decrementStockAtomic(serviceSupabase, item.product_id, item.qty)
+
+            if (!updated) {
+              console.error(`[Webhook] Product ${item.product_id} not found for stock decrement`)
+              continue
             }
 
-            const product = productData as any
+            console.log(`[Webhook] Reduced stock for "${updated.title}" -> ${updated.stock_qty}`)
 
-            if (product) {
-              const newStock = Math.max(0, product.stock_qty - item.qty)
-              console.log(`[Webhook] Reducing stock for "${product.title}": ${product.stock_qty} -> ${newStock}`)
+            // Record inventory movement
+            const { error: movementError } = await (serviceSupabase.from('inventory_movements') as any).insert({
+              product_id: item.product_id,
+              qty: -item.qty,
+              type: 'sale',
+              reference_id: orderId,
+              reference_type: 'order',
+              note: `Venta - Orden ${orderId}`,
+            })
 
-              // Update stock
-              const { error: stockError } = await (serviceSupabase
-                .from('products') as any)
-                .update({ stock_qty: newStock })
-                .eq('id', item.product_id)
-
-              if (stockError) {
-                console.error(`[Webhook] Error updating stock for product ${item.product_id}:`, stockError)
-                continue
-              }
-
-              // Record inventory movement
-              const { error: movementError } = await (serviceSupabase.from('inventory_movements') as any).insert({
-                product_id: item.product_id,
-                qty: -item.qty,
-                type: 'sale',
-                reference_id: orderId,
-                reference_type: 'order',
-                note: `Venta - Orden ${orderId}`,
-              })
-
-              if (movementError) {
-                console.error(`[Webhook] Error recording inventory movement:`, movementError)
-              }
+            if (movementError) {
+              console.error(`[Webhook] Error recording inventory movement:`, movementError)
             }
+          } catch (stockErr) {
+            console.error(`[Webhook] Error decrementing stock for product ${item.product_id}:`, stockErr)
+            continue // Don't fail the whole webhook for one product
           }
         }
 
@@ -265,6 +300,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true })
   } catch (error) {
     console.error('[Webhook] Error processing webhook:', error)
+    Sentry.captureException(error, {
+      tags: { webhook: 'stripe', event_type: event.type },
+      extra: { eventId: event.id },
+    })
     // Return 500 to tell Stripe to retry this webhook
     return NextResponse.json(
       { error: 'Webhook processing failed', details: error instanceof Error ? error.message : 'Unknown error' },

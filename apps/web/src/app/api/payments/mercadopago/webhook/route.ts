@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import * as Sentry from '@sentry/nextjs'
 import { getServiceSupabase } from '@/lib/supabase'
 import { sendOrderConfirmation } from '@/lib/email'
 import {
@@ -7,6 +8,8 @@ import {
   getMercadoPagoPayment,
   mapMercadoPagoStatus,
 } from '@/lib/mercadopago-helpers'
+import { markWebhookProcessed } from '@/lib/webhook-idempotency'
+import { decrementStockAtomic } from '@/lib/inventory'
 
 /**
  * MercadoPago Webhook Handler
@@ -81,9 +84,55 @@ export async function POST(request: NextRequest) {
 
     console.log(`[MP Webhook] Payment ${dataId} status: ${mpStatus} | Order: ${orderId}`)
 
+    // Idempotency: MercadoPago can send the same notification more than
+    // once (and the same payment ID transitions through several statuses
+    // over time), so dedupe on the (payment, status) pair rather than just
+    // the payment ID — that still lets legitimate transitions through.
+    const isNewEvent = await markWebhookProcessed(serviceSupabase, 'mercadopago', `${dataId}:${mpStatus}`)
+    if (!isNewEvent) {
+      console.log(`[MP Webhook] Payment ${dataId} status ${mpStatus} already processed, skipping`)
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+
     const internalStatus = mapMercadoPagoStatus(mpStatus)
 
     if (mpStatus === 'approved') {
+      // SECURITY: verify the amount actually paid in MercadoPago matches the
+      // order's total before marking it as paid. MercadoPago amounts come
+      // in pesos (real currency units), while our orders store cents.
+      const { data: orderRow, error: orderLookupError } = await serviceSupabase
+        .from('orders')
+        .select('total_cents')
+        .eq('id', orderId)
+        .single()
+
+      if (orderLookupError || !orderRow) {
+        console.error('[MP Webhook] Order not found for amount verification:', orderId)
+        return NextResponse.json({ error: 'Order not found' }, { status: 400 })
+      }
+
+      const expectedTotal = (orderRow as any).total_cents
+      const paidAmountCents = Math.round((payment.transaction_amount ?? 0) * 100)
+
+      if (paidAmountCents !== expectedTotal) {
+        console.error(
+          `[MP Webhook] Amount mismatch for order ${orderId}: paid ${paidAmountCents}, expected ${expectedTotal}`
+        )
+        Sentry.captureMessage('MercadoPago payment amount mismatch', {
+          level: 'error',
+          extra: { orderId, paidAmountCents, expectedTotal, paymentId: dataId },
+        })
+        await (serviceSupabase.from('audit_logs') as any).insert({
+          action: 'payment_amount_mismatch',
+          table_name: 'orders',
+          record_id: orderId,
+          new_data: { provider: 'mercadopago', paid_amount_cents: paidAmountCents, expected_total: expectedTotal, payment_id: dataId },
+        })
+        // Do NOT mark the order as paid or reduce stock — leave it pending
+        // for manual review. Acknowledge the webhook so MP doesn't retry.
+        return NextResponse.json({ received: true, flagged: 'amount_mismatch' })
+      }
+
       // Update order to confirmed + paid
       const { error: orderError } = await (serviceSupabase
         .from('orders') as any)
@@ -130,40 +179,31 @@ export async function POST(request: NextRequest) {
       for (const item of orderItems) {
         if (!item.product_id) continue
 
-        const { data: productData, error: productError } = await serviceSupabase
-          .from('products')
-          .select('stock_qty, title')
-          .eq('id', item.product_id)
-          .single()
+        try {
+          // Atomic decrement (single UPDATE, row-locked) — avoids the
+          // read-then-write race that a separate SELECT+UPDATE would have.
+          const updated = await decrementStockAtomic(serviceSupabase, item.product_id, item.qty)
 
-        if (productError || !productData) {
-          console.error(`[MP Webhook] Error fetching product ${item.product_id}:`, productError)
+          if (!updated) {
+            console.error(`[MP Webhook] Product ${item.product_id} not found for stock decrement`)
+            continue
+          }
+
+          console.log(`[MP Webhook] Reduced stock for "${updated.title}" -> ${updated.stock_qty}`)
+
+          // Record inventory movement
+          await (serviceSupabase.from('inventory_movements') as any).insert({
+            product_id: item.product_id,
+            qty: -item.qty,
+            type: 'sale',
+            reference_id: orderId,
+            reference_type: 'order',
+            note: `Venta MercadoPago - Orden ${orderId}`,
+          })
+        } catch (stockErr) {
+          console.error(`[MP Webhook] Error decrementing stock for product ${item.product_id}:`, stockErr)
           continue
         }
-
-        const product = productData as any
-        const newStock = Math.max(0, product.stock_qty - item.qty)
-        console.log(`[MP Webhook] Reducing stock for "${product.title}": ${product.stock_qty} -> ${newStock}`)
-
-        const { error: stockError } = await (serviceSupabase
-          .from('products') as any)
-          .update({ stock_qty: newStock })
-          .eq('id', item.product_id)
-
-        if (stockError) {
-          console.error(`[MP Webhook] Error updating stock for product ${item.product_id}:`, stockError)
-          continue
-        }
-
-        // Record inventory movement
-        await (serviceSupabase.from('inventory_movements') as any).insert({
-          product_id: item.product_id,
-          qty: -item.qty,
-          type: 'sale',
-          reference_id: orderId,
-          reference_type: 'order',
-          note: `Venta MercadoPago - Orden ${orderId}`,
-        })
       }
 
       // Audit log
@@ -247,6 +287,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[MP Webhook] Error processing webhook:', error)
+    Sentry.captureException(error, {
+      tags: { webhook: 'mercadopago' },
+      extra: { paymentId: dataId },
+    })
     // Return 500 so MercadoPago retries
     return NextResponse.json(
       { error: 'Webhook processing failed', details: error instanceof Error ? error.message : 'Unknown error' },
