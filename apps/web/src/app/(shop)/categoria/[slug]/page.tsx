@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { ProductCard } from '@/components/products/product-card'
 import { Button } from '@/components/ui/button'
 import { SlidersHorizontal, Grid3X3, List, Loader2 } from 'lucide-react'

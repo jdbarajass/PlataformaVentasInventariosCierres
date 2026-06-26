@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,7 +64,6 @@ const paymentStatusConfig: Record<string, { label: string; color: string }> = {
 }
 
 export default function MiCuentaPage() {
-  const supabase = createClientComponentClient()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)

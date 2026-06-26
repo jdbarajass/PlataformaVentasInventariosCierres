@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 import { productSchema, type ProductFormData } from '@/lib/validations/product'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { authenticatedFetch } from '@/lib/authenticated-fetch'
 import { Product, Category } from '@/types/database'
 

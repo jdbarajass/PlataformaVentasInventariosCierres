@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { useCart } from '@/lib/cart-context'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 const categories = [
   { name: 'Cascos',     href: '/categoria/cascos',     icon: HardHat, description: 'Protección certificada' },

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Heart } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useWishlist } from '@/lib/wishlist-context'
 import { ProductCard } from '@/components/products/product-card'
 import { Product } from '@/types/database'

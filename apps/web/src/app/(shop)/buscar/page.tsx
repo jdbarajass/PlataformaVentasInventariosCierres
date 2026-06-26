@@ -6,7 +6,7 @@ import { Search, X, PackageSearch } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ProductCard } from '@/components/products/product-card'
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { Product } from '@/types/database'
 import {
   Breadcrumb,
