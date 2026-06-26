@@ -409,6 +409,23 @@ export interface Database {
           user_agent?: string | null
         }
       }
+      processed_webhooks: {
+        Row: {
+          provider: string
+          event_key: string
+          created_at: string
+        }
+        Insert: {
+          provider: string
+          event_key: string
+          created_at?: string
+        }
+        Update: {
+          provider?: string
+          event_key?: string
+          created_at?: string
+        }
+      }
       store_settings: {
         Row: {
           id: number
