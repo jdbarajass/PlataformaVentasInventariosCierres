@@ -45,7 +45,37 @@ const nextConfig = {
 
   // Headers de seguridad y cache
   async headers() {
+    // CSP en modo Report-Only: registra violaciones sin bloquear nada.
+    // El sitio carga Stripe.js, Tawk.to, GA/PostHog y Supabase Storage desde
+    // el cliente, y no tenemos forma de verificar en este cambio que una CSP
+    // enforced no rompa alguno de esos widgets en producción. Recomendado:
+    // monitorear los reportes un par de semanas y luego pasar a
+    // "Content-Security-Policy" (enforced) si no aparecen violaciones
+    // inesperadas.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://embed.tawk.to https://www.googletagmanager.com https://www.google-analytics.com https://*.posthog.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://*.supabase.co https://picsum.photos https://fastly.picsum.photos https://www.google-analytics.com",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co https://api.stripe.com https://embed.tawk.to wss://*.tawk.to https://*.posthog.com https://www.google-analytics.com https://*.sentry.io https://*.ingest.sentry.io",
+      "frame-src 'self' https://js.stripe.com https://embed.tawk.to",
+      "object-src 'none'",
+      "base-uri 'self'",
+    ].join('; ')
+
     return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Content-Security-Policy-Report-Only', value: csp },
+        ],
+      },
       {
         source: '/:all*(svg|jpg|jpeg|png|webp|avif|gif|ico|woff|woff2)',
         headers: [
