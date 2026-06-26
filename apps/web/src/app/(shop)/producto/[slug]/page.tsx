@@ -5,6 +5,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
+import { ProductImageGallery } from '@/components/products/product-image-gallery'
 import { AddToCartButton } from './add-to-cart-button'
 import { ReviewSection } from '@/components/reviews/review-section'
 import { RestockSubscribe } from '@/components/products/restock-subscribe'
@@ -144,38 +145,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
       {/* Product */}
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
         {/* Images */}
-        <div className="space-y-4">
-          <div className="relative aspect-square overflow-hidden rounded-2xl bg-white dark:bg-secondary">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={mainImage}
-              alt={product.title}
-              className="h-full w-full object-contain p-6"
-            />
-            {product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents && (
-              <Badge variant="destructive" className="absolute left-4 top-4">
-                -{Math.round((1 - product.price_cents / product.compare_at_price_cents) * 100)}%
-              </Badge>
-            )}
-          </div>
-          {validImages.length > 1 && (
-            <div className="grid grid-cols-4 gap-4">
-              {validImages.slice(0, 4).map((image, index) => (
-                <div
-                  key={index}
-                  className="relative aspect-square overflow-hidden rounded-xl bg-white dark:bg-secondary ring-2 ring-transparent"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={image}
-                    alt={`${product.title} - imagen ${index + 1}`}
-                    className="h-full w-full object-contain p-2"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductImageGallery
+          images={validImages.length > 0 ? validImages : [mainImage]}
+          title={product.title}
+          discountPct={
+            product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents
+              ? Math.round((1 - product.price_cents / product.compare_at_price_cents) * 100)
+              : undefined
+          }
+        />
 
         {/* Info */}
         <div className="space-y-6">
