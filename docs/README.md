@@ -4,6 +4,12 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 
 ## 🗂️ Índice de Documentación
 
+### 🔍 Auditoría técnica
+
+| Documento | Descripción | Para quién |
+|-----------|-------------|------------|
+| **[AUDITORIA_2026-06.md](AUDITORIA_2026-06.md)** | Auditoría integral (seguridad, pagos, BD, SEO, tests, deuda técnica) y bitácora completa de las 4 fases de remediación. Incluye qué hacía Prisma (eliminado) y cómo retomarlo si se necesita. | 👨‍💻 Desarrolladores + 🔐 Seguridad |
+
 ### 💳 Integración de Pagos (Stripe)
 
 | Documento | Descripción | Para quién |
