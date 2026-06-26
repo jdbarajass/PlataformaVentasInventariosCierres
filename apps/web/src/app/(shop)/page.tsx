@@ -10,6 +10,12 @@ import { supabase } from '@/lib/supabase'
 import { Product } from '@/types/database'
 import { WebPageSchema } from '@/components/seo/structured-data'
 
+// Without this, Next.js statically renders the home page once at build
+// time and serves that same snapshot forever — new/edited products and
+// images from the admin panel wouldn't show up here even though they
+// show up immediately on /producto/[slug] (which is force-dynamic).
+export const revalidate = 60
+
 /* ─── Trust badges ─── */
 const trustBadges = [
   { icon: Truck,       label: 'Envío rápido',       sub: 'Entrega en 24–48 h'  },

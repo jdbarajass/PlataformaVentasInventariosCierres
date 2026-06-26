@@ -12,6 +12,11 @@ import {
   BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 
+// Same issue as the home page: without this, this listing is rendered
+// once at build time and never reflects new/edited products from the
+// admin panel until the next deploy.
+export const revalidate = 60
+
 export const metadata: Metadata = {
   title: 'Todos los Productos | YJBMOTOCOM',
   description:
