@@ -1,24 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { getMonthlySalesSummary, getSalesComparisonYoY } from '@/lib/alegra'
-import type { Database } from '@/types/database'
-
-async function getSession() {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
-}
+import { requireAlegraAdmin } from '@/lib/alegra-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
-    }
+    const auth = await requireAlegraAdmin()
+    if (!auth.success) return auth.response
 
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('start_date')

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // GET - Listar categorías activas
 export async function GET(request: NextRequest) {
+  const rateLimited = checkRateLimit(request, { limit: 60, windowSeconds: 60 })
+  if (rateLimited) return rateLimited
+
   try {
     const { data, error } = await supabase
       .from('categories')

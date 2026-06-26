@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // GET - Generate invoice HTML for an order (printable as PDF)
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Unauthenticated by design (customers open this from their confirmation
+  // email/page without logging in), so the order UUID is the only access
+  // control — rate limit to make brute-force enumeration impractical.
+  const rateLimited = checkRateLimit(request, { limit: 20, windowSeconds: 60 })
+  if (rateLimited) return rateLimited
+
   const supabase = getServiceSupabase()
 
   const { data: order, error } = await supabase

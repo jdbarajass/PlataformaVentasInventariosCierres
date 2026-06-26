@@ -1,17 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { getActiveItems, safeNumber, formatCOP } from '@/lib/alegra'
-import type { Database } from '@/types/database'
-
-async function getSession() {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
-}
+import { requireAlegraAdmin } from '@/lib/alegra-auth'
 
 interface RawAlegraItem {
   id: unknown
@@ -24,27 +13,8 @@ interface RawAlegraItem {
 
 export async function GET() {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
-    }
-
-    // Solo admin puede ver inventario
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-    const { data: rawUser } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
-
-    const userData = rawUser as { role: string } | null
-    if (!userData || userData.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Se requiere rol de administrador' },
-        { status: 403 }
-      )
-    }
+    const auth = await requireAlegraAdmin()
+    if (!auth.success) return auth.response
 
     const rawItems = (await getActiveItems()) as RawAlegraItem[]
 

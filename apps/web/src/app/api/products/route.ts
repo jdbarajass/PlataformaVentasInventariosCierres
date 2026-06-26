@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
+  // Generous limit — this powers normal storefront browsing — just enough
+  // to deter scraping/abuse without affecting real shoppers.
+  const rateLimited = checkRateLimit(request, { limit: 60, windowSeconds: 60 })
+  if (rateLimited) return rateLimited
+
   const searchParams = request.nextUrl.searchParams
   const category = searchParams.get('category')
   const featured = searchParams.get('featured')

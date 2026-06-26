@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { getSalesSummary } from '@/lib/alegra'
 import {
   calcularCierreCompleto,
@@ -9,24 +7,14 @@ import {
   calcularMetodosPago,
   validarCierre,
 } from '@/lib/cash-calculator-alegra'
-import type { Database } from '@/types/database'
-
-async function getSession() {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
-}
+import { requireAlegraAdmin } from '@/lib/alegra-auth'
 
 // POST — Procesar cierre completo con validación Alegra
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
-    }
+    const auth = await requireAlegraAdmin()
+    if (!auth.success) return auth.response
+    const { session } = auth
 
     const payload = await request.json()
     const {
@@ -116,10 +104,8 @@ export async function POST(request: NextRequest) {
 // GET — Pre-consulta: ver ventas de Alegra para una fecha
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 })
-    }
+    const auth = await requireAlegraAdmin()
+    if (!auth.success) return auth.response
 
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
