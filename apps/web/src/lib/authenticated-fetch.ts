@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { apiFetch, ApiError } from '@/lib/api-client'
 
 /**
