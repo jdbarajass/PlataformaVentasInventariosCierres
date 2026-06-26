@@ -2,18 +2,21 @@
 
 Documento de referencia de la auditoría integral realizada sobre la plataforma (arquitectura, seguridad, pagos, BD, SEO, tests, deuda técnica) y de **todos los cambios aplicados** en las 4 fases de remediación que siguieron. Sirve como bitácora para entender qué se cambió, por qué, y qué queda pendiente.
 
-> Estado al cierre de este documento: Fases 0, 1, 2 y 3 completadas. Cambios en el working tree, **sin commitear ni desplegar**.
+> Estado al cierre de este documento: Fases 0, 1, 2 y 3 completadas y commiteadas/pusheadas a `origin/main`. Migraciones `00005`, `00006` y `00007` **aplicadas y verificadas en el proyecto de producción de Supabase** (`YB_MOTOCOM`).
 
 ---
 
-## 0. Pendiente operativo antes de desplegar
+## 0. Estado de las migraciones en Supabase
 
-Estos cambios de código asumen que las siguientes migraciones SQL ya se aplicaron en Supabase. **Si no se han corrido, el código fallará en producción**:
+Aplicadas manualmente vía SQL Editor (este proyecto no usa el CLI de Supabase para migraciones — "Last Migration" en el dashboard seguirá diciendo "No migrations" aunque el SQL ya corrió):
 
-- `supabase/migrations/00005_payment_integrity.sql` — tabla `processed_webhooks` + función `decrement_stock`.
-- `supabase/migrations/00006_order_atomicity.sql` — función `create_order_with_items`.
+| Migración | Qué crea | Estado |
+|---|---|---|
+| `00005_payment_integrity.sql` | tabla `processed_webhooks`, función `decrement_stock` | ✅ Aplicada y verificada (Database → Functions, Table Editor) |
+| `00006_order_atomicity.sql` | función `create_order_with_items` | ✅ Aplicada y verificada |
+| `00007_fix_search_path.sql` | fija `search_path = public` en las 2 funciones anteriores | ✅ Aplicada — Security Advisor confirmó que el warning "Function Search Path Mutable" desapareció para ambas |
 
-Aplicar con `supabase db push` o pegando el SQL en el editor de Supabase, en ese orden.
+Si en el futuro se levanta un entorno nuevo de Supabase (staging, otro proyecto), recordar correr **todas** las migraciones `00001` a `00007` en orden vía SQL Editor (o `supabase db push` si en ese entonces sí se usa el CLI).
 
 ---
 
@@ -71,6 +74,7 @@ Se revisó arquitectura, flujo de usuario, manejo de errores, base de datos, pag
 | Validación de monto en confirmación | ambos webhooks | comparan `order.total_cents` vs `session.amount_total` (Stripe) / `transaction_amount*100` (MercadoPago) antes de marcar pagado; si no coincide, queda pendiente + audit log `payment_amount_mismatch` + alerta Sentry |
 | Headers de seguridad | [next.config.js](../apps/web/next.config.js) | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `HSTS`, y CSP en modo **Report-Only** (no bloquea nada todavía — ver nota en el archivo) |
 | *(extra)* Rol faltante en rutas Alegra | [alegra-auth.ts](../apps/web/src/lib/alegra-auth.ts) + 4 rutas en `api/alegra/*` | helper `requireAlegraAdmin()` consolidado, aplicado a `analytics`, `cierre`, `ventas-mensuales` (les faltaba el check de rol) e `inventario` (tenía el check duplicado inline) |
+| *(extra, post-deploy)* `search_path` mutable en funciones nuevas | [00007_fix_search_path.sql](../supabase/migrations/00007_fix_search_path.sql) | el Security Advisor de Supabase marcó `decrement_stock` y `create_order_with_items` como "Function Search Path Mutable" (riesgo de search-path hijacking en funciones `SECURITY DEFINER`); se fija `search_path = public` en ambas |
 
 ### Fase 2 — Mejoras deseables
 
@@ -176,7 +180,31 @@ Esto evita arrastrar el desfase que ya existía entre el `schema.prisma` viejo y
 - **Página de categoría** (`categoria/[slug]/page.tsx`) sigue siendo un client component sin `generateMetadata` propio — sin structured data ni metadata SEO específica. Requeriría refactor mayor (convertir a server component o fetch de metadata en paralelo).
 - **`GET /api/orders/[id]/invoice`** sigue sin autenticación por diseño (el cliente abre su factura sin loguearse); solo se le agregó rate limiting. Si se quiere cerrar del todo, requeriría repensar el flujo de acceso a facturas (ej. token firmado con expiración en vez de solo el UUID).
 - **Coverage thresholds** son un piso bajo intencional (~0.8% global) — deben subirse incrementalmente a medida que se agreguen tests a páginas/componentes sin cobertura.
-- Las migraciones `00005` y `00006` **no se han aplicado** a la base de datos real — ver sección 0.
+- **12 warnings preexistentes del Security Advisor de Supabase** (no introducidos por esta auditoría) — ver sección 6. Quedan deliberadamente para una sesión futura porque podrían ser intencionales y no se quiso tocar configuración de seguridad ya existente sin revisarla con calma primero.
+
+---
+
+## 6. Warnings preexistentes del Security Advisor (pendientes, deliberadamente no tocados)
+
+Al verificar las migraciones de esta auditoría en el Security Advisor de Supabase (Database → Advisors → Security Advisor), aparecieron **12 warnings + 1 info** que **ya existían antes** de este trabajo (no los introdujo ninguna migración `00005`-`00007`). Se decidió explícitamente dejarlos para otra sesión. Quedan listados aquí para no perderlos de vista:
+
+| Issue type | Entidad | Nota |
+|---|---|---|
+| Function Search Path Mutable | `public.get_user_role` | mismo tipo de hallazgo que se corrigió en `00007` para las funciones nuevas — aplicaría el mismo fix (`ALTER FUNCTION ... SET search_path = public`) |
+| Function Search Path Mutable | `public.generate_order_number` | idem |
+| Function Search Path Mutable | `public.update_updated_at_column` | idem |
+| RLS Policy Always True | `public.order_items` | política con `USING (true)` o similar — revisar si es intencional (ej. lectura pública de items de orden) o demasiado permisiva |
+| RLS Policy Always True | `public.orders` | idem — este es más sensible, revisar con prioridad |
+| RLS Policy Always True | `public.restock_subscriptions` | idem |
+| Public Bucket Allows Listing | `storage.product-images` | bucket de Storage con política SELECT amplia que permite *listar* todos los objetos, no solo leerlos — revisar si se requiere listar o solo servir imágenes por URL directa |
+| Public Can Execute SECURITY DEFINER Function | `public.get_user_role(user_id uuid)` | callable sin iniciar sesión — evaluar restringir a `authenticated` |
+| Public Can Execute SECURITY DEFINER Function | `public.rls_auto_enable()` | idem |
+| Signed-In Users Can Execute SECURITY DEFINER Function | `public.get_user_role(user_id uuid)` | callable por cualquier usuario logueado — evaluar si debe restringirse más |
+| Signed-In Users Can Execute SECURITY DEFINER Function | `public.rls_auto_enable()` | idem |
+| Leaked Password Protection Disabled | `Auth` | Supabase Auth no está verificando contraseñas contra la base de HaveIBeenPwned al registrar/cambiar contraseña — activarlo es gratis y de un click en Authentication → Policies |
+| *(Info)* RLS Enabled No Policy | `public.processed_webhooks` | **no requiere acción** — es el diseño intencional de la tabla que creamos en `00005` (deny-all para `anon`/`authenticated`, solo `service_role` la usa) |
+
+**Prioridad sugerida para cuando se retomen:** `Leaked Password Protection Disabled` (gratis, un click, cierra una brecha real de credenciales filtradas) y `RLS Policy Always True` en `public.orders` (datos de clientes) primero; el resto puede esperar más.
 
 ---
 
