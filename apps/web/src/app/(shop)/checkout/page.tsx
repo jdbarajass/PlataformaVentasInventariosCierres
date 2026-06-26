@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCart } from '@/lib/cart-context'
 import { formatPrice } from '@/lib/utils'
+import { useToast } from '@/components/ui/use-toast'
+import { customerSchema } from '@/lib/validations/order'
+import { apiFetch, ApiError } from '@/lib/api-client'
 import type { PaymentMethod, ShippingConfig } from '@/lib/settings'
 
 // Icono por método de pago
@@ -37,6 +40,7 @@ const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
 
 export default function CheckoutPage() {
   const { state, totalPrice } = useCart()
+  const { toast } = useToast()
   const [selectedPayment, setSelectedPayment] = useState('card')
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -47,6 +51,7 @@ export default function CheckoutPage() {
     city: '',
     notes: '',
   })
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   // Cupón de descuento
   const [couponCode, setCouponCode] = useState('')
@@ -62,14 +67,13 @@ export default function CheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(DEFAULT_PAYMENT_METHODS)
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then((res) => res.json())
+    apiFetch<{ data: { shipping_config?: ShippingConfig; payment_methods?: PaymentMethod[] } }>('/api/settings')
       .then(({ data }) => {
         if (!data) return
         if (data.shipping_config) setShippingConfig(data.shipping_config)
         if (data.payment_methods) {
           // Solo mostrar métodos habilitados
-          const enabled = (data.payment_methods as PaymentMethod[]).filter((m) => m.enabled)
+          const enabled = data.payment_methods.filter((m) => m.enabled)
           if (enabled.length > 0) setPaymentMethods(enabled)
         }
       })
@@ -93,22 +97,15 @@ export default function CheckoutPage() {
     setCouponError('')
 
     try {
-      const res = await fetch('/api/coupons/validate', {
+      const data = await apiFetch<{ coupon: typeof appliedCoupon }>('/api/coupons/validate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: couponCode, subtotal_cents: totalPrice }),
       })
-
-      const data = await res.json()
-      if (!res.ok) {
-        setCouponError(data.error || 'Cupon no valido')
-        setAppliedCoupon(null)
-      } else {
-        setAppliedCoupon(data.coupon)
-        setCouponError('')
-      }
-    } catch {
-      setCouponError('Error al validar cupon')
+      setAppliedCoupon(data.coupon)
+      setCouponError('')
+    } catch (error) {
+      setCouponError(error instanceof ApiError ? error.message : 'Error al validar cupon')
+      setAppliedCoupon(null)
     } finally {
       setCouponLoading(false)
     }
@@ -122,25 +119,37 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const validation = customerSchema.safeParse(formData)
+    if (!validation.success) {
+      const errors: Record<string, string> = {}
+      for (const issue of validation.error.issues) {
+        const field = issue.path[0]
+        if (typeof field === 'string' && !errors[field]) {
+          errors[field] = issue.message
+        }
+      }
+      setFieldErrors(errors)
+      toast({
+        title: 'Revisa el formulario',
+        description: 'Hay datos incompletos o invalidos antes de continuar.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setFieldErrors({})
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/orders', {
+      const data = await apiFetch<{ checkout_url?: string; order_id?: string }>('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: state.items,
           customer: formData,
           payment_method: selectedPayment,
-          subtotal_cents: totalPrice,
-          discount_cents: discountCents,
           coupon_code: appliedCoupon?.code || null,
-          shipping_cents: shippingCost,
-          total_cents: finalTotal,
         }),
       })
-
-      const data = await response.json()
 
       if (data.checkout_url) {
         window.location.href = data.checkout_url
@@ -149,6 +158,11 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.error('Error creating order:', error)
+      toast({
+        title: 'No pudimos procesar tu orden',
+        description: error instanceof ApiError ? error.message : 'No pudimos comunicarnos con el servidor. Verifica tu internet e intenta de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -200,7 +214,9 @@ export default function CheckoutPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Tu nombre"
+                      className={fieldErrors.name ? 'border-red-500' : ''}
                     />
+                    {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-medium">
@@ -212,7 +228,9 @@ export default function CheckoutPage() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="tu@email.com"
+                      className={fieldErrors.email ? 'border-red-500' : ''}
                     />
+                    {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
                   </div>
                 </div>
                 <div>
@@ -225,7 +243,9 @@ export default function CheckoutPage() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+57 314 406 5520"
+                    className={fieldErrors.phone ? 'border-red-500' : ''}
                   />
+                  {fieldErrors.phone && <p className="mt-1 text-xs text-red-500">{fieldErrors.phone}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -245,7 +265,9 @@ export default function CheckoutPage() {
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     placeholder="Calle, numero, apartamento"
+                    className={fieldErrors.address ? 'border-red-500' : ''}
                   />
+                  {fieldErrors.address && <p className="mt-1 text-xs text-red-500">{fieldErrors.address}</p>}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium">
@@ -256,7 +278,9 @@ export default function CheckoutPage() {
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     placeholder="Ciudad"
+                    className={fieldErrors.city ? 'border-red-500' : ''}
                   />
+                  {fieldErrors.city && <p className="mt-1 text-xs text-red-500">{fieldErrors.city}</p>}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium">

@@ -1,17 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, Save, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/components/ui/use-toast'
 import { ImageUploader } from '@/components/products/image-uploader'
-import { productSchema, type ProductFormData } from '@/lib/validations/product'
-import { supabase } from '@/lib/supabase'
-import { Product, Category } from '@/types/database'
+import { useProductForm } from '@/components/products/use-product-form'
+import { Product } from '@/types/database'
 
 interface ProductFormProps {
   product?: Product
@@ -20,179 +17,7 @@ interface ProductFormProps {
 
 export function ProductForm({ product, mode }: ProductFormProps) {
   const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [formData, setFormData] = useState({
-    title: product?.title || '',
-    sku: product?.sku || '',
-    description: product?.description || '',
-    price: product ? (product.price_cents / 100).toString() : '',
-    cost: product ? (product.cost_cents / 100).toString() : '',
-    compareAtPrice: product?.compare_at_price_cents
-      ? (product.compare_at_price_cents / 100).toString()
-      : '',
-    categoryId: product?.category_id || '',
-    images: product?.images || [],
-    stock: product?.stock_qty.toString() || '0',
-    lowStockThreshold: product?.low_stock_threshold.toString() || '5',
-    tags: product?.tags.join(', ') || '',
-    active: product?.active ?? true,
-    featured: product?.featured ?? false,
-  })
-
-  useEffect(() => {
-    fetchCategories()
-  }, [])
-
-  const fetchCategories = async () => {
-    const { data } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('active', true)
-      .order('sort_order', { ascending: true })
-
-    setCategories(data || [])
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    try {
-      // Obtener token de autenticación
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session?.access_token) {
-        throw new Error('No estás autenticado. Por favor inicia sesión nuevamente.')
-      }
-
-      // Filtrar URLs de imágenes inválidas/rotas antes de guardar
-      const validImages = formData.images.filter((url) => {
-        try {
-          new URL(url)
-          return true
-        } catch {
-          return false
-        }
-      })
-
-      // Preparar datos para validación
-      const dataToValidate: ProductFormData = {
-        title: formData.title,
-        sku: formData.sku || null,
-        description: formData.description || null,
-        price_cents: parseFloat(formData.price) * 100,
-        cost_cents: parseFloat(formData.cost || '0') * 100,
-        compare_at_price_cents: formData.compareAtPrice
-          ? parseFloat(formData.compareAtPrice) * 100
-          : null,
-        category_id: formData.categoryId || null,
-        images: validImages,
-        stock_qty: parseInt(formData.stock),
-        low_stock_threshold: parseInt(formData.lowStockThreshold),
-        tags: formData.tags
-          ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)
-          : [],
-        active: formData.active,
-        featured: formData.featured,
-      }
-
-      // Validar con Zod
-      const validatedData = productSchema.parse(dataToValidate)
-
-      // Generar slug desde el título
-      const slug = formData.title
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-
-      if (mode === 'create') {
-        // Crear producto
-        const response = await fetch('/api/products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            ...validatedData,
-            slug,
-          }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Error al crear producto')
-        }
-
-        toast({
-          title: 'Producto creado',
-          description: 'El producto se creó exitosamente',
-          variant: 'success',
-        })
-
-        router.push('/admin/productos')
-      } else {
-        // Editar producto
-        const response = await fetch(`/api/products/${product!.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            ...validatedData,
-            slug,
-          }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Error al actualizar producto')
-        }
-
-        toast({
-          title: 'Producto actualizado',
-          description: 'Los cambios se guardaron exitosamente',
-          variant: 'success',
-        })
-
-        router.push('/admin/productos')
-      }
-    } catch (error) {
-      console.error('Form error:', error)
-
-      if (error instanceof Error) {
-        // Errores de Zod
-        if (error.message.includes('Expected')) {
-          toast({
-            title: 'Error de validación',
-            description: 'Por favor verifica todos los campos',
-            variant: 'destructive',
-          })
-        } else {
-          toast({
-            title: 'Error',
-            description: error.message,
-            variant: 'destructive',
-          })
-        }
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Ocurrió un error al guardar el producto',
-          variant: 'destructive',
-        })
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const { formData, setFormData, categories, isLoading, handleSubmit } = useProductForm({ product, mode })
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
