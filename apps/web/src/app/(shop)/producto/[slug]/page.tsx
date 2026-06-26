@@ -9,6 +9,7 @@ import { AddToCartButton } from './add-to-cart-button'
 import { ReviewSection } from '@/components/reviews/review-section'
 import { RestockSubscribe } from '@/components/products/restock-subscribe'
 import { Product } from '@/types/database'
+import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,9 +55,28 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const product = await getProduct(params.slug)
   if (!product) return { title: 'Producto no encontrado' }
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
+  const title = `${product.title} - YJBMOTOCOM`
+  const description = product.description || `Compra ${product.title} en YJBMOTOCOM`
+  const image = getProductImage(product.images)
+  const url = `${baseUrl}/producto/${product.slug}`
+
   return {
-    title: `${product.title} - YJBMOTOCOM`,
-    description: product.description || `Compra ${product.title} en YJBMOTOCOM`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      images: [{ url: image }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
+    },
   }
 }
 
@@ -86,27 +106,24 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
   return (
     <div className="container py-8">
-      {/* Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Product',
-            name: product.title,
-            description: product.description || `Compra ${product.title} en YJBMOTOCOM`,
-            image: mainImage,
-            sku: product.sku || 'N/A',
-            brand: { '@type': 'Brand', name: 'YJBMOTOCOM' },
-            offers: {
-              '@type': 'Offer',
-              url: productUrl,
-              priceCurrency: 'COP',
-              price: product.price_cents / 100,
-              availability: `https://schema.org/${availability}`,
-            },
-          }),
+      <ProductSchema
+        url={productUrl}
+        product={{
+          name: product.title,
+          description: product.description || `Compra ${product.title} en YJBMOTOCOM`,
+          image: mainImage,
+          price: product.price_cents / 100,
+          currency: 'COP',
+          availability,
+          sku: product.sku ?? undefined,
         }}
+      />
+      <BreadcrumbSchema
+        items={[
+          { name: 'Inicio', url: baseUrl },
+          ...(category ? [{ name: category.name, url: `${baseUrl}/categoria/${category.slug}` }] : []),
+          { name: product.title, url: productUrl },
+        ]}
       />
 
       {/* Breadcrumb */}

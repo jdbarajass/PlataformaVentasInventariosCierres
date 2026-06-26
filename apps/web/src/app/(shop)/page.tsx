@@ -8,6 +8,7 @@ import {
 import { ProductCard } from '@/components/products/product-card'
 import { supabase } from '@/lib/supabase'
 import { Product } from '@/types/database'
+import { WebPageSchema } from '@/components/seo/structured-data'
 
 /* ─── Trust badges ─── */
 const trustBadges = [
@@ -59,8 +60,15 @@ async function getFeaturedProducts(): Promise<Product[]> {
 export default async function HomePage() {
   const featuredProducts = await getFeaturedProducts()
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
+
   return (
     <div className="flex flex-col">
+      <WebPageSchema
+        name="YJBMOTOCOM - Equipamiento para Motociclistas"
+        description="Tienda especializada en accesorios y equipamiento para motociclistas en Colombia: cascos, guantes, chaquetas y más."
+        url={baseUrl}
+      />
 
       {/* ═══════════════════════════════════
           HERO — cinemático
