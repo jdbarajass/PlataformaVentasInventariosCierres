@@ -36,37 +36,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-
-      if (session?.user) {
-        // Fetch user profile with role from database
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role, name')
-          .eq('id', session.user.id)
-          .single()
-
-        setUserProfile({
-          id: session.user.id,
-          email: session.user.email || '',
-          name: userData?.name || session.user.email?.split('@')[0] || 'Usuario',
-          role: userData?.role || 'viewer', // Default to viewer if not found
-        })
-      }
-
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth event:', event)
+    // Get initial session.
+    // IMPORTANT: setLoading(false) must run no matter what — if
+    // getSession() rejects (expired/invalid refresh token, network blip on
+    // a hard reload) or the profile fetch below throws, the admin layout's
+    // spinner would otherwise spin forever with no way to recover.
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session }, error }) => {
+        if (error) {
+          console.error('Error getting session:', error)
+        }
         setSession(session)
         setUser(session?.user ?? null)
 
+        if (session?.user) {
+          try {
+            // Fetch user profile with role from database
+            const { data: userData } = await supabase
+              .from('users')
+              .select('role, name')
+              .eq('id', session.user.id)
+              .single()
+
+            setUserProfile({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: userData?.name || session.user.email?.split('@')[0] || 'Usuario',
+              role: userData?.role || 'viewer', // Default to viewer if not found
+            })
+          } catch (profileError) {
+            console.error('Error fetching user profile:', profileError)
+          }
+        }
+      })
+      .catch((sessionError) => {
+        console.error('Unhandled error getting session:', sessionError)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event)
+      setSession(session)
+      setUser(session?.user ?? null)
+
+      try {
         if (session?.user) {
           // Fetch user profile with role from database
           const { data: userData } = await supabase
@@ -84,10 +103,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUserProfile(null)
         }
-
+      } catch (profileError) {
+        console.error('Error fetching user profile on auth change:', profileError)
+      } finally {
         setLoading(false)
       }
-    )
+    })
 
     return () => subscription.unsubscribe()
   }, [])
