@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 const adjustmentSchema = z.object({
   product_id: z.string().uuid(),
+  variant_id: z.string().uuid().optional(),
   qty: z.number().int(),
   type: z.enum(['in', 'out', 'adjustment', 'return']),
   note: z.string().optional(),
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { product_id, qty, type, note, created_by } = validation.data
+    const { product_id, variant_id, qty, type, note, created_by } = validation.data
     // Use service role for system operations
     const supabase = getServiceSupabase()
 
@@ -50,8 +51,31 @@ export async function POST(request: NextRequest) {
 
     const product = productData as { id: string; title: string; stock_qty: number }
 
+    // Si se especifica variant_id, el ajuste aplica sobre el stock de esa
+    // variante (talla) y no sobre products.stock_qty — igual que hace el
+    // software local, que descuenta stock filtrando por talla.
+    let variant: { id: string; stock_qty: number } | null = null
+    if (variant_id) {
+      const { data: variantData, error: variantError } = await supabase
+        .from('product_variants')
+        .select('id, stock_qty')
+        .eq('id', variant_id)
+        .eq('product_id', product_id)
+        .single()
+
+      if (variantError || !variantData) {
+        return NextResponse.json(
+          { error: 'Variante no encontrada para este producto' },
+          { status: 404 }
+        )
+      }
+      variant = variantData as { id: string; stock_qty: number }
+    }
+
+    const currentStock = variant ? variant.stock_qty : product.stock_qty
+
     // Calculate new stock
-    let newStock = product.stock_qty
+    let newStock = currentStock
     if (type === 'in' || type === 'return') {
       newStock += Math.abs(qty)
     } else if (type === 'out') {
@@ -73,7 +97,8 @@ export async function POST(request: NextRequest) {
     // 1. Create inventory movement
     const movementData = {
       product_id,
-      qty: type === 'adjustment' ? qty - product.stock_qty : qty,
+      variant_id: variant_id || null,
+      qty: type === 'adjustment' ? qty - currentStock : qty,
       type,
       note,
       created_by,
@@ -88,11 +113,14 @@ export async function POST(request: NextRequest) {
       throw movementError
     }
 
-    // 2. Update product stock
-    const { error: updateError } = await (supabase
-      .from('products') as any)
-      .update({ stock_qty: newStock })
-      .eq('id', product_id)
+    // 2. Update stock (de la variante si aplica, o del producto)
+    const { error: updateError } = variant
+      ? await (supabase.from('product_variants') as any)
+          .update({ stock_qty: newStock })
+          .eq('id', variant.id)
+      : await (supabase.from('products') as any)
+          .update({ stock_qty: newStock })
+          .eq('id', product_id)
 
     if (updateError) {
       throw updateError
@@ -102,14 +130,14 @@ export async function POST(request: NextRequest) {
     await (supabase.from('audit_logs') as any).insert({
       actor_id: created_by,
       action: 'inventory_adjustment',
-      table_name: 'products',
-      record_id: product_id,
-      old_data: { stock_qty: product.stock_qty },
+      table_name: variant ? 'product_variants' : 'products',
+      record_id: variant ? variant.id : product_id,
+      old_data: { stock_qty: currentStock },
       new_data: { stock_qty: newStock },
     })
 
     // 4. If stock went from 0 to positive, notify subscribers (non-blocking)
-    if (product.stock_qty === 0 && newStock > 0) {
+    if (currentStock === 0 && newStock > 0) {
       sendRestockNotifications(product_id).catch((err) =>
         console.error('[Restock] Error sending notifications:', err)
       )
@@ -120,7 +148,8 @@ export async function POST(request: NextRequest) {
       movement,
       product: {
         id: product_id,
-        previous_stock: product.stock_qty,
+        variant_id: variant?.id ?? null,
+        previous_stock: currentStock,
         new_stock: newStock,
       },
     })
@@ -143,6 +172,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('product_id')
+    const variantId = searchParams.get('variant_id')
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const type = searchParams.get('type')
@@ -155,13 +185,17 @@ export async function GET(request: NextRequest) {
       .from('inventory_movements')
       .select(`
         *,
-        product:products(id, title, sku)
+        product:products(id, title, sku),
+        variant:product_variants(id, talla, barcode)
       `)
       .order('created_at', { ascending: false })
       .limit(limit)
 
     if (productId) {
       query = query.eq('product_id', productId)
+    }
+    if (variantId) {
+      query = query.eq('variant_id', variantId)
     }
     if (from) {
       query = query.gte('created_at', from)

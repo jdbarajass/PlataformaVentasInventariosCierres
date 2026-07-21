@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import {
   Package,
   Search,
@@ -12,6 +12,10 @@ import {
   Loader2,
   Check,
   X,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  Tags,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +31,18 @@ interface ProductStock {
   low_stock_threshold: number
   price_cents: number
   category: { name: string } | null
+}
+
+interface ProductVariant {
+  id: string
+  product_id: string
+  talla: string | null
+  sku: string | null
+  barcode: string | null
+  stock_qty: number
+  low_stock_threshold: number
+  cost_cents: number
+  active: boolean
 }
 
 interface InventoryMovement {
@@ -59,6 +75,16 @@ export default function InventarioPage() {
   const [adjustmentQty, setAdjustmentQty] = useState('')
   const [adjustmentNote, setAdjustmentNote] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Variantes por talla / código de barras
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
+  const [variantsByProduct, setVariantsByProduct] = useState<Record<string, ProductVariant[]>>({})
+  const [loadingVariants, setLoadingVariants] = useState(false)
+  const [newVariant, setNewVariant] = useState({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+  const [savingVariant, setSavingVariant] = useState(false)
+  const [adjustingVariant, setAdjustingVariant] = useState<string | null>(null)
+  const [variantAdjType, setVariantAdjType] = useState<'in' | 'out' | 'adjustment'>('in')
+  const [variantAdjQty, setVariantAdjQty] = useState('')
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -170,6 +196,153 @@ export default function InventarioPage() {
       toast({
         title: 'Error',
         description: error.message || 'No se pudo ajustar el inventario',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fetchVariants = useCallback(
+    async (productId: string) => {
+      if (!session?.access_token) return
+      setLoadingVariants(true)
+      try {
+        const res = await fetch(`/api/products/${productId}/variants`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (!res.ok) throw new Error('Error fetching variants')
+        const { data } = await res.json()
+        setVariantsByProduct((prev) => ({ ...prev, [productId]: data || [] }))
+      } catch (error) {
+        console.error('Error fetching product variants:', error)
+      } finally {
+        setLoadingVariants(false)
+      }
+    },
+    [session?.access_token]
+  )
+
+  const toggleVariants = (productId: string) => {
+    if (expandedProduct === productId) {
+      setExpandedProduct(null)
+      return
+    }
+    setExpandedProduct(productId)
+    setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+    if (!variantsByProduct[productId]) {
+      fetchVariants(productId)
+    }
+  }
+
+  const handleAddVariant = async (productId: string) => {
+    if (!session?.access_token) return
+    if (!newVariant.talla.trim() && !newVariant.barcode.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Ingresa al menos la talla o el código de barras',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setSavingVariant(true)
+      const res = await fetch(`/api/products/${productId}/variants`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          talla: newVariant.talla.trim() || null,
+          barcode: newVariant.barcode.trim() || null,
+          stock_qty: parseInt(newVariant.stock_qty) || 0,
+          cost_cents: Math.round((parseFloat(newVariant.cost_cents) || 0) * 100),
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al crear la variante')
+      }
+
+      toast({ title: 'Variante creada', description: 'Se agregó la talla al producto' })
+      setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+      await fetchVariants(productId)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo crear la variante',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingVariant(false)
+    }
+  }
+
+  const handleDeleteVariant = async (productId: string, variantId: string) => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch(`/api/product-variants/${variantId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error('Error al eliminar la variante')
+      toast({ title: 'Variante desactivada' })
+      await fetchVariants(productId)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo desactivar la variante',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleAdjustVariant = async (productId: string, variantId: string) => {
+    if (!session?.access_token || !variantAdjQty) return
+    const qty = parseInt(variantAdjQty)
+    if (isNaN(qty) || qty <= 0) {
+      toast({
+        title: 'Error',
+        description: 'La cantidad debe ser un número positivo',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setSaving(true)
+      const res = await fetch('/api/inventory/adjust', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          variant_id: variantId,
+          qty,
+          type: variantAdjType,
+          note: `Ajuste manual variante - ${typeLabels[variantAdjType]}`,
+          created_by: userProfile?.id,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al ajustar la variante')
+      }
+
+      toast({ title: 'Variante ajustada' })
+      setAdjustingVariant(null)
+      setVariantAdjQty('')
+      await fetchVariants(productId)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo ajustar la variante',
         variant: 'destructive',
       })
     } finally {
@@ -363,6 +536,9 @@ export default function InventarioPage() {
                       Precio
                     </th>
                     <th className="px-6 py-4 text-center text-sm font-medium text-muted-foreground">
+                      Tallas
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-medium text-muted-foreground">
                       Acciones
                     </th>
                   </tr>
@@ -374,8 +550,11 @@ export default function InventarioPage() {
                       product.low_stock_threshold
                     )
                     const isAdjusting = adjustingProduct === product.id
+                    const isExpanded = expandedProduct === product.id
+                    const variants = variantsByProduct[product.id] || []
                     return (
-                      <tr key={product.id} className="border-b last:border-0">
+                      <Fragment key={product.id}>
+                      <tr className="border-b last:border-0">
                         <td className="px-6 py-4">
                           <p className="font-medium">{product.title}</p>
                         </td>
@@ -400,6 +579,22 @@ export default function InventarioPage() {
                         </td>
                         <td className="px-6 py-4 font-medium">
                           {formatPrice(product.price_cents)}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-lg"
+                            onClick={() => toggleVariants(product.id)}
+                          >
+                            <Tags className="mr-1 h-4 w-4" />
+                            {variantsByProduct[product.id]?.length ?? '·'}
+                            {isExpanded ? (
+                              <ChevronDown className="ml-1 h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="ml-1 h-3 w-3" />
+                            )}
+                          </Button>
                         </td>
                         <td className="px-6 py-4">
                           {isAdjusting ? (
@@ -499,6 +694,174 @@ export default function InventarioPage() {
                           )}
                         </td>
                       </tr>
+                      {isExpanded && (
+                        <tr className="border-b bg-muted/30 last:border-0">
+                          <td colSpan={7} className="px-6 py-4">
+                            <div className="space-y-3">
+                              <p className="text-sm font-medium">
+                                Tallas / variantes de &quot;{product.title}&quot;
+                              </p>
+                              {loadingVariants && variants.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">Cargando variantes...</p>
+                              ) : variants.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                  Este producto no tiene tallas/variantes registradas — sigue usando el stock general de arriba.
+                                </p>
+                              ) : (
+                                <div className="overflow-x-auto rounded-lg border bg-card">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b">
+                                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Talla</th>
+                                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Código de barras</th>
+                                        <th className="px-4 py-2 text-center font-medium text-muted-foreground">Stock</th>
+                                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Costo</th>
+                                        <th className="px-4 py-2 text-center font-medium text-muted-foreground">Acciones</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {variants.map((variant) => {
+                                        const variantAdjusting = adjustingVariant === variant.id
+                                        return (
+                                          <tr key={variant.id} className="border-b last:border-0">
+                                            <td className="px-4 py-2">{variant.talla || '-'}</td>
+                                            <td className="px-4 py-2">
+                                              <code className="rounded bg-muted px-2 py-1 text-xs">
+                                                {variant.barcode || '-'}
+                                              </code>
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                              <span className="font-bold">{variant.stock_qty}</span>
+                                              {variant.stock_qty <= variant.low_stock_threshold && (
+                                                <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-500 border-orange-500/20">
+                                                  Bajo
+                                                </Badge>
+                                              )}
+                                            </td>
+                                            <td className="px-4 py-2">{formatPrice(variant.cost_cents)}</td>
+                                            <td className="px-4 py-2">
+                                              {variantAdjusting ? (
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <select
+                                                    value={variantAdjType}
+                                                    onChange={(e) => setVariantAdjType(e.target.value as 'in' | 'out' | 'adjustment')}
+                                                    className="rounded-lg border bg-background px-2 py-1 text-xs"
+                                                  >
+                                                    <option value="in">Entrada</option>
+                                                    <option value="out">Salida</option>
+                                                    <option value="adjustment">Ajuste</option>
+                                                  </select>
+                                                  <Input
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="Cant."
+                                                    value={variantAdjQty}
+                                                    onChange={(e) => setVariantAdjQty(e.target.value)}
+                                                    className="h-7 w-16 rounded-lg text-xs"
+                                                  />
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 shrink-0"
+                                                    onClick={() => handleAdjustVariant(product.id, variant.id)}
+                                                    disabled={saving}
+                                                  >
+                                                    <Check className="h-3 w-3 text-green-500" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 shrink-0"
+                                                    onClick={() => {
+                                                      setAdjustingVariant(null)
+                                                      setVariantAdjQty('')
+                                                    }}
+                                                  >
+                                                    <X className="h-3 w-3 text-red-500" />
+                                                  </Button>
+                                                </div>
+                                              ) : (
+                                                <div className="flex items-center justify-center gap-1">
+                                                  <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-lg"
+                                                    title="Ajustar stock de la variante"
+                                                    onClick={() => {
+                                                      setAdjustingVariant(variant.id)
+                                                      setVariantAdjType('in')
+                                                    }}
+                                                  >
+                                                    <RefreshCw className="h-3 w-3" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-lg"
+                                                    title="Desactivar variante"
+                                                    onClick={() => handleDeleteVariant(product.id, variant.id)}
+                                                  >
+                                                    <Trash2 className="h-3 w-3 text-red-500" />
+                                                  </Button>
+                                                </div>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        )
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Input
+                                  placeholder="Talla (ej. M, L, 42)"
+                                  value={newVariant.talla}
+                                  onChange={(e) => setNewVariant({ ...newVariant, talla: e.target.value })}
+                                  className="h-8 w-32 rounded-lg text-xs"
+                                />
+                                <Input
+                                  placeholder="Código de barras"
+                                  value={newVariant.barcode}
+                                  onChange={(e) => setNewVariant({ ...newVariant, barcode: e.target.value })}
+                                  className="h-8 w-40 rounded-lg text-xs"
+                                />
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Stock inicial"
+                                  value={newVariant.stock_qty}
+                                  onChange={(e) => setNewVariant({ ...newVariant, stock_qty: e.target.value })}
+                                  className="h-8 w-28 rounded-lg text-xs"
+                                />
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="Costo unitario"
+                                  value={newVariant.cost_cents}
+                                  onChange={(e) => setNewVariant({ ...newVariant, cost_cents: e.target.value })}
+                                  className="h-8 w-28 rounded-lg text-xs"
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-8 rounded-lg"
+                                  onClick={() => handleAddVariant(product.id)}
+                                  disabled={savingVariant}
+                                >
+                                  {savingVariant ? (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Plus className="mr-1 h-3 w-3" />
+                                  )}
+                                  Agregar talla
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     )
                   })}
                 </tbody>
