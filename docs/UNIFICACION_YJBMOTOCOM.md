@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1-3.8 aplicadas en Supabase real (00008-00016 ejecutadas por el usuario; 3.8 no necesitó migración). Sub-fase 3.9 completada (commit local, sin pushear) — no requiere migración nueva, sí requiere `npm install` (se agregó la dependencia `exceljs`). Por iniciar sub-fase 3.10 (revisión final).
+**Estado actual**: **Fase 3 completa (sub-fases 3.1 a 3.10)**. 9 commits locales en `main`, ninguno pusheado — esperando autorización explícita del usuario para hacer `git push` (y así disparar el despliegue automático de Vercel). Migraciones 00008-00016 ya aplicadas por el usuario en el Supabase real.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -123,7 +123,7 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.7 | Préstamos, Notas, Presupuesto (+ Gastos operativos) | ✅ Completada (commit local; falta aplicar migración 00016 en Supabase real) |
 | 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | ✅ Completada (commit local, sin migración pendiente) |
 | 3.9 | Exportar/Importar Excel (18 pestañas) | ✅ Completada (commit local; requiere `npm install` por la dependencia nueva `exceljs`) |
-| 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | ⏳ Pendiente — siguiente paso |
+| 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | ✅ Completada |
 
 ## 6.1 Detalle de la sub-fase 3.1 (completada)
 
@@ -322,6 +322,77 @@ Esta sub-fase, a diferencia de las anteriores, modificó archivos que **ya estab
 
 1. Lee este archivo completo.
 2. Revisa `git log` y `git status` en `main` para ver qué commits locales existen ya (recuerda: pueden no estar pusheados).
-3. Ubica la sub-fase marcada como "en progreso" o la primera "Pendiente" en la tabla de la sección 6.
+3. Si la Fase 3 (sección 9) ya está completa, lo que sigue es: (a) que el usuario autorice el `git push` y despliegue, y/o (b) una posible "Fase 4" de mejoras futuras (ver Limitaciones en la sección 9.6) si el usuario la pide.
 4. Si hay migraciones SQL ya creadas en `supabase/migrations/` que no aparecen aquí como completadas, revisa si ya se aplicaron en el proyecto Supabase real antes de reaplicarlas.
-5. Continúa desde ahí — no hay que repetir la Fase 1 ni la Fase 2, ya están aprobadas.
+5. No hay que repetir la Fase 1, la Fase 2, ni ninguna sub-fase ya marcada ✅ en la sección 6 — ya están aprobadas y verificadas.
+
+## 9. Cierre de la Fase 3 — entrega final (2026-07-21)
+
+Las 10 sub-fases (3.1 a 3.10) quedaron completas. Esto es la entrega formal de la Fase 3, tal como se pidió al inicio del proyecto.
+
+### 9.1 Tabla comparativa final (qué se reutilizó, qué se ajustó, qué se construyó nuevo)
+
+| Función del software local | Qué pasó en la nube |
+|---|---|
+| Registrar Venta (POS, tallas, código de barras, pagos combinados, comisión) | **Construido nuevo** — `/admin/ventas` + función atómica `create_pos_sale` (3.4) |
+| Inventario (talla, código de barras) | **Ajustado** — se agregaron variantes (`product_variants`) sobre `/admin/inventario` ya existente (3.2) |
+| Cuentas (saldo por medio de pago) | **Construido nuevo** — `/admin/cuentas` (3.3) |
+| Cierre mensual de Cuentas | **Construido nuevo** — pestaña "Cierres" dentro de `/admin/cuentas`, por snapshot (3.3) |
+| Facturas a proveedores + abonos | **Construido nuevo** — `/admin/facturas` (3.5) |
+| Fiado / clientes deudores | **Construido nuevo** — `/admin/fiado` (3.6) |
+| Préstamos a otros almacenes | **Construido nuevo** — `/admin/prestamos` (3.7) |
+| Notas y pendientes | **Construido nuevo** — `/admin/notas` (3.7) |
+| Presupuesto mensual (+ gastos operativos, tabla que faltaba) | **Construido nuevo** — `/admin/presupuesto` (3.7) |
+| Reportes (ganancia, comisión, utilidad, vendedor) | **Ajustado** — 4 tarjetas nuevas sobre `/admin/reportes` ya existente, solo visibles para admin (3.8) |
+| Rendimiento por Vendedor | **Construido nuevo** — `/admin/rendimiento-vendedores`, admin-only (3.8) |
+| Roles con ocultamiento costo/ganancia (Admin ve todo, Vendedor no) | **Ajustado** — condición agregada en `ProductForm` (ya en producción) e Inventario; se decidió ocultar el campo en vez de mostrar el "costo inflado ×1.30" del local (3.8) |
+| Exportar/Importar Excel (18 pestañas) | **Construido nuevo** — `/admin/exportar-importar`; exportación completa, importación limitada a las 13 tablas internas del módulo por seguridad (3.9) |
+| Dashboard, Órdenes, Productos, Cupones, Reseñas, Usuarios, Auditoría, Configuración, Cierre Alegra | **Se quedan tal cual** — no se tocaron (excepto la única condición de costo en Productos) |
+| Catálogo, carrito, checkout, cuentas de cliente (tienda pública) | **Se quedan exactamente igual** — cero archivos tocados bajo `app/(shop)/` |
+
+### 9.2 Resumen de los cambios realizados
+
+- **9 commits locales** en `main` (sub-fases 3.1 a 3.9; la 3.10 es esta revisión, sin cambios de código nuevos).
+- **9 migraciones SQL** (`00008` a `00016`), todas aditivas, ya aplicadas por el usuario en el Supabase real.
+- **1 dependencia nueva**: `exceljs` (para el Excel de la sub-fase 3.9) — requiere `npm install`.
+- **12 módulos nuevos** en el panel de administrador: Registrar Venta, Cuentas, Facturas, Fiado, Préstamos, Notas, Presupuesto, Rendimiento Vendedores, Exportar/Importar, más las variantes de Inventario y el enriquecimiento de Reportes.
+- **Solo 6 archivos pre-existentes modificados** en todo el proyecto (fuera de `package.json`/lockfile y `docs/README.md`): `admin/layout.tsx` (solo agrega enlaces al menú), `admin/inventario/page.tsx`, `admin/reportes/page.tsx`, `api/inventory/adjust/route.ts`, `api/orders/[id]/invoice/route.ts`, `components/products/product-form.tsx` — todos con cambios acotados y revisados uno por uno (ver detalle en las secciones 6.1 a 6.9 de este documento).
+- **Cero archivos tocados** bajo `apps/web/src/app/(shop)/` (confirmado con `git diff --stat`) — la tienda pública no tiene ni un solo cambio.
+
+### 9.3 Confirmación: la parte pública de la tienda sigue funcionando igual
+
+- `git diff origin/main..HEAD --stat -- "apps/web/src/app/(shop)/"` → **sin resultados**: ningún archivo de catálogo, carrito, checkout o cuentas de cliente fue tocado.
+- El único archivo compartido con la tienda pública que sí se modificó es `api/orders/[id]/invoice/route.ts` (la factura/recibo) — el cambio es una rama condicional por `channel==='pos'`; para `channel==='online'` (el único valor que existía antes de este proyecto) el HTML generado es exactamente igual, verificado línea por línea en la sub-fase 3.4.
+- `npm run build` (producción, corrido al final de las sub-fases 3.4, 3.8, 3.9 y de nuevo en esta revisión final) compiló **sin errores** las 8 rutas públicas críticas: `/`, `/productos`, `/producto/[slug]`, `/categoria/[slug]`, `/checkout`, `/mi-cuenta`, `/login`, `/registro`, `/orden/[id]/confirmacion`.
+- `npx vitest run`: 10 archivos, **62 tests, todos pasando**, misma línea base en las 9 sub-fases.
+- `npx tsc --noEmit`: mismos 67 errores preexistentes (no relacionados, ya tolerados por `ignoreBuildErrors`) en cada verificación — **cero errores nuevos** introducidos en todo el proyecto.
+
+### 9.4 Instrucciones para probar el flujo de ventas unificado de principio a fin
+
+Antes de nada: correr `npm install` en `apps/web` (por `exceljs`).
+
+1. **Catálogo → checkout (no debe haber cambiado nada)**: navegar el catálogo, agregar un producto al carrito, completar el checkout con cualquier método de pago de prueba, confirmar que llega el correo/confirmación como siempre.
+2. **Inventario con tallas**: en `/admin/inventario`, abrir un producto y agregar una variante (talla, código de barras, stock, costo).
+3. **Cuentas**: en `/admin/cuentas`, hacer un ajuste manual de saldo a "Efectivo" y una transferencia a otra cuenta.
+4. **Venta de mostrador**: en `/admin/ventas`, buscar el producto con la variante creada en el paso 2, agregarlo al carrito, pagar con 2 métodos combinados (ej. mitad efectivo, mitad Nequi), registrar la venta — confirmar que el stock de la variante bajó (paso 2) y que el saldo de las cuentas usadas subió (paso 3).
+5. **Recibo**: abrir el recibo de esa venta y confirmar que dice "RECIBO DE VENTA" con el desglose de pagos.
+6. **Facturas/Fiado**: crear una factura de proveedor y un fiado de cliente, cada uno con un abono parcial contra una cuenta — confirmar que el saldo de esa cuenta se mueve en la dirección correcta (baja para factura, sube para fiado).
+7. **Reportes**: en `/admin/reportes`, confirmar que las 4 tarjetas de costo/ganancia solo aparecen con un usuario `admin`, no con `seller`.
+8. **Exportar/Importar**: en `/admin/exportar-importar`, descargar el respaldo y volver a subirlo — confirmar que no duplica filas.
+9. **Cancelar una venta**: en `/admin/ventas`, cancelar la venta del paso 4 y confirmar que el stock y los saldos de cuentas vuelven a su valor anterior.
+
+### 9.5 Pasos manuales pendientes de tu parte
+
+1. **`npm install`** en `apps/web` (dependencia `exceljs` nueva).
+2. **Revisar y aprobar el `git push`** — todo sigue solo local, en 9 commits sobre `main`. En cuanto lo autorices, hago el push (que dispara el despliegue automático de Vercel).
+3. Opcional, no urgente: configurar las tasas de comisión reales por método de pago (hoy en 0% — se guardan en `store_settings.pos_commission_rates`, sin una pantalla de edición todavía; se puede agregar cuando la necesites).
+
+### 9.6 Limitaciones conocidas / pendientes
+
+- **Tasas de comisión POS**: quedan en 0% hasta que se construya una pantalla para editarlas (hoy solo existen en la base de datos).
+- **Alertas activas de vencimiento** (facturas por vencer, fiados con +30 días): el software local las muestra como notificación emergente al arrancar; en la nube se muestran como insignias visuales al entrar a la sección, no como notificación push. Se puede agregar al Dashboard si se necesita.
+- **Edición de una venta de mostrador ya registrada**: hoy solo se puede cancelar (reversa completa), no editar in-place; el local sí permite editar una venta existente.
+- **Impresión térmica ESC/POS directa**: por decisión ya acordada, el recibo es PDF + diálogo de impresión del navegador, no impresión directa a la impresora térmica como hace la app de escritorio.
+- **Excel — importación limitada a 13 hojas** (por diseño de seguridad, ver sección 6.9): Ventas, Usuarios, Configuración, Log Auditoría y Cierres Cuentas son de solo exportación.
+- **Rol `viewer`**: sigue sin endurecerse el acceso al shell del admin (hallazgo original de la Fase 1, no introducido por este proyecto) — un usuario `viewer` autenticado puede ver la navegación del admin aunque las APIs le devuelvan 403. No se tocó porque no era parte del alcance acordado.
+- Ninguna de estas limitaciones bloquea el uso del sistema unificado — son mejoras incrementales para una futura iteración si se necesitan.
