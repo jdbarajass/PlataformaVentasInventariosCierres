@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1, 3.2 y 3.3 aplicadas en Supabase real (00008-00011 ejecutadas por el usuario). Sub-fase 3.4 completada (commit local, sin pushear) — **pendiente aplicar las migraciones 00012 y 00013 en Supabase real** antes de poder usar Registrar Venta en producción. Por iniciar sub-fase 3.5.
+**Estado actual**: Sub-fases 3.1-3.4 aplicadas en Supabase real (00008-00013 ejecutadas por el usuario). Sub-fase 3.5 completada (commit local, sin pushear) — **pendiente aplicar la migración 00014 en Supabase real**. Por iniciar sub-fase 3.6.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -118,8 +118,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.2 | Inventario: variantes por talla + código de barras (UI) | ✅ Completada (commit local, sin pushear) |
 | 3.3 | Módulo Cuentas | ✅ Completada (commit local; falta aplicar migración 00011 en Supabase real) |
 | 3.4 | Módulo Registrar Venta (POS) + recibo PDF | ✅ Completada (commit local; falta aplicar migraciones 00012/00013 en Supabase real) |
-| 3.5 | Facturas a proveedores + abonos | ⏳ Pendiente — siguiente paso |
-| 3.6 | Fiado + abonos | Pendiente |
+| 3.5 | Facturas a proveedores + abonos | ✅ Completada (commit local; falta aplicar migración 00014 en Supabase real) |
+| 3.6 | Fiado + abonos | ⏳ Pendiente — siguiente paso |
 | 3.7 | Préstamos, Notas, Presupuesto | Pendiente |
 | 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | Pendiente |
 | 3.9 | Exportar/Importar Excel (18 pestañas) | Pendiente |
@@ -207,6 +207,24 @@ Archivos modificados (aditivo, sin romper comportamiento existente para producto
 **⚠️ Pendiente manual**: aplicar `00012_pos_commission_rates.sql` y `00013_pos_sale_functions.sql` (en ese orden) en el SQL Editor del proyecto Supabase real antes de poder usar `/admin/ventas` en producción.
 
 **Cómo probarlo manualmente** (después de aplicar 00012/00013 y desplegar/correr local): entrar a `/admin/ventas`, buscar un producto por nombre (o por su código de barras si tiene variantes con código configurado desde Inventario), agregarlo al carrito, ajustar cantidad/precio si hace falta, completar el pago (probar con un solo método y luego con dos métodos combinados que sumen el total), registrar la venta, verificar que: (1) aparece en "Ventas de hoy", (2) el recibo abre correctamente y dice "RECIBO DE VENTA", (3) el stock del producto/variante bajó en Inventario, (4) el saldo de la cuenta usada subió en `/admin/cuentas`. Luego cancelar esa venta y confirmar que el stock y el saldo de la cuenta vuelven a su valor original.
+
+## 6.5 Detalle de la sub-fase 3.5 (completada)
+
+**Nueva migración**: `00014_supplier_invoice_functions.sql` — dos funciones `SECURITY DEFINER` (mismo patrón que las anteriores):
+- `pay_supplier_invoice(...)`: inserta el abono, debita la cuenta indicada (si hay) vía `account_movements` tipo `invoice_payment`, y marca la factura `paid` automáticamente cuando la suma de abonos alcanza el monto total — igual que el software local. Sirve tanto para abonos parciales como para "pagar el saldo restante" (la UI solo precarga el monto).
+- `delete_supplier_invoice(...)`: antes de borrar, revierte (acredita de vuelta) cualquier abono que hubiera debitado una cuenta.
+
+**Nuevas API**: `GET/POST /api/supplier-invoices`, `GET/PUT/DELETE /api/supplier-invoices/[id]`, `POST /api/supplier-invoices/[id]/payments` (abono), `POST /api/supplier-invoices/[id]/items` + `DELETE /api/supplier-invoice-items/[id]` (ítems de línea, funcionalidad que el propio local documenta como recién agregada y poco usada — se incluyó por paridad, básica).
+
+**UI nueva**: `/admin/facturas` (agregada al sidebar, entre Cuentas y Cierres) — tarjetas de "total pendiente" y "vencen en ≤7 días", filtro pendiente/pagada/todas, formulario de alta, y por cada factura: expandible con fecha de llegada/vencimiento, saldo, lista de abonos, formulario de abono (monto + cuenta opcional + notas, con botón "Usar saldo restante"), y eliminar (con confirmación, avisando que revierte abonos).
+
+**Nota de fidelidad**: el software local muestra una alerta emergente al arrancar (y cada 4h) si hay facturas venciendo en ≤7 días. Eso es un patrón de aplicación de escritorio que no tiene un equivalente directo y automático en una app web sin un sistema de notificaciones — en su lugar, la pantalla de Facturas muestra el conteo y una insignia "Vence pronto"/"Vencida" por factura, visible cada vez que se entra a la sección. Si más adelante se quiere una alerta activa (ej. en el Dashboard), se puede agregar como mejora puntual.
+
+**Verificación hecha**: `npx tsc --noEmit` (0 errores nuevos), `npx eslint` sin advertencias, `npx vitest run` — 10 archivos, 62 tests, todos pasando.
+
+**⚠️ Pendiente manual**: aplicar `00014_supplier_invoice_functions.sql` en el SQL Editor del proyecto Supabase real.
+
+**Cómo probarlo manualmente**: entrar a `/admin/facturas`, crear una factura de prueba con proveedor/monto/fecha de vencimiento, registrar un abono parcial con una cuenta (confirmar que el saldo de esa cuenta baja en `/admin/cuentas`), luego usar "Usar saldo restante" para completarla y confirmar que pasa a "Pagada" automáticamente; después eliminar otra factura de prueba con abonos y confirmar que el saldo de la cuenta se restituye.
 
 ## 7. Decisiones tomadas (registro rápido)
 
