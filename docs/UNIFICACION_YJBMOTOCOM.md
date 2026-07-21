@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1-3.7 aplicadas en Supabase real (00008-00016 ejecutadas por el usuario). Sub-fase 3.8 completada (commit local, sin pushear) — no requiere migración nueva. Por iniciar sub-fase 3.9.
+**Estado actual**: Sub-fases 3.1-3.8 aplicadas en Supabase real (00008-00016 ejecutadas por el usuario; 3.8 no necesitó migración). Sub-fase 3.9 completada (commit local, sin pushear) — no requiere migración nueva, sí requiere `npm install` (se agregó la dependencia `exceljs`). Por iniciar sub-fase 3.10 (revisión final).
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -122,8 +122,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.6 | Fiado + abonos | ✅ Completada (commit local; falta aplicar migración 00015 en Supabase real) |
 | 3.7 | Préstamos, Notas, Presupuesto (+ Gastos operativos) | ✅ Completada (commit local; falta aplicar migración 00016 en Supabase real) |
 | 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | ✅ Completada (commit local, sin migración pendiente) |
-| 3.9 | Exportar/Importar Excel (18 pestañas) | ⏳ Pendiente — siguiente paso |
-| 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | Pendiente |
+| 3.9 | Exportar/Importar Excel (18 pestañas) | ✅ Completada (commit local; requiere `npm install` por la dependencia nueva `exceljs`) |
+| 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | ⏳ Pendiente — siguiente paso |
 
 ## 6.1 Detalle de la sub-fase 3.1 (completada)
 
@@ -289,6 +289,26 @@ Esta sub-fase, a diferencia de las anteriores, modificó archivos que **ya estab
 - **`npm run build` (build de producción completo)**: compiló exitosamente **todas** las rutas de la app, incluidas las públicas críticas (`/checkout`, `/productos`, `/producto/[slug]`, `/categoria/[slug]`, `/mi-cuenta`, `/login`, `/registro`, `/orden/[id]/confirmacion`) y todas las de admin nuevas/modificadas — sin errores. Esta es la verificación más fuerte posible sin un navegador interactivo real.
 
 **Cómo probarlo manualmente**: iniciar sesión como `seller` y confirmar que no ve "Precio de Costo" en Productos ni "Costo" en las variantes de Inventario, ni las 4 tarjetas nuevas de Reportes, y que `/admin/rendimiento-vendedores` le muestra el mensaje de "solo administradores". Luego iniciar sesión como `admin` y confirmar que todo lo anterior sí es visible, con cifras coherentes (Ganancia Neta = Ingresos − Costo Total).
+
+## 6.9 Detalle de la sub-fase 3.9 (completada) — el "cerebrito" de la operación
+
+**Decisión de alcance (importante, comunicada antes de construir)**: la exportación trae **las 18 hojas completas** (paridad con `YJBMOTOCOM_Historial.xlsx` del local). La importación, en cambio, **solo escribe en las 13 tablas internas del módulo YJBMOTOCOM** — nunca en `products`, `orders`/`order_items`/`payments`, `users` ni `store_settings`. Así, pase lo que pase en una importación, es físicamente imposible que afecte el catálogo, el checkout o el login. Las 5 hojas de solo-exportación son: **Ventas** (viene de `orders`/`order_items`/`payments`, no tiene sentido reimportarla — recrear ventas históricas requeriría re-descontar stock y re-acreditar cuentas, lo cual es responsabilidad de "Registrar Venta", no de un import genérico), **Usuarios** (no se pueden crear usuarios de Auth desde una fila de Excel), **Configuración** (toca `store_settings`, usado por el checkout), **Log Auditoría** (es un historial de solo-lectura por naturaleza) y **Cierres Cuentas** (ver el hallazgo de abajo).
+
+**Hallazgo corregido durante la construcción**: al diseñar la hoja "Cierres Cuentas" me di cuenta de que el `snapshot` (saldos de cada cuenta al momento del cierre) es un JSON que no se puede aplanar de forma fiel a columnas simples de Excel sin perder información — si se reimportara sin él, **borraría el historial de saldos de ese cierre**. Se decidió dejar esa hoja como solo-exportación en vez de arriesgar esa pérdida de datos.
+
+**Dependencia nueva**: se agregó `exceljs` (`^4.4.0`) a `apps/web/package.json` — **requiere `npm install` antes de correr o desplegar**.
+
+**Archivos nuevos**:
+- `apps/web/src/lib/excel/sheets.ts`: definición central de las 18 hojas (columnas, de dónde se leen para exportar, y cómo se reescriben para las 13 importables). Fuente única de verdad para que export e import nunca queden desincronizados.
+- `GET /api/admin/excel/export`: genera el .xlsx completo (streaming, sin guardar nada en disco del servidor), solo `admin`.
+- `POST /api/admin/excel/import`: recibe el .xlsx subido, y para cada una de las 13 hojas importables hace un `upsert` por `ID` en el orden de dependencias correcto (cuentas antes que sus movimientos, facturas antes que sus ítems/abonos, etc.), devolviendo un resumen por hoja (importadas/omitidas/error). Filas sin `ID` se tratan como altas nuevas (Postgres genera el id); filas con `ID` actualizan la fila existente. Los campos no incluidos en cada hoja (ej. `reference_type`, `created_by`) **no se tocan** en una actualización — solo se actualiza lo que la hoja realmente representa.
+- `/admin/exportar-importar` (agregada al sidebar antes de Configuración, **admin-only**): botón de descarga, subida de archivo con confirmación explícita antes de importar, y tabla de resultados por hoja.
+
+**Verificación hecha** (incluyendo un chequeo extra por agregar una dependencia nueva): `npx tsc --noEmit` (0 errores nuevos), `npx eslint` (0 advertencias nuevas), `npx vitest run` (10 archivos, 62 tests, todos pasando), y **`npm run build` de producción completo** — compiló sin errores, con `/api/admin/excel/export` y `/api/admin/excel/import` correctamente marcadas como rutas dinámicas (server-rendered), y **todas las páginas públicas siguen intactas**.
+
+**Cómo probarlo manualmente**: en `/admin/exportar-importar`, descargar el respaldo y abrir el .xlsx para confirmar que las 18 hojas tienen datos coherentes con lo que hay en Cuentas/Facturas/Fiado/etc. Luego, sin modificar nada, volver a subir ese mismo archivo y confirmar que la importación no duplica filas (mismo conteo de filas antes/después, porque cada fila trae su `ID` real y se actualiza en vez de crearse de nuevo). Como prueba adicional, agregar una fila nueva sin `ID` en la hoja "Notas" del Excel descargado, reimportar, y confirmar que aparece como nota nueva en `/admin/notas`.
+
+**Limitación conocida (documentada, no bloqueante)**: este Excel es el respaldo/portabilidad del **sistema en la nube hacia adelante** — no es un puente para importar el `YJBMOTOCOM_Historial.xlsx` real del software local (estructuras de datos incompatibles: IDs autoincrementales de SQLite vs. UUIDs de Postgres, pesos vs. centavos, etc.), consistente con que ya acordamos no migrar el historial.
 
 ## 7. Decisiones tomadas (registro rápido)
 
