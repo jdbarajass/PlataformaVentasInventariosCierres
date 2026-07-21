@@ -63,6 +63,7 @@ export default function RegistroPage() {
 
       if (data.user) {
         // Create user profile in public.users table
+        // @ts-ignore - ver docs/UNIFICACION_YJBMOTOCOM.md, limitaciones de tipos
         const { error: profileError } = await supabase.from('users').insert({
           id: data.user.id,
           email: formData.email,

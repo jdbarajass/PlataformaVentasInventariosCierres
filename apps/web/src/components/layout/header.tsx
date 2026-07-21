@@ -58,8 +58,10 @@ export function Header() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setIsLoggedIn(!!session)
       if (session?.user) {
-        const { data } = await supabase
-          .from('users').select('role').eq('id', session.user.id).single()
+        // Ver docs/UNIFICACION_YJBMOTOCOM.md (limitaciones de tipos, cliente
+        // de @supabase/auth-helpers-nextjs con tipos desactualizados)
+        const { data } = (await supabase
+          .from('users').select('role').eq('id', session.user.id).single()) as { data: { role: string } | null }
         setUserRole(data?.role || 'viewer')
       }
     })

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (role && role !== 'all') {
-      query = query.eq('role', role)
+      query = query.eq('role', role as 'admin' | 'seller' | 'viewer')
     }
 
     const { data, error } = await query

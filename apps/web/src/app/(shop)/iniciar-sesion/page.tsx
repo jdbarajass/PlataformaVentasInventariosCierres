@@ -42,11 +42,14 @@ function IniciarSesionForm() {
         }
 
         // Check if user is admin/seller, redirect accordingly
-        const { data: userData } = await supabase
+        // (createClientComponentClient de @supabase/auth-helpers-nextjs@0.9.0
+        // apunta a una ruta de tipos que ya no existe en la version instalada
+        // de @supabase/supabase-js — ver docs/UNIFICACION_YJBMOTOCOM.md)
+        const { data: userData } = (await supabase
           .from('users')
           .select('role')
           .eq('id', data.user.id)
-          .single()
+          .single()) as { data: { role: string } | null }
 
         if (userData?.role === 'admin' || userData?.role === 'seller') {
           window.location.href = '/admin'

@@ -152,11 +152,16 @@ export async function sendOrderShipped(
 ): Promise<boolean> {
   try {
     const supabase = getServiceSupabase()
-    const { data: order, error } = await supabase
+    const { data: orderData, error } = await supabase
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single()
+
+    // orders tiene dos relaciones hacia users (user_id, seller_id) — el
+    // parser de tipos de postgrest-js no resuelve bien '*' en una tabla con
+    // relaciones ambiguas hacia el mismo destino (ver docs/UNIFICACION_YJBMOTOCOM.md).
+    const order = orderData as any
 
     if (error || !order) {
       console.error('Error fetching order for shipped email:', error)

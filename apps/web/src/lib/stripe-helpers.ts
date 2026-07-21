@@ -215,7 +215,6 @@ export function mapStripePaymentStatus(
     'requires_action': 'processing',
     'processing': 'processing',
     'requires_capture': 'processing',
-    'canceled': 'cancelled',
     'succeeded': 'succeeded',
   }
 

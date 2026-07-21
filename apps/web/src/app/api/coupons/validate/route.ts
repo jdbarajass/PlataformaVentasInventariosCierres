@@ -15,16 +15,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Codigo de cupon requerido' }, { status: 400 })
   }
 
-  const { data: coupon, error } = await supabase
+  const { data: couponData, error } = await supabase
     .from('coupons')
     .select('*')
     .eq('code', code.toUpperCase().trim())
     .eq('active', true)
     .single()
 
-  if (error || !coupon) {
+  if (error || !couponData) {
     return NextResponse.json({ error: 'Cupon no valido o expirado' }, { status: 404 })
   }
+
+  // Dos .eq() encadenados + .single() no lo resuelve bien el parser de tipos
+  // de @supabase/postgrest-js (mismo tipo de limitacion que
+  // api/orders/[id]/invoice/route.ts — ver docs/UNIFICACION_YJBMOTOCOM.md).
+  const coupon = couponData as any
 
   const now = new Date()
 

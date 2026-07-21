@@ -92,14 +92,18 @@ export default function MiCuentaPage() {
       }
 
       // Load profile
-      const { data: userData } = await supabase
+      // (createClientComponentClient de @supabase/auth-helpers-nextjs@0.9.0
+      // tiene tipos desactualizados frente a @supabase/supabase-js instalado
+      // — ver docs/UNIFICACION_YJBMOTOCOM.md, limitaciones de tipos)
+      const { data: userDataRaw } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single()
+      const userData = userDataRaw as UserProfile | null
 
       if (userData) {
-        setProfile(userData as UserProfile)
+        setProfile(userData)
         setEditName(userData.name || '')
         setEditPhone(userData.phone || '')
       } else {
@@ -118,7 +122,7 @@ export default function MiCuentaPage() {
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*, order_items(*)')
-        .eq('customer_email', session.user.email)
+        .eq('customer_email', session.user.email as string)
         .order('created_at', { ascending: false })
 
       if (ordersData) {
@@ -143,6 +147,7 @@ export default function MiCuentaPage() {
 
     const { error } = await supabase
       .from('users')
+      // @ts-ignore - ver docs/UNIFICACION_YJBMOTOCOM.md, limitaciones de tipos
       .update({ name: editName, phone: editPhone })
       .eq('id', profile.id)
 
