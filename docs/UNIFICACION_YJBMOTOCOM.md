@@ -3,68 +3,9 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Fase 3 (3.1-3.10) completa + limpieza de tipos (68→0 errores) + `ignoreBuildErrors` quitado. 14 commits locales en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00016 ya aplicadas por el usuario en Supabase real.
+**Estado actual**: **Fase 3 + Fase 3B completas** (sub-fases 3.1-3.16) + limpieza de tipos (68→0 errores) + `ignoreBuildErrors` quitado. Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00016 ya aplicadas por el usuario en Supabase real; **faltan 00017 y 00018** (sub-fases 3.13 y 3.15 de la Fase 3B). Auditoría final de los 16 módulos del local: ver sección 11.
 
-**⚠️ Hallazgo de auditoría (2026-07-21)**: el usuario comparó una captura del software local corriendo (16 módulos en su sidebar) contra la nube y encontró que la Fase 2 (sección 5.3) **se saltó 4 módulos** que la Fase 1 sí había identificado correctamente (línea 58 de este documento): **Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo** (solo existe una versión parcial dentro de Registrar Venta). También quedó parcial la **Configuración POS** (comisiones por método sin pantalla de edición, gastos fijos mensuales sin modelar). Se abre una ronda nueva de sub-fases (3.11-3.16) para cerrar estas brechas — ver sección 10.
-
----
-
-### 10.x Detalle de la sub-fase 3.13 (completada)
-
-**Migración `00017_edit_pos_sale.sql`**: función `edit_pos_sale(p_order_id, p_order, p_items, p_payments)` — mismo patrón `SECURITY DEFINER` que `create_pos_sale`/`cancel_pos_sale`. Revierte por completo los efectos de la venta actual (restaura stock, revierte crédito de cuentas, borra items/pagos viejos) y vuelve a aplicar los nuevos, **conservando el mismo `id`/`order_number`** en vez de crear una orden nueva — igual que "revierte y re-aplica el crédito de cuenta anterior" del software local.
-
-**Refactor sin cambio de comportamiento**: se extrajo la lógica de resolución de productos/comisión (antes duplicada solo en `POST /api/pos/sales`) a `lib/pos-sale.ts` (`resolveSale`), para reutilizarla también en el nuevo `PUT`. Se verificó que el `POST` sigue devolviendo exactamente los mismos códigos/mensajes de error que antes.
-
-**Nuevas rutas**: `GET /api/pos/sales/[id]` (detalle, para precargar el formulario de edición) y `PUT /api/pos/sales/[id]` (edita vía `edit_pos_sale`).
-
-**Pantalla nueva** `/admin/ventas-dia` (agregada al sidebar): selector de fecha (no solo "hoy"), lista de ventas de esa fecha con **editar** (carrito completo: agregar/quitar productos, cambiar cantidad/precio, cambiar métodos de pago) y cancelar, más una sección de **gastos operativos del día** (reutiliza la tabla de la sub-fase 3.7).
-
-**Alcance no incluido (documentado, no crítico)**: la "edición masiva de método de pago" del local (cambiar el método de varias ventas a la vez) no se construyó — editar una venta a la vez (ya disponible) cubre la misma necesidad funcional con más clics para lotes grandes. Se prioriza así por ser la opción más segura (cualquier operación en lote sobre dinero/stock aumenta el riesgo).
-
-**Verificación reforzada** (por tocar dinero + stock con lógica nueva): `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62), y además un `npm run build` de producción completo.
-
-**⚠️ Pendiente manual**: aplicar `00017_edit_pos_sale.sql` en el SQL Editor del proyecto Supabase real antes de poder usar "Editar" en `/admin/ventas-dia`.
-
-**Cómo probarlo**: registrar una venta de prueba en Registrar Venta, ir a `/admin/ventas-dia` en la fecha de hoy, editarla (cambiar cantidad de un producto y agregar un segundo método de pago), guardar, y confirmar que el stock y los saldos de cuentas quedan coherentes con los valores nuevos (no con la suma de ambos). Agregar un gasto operativo del día y confirmar que se refleja en el total.
-
-### 10.x Detalle de la sub-fase 3.14 (completada) + corrección retroactiva a 3.11
-
-**Corrección importante encontrada al releer la ficha del local con cuidado**: el software local dice explícitamente que el rol Vendedor no ve costo/margen/ganancia/comisión **"en ninguna pantalla (Registrar Venta, Ventas del Día, Historial, Dashboard, Calculadora, Inventario)"**. La Calculadora que construí en 3.11 no tenía ningún control de rol — se corrigió ahora: **la página completa queda restringida a `admin`** (igual que Rendimiento Vendedores), porque todo su contenido es precisamente margen/ganancia/comisión — no tenía sentido ocultar solo un campo y dejar el resto.
-
-**`/admin/historial-mensual`** (agregada al sidebar): selector de mes/año, ingresos/órdenes/unidades visibles para todos (igual que "ventas, ingresos y cantidades" que sí ve el Vendedor), pero **costo, comisiones acumuladas, ganancia neta y el botón "Exportar/Imprimir" quedan solo para `admin`** — coincide con la regla del local de que Vendedor "no puede exportar/imprimir reportes con costo/ganancia". El export/print reutiliza el mismo patrón ya usado en el recibo de venta (HTML con botón que llama a `window.print()`), sin agregar ninguna dependencia nueva de generación de PDF.
-
-Verificado: `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62).
-
-**Cómo probarlo**: entrar como `seller` a Calculadora y confirmar que aparece el mensaje de "solo administradores"; entrar a Historial Mensual y confirmar que ve ingresos/órdenes pero no ganancia/comisión ni el botón de exportar. Como `admin`, confirmar que todo es visible y que el botón abre una pestaña nueva imprimible.
-
-### 10.x Detalle de la sub-fase 3.15 (completada) — cierra el ciclo de Utilidad Real
-
-**Migración `00018_fixed_monthly_expenses.sql`**: columna aditiva `store_settings.fixed_monthly_expenses` (jsonb: arriendo, sueldo, servicios, otros gastos, días del mes) — equivalente a los campos de gastos fijos del Configuración del software local.
-
-**`/api/settings`**: se agregaron `pos_commission_rates` y `fixed_monthly_expenses` a `allowedFields` del `PUT` — **antes de este cambio no existía ninguna forma de editar las comisiones POS**, ni siquiera por API directa (quedó así desde la sub-fase 3.4/migración 00012, sin que nadie lo hubiera notado). Cambio aditivo sobre una ruta ya en producción (solo se agregan nombres de campo permitidos, no se toca nada más).
-
-**Pantalla nueva** `/admin/configuracion-pos` ("Comisiones y Gastos Fijos" en el sidebar, admin-only): editar el % de comisión por cada método de pago, y los gastos fijos mensuales.
-
-**Se cierra el ciclo de "Utilidad Real"** (limitación documentada desde la sub-fase 3.8): la fórmula en `/admin/reportes` ahora también resta los gastos fijos mensuales **prorrateados por día** (`(arriendo+sueldo+servicios+otros) / días_mes × días del rango seleccionado`), exactamente como la fórmula del software local, sumado a los gastos operativos puntuales que ya se restaban desde 3.8.
-
-Verificado (con build completo por tocar `/api/settings`, ruta ya en producción): `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62), `npm run build` completo.
-
-**⚠️ Pendiente manual**: aplicar `00018_fixed_monthly_expenses.sql` en el SQL Editor del proyecto Supabase real.
-
-## 10. Fase 3B — Cierre de brechas de fidelidad (2026-07-21 en adelante)
-
-Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en `main`, verificación tsc/eslint/vitest/build después de cada una, documentación al cierre).
-
-| # | Sub-fase | Estado |
-|---|---|---|
-| 3.11 | Calculadora (precio/margen/comisión, sin persistir; "Cascos desde Factura" con PDF se evalúa aparte, ver nota) | ⏳ En curso |
-| 3.12 | Mi Cuadre (vista en vivo, sin costos, auto-refresh) | Pendiente |
-| 3.13 | Completar Ventas del Día (selector de fecha, **editar** una venta ya registrada, gastos operativos del día inline) | ✅ Completada (commit local; requiere aplicar migración 00017) |
-| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | ✅ Completada (commit local) |
-| 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | ✅ Completada (commit local; requiere aplicar migración 00018) |
-| 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | ⏳ Pendiente — siguiente paso |
-
-**Nota sobre "Cascos desde Factura"** (parte de Calculadora en el local): en el local usa dos parsers de PDF (`pdf_pedido_parser.py`, `pdf_distrifabrica_parser.py`) hechos a la medida del formato exacto de facturas de dos proveedores específicos. No tengo muestras de esos PDFs para replicar el parseo exacto, así que en 3.11 se construye la calculadora completa (funcional, fiel) y esta pieza específica de extracción de PDF se deja como pendiente documentado, a menos que el usuario provea ejemplos de esas facturas para diseñarlo correctamente.
+Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
 
 ---
 
@@ -385,7 +326,7 @@ Esta sub-fase, a diferencia de las anteriores, modificó archivos que **ya estab
 
 1. Lee este archivo completo.
 2. Revisa `git log` y `git status` en `main` para ver qué commits locales existen ya (recuerda: pueden no estar pusheados).
-3. Si la Fase 3 (sección 9) ya está completa, lo que sigue es: (a) que el usuario autorice el `git push` y despliegue, y/o (b) una posible "Fase 4" de mejoras futuras (ver Limitaciones en la sección 9.6) si el usuario la pide.
+3. Si la Fase 3 y la Fase 3B (secciones 9-11) ya están completas, lo que sigue es: (a) aplicar las migraciones pendientes (00017, 00018) si aún no se hizo, (b) que el usuario autorice el `git push` y despliegue, y/o (c) una posible "Fase 4" de mejoras futuras (ver Limitaciones en la sección 9.6) si el usuario la pide.
 4. Si hay migraciones SQL ya creadas en `supabase/migrations/` que no aparecen aquí como completadas, revisa si ya se aplicaron en el proyecto Supabase real antes de reaplicarlas.
 5. No hay que repetir la Fase 1, la Fase 2, ni ninguna sub-fase ya marcada ✅ en la sección 6 — ya están aprobadas y verificadas.
 
@@ -464,12 +405,98 @@ Antes de nada: correr `npm install` en `apps/web` (por `exceljs`).
 2. **Revisar y aprobar el `git push`** — todo sigue solo local, en 9 commits sobre `main`. En cuanto lo autorices, hago el push (que dispara el despliegue automático de Vercel).
 3. Opcional, no urgente: configurar las tasas de comisión reales por método de pago (hoy en 0% — se guardan en `store_settings.pos_commission_rates`, sin una pantalla de edición todavía; se puede agregar cuando la necesites).
 
-### 9.6 Limitaciones conocidas / pendientes
+### 9.6 Limitaciones conocidas / pendientes (actualizado — ver sección 11 para el estado final)
 
-- **Tasas de comisión POS**: quedan en 0% hasta que se construya una pantalla para editarlas (hoy solo existen en la base de datos).
+- ~~Tasas de comisión POS en 0%~~ → **resuelto en 3.15** (`/admin/configuracion-pos`).
+- ~~Edición de una venta de mostrador~~ → **resuelto en 3.13** (`/admin/ventas-dia`).
 - **Alertas activas de vencimiento** (facturas por vencer, fiados con +30 días): el software local las muestra como notificación emergente al arrancar; en la nube se muestran como insignias visuales al entrar a la sección, no como notificación push. Se puede agregar al Dashboard si se necesita.
-- **Edición de una venta de mostrador ya registrada**: hoy solo se puede cancelar (reversa completa), no editar in-place; el local sí permite editar una venta existente.
 - **Impresión térmica ESC/POS directa**: por decisión ya acordada, el recibo es PDF + diálogo de impresión del navegador, no impresión directa a la impresora térmica como hace la app de escritorio.
 - **Excel — importación limitada a 13 hojas** (por diseño de seguridad, ver sección 6.9): Ventas, Usuarios, Configuración, Log Auditoría y Cierres Cuentas son de solo exportación.
-- **Rol `viewer`**: sigue sin endurecerse el acceso al shell del admin (hallazgo original de la Fase 1, no introducido por este proyecto) — un usuario `viewer` autenticado puede ver la navegación del admin aunque las APIs le devuelvan 403. No se tocó porque no era parte del alcance acordado.
+- **"Cascos desde Factura"** (extracción automática de PDFs de proveedores, parte de Calculadora en el local): no implementado — requiere muestras reales de esos PDFs para replicar el formato exacto de los dos proveedores que usa el local.
+- **Edición masiva de método de pago** (cambiar el método de varias ventas del día a la vez): no implementada — editar una venta a la vez (sí disponible desde 3.13) cubre la misma necesidad con más clics, priorizado así por menor riesgo sobre dinero/stock en lote.
+- **Rol `viewer`**: sigue sin endurecerse el acceso al shell del admin (hallazgo original de la Fase 1, no introducido por este proyecto). No se tocó porque no era parte del alcance acordado.
 - Ninguna de estas limitaciones bloquea el uso del sistema unificado — son mejoras incrementales para una futura iteración si se necesitan.
+
+## 10. Fase 3B — Cierre de brechas de fidelidad (2026-07-21)
+
+**Origen**: el usuario comparó una captura del software local corriendo (16 módulos en su sidebar) contra la nube. Auditoría reveló que la Fase 2 (sección 5.3) se saltó 4 módulos que la Fase 1 sí había identificado correctamente (sección 6, línea "16 módulos: ..."): **Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo**. También quedó parcial la **Configuración POS**. Ronda de sub-fases adicional, mismo flujo de siempre (commits locales, verificación tsc/eslint/vitest/build después de cada una).
+
+| # | Sub-fase | Estado |
+|---|---|---|
+| 3.11 | Calculadora (precio/margen/comisión, sin persistir) | ✅ Completada |
+| 3.12 | Mi Cuadre (vista en vivo, sin costos, auto-refresh) | ✅ Completada |
+| 3.13 | Completar Ventas del Día (selector de fecha, editar venta, gastos del día) | ✅ Completada (requiere migración 00017) |
+| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir) | ✅ Completada |
+| 3.15 | Configuración POS (comisiones + gastos fijos, cierra "Utilidad Real") | ✅ Completada (requiere migración 00018) |
+| 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | ✅ Completada |
+
+### 10.1 Sub-fase 3.11 — Calculadora
+
+Pantalla `/admin/calculadora` (100% cliente, no persiste nada): Costo + Precio → ganancia, % margen real, % sobre costo, comisión del método elegido y total que paga el cliente; y Costo + margen deseado → precio sugerido. **Corrección retroactiva en 3.14**: el software local restringe costo/margen/ganancia/comisión "en ninguna pantalla" para el rol Vendedor, incluyendo Calculadora explícitamente — la página completa quedó restringida a `admin` (su contenido entero es esa información, no tenía sentido ocultar solo un campo).
+
+Pendiente documentado: "Cascos desde Factura" (extracción de PDFs de proveedores) no se replicó por no tener muestras reales de esos PDFs.
+
+### 10.2 Sub-fase 3.12 — Mi Cuadre
+
+Pantalla `/admin/mi-cuadre`: unidades vendidas, total recaudado y desglose por método de pago del día, auto-refresh cada 60s, sin costos ni márgenes — accesible a `admin` y `seller` por igual (como en el local). Reutiliza `/api/pos/sales`, sin API nueva.
+
+### 10.3 Sub-fase 3.13 — Completar Ventas del Día
+
+**Migración `00017_edit_pos_sale.sql`**: función `edit_pos_sale`, mismo patrón `SECURITY DEFINER` que `create_pos_sale`/`cancel_pos_sale` — revierte por completo la venta actual (stock + saldo de cuentas) y re-aplica los datos nuevos conservando el mismo `id`/`order_number`, igual que "revierte y re-aplica el crédito de cuenta anterior" del local.
+
+Refactor sin cambio de comportamiento: se extrajo la lógica de resolución de productos/comisión a `lib/pos-sale.ts` (`resolveSale`) para reutilizarla en el `PUT` nuevo (`GET/PUT /api/pos/sales/[id]`).
+
+Pantalla `/admin/ventas-dia`: selector de fecha, editar venta completa (carrito + pagos), cancelar, y gastos operativos del día inline.
+
+No incluido (documentado): edición masiva de método de pago en lote — editar una venta a la vez cubre la necesidad con menor riesgo sobre dinero/stock.
+
+**⚠️ Pendiente manual**: aplicar `00017_edit_pos_sale.sql`.
+
+### 10.4 Sub-fase 3.14 — Historial Mensual
+
+Pantalla `/admin/historial-mensual`: selector de mes/año, ingresos/órdenes/unidades visibles para todos, costo/comisiones acumuladas/ganancia neta/exportar-imprimir solo para `admin` (igual que la regla del local de que Vendedor no puede exportar/imprimir reportes con costo/ganancia). El export reutiliza el patrón HTML + `window.print()` ya usado en el recibo de venta, sin dependencias nuevas.
+
+### 10.5 Sub-fase 3.15 — Configuración POS
+
+**Migración `00018_fixed_monthly_expenses.sql`**: columna aditiva `store_settings.fixed_monthly_expenses` (arriendo, sueldo, servicios, otros, días del mes).
+
+**Hallazgo**: `pos_commission_rates` nunca estuvo en `allowedFields` de `PUT /api/settings` desde que se creó en la migración 00012 (sub-fase 3.4) — no existía ninguna forma de editarlo. Se agregó junto con `fixed_monthly_expenses`.
+
+Pantalla `/admin/configuracion-pos` ("Comisiones y Gastos Fijos", admin-only): editar comisión por método de pago y gastos fijos mensuales. **Cierra el ciclo de "Utilidad Real"**: la fórmula en Reportes ahora también resta los gastos fijos prorrateados por día, igual que el software local.
+
+**⚠️ Pendiente manual**: aplicar `00018_fixed_monthly_expenses.sql`.
+
+### 10.6 Verificación de toda la ronda 3B (sub-fase 3.16)
+
+- `tsc --noEmit`: 0 errores en cada una de las 5 sub-fases y en la verificación final conjunta.
+- `eslint`: mismos 5 warnings preexistentes (ninguno nuevo) en cada verificación.
+- `vitest run`: 10 archivos, 62 tests, todos pasando en cada sub-fase y en la verificación final.
+- `npm run build`: corrido en 3.13 y 3.15 (por tocar dinero/stock nuevo y una ruta ya en producción) y de nuevo al cierre de toda la ronda — compiló sin errores.
+- `git diff` (desde el commit de inicio de 3.11 hasta el cierre): **cero archivos tocados bajo `apps/web/src/app/(shop)/`** — la tienda pública sigue sin ningún cambio en toda esta ronda.
+
+## 11. Auditoría final de fidelidad — los 16 módulos del software local
+
+Comparación final, módulo por módulo, contra la captura de pantalla real del software local que aportó el usuario:
+
+| # | Módulo (local) | Estado en la nube |
+|---|---|---|
+| 1 | Registrar Venta | ✅ `/admin/ventas` |
+| 2 | Calculadora | ✅ `/admin/calculadora` (admin-only) |
+| 3 | Ventas del Día | ✅ `/admin/ventas-dia` |
+| 4 | Mi Cuadre | ✅ `/admin/mi-cuadre` |
+| 5 | Dashboard | ⚠️ Existe (`/admin`), pero es el dashboard de la tienda online, no una réplica del resumen diario del local — no se tocó por no ser parte del alcance pedido en esta ronda |
+| 6 | Historial Mensual | ✅ `/admin/historial-mensual` |
+| 7 | Inventario | ✅ `/admin/inventario` (con variantes por talla) |
+| 8 | Préstamos | ✅ `/admin/prestamos` |
+| 9 | Apartados y Abonos | ✅ `/admin/fiado` |
+| 10 | Facturas | ✅ `/admin/facturas` |
+| 11 | Presupuesto | ✅ `/admin/presupuesto` |
+| 12 | Notas y Pendientes | ✅ `/admin/notas` |
+| 13 | Exportar / Importar | ✅ `/admin/exportar-importar` |
+| 14 | Configuración | ✅ `/admin/configuracion` (tienda online) + `/admin/configuracion-pos` (comisiones/gastos fijos) |
+| 15 | Cuentas | ✅ `/admin/cuentas` |
+| 16 | Rendimiento Vendedores | ✅ `/admin/rendimiento-vendedores` |
+
+**15 de 16 completamente cubiertos.** El único punto marcado ⚠️ (Dashboard) es una diferencia de contenido, no una ausencia — la nube ya tiene un Dashboard, simplemente enfocado en la tienda online en vez de replicar el resumen diario del local; no se tocó porque no fue parte de lo pedido en esta auditoría. Las limitaciones puntuales dentro de cada módulo (Cascos desde Factura, edición masiva, alertas push) están documentadas en la sección 9.6.
+
+**Pasos manuales pendientes de esta ronda**: aplicar `00017_edit_pos_sale.sql` y `00018_fixed_monthly_expenses.sql` en el SQL Editor de Supabase (en ese orden), y `npm install` no es necesario (no se agregó ninguna dependencia nueva en esta ronda). Todo sigue en `main` local, sin pushear.
