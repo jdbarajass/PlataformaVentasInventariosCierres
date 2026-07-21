@@ -514,3 +514,143 @@ Comparación final, módulo por módulo, contra la captura de pantalla real del 
 **16 de 16 completamente cubiertos** (Dashboard cerrado en la sub-fase 3.17, sección 10.7). Las limitaciones puntuales dentro de cada módulo (Cascos desde Factura, edición masiva, alertas push) están documentadas en la sección 9.6.
 
 **Pasos manuales pendientes de esta ronda**: aplicar `00017_edit_pos_sale.sql` y `00018_fixed_monthly_expenses.sql` en el SQL Editor de Supabase (en ese orden), y `npm install` no es necesario (no se agregó ninguna dependencia nueva en esta ronda). Todo sigue en `main` local, sin pushear.
+
+**✅ Confirmado por el usuario (2026-07-21): las migraciones `00017` y `00018` ya fueron aplicadas.**
+
+## 12. Auditoría de fidelidad DETALLADA — reglas de negocio dentro de cada módulo (2026-07-21)
+
+La auditoría de la sección 11 solo confirmó que los 16 módulos *existen* en la nube. A pedido explícito del usuario ("hay que entrar y detallar muy bien cada sección... no solo que exista, sino cada detalle") se hizo una segunda auditoría, mucho más profunda, comparando código fuente real (no solo UI) de ambos sistemas, campo por campo y regla por regla. Se usaron 5 investigaciones paralelas de solo-lectura sobre el software local. Ninguna de ellas modificó código — esto es un informe de auditoría, **todavía no se ha corregido nada de lo que sigue**.
+
+### 12.1 Resumen ejecutivo
+
+Se encontraron discrepancias en las 5 áreas auditadas. Las más importantes, de mayor a menor impacto en el negocio:
+
+1. **Registrar Venta en la nube exige `product_id` de catálogo** — no se puede vender un ítem fuera de inventario como sí permite el local (venta de texto libre).
+2. **Ni Registrar Venta ni Ventas del Día muestran costo/comisión/ganancia neta/utilidad a nadie en la nube, ni siquiera a `admin`** — en el local el admin sí las ve íntegras. Es la brecha más grave porque afecta el control diario del negocio.
+3. **Validaciones de guardado de venta más laxas en la nube**: precio en 0 permitido, sin tope de descuento vs. total del carrito, pagos combinados solo exigen `>=` el total (no `==`, no calcula vuelto), sin aviso de "stock insuficiente, ¿continuar?".
+4. **El rol `seller` tiene más permisos de los que debería en varias áreas de la nube**: puede editar inventario sin ninguna re-autenticación (el local exige una contraseña maestra de sesión), puede ver saldos y movimientos de Cuentas y hacer ajustes/transferencias (en el local Cuentas es 100% admin), y el sidebar de la nube no oculta ningún enlace por rol (el local sí oculta botones completos de navegación).
+5. **`admin/auditoria/page.tsx` usa datos mock**, no está conectada a la tabla real `audit_logs` que sí existe y sí se alimenta desde otras rutas.
+6. **La fórmula de "Utilidad Real" prorratea distinto**: la nube prorratea el gasto fijo mensual por los días exactos del rango de fechas elegido; el local siempre resta el mes fijo completo sin prorratear, sin importar el rango. Los números de Reportes **no van a coincidir** entre ambos sistemas salvo que el rango sea exactamente un mes calendario completo.
+7. **Historial Mensual de la nube es una versión más reducida**: le faltan Utilidad Real, comparativa contra el mes anterior, rentabilidad por producto, tabla diaria con estado positivo/negativo, detalle/edición de ventas del día, y exportación a PDF real (solo hace impresión de navegador).
+8. **Fiado en la nube integra los abonos con el saldo de Cuentas reales** — el software local **nunca tuvo esa integración**; es un cambio de comportamiento, no solo una discrepancia de implementación (a favor de la nube, pero hay que confirmarlo con el usuario porque cambia cómo se mueve el dinero).
+9. **Sin validación de datos al importar Excel en la nube** (filas con columnas desplazadas, precios en cero, duplicados por contenido) — el local bloquea importaciones sospechosas y hace un backup de seguridad automático antes de importar; la nube no.
+10. **No existe backup automático de base de datos en la nube** (Supabase) — el local respalda el `.sqlite` completo al iniciar y periódicamente, con rotación de 7 copias.
+11. **Huecos funcionales completos, sin ningún equivalente en la nube**: cargue de inventario desde PDF de proveedor (cascos), tipo de movimiento "Cambio" (swap de producto), carritos "en standby" (pausar varias ventas a la vez), cambio masivo de método de pago en Ventas del Día, exportación a Excel/PDF de Ventas del Día, alerta de préstamos/facturas/fiados vencidos al iniciar sesión, "Copiar presupuesto del mes anterior", timeout de sesión por inactividad, contraseña maestra de step-up (`clave_inventario`).
+12. **Comisiones NU y QR/Bancolombia no existen como tasas independientes en la nube** — quedan mezcladas en el genérico "Transferencia", perdiendo la granularidad de 4 sub-tipos que tiene el local.
+
+El detalle completo de cada punto, con archivo y función exactos de ambos lados, está en las subsecciones 12.2 a 12.6.
+
+### 12.2 Registrar Venta, Ventas del Día, Mi Cuadre, Calculadora
+
+**Registrar Venta — discrepancias:**
+- Nube exige `product_id` UUID válido y activo (`saleItemSchema`, `apps/web/src/lib/pos-sale.ts` `resolveSale`); local permite texto libre sin match de inventario.
+- Nube no muestra costo/ganancia/comisión en ningún lado de `/admin/ventas`, ni a `admin`; local muestra un panel de preview en tiempo real (`ui/venta_form.py:_panel_preview/_actualizar_preview`).
+- `price_cents` acepta 0 en la nube (`route.ts` zod `.min(0)`); local exige `precio > 0` (`controllers/venta_controller.py:_validar`).
+- Sin tope de descuento vs. total del carrito en la nube; local rechaza `descuento > total_carrito`.
+- Pagos combinados: nube exige `paymentsSum >= total_cents`; local exige igualdad exacta y calcula vuelto/discrepancia.
+- Stock insuficiente: nube bloquea duro sin opción de continuar (excepción SQL en `00013_pos_sale_functions.sql`); local pregunta "¿continuar de todos modos?".
+- Modelo de descuento: la nube solo tiene un tercer modelo simplificado (`discount_cents` por línea); no replica ni el descuento global de carrito legado ni el `precio_ofertado`/% ahorro que coexisten en el local.
+- Comisión combinada: el cálculo en sí coincide, pero faltan NU y QR como sub-tipos propios de comisión de transferencia.
+- Atribución de vendedor: la nube liga la venta 1:1 al usuario autenticado (`seller_id: auth.user.id`); el local permite elegir cualquier vendedor del combo (un admin puede registrar a nombre de otro).
+- Sin "carritos en standby" (pausar y retener varias ventas a la vez) en la nube.
+- Cédula del cliente: se guarda en `metadata`, no editable después vía `PUT /api/pos/sales/[id]` (el schema de edición no la incluye).
+- Coincide con fidelidad alta: reversión/reaplicación de crédito de cuenta y restauración de stock por variante al editar/cancelar una venta.
+
+**Ventas del Día — discrepancias:**
+- Sin costo, comisión, ganancia neta, % ganancia ni "Utilidad Real" en ningún lugar de `/admin/ventas-dia`, ni para admin (local sí las muestra al admin, `_actualizar_resumen`).
+- Sin cambio masivo de método de pago sobre ventas seleccionadas.
+- Sin exportación a Excel.
+- Sin vista combinada Ventas+Préstamos+Gastos con PDF apaisado (`VistaDiariaDialog` del local).
+- Categorías de gasto libres en la nube (texto suelto) vs. lista cerrada de 7 categorías en el local (con fallback a "Otro").
+- Coincide: filtro por fecha con navegación, edición/cancelación de venta individual, gastos operativos del día inline con reversión al eliminar.
+
+**Mi Cuadre**: coincide bien (auto-refresh 60s, sin costos/márgenes para nadie). Diferencia menor: no hay botón de "Actualizar" manual en la nube, solo el timer automático.
+
+**Calculadora — discrepancias:**
+- Bloqueada por completo para `seller` en la nube (candado); el local sí deja usarla al vendedor, mostrando un costo inflado ×1.30 en vez de ocultar la herramienta entera.
+- Módulo "Cascos desde Factura" (entrada manual con IVA/% descuento proveedor/tabla comparativa) no implementado — y el aviso in-page de la nube atribuye la ausencia a "requiere parseo de PDF", cuando en realidad ni la versión manual (sin PDFs) está migrada.
+- Falta la tercera sub-calculadora "Costo + Precio → ganancia instantánea" como sección separada.
+- Sin buscador de producto de inventario integrado en la Calculadora de la nube.
+- Sin chips de descuento al cliente (5/10/15/20%) en modo "Precio de Venta".
+- Coincide: fórmulas exactas de los dos modos de % (margen real / sobre costo), y el principio de que la comisión no reduce la ganancia registrada.
+
+### 12.3 Inventario y Préstamos
+
+**Inventario:**
+- Modelo de datos: en el local cada fila de inventario tiene su propio nombre/categoría; en la nube el nombre/categoría viven en `products` (nivel padre) y `product_variants` solo aporta talla/stock/costo/barcode — mejora de normalización, pero implica que la categoría no puede variar por talla en la nube.
+- Tipo de movimiento **"Cambio"** (swap de dos productos) no tiene ningún equivalente en la nube (ni UI ni tipo de movimiento).
+- Movimiento **"Eliminado"** (al borrar con stock>0) no se replica: la nube hace soft-delete (`active=false`) sin insertar movimiento en `inventory_movements`.
+- Alertas de stock bajo: local usa `<` estricto y `stock_minimo=0` = alerta desactivada; nube usa `<=` y el default de columna es `5` (no `0`) — productos sin umbral configurado se comportan distinto entre ambos sistemas.
+- **Falta el gate de contraseña maestra de Admin** para modificar inventario: en el local, cualquier edición de inventario exige la clave de Admin una vez por sesión aunque esté logueado como vendedor; en la nube, `seller` puede llamar directo a los endpoints de ajuste/variantes sin segunda verificación.
+- Cargue de inventario desde PDF de proveedor (cascos, con detección nuevo/suma) — hueco funcional completo, sin nada equivalente en la nube.
+- Costo mostrado a vendedor: local infla ×1.30 (referencia); nube oculta la columna completa — mismo objetivo, mecanismo distinto.
+- Coincide con fidelidad alta: los 4 tipos de movimiento principales (`Entrada/Ajuste/Venta/Reversa venta` ≡ `in/adjustment/sale/return`), agrupación de variantes por talla (mejorada en la nube con FK real en vez de texto), código de barras único.
+
+**Préstamos:**
+- El local permite editar `producto`/`almacén`/fecha de un préstamo ya creado; el endpoint `PUT /api/loans/[id]` de la nube solo acepta `status` y `observations`.
+- Sin alerta de "N préstamos pendientes, M con más de 30 días" en la nube.
+- Coincide exactamente: los 3 estados (`pendiente/devuelto/cobrado` ≡ `pending/returned/charged`).
+
+### 12.4 Cuentas, Facturas, Fiado
+
+**Cuentas:**
+- **Discrepancia de seguridad importante**: en el local, "Cuentas" es 100% admin (el vendedor no ve ni el botón de navegación); en la nube, RLS permite a `seller` ver saldos/movimientos, hacer ajustes manuales y transferir entre cuentas — solo el cierre mensual queda admin-only.
+- La API de movimientos sí soporta filtrar por cuenta/fecha, pero `/admin/cuentas` no expone esos controles en la UI (solo muestra los últimos 50 movimientos sin filtro).
+- Las 6 cuentas semilla no tienen `color` asignado en la nube (queda NULL, la UI cae a gris); el local sí tiene color propio por cuenta.
+- Coincide: transferencias entre cuentas (la nube mejora con lock `FOR UPDATE`), cierres mensuales (snapshot JSON idéntico), ajuste manual sin guardas de saldo negativo en ambos lados.
+
+**Facturas (proveedores):**
+- Validaciones cruzadas invertidas: la nube exige `supplier` no vacío pero permite `arrival_date` nulo; el local exige `fecha_llegada` siempre y no valida `proveedor` no-vacío.
+- Los ítems de una factura solo se pueden **agregar** en la nube (`items/route.ts` solo tiene POST) — no hay forma de editarlos ni eliminarlos, cosa que el local sí permite.
+- Alertas de vencimiento: la nube solo cuenta facturas con vencimiento ≤7 días, sin monto total en riesgo ni bucket de 30 días, y sin popup al iniciar sesión (el local sí tiene ambos).
+- Coincide: lógica de abonos parciales y auto-marcado "pagada"; reversión de abonos al eliminar una factura (la nube es más precisa aquí porque cada pago, parcial o final, es una fila propia — el local tiene un caso borde con "marcar pagada directo" que no queda registrado como abono).
+
+**Fiado:**
+- **Cambio de comportamiento a confirmar con el usuario**: la nube liga los abonos de fiado al saldo real de Cuentas (`pay_customer_credit` acredita `accounts.balance_cents`); el software local **nunca integró Fiado con Cuentas** — el dinero cobrado no se acreditaba a ninguna cuenta.
+- Validaciones invertidas: local exige descripción y monto>0; nube permite ambos vacíos/cero.
+- No se puede editar el monto total de un fiado ya creado en la nube (`creditUpdateSchema` no incluye `total_amount_cents`); el local sí lo permite.
+- Sin columna de antigüedad/días transcurridos ni alerta de fiados con más de 30 días en la nube (el local sí la tiene, incluida en el popup global de alertas al iniciar sesión).
+- No existe "marcar como pagado" forzado (condonar saldo) en la nube; en el local sí es posible.
+
+### 12.5 Presupuesto, Notas, Reportes, Historial Mensual, Rendimiento de Vendedores
+
+- **Presupuesto**: nube usa categorías de texto libre (riesgo de "gasto huérfano" por typo) vs. lista cerrada de 7 categorías en el local; faltan "Copiar mes anterior", alerta al 80% de ejecución, y fila de diferencia/% ejecutado por categoría (la nube solo pinta la barra en rojo si se supera el 100%).
+- **Notas**: coinciden en estructura (tipo tarea/resurtido, sin dueño, tabla global). Falta el gradiente de urgencia (vencida/hoy/≤3 días) y el orden combinado "vencidas primero" que sí tiene el local; la nube solo distingue vencida sí/no.
+- **Reportes — hallazgo importante de cálculo**: la fórmula de "Utilidad Real" de la nube prorratea el gasto fijo mensual por los días exactos del rango elegido (`dailyFixedExpense * daysInRange`); el local **siempre resta el gasto fijo del mes completo, sin prorratear**, sin importar si se consulta un rango corto. Los resultados no van a coincidir salvo que el rango sea un mes calendario completo. Además faltan en la nube: horas pico de venta, comisión desglosada por método, ticket promedio, categoría top, día más rentable, exportación a PDF (la nube solo exporta CSV).
+- **Historial Mensual**: versión reducida frente al local — faltan Utilidad Real, comparativa vs. mes anterior, rentabilidad por producto, tabla diaria con estado positivo/negativo, detalle/edición de ventas del día, y PDF real (usa impresión de navegador).
+- **Rendimiento de Vendedores**: la nube no lista vendedores sin ventas en el período (el local sí, en gris); usa rango de fechas libre en vez de mes calendario. Ninguno de los dos calcula comisión ni ganancia por vendedor (en esto coinciden). La nube agrega una columna "% del total" que el local no tiene.
+
+### 12.6 Exportar/Importar, Configuración, Permisos y Seguridad
+
+**Exportar/Importar:**
+- Las 18 hojas coinciden exactamente en nombre y contenido entre local y nube — **esto sí es una coincidencia exacta**.
+- La nube deja fuera de reimportación, a propósito y documentado, 5 hojas (Ventas, Configuración, Usuarios, Cierres Cuentas, Log Auditoría) para no poder afectar catálogo/checkout/login — el local sí las reimporta todas.
+- **Sin validación de datos al importar** en la nube (columnas desplazadas, precios en cero, duplicados por contenido); el local bloquea importaciones sospechosas y hace un backup Excel automático antes de importar.
+- Sin backup de base de datos completo ni función de "borrar base de datos" en la nube.
+- Sin "plantilla en blanco para llenar a mano" en la nube.
+
+**Configuración:**
+- Comisiones NU y QR no existen como tasas independientes en la nube (caen en el genérico "Transferencia").
+- Sin contraseña maestra (`clave_inventario`), sin configuración de impresora térmica, sin timeout de inactividad, sin backup automático configurable — ninguno tiene equivalente en la nube.
+- Sin validación de rango 0-100% en las tasas de comisión de la nube.
+
+**Permisos/roles — catálogo comparado:**
+- El sidebar de la nube (`admin/layout.tsx`) muestra todos los enlaces a todos los roles sin excepción; el local oculta botones de navegación completos para vendedor en 4 páginas (Config, Exportar, Cuentas, Rendimiento).
+- `admin/configuracion/page.tsx`, `admin/usuarios/page.tsx` y `admin/auditoria/page.tsx` no tienen gate de rol en el cliente (el servidor sí protege usuarios/configuración vía `requireAuth`, pero la UI se ve rota o expuesta para `seller`).
+- **`admin/auditoria/page.tsx` usa datos mock hardcodeados**, no está conectada a la tabla real `audit_logs`.
+- `/admin/cuentas` es más permisivo que el local (ver 12.4).
+- La Calculadora es más restrictiva en la nube que en el local (bloqueo total vs. costo inflado).
+- Ganancia neta/comisión: coincide el gating en Reportes/Historial Mensual, pero Ventas del Día no las muestra a nadie (ver 12.2).
+
+**Autenticación/seguridad:**
+- Hash de contraseña del local es SHA-256 sin salt (legacy); Supabase Auth de la nube es más robusto.
+- Ninguno de los dos sistemas implementa bloqueo por intentos fallidos de login.
+- Sin timeout de sesión por inactividad ni contraseña de step-up en la nube (el local tiene ambos).
+- RLS de Postgres en la nube compensa parcialmente los gates de cliente faltantes, pero varias rutas usan `getServiceSupabase()` (bypassa RLS) y confían solo en `requireAuth()` a nivel de aplicación.
+
+### 12.7 Próximos pasos
+
+Este es un informe de auditoría — **no se ha corregido nada todavía**. Dado el volumen de hallazgos, falta que el usuario decida:
+1. Qué prioridad seguir (se sugiere: primero los de seguridad/permisos del rol vendedor, luego los de cálculo financiero que no coinciden, luego los huecos funcionales, luego los de UX/detalle menor).
+2. Si el cambio de comportamiento de Fiado↔Cuentas (12.4) se mantiene como está en la nube o se ajusta para igualar al local.
+3. Si se abre una nueva fase (p. ej. "Fase 4") para ir corrigiendo estos hallazgos de forma incremental, con el mismo patrón de commits locales + verificación (`tsc`/`eslint`/`vitest`/`build`) usado en las fases anteriores.
