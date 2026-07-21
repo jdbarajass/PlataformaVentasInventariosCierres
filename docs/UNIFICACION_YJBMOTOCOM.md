@@ -326,6 +326,20 @@ Esta sub-fase, a diferencia de las anteriores, modificó archivos que **ya estab
 4. Si hay migraciones SQL ya creadas en `supabase/migrations/` que no aparecen aquí como completadas, revisa si ya se aplicaron en el proyecto Supabase real antes de reaplicarlas.
 5. No hay que repetir la Fase 1, la Fase 2, ni ninguna sub-fase ya marcada ✅ en la sección 6 — ya están aprobadas y verificadas.
 
+## 9.0 Trabajo adicional: 0 errores de TypeScript en todo el proyecto (2026-07-21)
+
+Fuera del alcance original de la Fase 3, pero surgió de una pregunta del usuario sobre los ~68 errores preexistentes de `tsc` que se venían tolerando en cada sub-fase (por `ignoreBuildErrors: true`). Se investigó a fondo, se encontraron 3 causas raíz reales, y se corrigieron en 3 commits (con autorización explícita del usuario antes de tocar archivos de checkout/pagos):
+
+1. **`database.ts` no tenía el campo `Relationships`** que exige la versión instalada de `@supabase/supabase-js` (2.93.2, mucho más nueva que el `^2.39.0` fijado en `package.json`) — se agregó `Relationships: []` a las 27 tablas.
+2. **Los `Relationships` vacíos no alcanzaban para los `.select()` con joins** — se declararon las FKs reales (extraídas de `supabase/migrations/*.sql`, ninguna inventada) para las 27 tablas. Se resolvió una ambigüedad real (`orders` tiene 2 FKs hacia `users`) con el hint `!orders_seller_id_fkey` en los 2 selects que lo necesitaban.
+3. **`tsconfig.json` nunca declaraba `target`** (default: ES3) — se agregó `"target": "es2020"` (seguro: Next.js transpila el código real con su propio compilador SWC, esto solo afecta el chequeo estático). Esto arregló `rate-limit.ts` solo, y expuso una clave duplicada inofensiva en `stripe-helpers.ts` (`'canceled': 'cancelled'` dos veces, mismo valor) que se quitó.
+
+Los casos restantes (un puñado de archivos, incluyendo `api/orders/route.ts` y las páginas que usan `createClientComponentClient` de `@supabase/auth-helpers-nextjs@0.9.0`, un paquete deprecado con tipos desincronizados de la versión real de `supabase-js`) se resolvieron con el mismo patrón de cast puntual ya usado en el proyecto — **sin actualizar ni tocar el paquete de auth-helpers**, porque eso sí afectaría el manejo real de sesión/cookies en todo el sitio.
+
+**Resultado: 68 → 0 errores.** Verificado con `tsc --noEmit`, `eslint` (0 nuevos), `vitest run` (62/62) y `npm run build` de producción completo después de cada uno de los 3 commits, con atención especial a `/checkout`, `/login`, `/registro`, `/mi-cuenta` y `/productos` en el commit que tocó `api/orders/route.ts` y `stripe-helpers.ts`.
+
+**Nota para el futuro**: `next.config.js` sigue teniendo `typescript.ignoreBuildErrors: true` — no se quitó porque no era parte de lo pedido, pero ahora que `tsc` da 0 errores, se podría quitar esa bandera de forma segura si se quiere que el build falle ante errores de tipos futuros (recomendado, pero es una decisión aparte).
+
 ## 9. Cierre de la Fase 3 — entrega final (2026-07-21)
 
 Las 10 sub-fases (3.1 a 3.10) quedaron completas. Esto es la entrega formal de la Fase 3, tal como se pidió al inicio del proyecto.
