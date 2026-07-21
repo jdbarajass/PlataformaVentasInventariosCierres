@@ -648,9 +648,72 @@ El detalle completo de cada punto, con archivo y función exactos de ambos lados
 - Sin timeout de sesión por inactividad ni contraseña de step-up en la nube (el local tiene ambos).
 - RLS de Postgres en la nube compensa parcialmente los gates de cliente faltantes, pero varias rutas usan `getServiceSupabase()` (bypassa RLS) y confían solo en `requireAuth()` a nivel de aplicación.
 
-### 12.7 Próximos pasos
+### 12.7 Decisiones tomadas (2026-07-21) sobre los puntos abiertos
 
-Este es un informe de auditoría — **no se ha corregido nada todavía**. Dado el volumen de hallazgos, falta que el usuario decida:
-1. Qué prioridad seguir (se sugiere: primero los de seguridad/permisos del rol vendedor, luego los de cálculo financiero que no coinciden, luego los huecos funcionales, luego los de UX/detalle menor).
-2. Si el cambio de comportamiento de Fiado↔Cuentas (12.4) se mantiene como está en la nube o se ajusta para igualar al local.
-3. Si se abre una nueva fase (p. ej. "Fase 4") para ir corrigiendo estos hallazgos de forma incremental, con el mismo patrón de commits locales + verificación (`tsc`/`eslint`/`vitest`/`build`) usado en las fases anteriores.
+El usuario resolvió los 3 puntos ambiguos de la auditoría antes de arrancar la corrección:
+
+1. **Fiado ↔ Cuentas**: se **mantiene** la integración de la nube (los abonos de fiado sí acreditan una cuenta real). Se documenta como mejora consciente sobre el software local, que nunca tuvo esa trazabilidad — no se toca código por este punto.
+2. **Alcance de la corrección**: se corrige **todo** lo encontrado en la auditoría, no solo lo crítico. Se organiza en sub-fases sucesivas por prioridad (ver sección 13, Fase 4).
+3. **Costo mostrado al vendedor**: se **mantiene** el ocultamiento actual de la nube (columna de costo oculta por completo para `seller`, sin markup ficticio ×1.30 como hace el local). Consecuencia directa: en la Calculadora, en vez de reproducir el bloqueo total actual, se habilita la herramienta para `seller` con entrada manual de costo (igual que el local permite), sin buscador de inventario que revele costos reales hasta que ese buscador se implemente (ver 13.4.3).
+
+## 13. Plan de Fase 4 — Corrección de la auditoría de fidelidad
+
+**Documentado 2026-07-21, arranca 2026-07-22.** Cubre absolutamente todo lo encontrado en la sección 12, en 4 sub-fases por prioridad. Mismo patrón de trabajo que las fases anteriores: commits locales en `main` (nunca push sin autorización explícita), verificación completa (`tsc --noEmit`, `eslint`, `vitest run`, y `npm run build` cuando se toquen rutas de producción o dinero/stock) al cierre de cada sub-fase, y actualización de esta misma sección con lo realmente hecho (no solo lo planeado) a medida que avance.
+
+### 13.1 Fase 4.1 — Seguridad y permisos de rol (máxima prioridad)
+
+| # | Ítem | Acción propuesta | Archivos involucrados |
+|---|---|---|---|
+| 4.1.1 | Vendedor puede editar Inventario sin re-autenticación | Restringir a `admin` las acciones de escritura de inventario (crear/editar/eliminar variante, ajuste de stock) — más simple y igual de seguro que replicar la "clave maestra" del local; el vendedor conserva solo lectura | `api/products/[id]/variants/route.ts`, `api/product-variants/[id]/route.ts`, `api/inventory/adjust/route.ts`, gate de UI en `admin/inventario/page.tsx` |
+| 4.1.2 | Vendedor puede ver/operar Cuentas | Restringir todo el módulo Cuentas a `admin` (ver, ajustar, transferir, cerrar mes) — igual que el local, donde el vendedor no ve ni el botón | RLS en migración nueva sobre `accounts`/`account_movements`/`account_closures`, gate `isAdmin` de página completa en `admin/cuentas/page.tsx` (mismo patrón que `admin/calculadora/page.tsx` hoy) |
+| 4.1.3 | Sidebar no oculta nada por rol | Ocultar del menú los enlaces que `seller` no debe ver (Cuentas, Configuración tienda, Usuarios, Auditoría, Rendimiento Vendedores ya estaba, Configuración POS ya estaba) | `admin/layout.tsx` |
+| 4.1.4 | `admin/configuracion` (tienda online) y `admin/usuarios` sin gate de rol en cliente | Agregar gate `isAdmin` visual (el servidor ya protege, falta la UI) | `admin/configuracion/page.tsx`, `admin/usuarios/page.tsx` |
+| 4.1.5 | `admin/auditoria` usa datos mock | Conectar a la tabla real `audit_logs` (ya existe y ya se alimenta desde algunas rutas), quitar el array `mockLogs`, agregar gate `isAdmin` | `admin/auditoria/page.tsx`, revisar qué rutas ya insertan en `audit_logs` y completar las que falten |
+| 4.1.6 | Verificación | `tsc`/`eslint`/`vitest`/`build` completo de toda la ronda 4.1 | — |
+
+### 13.2 Fase 4.2 — Cálculos financieros que no coinciden
+
+| # | Ítem | Acción propuesta | Archivos involucrados |
+|---|---|---|---|
+| 4.2.1 | "Utilidad Real" prorratea distinto | Igualar al local: restar siempre el gasto fijo del **mes completo** (sin prorratear por días del rango), para que ambos sistemas den el mismo número | `admin/reportes/page.tsx`, `admin/historial-mensual/page.tsx` (al agregarle Utilidad Real, ver 4.2.5) |
+| 4.2.2 | Faltan comisiones NU y QR como tasas propias | Agregar `nu` y `qr` como sub-tipos independientes de comisión (hoy solo existe `transfer` genérico) | `pos_commission_rates` (migración aditiva), `admin/configuracion-pos/page.tsx`, `lib/pos-sale.ts` (`resolveSale`) |
+| 4.2.3 | Registrar Venta / Ventas del Día no muestran costo/ganancia/comisión/utilidad a nadie | Mostrarlas para `admin` (gating igual al resto: oculto a `seller`) | `admin/ventas/page.tsx`, `admin/ventas-dia/page.tsx` |
+| 4.2.4 | Validaciones de venta más laxas | `price_cents` &gt; 0 obligatorio; tope de descuento vs. total del carrito; pagos combinados exactos (`==`, con cálculo de vuelto/discrepancia); aviso de "stock insuficiente, ¿continuar?" antes de bloquear | `api/pos/sales/route.ts`, `api/pos/sales/[id]/route.ts`, `lib/pos-sale.ts`, `admin/ventas/page.tsx` |
+| 4.2.5 | Historial Mensual reducido | Agregar Utilidad Real, comparativa vs. mes anterior, rentabilidad por producto, tabla diaria con estado, detalle/edición de ventas del día | `admin/historial-mensual/page.tsx` |
+| 4.2.6 | Verificación | `tsc`/`eslint`/`vitest`/`build` completo de toda la ronda 4.2 | — |
+
+### 13.3 Fase 4.3 — Huecos funcionales completos
+
+| # | Ítem | Acción propuesta | Notas |
+|---|---|---|---|
+| 4.3.1 | Cargue de inventario desde PDF de proveedor | Implementar parser + flujo nuevo/suma | **Necesita PDFs de muestra del usuario** para diseñar el parser — bloqueado hasta que los aporte |
+| 4.3.2 | Tipo de movimiento "Cambio" (swap de producto) | Nuevo tipo `exchange` en `inventory_movements` + UI de swap en Inventario | Migración aditiva + `admin/inventario/page.tsx` |
+| 4.3.3 | Movimiento "Eliminado" al hacer soft-delete con stock | Insertar movimiento al desactivar una variante con `stock_qty > 0` | `api/product-variants/[id]/route.ts` |
+| 4.3.4 | Sin cambio masivo de método de pago ni exportar Excel en Ventas del Día | Selección múltiple + edición de método de pago en lote; botón exportar Excel del día | `admin/ventas-dia/page.tsx`, reutilizar `lib/excel` |
+| 4.3.5 | Sin carritos "en standby" en Registrar Venta | Permitir pausar y retomar varias ventas en curso a la vez | `admin/ventas/page.tsx` (estado local, sin persistencia en BD) |
+| 4.3.6 | Sin validación de datos ni backup antes de importar Excel | Detectar columnas desplazadas/precios en cero/duplicados por contenido; descargar automáticamente el Excel actual como backup antes de aplicar el import | `api/admin/excel/import/route.ts` |
+| 4.3.7 | Sin alertas de vencimiento al iniciar sesión | Banner/notificación de facturas por vencer, fiados &gt;30 días, préstamos pendientes antiguos | Layout del admin o componente de notificaciones al cargar `/admin` |
+| 4.3.8 | Presupuesto: falta "copiar mes anterior" y alerta al 80% | Botón de copiar + banner de alerta por franja (verde/ámbar/rojo) + fila de diferencia/% ejecutado | `admin/presupuesto/page.tsx` |
+| 4.3.9 | Ítems de factura solo se pueden agregar, no editar/eliminar | Agregar `PUT`/`DELETE` a los ítems de una factura | `api/supplier-invoices/[id]/items/route.ts` |
+| 4.3.10 | No se puede editar producto/almacén de un préstamo existente | Ampliar el `PUT` de préstamos a esos campos | `api/loans/[id]/route.ts` |
+| 4.3.11 | No se puede editar el monto total de un fiado ya creado | Ampliar `creditUpdateSchema` para incluir `total_amount_cents` | `api/customer-credits/[id]/route.ts` |
+| 4.3.12 | Verificación | `tsc`/`eslint`/`vitest`/`build` completo de toda la ronda 4.3 | — |
+
+### 13.4 Fase 4.4 — Calculadora y detalles menores de UX
+
+| # | Ítem | Acción propuesta | Notas |
+|---|---|---|---|
+| 4.4.1 | Módulo "Cascos desde Factura" no implementado | Construir la versión manual (sin PDF): precio de factura con IVA, % descuento proveedor, tabla comparativa por % de ganancia | `admin/calculadora/page.tsx` |
+| 4.4.2 | Falta 3ra sub-calculadora "ganancia instantánea" | Sección separada costo+precio→ganancia/pérdida | `admin/calculadora/page.tsx` |
+| 4.4.3 | Habilitar Calculadora para `seller` | Quitar el bloqueo total actual; el vendedor puede usarla con entrada manual de costo (sin buscador de inventario que revele costos reales — ver 4.4.4) | `admin/calculadora/page.tsx` |
+| 4.4.4 | Sin buscador de producto de inventario en Calculadora | Agregarlo solo para `admin` (para `seller`, sin buscador hasta decidir cómo evitar exponer costo real) | `admin/calculadora/page.tsx` |
+| 4.4.5 | Sin chips de descuento al cliente en modo Precio de Venta | Agregar chips 5/10/15/20% | `admin/calculadora/page.tsx` |
+| 4.4.6 | Notas sin gradiente de urgencia ni orden "vencidas primero" | Badge por franja (vencida/hoy/≤3 días) + orden combinado | `admin/notas/page.tsx`, `api/notes/route.ts` |
+| 4.4.7 | Mi Cuadre sin botón de actualizar manual | Agregar botón junto al auto-refresh | `admin/mi-cuadre/page.tsx` |
+| 4.4.8 | Filtros de cuenta/fecha no expuestos en `/admin/cuentas` | La API ya los soporta — solo falta el control de UI (ojo: esto se hace *después* de 4.1.2, que puede restringir el módulo a admin) | `admin/cuentas/page.tsx` |
+| 4.4.9 | Cuentas semilla sin color por defecto | Asignar colores a las 6 cuentas existentes (migración de datos, no de esquema) | Migración nueva `UPDATE accounts SET color=...` |
+| 4.4.10 | Verificación y cierre | `tsc`/`eslint`/`vitest`/`build` completo, actualizar tabla de sección 11/13 con el estado final, commit de cierre de Fase 4 | — |
+
+### 13.5 Cómo retomar mañana
+
+Empezar por **13.1 (Fase 4.1, seguridad)** en orden 4.1.1 → 4.1.6. Cada ítem se implementa, se verifica, y se documenta aquí mismo (reemplazando "Acción propuesta" por lo realmente hecho, igual que se hizo en las Fases 2/3/3B) antes de pasar al siguiente. No se hace `git push` en ningún punto sin autorización explícita del usuario. El único bloqueo conocido de antemano es **4.3.1** (necesita PDFs de muestra reales del usuario) — se puede saltar y volver a él al final de la Fase 4.3 sin bloquear el resto.
