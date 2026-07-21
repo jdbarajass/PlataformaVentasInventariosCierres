@@ -39,6 +39,7 @@ export interface Database {
           avatar_url?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       categories: {
         Row: {
@@ -75,6 +76,7 @@ export interface Database {
           active?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       products: {
         Row: {
@@ -138,6 +140,7 @@ export interface Database {
           featured?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       orders: {
         Row: {
@@ -210,6 +213,7 @@ export interface Database {
           seller_id?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       order_items: {
         Row: {
@@ -258,6 +262,7 @@ export interface Database {
           cost_cents?: number
           discount_cents?: number
         }
+        Relationships: []
       }
       payments: {
         Row: {
@@ -309,6 +314,7 @@ export interface Database {
           account_id?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       inventory_movements: {
         Row: {
@@ -345,6 +351,7 @@ export interface Database {
           created_by?: string | null
           variant_id?: string | null
         }
+        Relationships: []
       }
       product_variants: {
         Row: {
@@ -384,6 +391,7 @@ export interface Database {
           active?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       accounts: {
         Row: {
@@ -417,6 +425,7 @@ export interface Database {
           sort_order?: number
           updated_at?: string
         }
+        Relationships: []
       }
       account_movements: {
         Row: {
@@ -449,6 +458,7 @@ export interface Database {
           reference_id?: string | null
           reference_type?: string | null
         }
+        Relationships: []
       }
       account_closures: {
         Row: {
@@ -473,6 +483,7 @@ export interface Database {
           snapshot?: Json
           notes?: string | null
         }
+        Relationships: []
       }
       supplier_invoices: {
         Row: {
@@ -515,6 +526,7 @@ export interface Database {
           account_id?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       supplier_invoice_items: {
         Row: {
@@ -541,6 +553,7 @@ export interface Database {
           unit_price_cents?: number
           subtotal_cents?: number
         }
+        Relationships: []
       }
       supplier_invoice_payments: {
         Row: {
@@ -567,6 +580,7 @@ export interface Database {
           notes?: string | null
           paid_at?: string
         }
+        Relationships: []
       }
       customer_credits: {
         Row: {
@@ -603,6 +617,7 @@ export interface Database {
           notes?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       customer_credit_payments: {
         Row: {
@@ -626,6 +641,7 @@ export interface Database {
           notes?: string | null
           paid_at?: string
         }
+        Relationships: []
       }
       loans: {
         Row: {
@@ -659,6 +675,7 @@ export interface Database {
           status?: 'pending' | 'returned' | 'charged'
           updated_at?: string
         }
+        Relationships: []
       }
       notes: {
         Row: {
@@ -686,6 +703,7 @@ export interface Database {
           due_date?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       operating_expenses: {
         Row: {
@@ -718,6 +736,7 @@ export interface Database {
           account_id?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       monthly_budgets: {
         Row: {
@@ -742,6 +761,7 @@ export interface Database {
           budgeted_amount_cents?: number
           updated_at?: string
         }
+        Relationships: []
       }
       daily_closures: {
         Row: {
@@ -796,6 +816,7 @@ export interface Database {
           verified_at?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       audit_logs: {
         Row: {
@@ -835,6 +856,7 @@ export interface Database {
           ip_address?: string | null
           user_agent?: string | null
         }
+        Relationships: []
       }
       processed_webhooks: {
         Row: {
@@ -852,6 +874,7 @@ export interface Database {
           event_key?: string
           created_at?: string
         }
+        Relationships: []
       }
       store_settings: {
         Row: {
@@ -897,6 +920,7 @@ export interface Database {
           updated_by?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       wishlists: {
         Row: {
@@ -915,6 +939,7 @@ export interface Database {
           user_id?: string
           product_id?: string
         }
+        Relationships: []
       }
       product_reviews: {
         Row: {
@@ -949,6 +974,7 @@ export interface Database {
           approved?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       coupons: {
         Row: {
@@ -994,8 +1020,11 @@ export interface Database {
           active?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
   }
 }
 

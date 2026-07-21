@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (status) {
-      query = query.eq('status', status)
+      query = query.eq('status', status as 'pending' | 'paid')
     }
 
     const { data, error } = await query

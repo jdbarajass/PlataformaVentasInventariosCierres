@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
       query = query.lte('created_at', to)
     }
     if (type) {
-      query = query.eq('type', type)
+      query = query.eq('type', type as 'in' | 'out' | 'adjustment' | 'sale' | 'return')
     }
 
     const { data, error } = await query

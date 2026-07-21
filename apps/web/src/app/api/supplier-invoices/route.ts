@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       .order('due_date', { ascending: true, nullsFirst: false })
 
     if (status) {
-      query = query.eq('status', status)
+      query = query.eq('status', status as 'pending' | 'paid')
     }
     if (supplier) {
       query = query.ilike('supplier', `%${supplier}%`)
