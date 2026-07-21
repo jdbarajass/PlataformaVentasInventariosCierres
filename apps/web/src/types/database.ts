@@ -76,7 +76,15 @@ export interface Database {
           active?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey",
+            columns: ["parent_id"],
+            isOneToOne: false,
+            referencedRelation: "categories",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       products: {
         Row: {
@@ -140,7 +148,15 @@ export interface Database {
           featured?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey",
+            columns: ["category_id"],
+            isOneToOne: false,
+            referencedRelation: "categories",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       orders: {
         Row: {
@@ -213,7 +229,22 @@ export interface Database {
           seller_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "orders_seller_id_fkey",
+            columns: ["seller_id"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       order_items: {
         Row: {
@@ -262,7 +293,29 @@ export interface Database {
           cost_cents?: number
           discount_cents?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey",
+            columns: ["order_id"],
+            isOneToOne: false,
+            referencedRelation: "orders",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey",
+            columns: ["product_id"],
+            isOneToOne: false,
+            referencedRelation: "products",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "order_items_variant_id_fkey",
+            columns: ["variant_id"],
+            isOneToOne: false,
+            referencedRelation: "product_variants",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       payments: {
         Row: {
@@ -314,7 +367,22 @@ export interface Database {
           account_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payments_order_id_fkey",
+            columns: ["order_id"],
+            isOneToOne: false,
+            referencedRelation: "orders",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "payments_account_id_fkey",
+            columns: ["account_id"],
+            isOneToOne: false,
+            referencedRelation: "accounts",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       inventory_movements: {
         Row: {
@@ -351,7 +419,29 @@ export interface Database {
           created_by?: string | null
           variant_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey",
+            columns: ["product_id"],
+            isOneToOne: false,
+            referencedRelation: "products",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "inventory_movements_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "inventory_movements_variant_id_fkey",
+            columns: ["variant_id"],
+            isOneToOne: false,
+            referencedRelation: "product_variants",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       product_variants: {
         Row: {
@@ -391,7 +481,15 @@ export interface Database {
           active?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey",
+            columns: ["product_id"],
+            isOneToOne: false,
+            referencedRelation: "products",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       accounts: {
         Row: {
@@ -458,7 +556,22 @@ export interface Database {
           reference_id?: string | null
           reference_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "account_movements_account_id_fkey",
+            columns: ["account_id"],
+            isOneToOne: false,
+            referencedRelation: "accounts",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "account_movements_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       account_closures: {
         Row: {
@@ -483,7 +596,15 @@ export interface Database {
           snapshot?: Json
           notes?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "account_closures_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       supplier_invoices: {
         Row: {
@@ -526,7 +647,15 @@ export interface Database {
           account_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoices_account_id_fkey",
+            columns: ["account_id"],
+            isOneToOne: false,
+            referencedRelation: "accounts",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       supplier_invoice_items: {
         Row: {
@@ -553,7 +682,15 @@ export interface Database {
           unit_price_cents?: number
           subtotal_cents?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoice_items_invoice_id_fkey",
+            columns: ["invoice_id"],
+            isOneToOne: false,
+            referencedRelation: "supplier_invoices",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       supplier_invoice_payments: {
         Row: {
@@ -580,7 +717,22 @@ export interface Database {
           notes?: string | null
           paid_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoice_payments_invoice_id_fkey",
+            columns: ["invoice_id"],
+            isOneToOne: false,
+            referencedRelation: "supplier_invoices",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "supplier_invoice_payments_account_id_fkey",
+            columns: ["account_id"],
+            isOneToOne: false,
+            referencedRelation: "accounts",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       customer_credits: {
         Row: {
@@ -641,7 +793,15 @@ export interface Database {
           notes?: string | null
           paid_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_payments_credit_id_fkey",
+            columns: ["credit_id"],
+            isOneToOne: false,
+            referencedRelation: "customer_credits",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       loans: {
         Row: {
@@ -675,7 +835,22 @@ export interface Database {
           status?: 'pending' | 'returned' | 'charged'
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "loans_product_id_fkey",
+            columns: ["product_id"],
+            isOneToOne: false,
+            referencedRelation: "products",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "loans_variant_id_fkey",
+            columns: ["variant_id"],
+            isOneToOne: false,
+            referencedRelation: "product_variants",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       notes: {
         Row: {
@@ -736,7 +911,22 @@ export interface Database {
           account_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "operating_expenses_account_id_fkey",
+            columns: ["account_id"],
+            isOneToOne: false,
+            referencedRelation: "accounts",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "operating_expenses_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       monthly_budgets: {
         Row: {
@@ -816,7 +1006,22 @@ export interface Database {
           verified_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_closures_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "daily_closures_verified_by_fkey",
+            columns: ["verified_by"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       audit_logs: {
         Row: {
@@ -856,7 +1061,15 @@ export interface Database {
           ip_address?: string | null
           user_agent?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_actor_id_fkey",
+            columns: ["actor_id"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       processed_webhooks: {
         Row: {
@@ -939,7 +1152,15 @@ export interface Database {
           user_id?: string
           product_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wishlists_product_id_fkey",
+            columns: ["product_id"],
+            isOneToOne: false,
+            referencedRelation: "products",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       product_reviews: {
         Row: {
@@ -974,7 +1195,15 @@ export interface Database {
           approved?: boolean
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_reviews_product_id_fkey",
+            columns: ["product_id"],
+            isOneToOne: false,
+            referencedRelation: "products",
+            referencedColumns: ["id"],
+          }
+        ]
       }
       coupons: {
         Row: {

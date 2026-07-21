@@ -15,20 +15,26 @@ export async function GET(
 
   const supabase = getServiceSupabase()
 
-  const { data: order, error } = await supabase
+  const { data: orderData, error } = await supabase
     .from('orders')
     .select('*, order_items(*), payments(*)')
     .eq('id', params.id)
     .single()
 
-  if (error || !order) {
+  if (error || !orderData) {
     return new NextResponse('Orden no encontrada', { status: 404 })
   }
 
-  const items = ((order as any).order_items || []) as any[]
-  const payments = ((order as any).payments || []) as any[]
-  const isPos = (order as any).channel === 'pos'
-  const shipping = (order.shipping_address as any) || {}
+  // El select combina '*' con dos relaciones embebidas (order_items, payments)
+  // sobre .single() — ese combo específico no lo resuelve bien el parser de
+  // tipos de @supabase/postgrest-js (ver docs/UNIFICACION_YJBMOTOCOM.md,
+  // limitaciones conocidas de tipos). Mismo patrón ya usado en
+  // (shop)/orden/[id]/confirmacion/page.tsx para el mismo caso.
+  const order = orderData as any
+  const items = (order.order_items || []) as any[]
+  const payments = (order.payments || []) as any[]
+  const isPos = order.channel === 'pos'
+  const shipping = order.shipping_address || {}
 
   const methodLabels: Record<string, string> = {
     cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -99,7 +105,7 @@ export async function GET(
     <div class="details-box">
       <h3>Cliente</h3>
       <p><strong>${order.customer_name || 'Cliente de mostrador'}</strong></p>
-      ${(order as any).customer_email && (order as any).customer_email !== 'mostrador@yjbmotocom.com' ? `<p>${(order as any).customer_email}</p>` : ''}
+      ${order.customer_email && order.customer_email !== 'mostrador@yjbmotocom.com' ? `<p>${order.customer_email}</p>` : ''}
       ${order.customer_phone ? `<p>${order.customer_phone}</p>` : ''}
     </div>
     <div class="details-box">

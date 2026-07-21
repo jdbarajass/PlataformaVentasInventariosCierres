@@ -37,7 +37,7 @@ export const sheetDefinitions: SheetDefinition[] = [
     fetch: async (supabase) => {
       const { data } = await supabase
         .from('orders')
-        .select('id, order_number, channel, created_at, customer_name, customer_phone, notes, payment_status, seller:users(email), payments(method, method_detail, amount_cents, commission_cents), order_items(id, product_title, product_sku, product_talla, qty, cost_cents, price_cents, discount_cents, total_cents)')
+        .select('id, order_number, channel, created_at, customer_name, customer_phone, notes, payment_status, seller:users!orders_seller_id_fkey(email), payments(method, method_detail, amount_cents, commission_cents), order_items(id, product_title, product_sku, product_talla, qty, cost_cents, price_cents, discount_cents, total_cents)')
         .order('created_at', { ascending: false })
         .limit(5000)
       return data || []

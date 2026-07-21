@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('orders')
-      .select('id, total_cents, seller_id, seller:users(id, name, email), order_items(qty)')
+      .select('id, total_cents, seller_id, seller:users!orders_seller_id_fkey(id, name, email), order_items(qty)')
       .eq('channel', 'pos')
       .eq('payment_status', 'paid')
       .gte('created_at', from)
