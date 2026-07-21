@@ -23,6 +23,7 @@ import {
   Wallet,
   Receipt,
   FileStack,
+  HandCoins,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -36,6 +37,7 @@ const navigation = [
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
+  { name: 'Fiado', href: '/admin/fiado', icon: HandCoins },
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
   { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },

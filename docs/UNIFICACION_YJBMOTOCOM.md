@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1-3.4 aplicadas en Supabase real (00008-00013 ejecutadas por el usuario). Sub-fase 3.5 completada (commit local, sin pushear) — **pendiente aplicar la migración 00014 en Supabase real**. Por iniciar sub-fase 3.6.
+**Estado actual**: Sub-fases 3.1-3.5 aplicadas en Supabase real (00008-00014 ejecutadas por el usuario). Sub-fase 3.6 completada (commit local, sin pushear) — **pendiente aplicar la migración 00015 en Supabase real**. Por iniciar sub-fase 3.7.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -119,8 +119,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.3 | Módulo Cuentas | ✅ Completada (commit local; falta aplicar migración 00011 en Supabase real) |
 | 3.4 | Módulo Registrar Venta (POS) + recibo PDF | ✅ Completada (commit local; falta aplicar migraciones 00012/00013 en Supabase real) |
 | 3.5 | Facturas a proveedores + abonos | ✅ Completada (commit local; falta aplicar migración 00014 en Supabase real) |
-| 3.6 | Fiado + abonos | ⏳ Pendiente — siguiente paso |
-| 3.7 | Préstamos, Notas, Presupuesto | Pendiente |
+| 3.6 | Fiado + abonos | ✅ Completada (commit local; falta aplicar migración 00015 en Supabase real) |
+| 3.7 | Préstamos, Notas, Presupuesto | ⏳ Pendiente — siguiente paso |
 | 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | Pendiente |
 | 3.9 | Exportar/Importar Excel (18 pestañas) | Pendiente |
 | 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | Pendiente |
@@ -225,6 +225,23 @@ Archivos modificados (aditivo, sin romper comportamiento existente para producto
 **⚠️ Pendiente manual**: aplicar `00014_supplier_invoice_functions.sql` en el SQL Editor del proyecto Supabase real.
 
 **Cómo probarlo manualmente**: entrar a `/admin/facturas`, crear una factura de prueba con proveedor/monto/fecha de vencimiento, registrar un abono parcial con una cuenta (confirmar que el saldo de esa cuenta baja en `/admin/cuentas`), luego usar "Usar saldo restante" para completarla y confirmar que pasa a "Pagada" automáticamente; después eliminar otra factura de prueba con abonos y confirmar que el saldo de la cuenta se restituye.
+
+## 6.6 Detalle de la sub-fase 3.6 (completada)
+
+**Nueva migración**: `00015_customer_credit_functions.sql`:
+- Corrige un detalle de la migración 00009: el `CHECK` de `account_movements.type` incluía `'credit_payment_reversal'` pero **no** `'credit_payment'` (el tipo positivo correspondiente) — se amplía aquí (nunca se restringe).
+- `pay_customer_credit(...)`: inserta el abono, **acredita** (no debita — el dinero entra al negocio, al revés que un abono a factura de proveedor) la cuenta indicada, y marca el fiado `paid` automáticamente al completar el monto.
+- `delete_customer_credit(...)`: revierte (debita de vuelta) los abonos que hubieran acreditado una cuenta antes de borrar.
+
+**Nuevas API**: `GET/POST /api/customer-credits` (la creación admite abono inicial opcional, para el caso de "dejar algo al apartar"), `GET/PUT/DELETE /api/customer-credits/[id]`, `POST /api/customer-credits/[id]/payments`.
+
+**UI nueva**: `/admin/fiado` ("Fiado" en el sidebar, entre Facturas y Cierres; título de la pantalla "Apartados y Abonos de Clientes" igual que en el local) — mismo patrón que Facturas: alta con abono inicial opcional, filtro pendiente/pagado/todos, por cliente ver abonos, registrar abono con "usar saldo restante", eliminar con reversión.
+
+**Verificación hecha**: `npx tsc --noEmit` (0 errores nuevos), `npx eslint` sin advertencias, `npx vitest run` — 10 archivos, 62 tests, todos pasando.
+
+**⚠️ Pendiente manual**: aplicar `00015_customer_credit_functions.sql` en el SQL Editor del proyecto Supabase real.
+
+**Cómo probarlo manualmente**: entrar a `/admin/fiado`, crear un fiado de prueba con un abono inicial y una cuenta (confirmar que el saldo de esa cuenta **sube** en `/admin/cuentas` — al revés que en Facturas), luego completar el saldo restante y confirmar que pasa a "Pagado"; eliminar un fiado de prueba con abonos y confirmar que el saldo de la cuenta se revierte (baja).
 
 ## 7. Decisiones tomadas (registro rápido)
 
