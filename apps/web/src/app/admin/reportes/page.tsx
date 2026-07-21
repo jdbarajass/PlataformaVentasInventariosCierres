@@ -134,10 +134,29 @@ export default function ReportsPage() {
         .select('amount_cents')
         .gte('date', dateFrom)
         .lte('date', dateTo)
-      const totalExpenses = ((expensesData as { amount_cents: number }[]) || []).reduce(
+      const totalOperatingExpenses = ((expensesData as { amount_cents: number }[]) || []).reduce(
         (sum, e) => sum + e.amount_cents,
         0
       )
+
+      // Gastos fijos mensuales (Arriendo/Sueldo/Servicios/Otros de
+      // Configuración > Comisiones y Gastos Fijos) prorrateados por día,
+      // igual que la fórmula del software local (gasto_diario = total / días del mes).
+      const { data: settingsData } = await supabase
+        .from('store_settings')
+        .select('fixed_monthly_expenses')
+        .eq('id', 1)
+        .single()
+      const fixed = (settingsData as any)?.fixed_monthly_expenses
+      const dailyFixedExpense = fixed
+        ? (fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents) / (fixed.dias_mes || 30)
+        : 0
+      const daysInRange = Math.max(
+        1,
+        Math.round((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86_400_000) + 1
+      )
+      const totalFixedExpenses = Math.round(dailyFixedExpense * daysInRange)
+      const totalExpenses = totalOperatingExpenses + totalFixedExpenses
 
       setProfitTotals({
         cost: totalCost,
@@ -281,7 +300,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatPrice(profitTotals.netProfit)}</div>
-              <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos del periodo ({formatPrice(profitTotals.expenses)})</p>
+              <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos y fijos prorrateados del periodo ({formatPrice(profitTotals.expenses)})</p>
             </CardContent>
           </Card>
         </div>

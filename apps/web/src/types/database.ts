@@ -1101,6 +1101,7 @@ export interface Database {
           social_links: Json
           branding: Json
           pos_commission_rates: Json
+          fixed_monthly_expenses: Json
           updated_by: string | null
           updated_at: string
           created_at: string
@@ -1116,6 +1117,7 @@ export interface Database {
           social_links?: Json
           branding?: Json
           pos_commission_rates?: Json
+          fixed_monthly_expenses?: Json
           updated_by?: string | null
           updated_at?: string
           created_at?: string
@@ -1130,6 +1132,7 @@ export interface Database {
           social_links?: Json
           branding?: Json
           pos_commission_rates?: Json
+          fixed_monthly_expenses?: Json
           updated_by?: string | null
           updated_at?: string
         }

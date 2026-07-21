@@ -37,6 +37,20 @@ Verificado: `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62
 
 **Cómo probarlo**: entrar como `seller` a Calculadora y confirmar que aparece el mensaje de "solo administradores"; entrar a Historial Mensual y confirmar que ve ingresos/órdenes pero no ganancia/comisión ni el botón de exportar. Como `admin`, confirmar que todo es visible y que el botón abre una pestaña nueva imprimible.
 
+### 10.x Detalle de la sub-fase 3.15 (completada) — cierra el ciclo de Utilidad Real
+
+**Migración `00018_fixed_monthly_expenses.sql`**: columna aditiva `store_settings.fixed_monthly_expenses` (jsonb: arriendo, sueldo, servicios, otros gastos, días del mes) — equivalente a los campos de gastos fijos del Configuración del software local.
+
+**`/api/settings`**: se agregaron `pos_commission_rates` y `fixed_monthly_expenses` a `allowedFields` del `PUT` — **antes de este cambio no existía ninguna forma de editar las comisiones POS**, ni siquiera por API directa (quedó así desde la sub-fase 3.4/migración 00012, sin que nadie lo hubiera notado). Cambio aditivo sobre una ruta ya en producción (solo se agregan nombres de campo permitidos, no se toca nada más).
+
+**Pantalla nueva** `/admin/configuracion-pos` ("Comisiones y Gastos Fijos" en el sidebar, admin-only): editar el % de comisión por cada método de pago, y los gastos fijos mensuales.
+
+**Se cierra el ciclo de "Utilidad Real"** (limitación documentada desde la sub-fase 3.8): la fórmula en `/admin/reportes` ahora también resta los gastos fijos mensuales **prorrateados por día** (`(arriendo+sueldo+servicios+otros) / días_mes × días del rango seleccionado`), exactamente como la fórmula del software local, sumado a los gastos operativos puntuales que ya se restaban desde 3.8.
+
+Verificado (con build completo por tocar `/api/settings`, ruta ya en producción): `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62), `npm run build` completo.
+
+**⚠️ Pendiente manual**: aplicar `00018_fixed_monthly_expenses.sql` en el SQL Editor del proyecto Supabase real.
+
 ## 10. Fase 3B — Cierre de brechas de fidelidad (2026-07-21 en adelante)
 
 Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en `main`, verificación tsc/eslint/vitest/build después de cada una, documentación al cierre).
@@ -47,8 +61,8 @@ Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en 
 | 3.12 | Mi Cuadre (vista en vivo, sin costos, auto-refresh) | Pendiente |
 | 3.13 | Completar Ventas del Día (selector de fecha, **editar** una venta ya registrada, gastos operativos del día inline) | ✅ Completada (commit local; requiere aplicar migración 00017) |
 | 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | ✅ Completada (commit local) |
-| 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | ⏳ Pendiente — siguiente paso |
-| 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | Pendiente |
+| 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | ✅ Completada (commit local; requiere aplicar migración 00018) |
+| 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | ⏳ Pendiente — siguiente paso |
 
 **Nota sobre "Cascos desde Factura"** (parte de Calculadora en el local): en el local usa dos parsers de PDF (`pdf_pedido_parser.py`, `pdf_distrifabrica_parser.py`) hechos a la medida del formato exacto de facturas de dos proveedores específicos. No tengo muestras de esos PDFs para replicar el parseo exacto, así que en 3.11 se construye la calculadora completa (funcional, fiel) y esta pieza específica de extracción de PDF se deja como pendiente documentado, a menos que el usuario provea ejemplos de esas facturas para diseñarlo correctamente.
 

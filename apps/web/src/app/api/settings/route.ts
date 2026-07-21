@@ -51,6 +51,8 @@ export async function PUT(request: NextRequest) {
       'payment_methods',
       'social_links',
       'branding',
+      'pos_commission_rates',
+      'fixed_monthly_expenses',
     ]
 
     for (const field of allowedFields) {

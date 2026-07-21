@@ -33,6 +33,7 @@ import {
   Gauge,
   CalendarClock,
   History,
+  Percent,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -63,6 +64,7 @@ const navigation = [
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Auditoria', href: '/admin/auditoria', icon: Shield },
   { name: 'Exportar/Importar', href: '/admin/exportar-importar', icon: FileSpreadsheet },
+  { name: 'Comisiones y Gastos Fijos', href: '/admin/configuracion-pos', icon: Percent },
   { name: 'Configuracion', href: '/admin/configuracion', icon: Settings },
 ]
 
