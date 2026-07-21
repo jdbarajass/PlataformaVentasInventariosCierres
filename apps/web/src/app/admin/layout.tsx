@@ -24,6 +24,9 @@ import {
   Receipt,
   FileStack,
   HandCoins,
+  PackageOpen,
+  StickyNote,
+  PiggyBank,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -38,6 +41,9 @@ const navigation = [
   { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
   { name: 'Fiado', href: '/admin/fiado', icon: HandCoins },
+  { name: 'Préstamos', href: '/admin/prestamos', icon: PackageOpen },
+  { name: 'Notas', href: '/admin/notas', icon: StickyNote },
+  { name: 'Presupuesto', href: '/admin/presupuesto', icon: PiggyBank },
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
   { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },

@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1-3.5 aplicadas en Supabase real (00008-00014 ejecutadas por el usuario). Sub-fase 3.6 completada (commit local, sin pushear) — **pendiente aplicar la migración 00015 en Supabase real**. Por iniciar sub-fase 3.7.
+**Estado actual**: Sub-fases 3.1-3.6 aplicadas en Supabase real (00008-00015 ejecutadas por el usuario). Sub-fase 3.7 completada (commit local, sin pushear) — **pendiente aplicar la migración 00016 en Supabase real**. Por iniciar sub-fase 3.8.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -120,8 +120,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.4 | Módulo Registrar Venta (POS) + recibo PDF | ✅ Completada (commit local; falta aplicar migraciones 00012/00013 en Supabase real) |
 | 3.5 | Facturas a proveedores + abonos | ✅ Completada (commit local; falta aplicar migración 00014 en Supabase real) |
 | 3.6 | Fiado + abonos | ✅ Completada (commit local; falta aplicar migración 00015 en Supabase real) |
-| 3.7 | Préstamos, Notas, Presupuesto | ⏳ Pendiente — siguiente paso |
-| 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | Pendiente |
+| 3.7 | Préstamos, Notas, Presupuesto (+ Gastos operativos) | ✅ Completada (commit local; falta aplicar migración 00016 en Supabase real) |
+| 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | ⏳ Pendiente — siguiente paso |
 | 3.9 | Exportar/Importar Excel (18 pestañas) | Pendiente |
 | 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | Pendiente |
 
@@ -242,6 +242,28 @@ Archivos modificados (aditivo, sin romper comportamiento existente para producto
 **⚠️ Pendiente manual**: aplicar `00015_customer_credit_functions.sql` en el SQL Editor del proyecto Supabase real.
 
 **Cómo probarlo manualmente**: entrar a `/admin/fiado`, crear un fiado de prueba con un abono inicial y una cuenta (confirmar que el saldo de esa cuenta **sube** en `/admin/cuentas` — al revés que en Facturas), luego completar el saldo restante y confirmar que pasa a "Pagado"; eliminar un fiado de prueba con abonos y confirmar que el saldo de la cuenta se revierte (baja).
+
+## 6.7 Detalle de la sub-fase 3.7 (completada)
+
+**⚠️ Hallazgo importante corregido en esta sub-fase**: al construir Presupuesto Mensual detecté que la sub-fase 3.1 se quedó corta — el software local compara presupuesto contra **gasto real por categoría**, usando su tabla `gastos_dia` (fecha, descripción, monto, categoría, cuenta). Esa tabla nunca se creó en las migraciones anteriores (00008/00009 listaron 10 tablas nuevas, pero omitieron esta). Sin ella, Presupuesto Mensual no tendría con qué compararse. Se corrige en esta sub-fase con la migración `00016_operating_expenses.sql`, sin necesidad de tocar nada de lo ya aplicado.
+
+**Migración `00016`**:
+- Tabla nueva `operating_expenses` (fecha, descripción, monto, categoría, cuenta opcional) + RLS (admin/seller).
+- `record_operating_expense(...)`: inserta el gasto y debita la cuenta indicada, si hay.
+- `delete_operating_expense(...)`: revierte el débito antes de borrar.
+
+**Nuevas API**: `GET/POST /api/loans`, `PUT/DELETE /api/loans/[id]` — `GET/POST /api/notes`, `PUT/DELETE /api/notes/[id]` — `GET/POST /api/operating-expenses`, `DELETE /api/operating-expenses/[id]` — `GET/POST /api/monthly-budgets` (upsert por año/mes/categoría).
+
+**UI nueva** (3 pantallas, agregadas al sidebar entre Fiado y Cierres):
+- **`/admin/prestamos`**: registrar préstamo de un producto/variante (reutiliza el buscador de `/api/pos/search`) a un almacén externo, cambiar estado (pendiente/devuelto/cobrado), eliminar.
+- **`/admin/notas`**: notas tipo tarea o resurtido, con fecha límite, marcar completada, insignia de vencida.
+- **`/admin/presupuesto`**: pestaña "Presupuesto" (por categoría/mes, con barra de progreso gastado-vs-presupuestado, roja si se excede) y pestaña "Gastos" (alta y listado de gastos operativos del mes, con cuenta opcional que se debita).
+
+**Verificación hecha**: `npx tsc --noEmit` (0 errores nuevos), `npx eslint` sin advertencias, `npx vitest run` — 10 archivos, 62 tests, todos pasando.
+
+**⚠️ Pendiente manual**: aplicar `00016_operating_expenses.sql` en el SQL Editor del proyecto Supabase real.
+
+**Cómo probarlo manualmente**: en `/admin/prestamos` registrar un préstamo y cambiarle el estado; en `/admin/notas` crear una tarea con fecha pasada y confirmar que se ve como vencida, luego marcarla completada; en `/admin/presupuesto` configurar un presupuesto para una categoría (ej. "Arriendo" $500.000), registrar un gasto en esa misma categoría con una cuenta, confirmar que la barra de progreso se actualiza y que el saldo de la cuenta bajó en `/admin/cuentas`.
 
 ## 7. Decisiones tomadas (registro rápido)
 

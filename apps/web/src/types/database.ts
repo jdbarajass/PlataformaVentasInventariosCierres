@@ -687,6 +687,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      operating_expenses: {
+        Row: {
+          id: string
+          date: string
+          description: string
+          amount_cents: number
+          category: string
+          account_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          date?: string
+          description: string
+          amount_cents: number
+          category: string
+          account_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          date?: string
+          description?: string
+          amount_cents?: number
+          category?: string
+          account_id?: string | null
+          updated_at?: string
+        }
+      }
       monthly_budgets: {
         Row: {
           id: string
@@ -996,3 +1028,4 @@ export type CustomerCreditPayment = Tables<'customer_credit_payments'>
 export type Loan = Tables<'loans'>
 export type Note = Tables<'notes'>
 export type MonthlyBudget = Tables<'monthly_budgets'>
+export type OperatingExpense = Tables<'operating_expenses'>
