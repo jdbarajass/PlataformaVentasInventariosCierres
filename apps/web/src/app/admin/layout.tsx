@@ -20,6 +20,7 @@ import {
   Tag,
   MessageSquare,
   Landmark,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Productos', href: '/admin/productos', icon: Package },
   { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
+  { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
   { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },

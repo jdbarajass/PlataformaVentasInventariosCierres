@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fase 3.1 completada y aplicada en Supabase real. Sub-fase 3.2 completada (commit local, sin pushear). Por iniciar sub-fase 3.3.
+**Estado actual**: Sub-fases 3.1 y 3.2 completadas (3.1 aplicada en Supabase real). Sub-fase 3.3 completada (commit local, sin pushear) — **pendiente aplicar la migración 00011 en Supabase real** antes de poder usar el módulo Cuentas en producción. Por iniciar sub-fase 3.4.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -116,8 +116,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 |---|----------|--------|
 | 3.1 | Migraciones aditivas del modelo unificado (variantes, cuentas, facturas, fiado, préstamos, notas, presupuesto) — solo schema + RLS, sin UI | ✅ Completada (commit local, sin pushear) |
 | 3.2 | Inventario: variantes por talla + código de barras (UI) | ✅ Completada (commit local, sin pushear) |
-| 3.3 | Módulo Cuentas | ⏳ Pendiente — siguiente paso |
-| 3.4 | Módulo Registrar Venta (POS) + recibo PDF | Pendiente |
+| 3.3 | Módulo Cuentas | ✅ Completada (commit local; falta aplicar migración 00011 en Supabase real) |
+| 3.4 | Módulo Registrar Venta (POS) + recibo PDF | ⏳ Pendiente — siguiente paso |
 | 3.5 | Facturas a proveedores + abonos | Pendiente |
 | 3.6 | Fiado + abonos | Pendiente |
 | 3.7 | Préstamos, Notas, Presupuesto | Pendiente |
@@ -153,6 +153,30 @@ Archivos modificados (aditivo, sin romper comportamiento existente para producto
 **Verificación hecha**: `npx tsc --noEmit` — mismos 68 errores preexistentes, cero nuevos (confirmado por diff línea por línea contra la salida de la sub-fase 3.1). `npx eslint` sobre los 5 archivos nuevos/modificados — sin advertencias ni errores.
 
 **Cómo probarlo manualmente** (una vez pusheado y desplegado, o corriendo `npm run dev` local): entrar a `/admin/inventario` como admin, abrir un producto cualquiera con el botón de la columna "Tallas" — debe mostrar "no tiene variantes" la primera vez. Agregar una variante (ej. talla "M", código de barras cualquiera, stock 10, costo 50000), verificar que aparece en la tabla, ajustar su stock con Entrada/Salida/Ajuste y confirmar que el número cambia, y finalmente desactivarla con el botón de basurero y confirmar que desaparece de la lista. Todo esto debe funcionar sin afectar el stock general del producto (columna "Stock" de la tabla principal), que sigue siendo independiente.
+
+## 6.3 Detalle de la sub-fase 3.3 (completada)
+
+**Nueva migración**: `supabase/migrations/00011_account_balance_functions.sql` — dos funciones `SECURITY DEFINER` (mismo patrón que `decrement_stock`/`create_order_with_items`, solo ejecutables por `service_role`, `search_path` fijo):
+- `adjust_account_balance(...)`: actualiza el saldo de una cuenta e inserta su `account_movements` en una sola transacción. Se reutilizará en sub-fases futuras (venta POS, pago de factura, abono de fiado) para acreditar/debitar cuentas de forma atómica.
+- `transfer_between_accounts(...)`: valida saldo suficiente en la cuenta origen, mueve el saldo entre dos cuentas y registra los dos movimientos enlazados (`transfer_out`/`transfer_in`) por un `reference_id` compartido, todo en una transacción.
+
+**⚠️ Pendiente manual**: aplicar `00011_account_balance_functions.sql` en el SQL Editor del proyecto Supabase real (igual que se hizo con 00008/00009/00010) antes de poder usar "Ajuste manual" o "Transferir" en `/admin/cuentas` — sin esto, esos dos botones fallarán con error de función no encontrada. El resto de la pantalla (ver saldos, listar movimientos) sí funcionará porque las tablas del 00009 ya existen.
+
+**API nuevas**:
+- `GET/POST /api/accounts` — listar cuentas activas / crear cuenta (creación restringida a `admin`).
+- `PUT /api/accounts/[id]` — editar nombre/color/orden/activo de una cuenta. **Nunca acepta `balance_cents` directamente** — el saldo solo cambia a través de movimientos, para que siempre quede trazabilidad.
+- `GET/POST /api/account-movements` — listar movimientos (con filtros) / registrar un ajuste manual (usa `adjust_account_balance`).
+- `POST /api/account-movements/transfer` — transferir entre dos cuentas (usa `transfer_between_accounts`).
+- `GET/POST /api/account-closures` — listar cierres mensuales / hacer (o rehacer) el cierre del mes actual, tomando una foto (`snapshot` jsonb) del saldo de todas las cuentas activas. Solo `admin`, igual que en el software local.
+
+**UI nueva**: `/admin/cuentas` (agregada al sidebar del admin, entre Inventario y Cierres), con 3 pestañas como el software local:
+- **Resumen**: tarjetas de saldo por cuenta + saldo total, formulario de ajuste manual y formulario de transferencia entre cuentas.
+- **Movimientos**: tabla de los últimos 50 movimientos con cuenta, tipo, descripción, monto (verde/rojo) y fecha.
+- **Cierres**: botón "Hacer cierre" (solo admin) que guarda el snapshot del mes actual, y lista de cierres anteriores con el desglose por cuenta.
+
+**Verificación hecha**: `npx tsc --noEmit` (68 errores preexistentes, 0 nuevos), `npx eslint` sin advertencias, y `npx vitest run` — **10 archivos de test, 62 tests, todos pasando** (misma línea base que antes de este cambio — ninguna prueba existente se rompió).
+
+**Cómo probarlo manualmente** (después de aplicar la migración 00011 y desplegar/correr local): entrar a `/admin/cuentas` como admin, ver las 6 cuentas con saldo en $0, hacer un ajuste manual de entrada (ej. $100.000 a Efectivo) y confirmar que el saldo sube y aparece en Movimientos; hacer una transferencia de una cuenta a otra y confirmar que ambos saldos se actualizan y aparecen los dos movimientos enlazados; intentar transferir más de lo que hay en la cuenta origen y confirmar que se rechaza ("Saldo insuficiente"); y finalmente hacer el cierre del mes y confirmar que aparece en la pestaña Cierres con el desglose por cuenta.
 
 ## 7. Decisiones tomadas (registro rápido)
 
