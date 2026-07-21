@@ -32,6 +32,7 @@ import {
   Calculator,
   Gauge,
   CalendarClock,
+  History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -45,6 +46,7 @@ const navigation = [
   { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
   { name: 'Mi Cuadre', href: '/admin/mi-cuadre', icon: Gauge },
   { name: 'Ventas del Día', href: '/admin/ventas-dia', icon: CalendarClock },
+  { name: 'Historial Mensual', href: '/admin/historial-mensual', icon: History },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Facturas', href: '/admin/facturas', icon: FileStack },

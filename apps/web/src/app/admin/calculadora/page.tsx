@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Calculator, Info } from 'lucide-react'
+import { Calculator, Info, Lock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/lib/auth-context'
 
 type MarginMode = 'real' | 'sobre_costo'
 
@@ -20,6 +21,8 @@ export default function CalculadoraPage() {
   const [precio, setPrecio] = useState('')
   const [margenDeseado, setMargenDeseado] = useState('')
   const [method, setMethod] = useState('cash')
+  const { userProfile } = useAuth()
+  const isAdmin = userProfile?.role === 'admin'
 
   useEffect(() => {
     fetch('/api/settings')
@@ -59,6 +62,18 @@ export default function CalculadoraPage() {
     // sobre costo: margen = (precio - costo) / costo  =>  precio = costo * (1 + margen)
     return costoNum * (1 + margenDeseadoNum / 100)
   }, [costoNum, margenDeseadoNum, mode])
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+        <Lock className="h-10 w-10" />
+        <p>Esta sección solo está disponible para administradores.</p>
+        <p className="text-sm">
+          Igual que en el software local: el rol Vendedor no ve costo, margen, ganancia ni comisión en ninguna pantalla.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">

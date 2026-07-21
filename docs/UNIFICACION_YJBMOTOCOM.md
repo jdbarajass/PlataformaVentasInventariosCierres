@@ -27,6 +27,16 @@
 
 **Cómo probarlo**: registrar una venta de prueba en Registrar Venta, ir a `/admin/ventas-dia` en la fecha de hoy, editarla (cambiar cantidad de un producto y agregar un segundo método de pago), guardar, y confirmar que el stock y los saldos de cuentas quedan coherentes con los valores nuevos (no con la suma de ambos). Agregar un gasto operativo del día y confirmar que se refleja en el total.
 
+### 10.x Detalle de la sub-fase 3.14 (completada) + corrección retroactiva a 3.11
+
+**Corrección importante encontrada al releer la ficha del local con cuidado**: el software local dice explícitamente que el rol Vendedor no ve costo/margen/ganancia/comisión **"en ninguna pantalla (Registrar Venta, Ventas del Día, Historial, Dashboard, Calculadora, Inventario)"**. La Calculadora que construí en 3.11 no tenía ningún control de rol — se corrigió ahora: **la página completa queda restringida a `admin`** (igual que Rendimiento Vendedores), porque todo su contenido es precisamente margen/ganancia/comisión — no tenía sentido ocultar solo un campo y dejar el resto.
+
+**`/admin/historial-mensual`** (agregada al sidebar): selector de mes/año, ingresos/órdenes/unidades visibles para todos (igual que "ventas, ingresos y cantidades" que sí ve el Vendedor), pero **costo, comisiones acumuladas, ganancia neta y el botón "Exportar/Imprimir" quedan solo para `admin`** — coincide con la regla del local de que Vendedor "no puede exportar/imprimir reportes con costo/ganancia". El export/print reutiliza el mismo patrón ya usado en el recibo de venta (HTML con botón que llama a `window.print()`), sin agregar ninguna dependencia nueva de generación de PDF.
+
+Verificado: `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62).
+
+**Cómo probarlo**: entrar como `seller` a Calculadora y confirmar que aparece el mensaje de "solo administradores"; entrar a Historial Mensual y confirmar que ve ingresos/órdenes pero no ganancia/comisión ni el botón de exportar. Como `admin`, confirmar que todo es visible y que el botón abre una pestaña nueva imprimible.
+
 ## 10. Fase 3B — Cierre de brechas de fidelidad (2026-07-21 en adelante)
 
 Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en `main`, verificación tsc/eslint/vitest/build después de cada una, documentación al cierre).
@@ -36,8 +46,8 @@ Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en 
 | 3.11 | Calculadora (precio/margen/comisión, sin persistir; "Cascos desde Factura" con PDF se evalúa aparte, ver nota) | ⏳ En curso |
 | 3.12 | Mi Cuadre (vista en vivo, sin costos, auto-refresh) | Pendiente |
 | 3.13 | Completar Ventas del Día (selector de fecha, **editar** una venta ya registrada, gastos operativos del día inline) | ✅ Completada (commit local; requiere aplicar migración 00017) |
-| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | ⏳ Pendiente — siguiente paso |
-| 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | Pendiente |
+| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | ✅ Completada (commit local) |
+| 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | ⏳ Pendiente — siguiente paso |
 | 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | Pendiente |
 
 **Nota sobre "Cascos desde Factura"** (parte de Calculadora en el local): en el local usa dos parsers de PDF (`pdf_pedido_parser.py`, `pdf_distrifabrica_parser.py`) hechos a la medida del formato exacto de facturas de dos proveedores específicos. No tengo muestras de esos PDFs para replicar el parseo exacto, así que en 3.11 se construye la calculadora completa (funcional, fiel) y esta pieza específica de extracción de PDF se deja como pendiente documentado, a menos que el usuario provea ejemplos de esas facturas para diseñarlo correctamente.
