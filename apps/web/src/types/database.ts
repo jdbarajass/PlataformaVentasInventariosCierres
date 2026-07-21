@@ -159,6 +159,8 @@ export interface Database {
           payment_status: 'pending' | 'paid' | 'failed' | 'refunded' | 'partial_refund'
           notes: string | null
           metadata: Json
+          channel: 'online' | 'pos'
+          seller_id: string | null
           created_at: string
           updated_at: string
         }
@@ -181,6 +183,8 @@ export interface Database {
           payment_status?: 'pending' | 'paid' | 'failed' | 'refunded' | 'partial_refund'
           notes?: string | null
           metadata?: Json
+          channel?: 'online' | 'pos'
+          seller_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -202,6 +206,8 @@ export interface Database {
           payment_status?: 'pending' | 'paid' | 'failed' | 'refunded' | 'partial_refund'
           notes?: string | null
           metadata?: Json
+          channel?: 'online' | 'pos'
+          seller_id?: string | null
           updated_at?: string
         }
       }
@@ -216,6 +222,10 @@ export interface Database {
           qty: number
           price_cents: number
           total_cents: number
+          variant_id: string | null
+          product_talla: string | null
+          cost_cents: number
+          discount_cents: number
           created_at: string
         }
         Insert: {
@@ -228,6 +238,10 @@ export interface Database {
           qty: number
           price_cents: number
           total_cents: number
+          variant_id?: string | null
+          product_talla?: string | null
+          cost_cents?: number
+          discount_cents?: number
           created_at?: string
         }
         Update: {
@@ -239,47 +253,60 @@ export interface Database {
           qty?: number
           price_cents?: number
           total_cents?: number
+          variant_id?: string | null
+          product_talla?: string | null
+          cost_cents?: number
+          discount_cents?: number
         }
       }
       payments: {
         Row: {
           id: string
           order_id: string
-          provider: 'stripe' | 'mercadopago' | 'manual' | 'cash' | 'transfer'
+          provider: 'stripe' | 'mercadopago' | 'manual' | 'cash' | 'transfer' | 'pos'
           provider_payment_id: string | null
           provider_session_id: string | null
           amount_cents: number
           currency: string
-          method: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | null
+          method: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | null
           status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded'
           metadata: Json
+          method_detail: string | null
+          commission_cents: number
+          account_id: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           order_id: string
-          provider: 'stripe' | 'mercadopago' | 'manual' | 'cash' | 'transfer'
+          provider: 'stripe' | 'mercadopago' | 'manual' | 'cash' | 'transfer' | 'pos'
           provider_payment_id?: string | null
           provider_session_id?: string | null
           amount_cents: number
           currency?: string
-          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | null
+          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | null
           status?: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded'
           metadata?: Json
+          method_detail?: string | null
+          commission_cents?: number
+          account_id?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           order_id?: string
-          provider?: 'stripe' | 'mercadopago' | 'manual' | 'cash' | 'transfer'
+          provider?: 'stripe' | 'mercadopago' | 'manual' | 'cash' | 'transfer' | 'pos'
           provider_payment_id?: string | null
           provider_session_id?: string | null
           amount_cents?: number
           currency?: string
-          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | null
+          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | null
           status?: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded'
           metadata?: Json
+          method_detail?: string | null
+          commission_cents?: number
+          account_id?: string | null
           updated_at?: string
         }
       }
@@ -293,6 +320,7 @@ export interface Database {
           reference_id: string | null
           reference_type: string | null
           created_by: string | null
+          variant_id: string | null
           created_at: string
         }
         Insert: {
@@ -304,6 +332,7 @@ export interface Database {
           reference_id?: string | null
           reference_type?: string | null
           created_by?: string | null
+          variant_id?: string | null
           created_at?: string
         }
         Update: {
@@ -314,6 +343,372 @@ export interface Database {
           reference_id?: string | null
           reference_type?: string | null
           created_by?: string | null
+          variant_id?: string | null
+        }
+      }
+      product_variants: {
+        Row: {
+          id: string
+          product_id: string
+          talla: string | null
+          sku: string | null
+          barcode: string | null
+          stock_qty: number
+          low_stock_threshold: number
+          cost_cents: number
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          talla?: string | null
+          sku?: string | null
+          barcode?: string | null
+          stock_qty?: number
+          low_stock_threshold?: number
+          cost_cents?: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          product_id?: string
+          talla?: string | null
+          sku?: string | null
+          barcode?: string | null
+          stock_qty?: number
+          low_stock_threshold?: number
+          cost_cents?: number
+          active?: boolean
+          updated_at?: string
+        }
+      }
+      accounts: {
+        Row: {
+          id: string
+          name: string
+          payment_method: string
+          balance_cents: number
+          color: string | null
+          active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          payment_method: string
+          balance_cents?: number
+          color?: string | null
+          active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          payment_method?: string
+          balance_cents?: number
+          color?: string | null
+          active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+      }
+      account_movements: {
+        Row: {
+          id: string
+          account_id: string
+          type: 'sale' | 'manual_adjustment' | 'transfer_out' | 'transfer_in' | 'operating_expense' | 'expense_reversal' | 'invoice_payment' | 'credit_payment_reversal' | 'sale_reversal'
+          amount_cents: number
+          description: string | null
+          reference_id: string | null
+          reference_type: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          type: 'sale' | 'manual_adjustment' | 'transfer_out' | 'transfer_in' | 'operating_expense' | 'expense_reversal' | 'invoice_payment' | 'credit_payment_reversal' | 'sale_reversal'
+          amount_cents: number
+          description?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          account_id?: string
+          type?: 'sale' | 'manual_adjustment' | 'transfer_out' | 'transfer_in' | 'operating_expense' | 'expense_reversal' | 'invoice_payment' | 'credit_payment_reversal' | 'sale_reversal'
+          amount_cents?: number
+          description?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+        }
+      }
+      account_closures: {
+        Row: {
+          id: string
+          year: number
+          month: number
+          snapshot: Json
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          year: number
+          month: number
+          snapshot?: Json
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          snapshot?: Json
+          notes?: string | null
+        }
+      }
+      supplier_invoices: {
+        Row: {
+          id: string
+          description: string
+          supplier: string
+          amount_cents: number
+          arrival_date: string | null
+          due_date: string | null
+          status: 'pending' | 'paid'
+          notes: string | null
+          paid_at: string | null
+          account_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          description: string
+          supplier: string
+          amount_cents: number
+          arrival_date?: string | null
+          due_date?: string | null
+          status?: 'pending' | 'paid'
+          notes?: string | null
+          paid_at?: string | null
+          account_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string
+          supplier?: string
+          amount_cents?: number
+          arrival_date?: string | null
+          due_date?: string | null
+          status?: 'pending' | 'paid'
+          notes?: string | null
+          paid_at?: string | null
+          account_id?: string | null
+          updated_at?: string
+        }
+      }
+      supplier_invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          description: string
+          qty: number
+          unit_price_cents: number
+          subtotal_cents: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          description: string
+          qty?: number
+          unit_price_cents?: number
+          subtotal_cents?: number
+          created_at?: string
+        }
+        Update: {
+          description?: string
+          qty?: number
+          unit_price_cents?: number
+          subtotal_cents?: number
+        }
+      }
+      supplier_invoice_payments: {
+        Row: {
+          id: string
+          invoice_id: string
+          amount_cents: number
+          account_id: string | null
+          notes: string | null
+          paid_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          amount_cents: number
+          account_id?: string | null
+          notes?: string | null
+          paid_at?: string
+          created_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          account_id?: string | null
+          notes?: string | null
+          paid_at?: string
+        }
+      }
+      customer_credits: {
+        Row: {
+          id: string
+          customer_name: string
+          customer_id_number: string | null
+          customer_phone: string | null
+          description: string | null
+          total_amount_cents: number
+          status: 'pending' | 'paid'
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          customer_name: string
+          customer_id_number?: string | null
+          customer_phone?: string | null
+          description?: string | null
+          total_amount_cents: number
+          status?: 'pending' | 'paid'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          customer_name?: string
+          customer_id_number?: string | null
+          customer_phone?: string | null
+          description?: string | null
+          total_amount_cents?: number
+          status?: 'pending' | 'paid'
+          notes?: string | null
+          updated_at?: string
+        }
+      }
+      customer_credit_payments: {
+        Row: {
+          id: string
+          credit_id: string
+          amount_cents: number
+          notes: string | null
+          paid_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          credit_id: string
+          amount_cents: number
+          notes?: string | null
+          paid_at?: string
+          created_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          notes?: string | null
+          paid_at?: string
+        }
+      }
+      loans: {
+        Row: {
+          id: string
+          product_id: string | null
+          variant_id: string | null
+          product_title: string
+          warehouse: string
+          observations: string | null
+          status: 'pending' | 'returned' | 'charged'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          product_id?: string | null
+          variant_id?: string | null
+          product_title: string
+          warehouse: string
+          observations?: string | null
+          status?: 'pending' | 'returned' | 'charged'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          product_id?: string | null
+          variant_id?: string | null
+          product_title?: string
+          warehouse?: string
+          observations?: string | null
+          status?: 'pending' | 'returned' | 'charged'
+          updated_at?: string
+        }
+      }
+      notes: {
+        Row: {
+          id: string
+          type: 'task' | 'restock'
+          text: string
+          completed: boolean
+          due_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          type: 'task' | 'restock'
+          text: string
+          completed?: boolean
+          due_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          type?: 'task' | 'restock'
+          text?: string
+          completed?: boolean
+          due_date?: string | null
+          updated_at?: string
+        }
+      }
+      monthly_budgets: {
+        Row: {
+          id: string
+          year: number
+          month: number
+          category: string
+          budgeted_amount_cents: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          year: number
+          month: number
+          category: string
+          budgeted_amount_cents?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          budgeted_amount_cents?: number
+          updated_at?: string
         }
       }
       daily_closures: {
@@ -586,3 +981,15 @@ export type Coupon = Tables<'coupons'>
 export type Wishlist = Tables<'wishlists'>
 export type ProductReview = Tables<'product_reviews'>
 export type StoreSettings = Tables<'store_settings'>
+export type ProductVariant = Tables<'product_variants'>
+export type Account = Tables<'accounts'>
+export type AccountMovement = Tables<'account_movements'>
+export type AccountClosure = Tables<'account_closures'>
+export type SupplierInvoice = Tables<'supplier_invoices'>
+export type SupplierInvoiceItem = Tables<'supplier_invoice_items'>
+export type SupplierInvoicePayment = Tables<'supplier_invoice_payments'>
+export type CustomerCredit = Tables<'customer_credits'>
+export type CustomerCreditPayment = Tables<'customer_credit_payments'>
+export type Loan = Tables<'loans'>
+export type Note = Tables<'notes'>
+export type MonthlyBudget = Tables<'monthly_budgets'>

@@ -18,6 +18,12 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 | **[INTEGRACION_PAGOS_STRIPE.md](INTEGRACION_PAGOS_STRIPE.md)** | Documentación técnica completa | 👨‍💻 Desarrolladores + DevOps |
 | **[CHANGELOG_STRIPE.md](CHANGELOG_STRIPE.md)** | Historial de cambios y decisiones | 📝 Todo el equipo |
 
+### 🔄 Unificación YJBMOTOCOM (tienda + software local de ventas)
+
+| Documento | Descripción | Para quién |
+|-----------|-------------|------------|
+| **[UNIFICACION_YJBMOTOCOM.md](UNIFICACION_YJBMOTOCOM.md)** | Estado vivo del proyecto de unificación: entendimiento de ambos sistemas, plan aprobado, decisiones tomadas y progreso fase por fase. Leer primero si se retoma este trabajo. | 👨‍💻 Desarrolladores + 🧑‍💼 Dueño del negocio |
+
 ### 🎨 Diseño UX
 
 | Documento | Descripción | Para quién |
