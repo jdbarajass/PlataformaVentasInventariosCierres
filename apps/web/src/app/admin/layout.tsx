@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Landmark,
   Wallet,
+  Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Productos', href: '/admin/productos', icon: Package },
   { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
+  { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },

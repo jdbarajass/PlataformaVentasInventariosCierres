@@ -832,6 +832,7 @@ export interface Database {
           payment_methods: Json
           social_links: Json
           branding: Json
+          pos_commission_rates: Json
           updated_by: string | null
           updated_at: string
           created_at: string
@@ -846,6 +847,7 @@ export interface Database {
           payment_methods?: Json
           social_links?: Json
           branding?: Json
+          pos_commission_rates?: Json
           updated_by?: string | null
           updated_at?: string
           created_at?: string
@@ -859,6 +861,7 @@ export interface Database {
           payment_methods?: Json
           social_links?: Json
           branding?: Json
+          pos_commission_rates?: Json
           updated_by?: string | null
           updated_at?: string
         }

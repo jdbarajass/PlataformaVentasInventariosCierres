@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1 y 3.2 completadas (3.1 aplicada en Supabase real). Sub-fase 3.3 completada (commit local, sin pushear) — **pendiente aplicar la migración 00011 en Supabase real** antes de poder usar el módulo Cuentas en producción. Por iniciar sub-fase 3.4.
+**Estado actual**: Sub-fases 3.1, 3.2 y 3.3 aplicadas en Supabase real (00008-00011 ejecutadas por el usuario). Sub-fase 3.4 completada (commit local, sin pushear) — **pendiente aplicar las migraciones 00012 y 00013 en Supabase real** antes de poder usar Registrar Venta en producción. Por iniciar sub-fase 3.5.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -117,8 +117,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.1 | Migraciones aditivas del modelo unificado (variantes, cuentas, facturas, fiado, préstamos, notas, presupuesto) — solo schema + RLS, sin UI | ✅ Completada (commit local, sin pushear) |
 | 3.2 | Inventario: variantes por talla + código de barras (UI) | ✅ Completada (commit local, sin pushear) |
 | 3.3 | Módulo Cuentas | ✅ Completada (commit local; falta aplicar migración 00011 en Supabase real) |
-| 3.4 | Módulo Registrar Venta (POS) + recibo PDF | ⏳ Pendiente — siguiente paso |
-| 3.5 | Facturas a proveedores + abonos | Pendiente |
+| 3.4 | Módulo Registrar Venta (POS) + recibo PDF | ✅ Completada (commit local; falta aplicar migraciones 00012/00013 en Supabase real) |
+| 3.5 | Facturas a proveedores + abonos | ⏳ Pendiente — siguiente paso |
 | 3.6 | Fiado + abonos | Pendiente |
 | 3.7 | Préstamos, Notas, Presupuesto | Pendiente |
 | 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | Pendiente |
@@ -177,6 +177,36 @@ Archivos modificados (aditivo, sin romper comportamiento existente para producto
 **Verificación hecha**: `npx tsc --noEmit` (68 errores preexistentes, 0 nuevos), `npx eslint` sin advertencias, y `npx vitest run` — **10 archivos de test, 62 tests, todos pasando** (misma línea base que antes de este cambio — ninguna prueba existente se rompió).
 
 **Cómo probarlo manualmente** (después de aplicar la migración 00011 y desplegar/correr local): entrar a `/admin/cuentas` como admin, ver las 6 cuentas con saldo en $0, hacer un ajuste manual de entrada (ej. $100.000 a Efectivo) y confirmar que el saldo sube y aparece en Movimientos; hacer una transferencia de una cuenta a otra y confirmar que ambos saldos se actualizan y aparecen los dos movimientos enlazados; intentar transferir más de lo que hay en la cuenta origen y confirmar que se rechaza ("Saldo insuficiente"); y finalmente hacer el cierre del mes y confirmar que aparece en la pestaña Cierres con el desglose por cuenta.
+
+## 6.4 Detalle de la sub-fase 3.4 (completada) — el corazón del sistema
+
+**Nuevas migraciones**:
+- **`00012_pos_commission_rates.sql`**: columna aditiva `store_settings.pos_commission_rates` (jsonb, default todo en 0%). Se usará para calcular la comisión informativa de cada pago — hoy siempre da $0 porque la UI de Configuración para editar estas tasas todavía no existe (llega en la sub-fase 3.8). No bloquea nada mientras tanto.
+- **`00013_pos_sale_functions.sql`**: dos funciones `SECURITY DEFINER` (mismo patrón que 00005/00006/00011):
+  - `create_pos_sale(p_order, p_items, p_payments)`: en una sola transacción — crea la orden (`channel='pos'`, `payment_status='paid'`, `status='delivered'`), descuenta stock de cada producto/variante (con bloqueo de fila, igual que `decrement_stock`), inserta cada `order_item` y su `inventory_movement`, inserta cada `payment` y acredita la cuenta enlazada (`account_movements` tipo `sale`). Si el stock no alcanza para algún ítem, revierte todo y lanza error.
+  - `cancel_pos_sale(p_order_id)`: reversa completa de una venta de mostrador — restaura stock, revierte crédito de cuentas, marca la orden `cancelled`/`refunded`.
+
+**Nuevas API**:
+- `GET /api/pos/search` — busca productos (+ sus variantes) por nombre/SKU (`?q=`) o por código de barras exacto (`?barcode=`, para el lector USB tipo teclado).
+- `POST /api/pos/sales` — registra una venta de mostrador: resuelve título/SKU/costo reales desde la BD (nunca confía en eso del cliente), valida que los pagos cubran el total, calcula comisión informativa por método, y llama a `create_pos_sale`.
+- `GET /api/pos/sales` — lista ventas de mostrador (para "Ventas de hoy"), filtrable por rango de fecha.
+- `DELETE /api/pos/sales/[id]` — cancela una venta (llama a `cancel_pos_sale`).
+
+**UI nueva**: `/admin/ventas` ("Registrar Venta" en el sidebar, entre Órdenes e Inventario) — buscador con soporte de escaneo de código de barras (Enter dispara búsqueda exacta), carrito editable (cantidad, precio, descuento por línea), datos de cliente opcionales (nombre/teléfono/cédula), sección de pago con **métodos combinados** (Efectivo/Datáfono/Transferencia/Addi/Otro, cada uno con su propia cuenta y monto), botón "Registrar venta", enlace al recibo de la última venta, y una lista de "Ventas de hoy" con opción de cancelar.
+
+**Recibo**: se reutilizó el endpoint que ya existía para las facturas online (`/api/orders/[id]/invoice`) — funciona igual para ventas de mostrador porque una venta POS es, debajo, una fila más de `orders`. Se le agregó una rama condicional (`channel==='pos'`): título "RECIBO DE VENTA" en vez de "FACTURA", muestra los métodos de pago usados en vez de la caja de envío, y oculta la línea de envío en los totales. **Para pedidos online (`channel==='online'`, el único valor que existían antes de este cambio) el HTML generado es exactamente igual que antes** — se verificó leyendo el diff línea por línea.
+
+**Decisiones de diseño**:
+- La comisión del método de pago se guarda en `payments.commission_cents` solo para reporte — **no se resta del total de la venta ni de la ganancia**, igual que la regla del software local ("la comisión se traslada al cliente").
+- El monto que se acredita a cada cuenta es el `amount_cents` completo de cada pago (lo que realmente entra por ese medio), no el monto menos comisión.
+- `orders.customer_email` sigue siendo `NOT NULL` (no se tocó esa columna) — una venta de mostrador sin correo usa el valor por defecto `mostrador@yjbmotocom.com`, que el recibo detecta y oculta.
+- No se implementó todavía edición de una venta ya registrada (solo cancelación completa) — igual que el local permite editar una venta existente; si hace falta, se agrega como ajuste posterior.
+
+**Verificación hecha**: `npx tsc --noEmit` (0 errores nuevos — de hecho uno menos que la línea base, por un cast que ya estaba mal tipado), `npx eslint` sin advertencias, `npx vitest run` — **10 archivos, 62 tests, todos pasando**, misma línea base que las sub-fases anteriores.
+
+**⚠️ Pendiente manual**: aplicar `00012_pos_commission_rates.sql` y `00013_pos_sale_functions.sql` (en ese orden) en el SQL Editor del proyecto Supabase real antes de poder usar `/admin/ventas` en producción.
+
+**Cómo probarlo manualmente** (después de aplicar 00012/00013 y desplegar/correr local): entrar a `/admin/ventas`, buscar un producto por nombre (o por su código de barras si tiene variantes con código configurado desde Inventario), agregarlo al carrito, ajustar cantidad/precio si hace falta, completar el pago (probar con un solo método y luego con dos métodos combinados que sumen el total), registrar la venta, verificar que: (1) aparece en "Ventas de hoy", (2) el recibo abre correctamente y dice "RECIBO DE VENTA", (3) el stock del producto/variante bajó en Inventario, (4) el saldo de la cuenta usada subió en `/admin/cuentas`. Luego cancelar esa venta y confirmar que el stock y el saldo de la cuenta vuelven a su valor original.
 
 ## 7. Decisiones tomadas (registro rápido)
 

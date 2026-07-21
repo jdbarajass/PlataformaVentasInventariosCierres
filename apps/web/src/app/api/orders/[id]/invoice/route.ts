@@ -17,7 +17,7 @@ export async function GET(
 
   const { data: order, error } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items(*), payments(*)')
     .eq('id', params.id)
     .single()
 
@@ -26,7 +26,14 @@ export async function GET(
   }
 
   const items = ((order as any).order_items || []) as any[]
+  const payments = ((order as any).payments || []) as any[]
+  const isPos = (order as any).channel === 'pos'
   const shipping = (order.shipping_address as any) || {}
+
+  const methodLabels: Record<string, string> = {
+    cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
+    nequi: 'Nequi', daviplata: 'Daviplata', addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  }
   const createdAt = new Date(order.created_at).toLocaleDateString('es-CO', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
@@ -39,7 +46,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Factura ${order.order_number} - YJBMOTOCOM</title>
+  <title>${isPos ? 'Recibo' : 'Factura'} ${order.order_number} - YJBMOTOCOM</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; }
@@ -81,7 +88,7 @@ export async function GET(
       <p>NIT: Pendiente de registro</p>
     </div>
     <div class="invoice-info">
-      <h2>FACTURA</h2>
+      <h2>${isPos ? 'RECIBO DE VENTA' : 'FACTURA'}</h2>
       <p><strong>No.</strong> ${order.order_number}</p>
       <p><strong>Fecha:</strong> ${createdAt}</p>
       <p><strong>Estado:</strong> ${order.payment_status === 'paid' ? 'PAGADO' : 'PENDIENTE'}</p>
@@ -91,14 +98,19 @@ export async function GET(
   <div class="details">
     <div class="details-box">
       <h3>Cliente</h3>
-      <p><strong>${order.customer_name || 'N/A'}</strong></p>
-      <p>${order.customer_email}</p>
+      <p><strong>${order.customer_name || 'Cliente de mostrador'}</strong></p>
+      ${(order as any).customer_email && (order as any).customer_email !== 'mostrador@yjbmotocom.com' ? `<p>${(order as any).customer_email}</p>` : ''}
       ${order.customer_phone ? `<p>${order.customer_phone}</p>` : ''}
     </div>
     <div class="details-box">
+      ${isPos ? `
+      <h3>Pago</h3>
+      ${payments.map((p: any) => `<p>${methodLabels[p.method] || p.method}${p.method_detail ? ` (${p.method_detail})` : ''}: ${formatCOP(p.amount_cents)}</p>`).join('') || '<p>N/A</p>'}
+      ` : `
       <h3>Envio</h3>
       <p>${shipping.address || 'N/A'}</p>
       <p>${shipping.city || ''}</p>
+      `}
     </div>
   </div>
 
@@ -134,10 +146,12 @@ export async function GET(
       <span>-${formatCOP(order.discount_cents)}</span>
     </div>
     ` : ''}
+    ${!isPos ? `
     <div class="row">
       <span>Envio</span>
       <span>${order.shipping_cents === 0 ? 'Gratis' : formatCOP(order.shipping_cents)}</span>
     </div>
+    ` : ''}
     ${order.tax_cents > 0 ? `
     <div class="row">
       <span>IVA</span>
