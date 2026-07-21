@@ -88,6 +88,9 @@ export default function InventarioPage() {
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  // El rol 'seller' no ve el costo real de las variantes, igual que en
+  // el software local (solo Admin ve costos/ganancia).
+  const canViewCost = userProfile?.role === 'admin'
 
   const fetchProducts = useCallback(async () => {
     if (!session?.access_token) return
@@ -715,7 +718,9 @@ export default function InventarioPage() {
                                         <th className="px-4 py-2 text-left font-medium text-muted-foreground">Talla</th>
                                         <th className="px-4 py-2 text-left font-medium text-muted-foreground">Código de barras</th>
                                         <th className="px-4 py-2 text-center font-medium text-muted-foreground">Stock</th>
-                                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Costo</th>
+                                        {canViewCost && (
+                                          <th className="px-4 py-2 text-left font-medium text-muted-foreground">Costo</th>
+                                        )}
                                         <th className="px-4 py-2 text-center font-medium text-muted-foreground">Acciones</th>
                                       </tr>
                                     </thead>
@@ -738,7 +743,9 @@ export default function InventarioPage() {
                                                 </Badge>
                                               )}
                                             </td>
-                                            <td className="px-4 py-2">{formatPrice(variant.cost_cents)}</td>
+                                            {canViewCost && (
+                                              <td className="px-4 py-2">{formatPrice(variant.cost_cents)}</td>
+                                            )}
                                             <td className="px-4 py-2">
                                               {variantAdjusting ? (
                                                 <div className="flex items-center justify-center gap-1">
@@ -834,15 +841,17 @@ export default function InventarioPage() {
                                   onChange={(e) => setNewVariant({ ...newVariant, stock_qty: e.target.value })}
                                   className="h-8 w-28 rounded-lg text-xs"
                                 />
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="Costo unitario"
-                                  value={newVariant.cost_cents}
-                                  onChange={(e) => setNewVariant({ ...newVariant, cost_cents: e.target.value })}
-                                  className="h-8 w-28 rounded-lg text-xs"
-                                />
+                                {canViewCost && (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Costo unitario"
+                                    value={newVariant.cost_cents}
+                                    onChange={(e) => setNewVariant({ ...newVariant, cost_cents: e.target.value })}
+                                    className="h-8 w-28 rounded-lg text-xs"
+                                  />
+                                )}
                                 <Button
                                   size="sm"
                                   className="h-8 rounded-lg"

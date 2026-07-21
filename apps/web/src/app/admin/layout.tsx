@@ -27,6 +27,7 @@ import {
   PackageOpen,
   StickyNote,
   PiggyBank,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -47,6 +48,7 @@ const navigation = [
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
   { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },
+  { name: 'Rendimiento Vendedores', href: '/admin/rendimiento-vendedores', icon: Trophy },
   { name: 'Cupones', href: '/admin/cupones', icon: Tag },
   { name: 'Resenas', href: '/admin/resenas', icon: MessageSquare },
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },

@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: Sub-fases 3.1-3.6 aplicadas en Supabase real (00008-00015 ejecutadas por el usuario). Sub-fase 3.7 completada (commit local, sin pushear) — **pendiente aplicar la migración 00016 en Supabase real**. Por iniciar sub-fase 3.8.
+**Estado actual**: Sub-fases 3.1-3.7 aplicadas en Supabase real (00008-00016 ejecutadas por el usuario). Sub-fase 3.8 completada (commit local, sin pushear) — no requiere migración nueva. Por iniciar sub-fase 3.9.
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
@@ -121,8 +121,8 @@ Registrar Venta (POS), Cuentas, Facturas a proveedores + abonos, Fiado + abonos,
 | 3.5 | Facturas a proveedores + abonos | ✅ Completada (commit local; falta aplicar migración 00014 en Supabase real) |
 | 3.6 | Fiado + abonos | ✅ Completada (commit local; falta aplicar migración 00015 en Supabase real) |
 | 3.7 | Préstamos, Notas, Presupuesto (+ Gastos operativos) | ✅ Completada (commit local; falta aplicar migración 00016 en Supabase real) |
-| 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | ⏳ Pendiente — siguiente paso |
-| 3.9 | Exportar/Importar Excel (18 pestañas) | Pendiente |
+| 3.8 | Reportes enriquecidos + Rendimiento Vendedores + ocultamiento de costos por rol | ✅ Completada (commit local, sin migración pendiente) |
+| 3.9 | Exportar/Importar Excel (18 pestañas) | ⏳ Pendiente — siguiente paso |
 | 3.10 | Revisión final de regresión de la tienda pública + cierre de documentación | Pendiente |
 
 ## 6.1 Detalle de la sub-fase 3.1 (completada)
@@ -264,6 +264,31 @@ Archivos modificados (aditivo, sin romper comportamiento existente para producto
 **⚠️ Pendiente manual**: aplicar `00016_operating_expenses.sql` en el SQL Editor del proyecto Supabase real.
 
 **Cómo probarlo manualmente**: en `/admin/prestamos` registrar un préstamo y cambiarle el estado; en `/admin/notas` crear una tarea con fecha pasada y confirmar que se ve como vencida, luego marcarla completada; en `/admin/presupuesto` configurar un presupuesto para una categoría (ej. "Arriendo" $500.000), registrar un gasto en esa misma categoría con una cuenta, confirmar que la barra de progreso se actualiza y que el saldo de la cuenta bajó en `/admin/cuentas`.
+
+## 6.8 Detalle de la sub-fase 3.8 (completada) — tocó código ya existente, con cuidado extra
+
+Esta sub-fase, a diferencia de las anteriores, modificó archivos que **ya estaban en producción** (`ProductForm`, `/admin/inventario`, `/admin/reportes`), así que se verificó con más rigor de lo normal antes de dar por buena cada pieza.
+
+**Ocultamiento de costos por rol** (solo `admin` ve costo/comisión/ganancia, igual que "Admin vs Vendedor" en el local):
+- **`components/products/product-form.tsx`** (compartido por Nuevo Producto y Editar Producto, **ya en producción**): el campo "Precio de Costo" ahora solo se renderiza si `userProfile.role === 'admin'`. El valor real sigue viajando en `formData.cost` (se carga del producto al editar) y se envía sin cambios al guardar — un vendedor simplemente no ve ni edita ese campo; para un producto nuevo creado por un vendedor, el costo queda en 0 hasta que un admin lo complete. Cambio de una sola condición, sin tocar ningún otro campo ni la lógica de guardado.
+- **`/admin/inventario`** (propio de la sub-fase 3.2, aún sin pushear): se ocultó igual la columna "Costo" de la tabla de variantes y el input "Costo unitario" del formulario de alta, para el rol `seller`.
+- **Decisión de diseño**: el software local, en vez de ocultar el costo al Vendedor, le muestra un costo "inflado" (`costo × 1.30`) para que la calculadora interna siga funcionando sin revelar el costo real. Para la nube se optó por **ocultar el campo directamente** en vez de fabricar un número falso — es más simple, evita el riesgo de que un número inventado se malinterprete como real, y cumple el mismo objetivo de fondo ("que el vendedor no vea el costo/ganancia real").
+
+**Reportes enriquecidos** (`/admin/reportes`, aditivo — ninguna tarjeta/gráfica existente se tocó ni se quitó):
+- La consulta a `orders` ahora también trae `order_items(..., cost_cents)` y `payments(commission_cents)` (antes no los pedía).
+- Se agregaron 4 tarjetas nuevas — Costo Total, Comisiones, Ganancia Neta, Utilidad Real — **visibles solo para `admin`** (`canViewProfit`).
+- "Utilidad Real" = Ganancia Neta − gastos operativos del periodo (tabla `operating_expenses` de la sub-fase 3.7), como aproximación de la fórmula del local (que usa gastos fijos mensuales prorrateados, un concepto que la nube no modela todavía como una configuración aparte — se documenta como simplificación deliberada, no como pendiente crítico).
+- Corrección incidental: si el rango de fechas no tiene órdenes, ahora se limpian los totales a cero (antes quedaban pegados los del último rango con datos) — necesario para que las tarjetas nuevas no muestren cifras de ganancia inconsistentes con ingresos en cero.
+
+**Rendimiento Vendedores** (`/admin/rendimiento-vendedores`, página nueva, **admin-only** como en el local): nueva API `GET /api/reports/seller-performance` (agrupa órdenes `channel='pos'` por `seller_id`), con guardia tanto en el API (`requireAuth(['admin'])`) como en la UI (pantalla de "solo administradores" si el rol no es admin).
+
+**Verificación hecha** (más exhaustiva de lo normal por tocar código en producción):
+- `npx tsc --noEmit`: 0 errores nuevos.
+- `npx eslint`: 0 advertencias nuevas (se confirmó contra el archivo original que el único warning reportado en `reportes/page.tsx` ya existía antes de mi cambio).
+- `npx vitest run`: 10 archivos, 62 tests, todos pasando.
+- **`npm run build` (build de producción completo)**: compiló exitosamente **todas** las rutas de la app, incluidas las públicas críticas (`/checkout`, `/productos`, `/producto/[slug]`, `/categoria/[slug]`, `/mi-cuenta`, `/login`, `/registro`, `/orden/[id]/confirmacion`) y todas las de admin nuevas/modificadas — sin errores. Esta es la verificación más fuerte posible sin un navegador interactivo real.
+
+**Cómo probarlo manualmente**: iniciar sesión como `seller` y confirmar que no ve "Precio de Costo" en Productos ni "Costo" en las variantes de Inventario, ni las 4 tarjetas nuevas de Reportes, y que `/admin/rendimiento-vendedores` le muestra el mensaje de "solo administradores". Luego iniciar sesión como `admin` y confirmar que todo lo anterior sí es visible, con cifras coherentes (Ganancia Neta = Ingresos − Costo Total).
 
 ## 7. Decisiones tomadas (registro rápido)
 

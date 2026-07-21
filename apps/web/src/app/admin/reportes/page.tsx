@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Download, Calendar, TrendingUp, Package, DollarSign } from 'lucide-react'
+import { Download, Calendar, TrendingUp, Package, DollarSign, Wallet, PiggyBank } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { useAuth } from '@/lib/auth-context'
 
 interface SalesData {
   date: string
@@ -30,7 +31,9 @@ interface OrderWithItems {
     product_title: string
     qty: number
     total_cents: number
+    cost_cents: number
   }>
+  payments: Array<{ commission_cents: number }> | null
 }
 
 export default function ReportsPage() {
@@ -43,7 +46,11 @@ export default function ReportsPage() {
   const [salesData, setSalesData] = useState<SalesData[]>([])
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [totals, setTotals] = useState({ revenue: 0, orders: 0, avgOrder: 0 })
+  const [profitTotals, setProfitTotals] = useState({ cost: 0, commission: 0, grossProfit: 0, expenses: 0, netProfit: 0 })
   const [isLoading, setIsLoading] = useState(true)
+  const { userProfile } = useAuth()
+  // Igual que en el software local: solo Admin ve costo/comisión/ganancia.
+  const canViewProfit = userProfile?.role === 'admin'
 
   useEffect(() => {
     fetchReports()
@@ -55,13 +62,13 @@ export default function ReportsPage() {
     // Fetch orders in date range
     const { data: ordersData } = await supabase
       .from('orders')
-      .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents)')
+      .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(commission_cents)')
       .eq('payment_status', 'paid')
       .gte('created_at', `${dateFrom}T00:00:00`)
       .lte('created_at', `${dateTo}T23:59:59`)
       .order('created_at', { ascending: true })
 
-    const orders = (ordersData as OrderWithItems[]) || []
+    const orders = (ordersData as unknown as OrderWithItems[]) || []
 
     if (orders.length > 0) {
       // Calculate daily sales
@@ -108,6 +115,42 @@ export default function ReportsPage() {
       setSalesData(salesArray)
       setTopProducts(topProductsArray)
       setTotals({ revenue: totalRevenue, orders: totalOrders, avgOrder })
+
+      // Costo, comisión y ganancia (solo se muestran a Admin, ver canViewProfit)
+      const totalCost = orders.reduce(
+        (sum, o) => sum + (o.order_items || []).reduce((s, item) => s + item.qty * (item.cost_cents || 0), 0),
+        0
+      )
+      const totalCommission = orders.reduce(
+        (sum, o) => sum + (o.payments || []).reduce((s, p) => s + (p.commission_cents || 0), 0),
+        0
+      )
+      const grossProfit = totalRevenue - totalCost
+
+      // Gasto real del periodo (gastos operativos registrados en Presupuesto),
+      // para aproximar la "utilidad real" del software local.
+      const { data: expensesData } = await supabase
+        .from('operating_expenses')
+        .select('amount_cents')
+        .gte('date', dateFrom)
+        .lte('date', dateTo)
+      const totalExpenses = ((expensesData as { amount_cents: number }[]) || []).reduce(
+        (sum, e) => sum + e.amount_cents,
+        0
+      )
+
+      setProfitTotals({
+        cost: totalCost,
+        commission: totalCommission,
+        grossProfit,
+        expenses: totalExpenses,
+        netProfit: grossProfit - totalExpenses,
+      })
+    } else {
+      setSalesData([])
+      setTopProducts([])
+      setTotals({ revenue: 0, orders: 0, avgOrder: 0 })
+      setProfitTotals({ cost: 0, commission: 0, grossProfit: 0, expenses: 0, netProfit: 0 })
     }
 
     setIsLoading(false)
@@ -200,6 +243,49 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Costo, comisión y ganancia — igual que en el software local, solo Admin las ve */}
+      {canViewProfit && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Costo Total</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatPrice(profitTotals.cost)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Comisiones</CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatPrice(profitTotals.commission)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Ganancia Neta</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500">{formatPrice(profitTotals.grossProfit)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Utilidad Real</CardTitle>
+              <PiggyBank className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatPrice(profitTotals.netProfit)}</div>
+              <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos del periodo ({formatPrice(profitTotals.expenses)})</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">

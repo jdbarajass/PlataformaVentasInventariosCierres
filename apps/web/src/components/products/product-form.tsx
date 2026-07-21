@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ImageUploader } from '@/components/products/image-uploader'
 import { useProductForm } from '@/components/products/use-product-form'
+import { useAuth } from '@/lib/auth-context'
 import { Product } from '@/types/database'
 
 interface ProductFormProps {
@@ -18,6 +19,11 @@ interface ProductFormProps {
 export function ProductForm({ product, mode }: ProductFormProps) {
   const router = useRouter()
   const { formData, setFormData, categories, isLoading, handleSubmit } = useProductForm({ product, mode })
+  const { userProfile } = useAuth()
+  // El rol 'seller' no ve el costo real del producto (igual que el
+  // Vendedor del software local) — el valor sigue viajando en formData.cost
+  // y se guarda sin cambios al enviar el formulario, solo se oculta el input.
+  const canViewCost = userProfile?.role === 'admin'
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -141,20 +147,22 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Precio de Costo</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={formData.cost}
-                  onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                  placeholder="0"
-                />
+            {canViewCost && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Precio de Costo</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={formData.cost}
+                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">
