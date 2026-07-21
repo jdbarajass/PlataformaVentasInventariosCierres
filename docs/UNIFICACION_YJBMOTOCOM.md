@@ -429,6 +429,7 @@ Antes de nada: correr `npm install` en `apps/web` (por `exceljs`).
 | 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir) | ✅ Completada |
 | 3.15 | Configuración POS (comisiones + gastos fijos, cierra "Utilidad Real") | ✅ Completada (requiere migración 00018) |
 | 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | ✅ Completada |
+| 3.17 | Dashboard con 2 pestañas: "Ventas" (estilo local) + "Tienda Online" (existente) | ✅ Completada |
 
 ### 10.1 Sub-fase 3.11 — Calculadora
 
@@ -474,6 +475,19 @@ Pantalla `/admin/configuracion-pos` ("Comisiones y Gastos Fijos", admin-only): e
 - `npm run build`: corrido en 3.13 y 3.15 (por tocar dinero/stock nuevo y una ruta ya en producción) y de nuevo al cierre de toda la ronda — compiló sin errores.
 - `git diff` (desde el commit de inicio de 3.11 hasta el cierre): **cero archivos tocados bajo `apps/web/src/app/(shop)/`** — la tienda pública sigue sin ningún cambio en toda esta ronda.
 
+### 10.7 Sub-fase 3.17 — Dashboard con 2 pestañas
+
+A pedido explícito del usuario tras revisar la auditoría de la sección 11: en vez de dejar el Dashboard como una diferencia sin cerrar, se convirtió en **2 pestañas** dentro de la misma página `/admin`:
+
+- **"Ventas"** (nueva, estilo del software local): ingresos de hoy (online + mostrador unificado), ganancia y comisiones de hoy (solo `admin`, mismo patrón de ocultamiento por rol que Reportes/Historial), ingresos por método de pago, y gráfica de tendencia de los últimos 7 días — equivalente al Dashboard del local ("resumen diario ganancia/ingresos por método, gráfica de tendencia 7 días, vista sin costos para Vendedor").
+- **"Tienda Online"** (la que ya existía): **contenido idéntico, sin ningún cambio** — ventas hoy/semana, órdenes, stock bajo, órdenes recientes, top productos, alerta de stock bajo.
+
+**Cómo se hizo el cambio con seguridad** (esta es la página de entrada del panel, la más visitada): se creó un componente cliente nuevo `components/admin/dashboard-tabs.tsx` que recibe los datos de ambas pestañas ya resueltos por el servidor como props; el JSX de "Tienda Online" se **movió tal cual** (copiado, no reescrito) desde el `page.tsx` original al nuevo componente, y la función de datos original `getDashboardStats()` **no se tocó**. Solo se agregó una función nueva `getVentasStats()` en paralelo.
+
+Verificado con el mismo rigor que las rutas de producción: `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62), y `npm run build` completo — `/admin` se marca `○` (estático) igual que antes del cambio, sin regresión en la estrategia de renderizado.
+
+**Cómo probarlo**: entrar a `/admin`, confirmar que la pestaña "Tienda Online" se ve exactamente igual que antes de este cambio, y que la pestaña "Ventas" muestra los ingresos/tendencia de los últimos 7 días — con un usuario `seller`, confirmar que en "Ventas" no aparecen las tarjetas de Ganancia ni Comisiones.
+
 ## 11. Auditoría final de fidelidad — los 16 módulos del software local
 
 Comparación final, módulo por módulo, contra la captura de pantalla real del software local que aportó el usuario:
@@ -484,7 +498,7 @@ Comparación final, módulo por módulo, contra la captura de pantalla real del 
 | 2 | Calculadora | ✅ `/admin/calculadora` (admin-only) |
 | 3 | Ventas del Día | ✅ `/admin/ventas-dia` |
 | 4 | Mi Cuadre | ✅ `/admin/mi-cuadre` |
-| 5 | Dashboard | ⚠️ Existe (`/admin`), pero es el dashboard de la tienda online, no una réplica del resumen diario del local — no se tocó por no ser parte del alcance pedido en esta ronda |
+| 5 | Dashboard | ✅ `/admin` — pestaña "Ventas" (estilo local) + pestaña "Tienda Online" (existente, sin cambios) |
 | 6 | Historial Mensual | ✅ `/admin/historial-mensual` |
 | 7 | Inventario | ✅ `/admin/inventario` (con variantes por talla) |
 | 8 | Préstamos | ✅ `/admin/prestamos` |
@@ -497,6 +511,6 @@ Comparación final, módulo por módulo, contra la captura de pantalla real del 
 | 15 | Cuentas | ✅ `/admin/cuentas` |
 | 16 | Rendimiento Vendedores | ✅ `/admin/rendimiento-vendedores` |
 
-**15 de 16 completamente cubiertos.** El único punto marcado ⚠️ (Dashboard) es una diferencia de contenido, no una ausencia — la nube ya tiene un Dashboard, simplemente enfocado en la tienda online en vez de replicar el resumen diario del local; no se tocó porque no fue parte de lo pedido en esta auditoría. Las limitaciones puntuales dentro de cada módulo (Cascos desde Factura, edición masiva, alertas push) están documentadas en la sección 9.6.
+**16 de 16 completamente cubiertos** (Dashboard cerrado en la sub-fase 3.17, sección 10.7). Las limitaciones puntuales dentro de cada módulo (Cascos desde Factura, edición masiva, alertas push) están documentadas en la sección 9.6.
 
 **Pasos manuales pendientes de esta ronda**: aplicar `00017_edit_pos_sale.sql` y `00018_fixed_monthly_expenses.sql` en el SQL Editor de Supabase (en ese orden), y `npm install` no es necesario (no se agregó ninguna dependencia nueva en esta ronda). Todo sigue en `main` local, sin pushear.
