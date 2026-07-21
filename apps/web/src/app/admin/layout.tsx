@@ -30,6 +30,7 @@ import {
   Trophy,
   FileSpreadsheet,
   Calculator,
+  Gauge,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -41,6 +42,7 @@ const navigation = [
   { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
   { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
   { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
+  { name: 'Mi Cuadre', href: '/admin/mi-cuadre', icon: Gauge },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
