@@ -1,0 +1,157 @@
+-- =====================================================
+-- YJBMOTOCOM — Migración 017: Editar una venta de mostrador ya registrada
+-- =====================================================
+-- Mismo patron SECURITY DEFINER que create_pos_sale/cancel_pos_sale
+-- (00013). Editar = revertir por completo los efectos de la venta actual
+-- (stock + saldo de cuentas, igual que cancel_pos_sale) y volver a
+-- aplicarlos con los datos nuevos (igual que create_pos_sale), pero
+-- conservando el mismo id/order_number en vez de crear una orden nueva —
+-- exactamente como el software local "revierte y re-aplica el credito de
+-- cuenta anterior" al editar una venta.
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION public.edit_pos_sale(
+    p_order_id UUID,
+    p_order JSONB,
+    p_items JSONB,
+    p_payments JSONB
+)
+RETURNS public.orders AS $$
+DECLARE
+    v_order public.orders;
+    v_item RECORD;
+    v_payment RECORD;
+    v_new_item JSONB;
+    v_new_payment JSONB;
+    v_product_id UUID;
+    v_variant_id UUID;
+    v_qty INT;
+    v_current_stock INT;
+    v_account_id UUID;
+    v_amount_cents BIGINT;
+BEGIN
+    SELECT * INTO v_order FROM public.orders WHERE id = p_order_id AND channel = 'pos' FOR UPDATE;
+    IF v_order IS NULL THEN
+        RAISE EXCEPTION 'Venta de mostrador % no encontrada', p_order_id;
+    END IF;
+
+    -- 1. Revertir items actuales (restaurar stock) y borrarlos.
+    FOR v_item IN SELECT * FROM public.order_items WHERE order_id = p_order_id
+    LOOP
+        IF v_item.variant_id IS NOT NULL THEN
+            UPDATE public.product_variants SET stock_qty = stock_qty + v_item.qty WHERE id = v_item.variant_id;
+        ELSIF v_item.product_id IS NOT NULL THEN
+            UPDATE public.products SET stock_qty = stock_qty + v_item.qty WHERE id = v_item.product_id;
+        END IF;
+
+        INSERT INTO public.inventory_movements (product_id, variant_id, qty, type, note, reference_id, reference_type)
+        VALUES (v_item.product_id, v_item.variant_id, v_item.qty, 'return', 'Reversa por edicion de venta de mostrador', p_order_id, 'order');
+    END LOOP;
+
+    DELETE FROM public.order_items WHERE order_id = p_order_id;
+
+    -- 2. Revertir pagos actuales (revertir credito de cuenta) y borrarlos.
+    FOR v_payment IN SELECT * FROM public.payments WHERE order_id = p_order_id
+    LOOP
+        IF v_payment.account_id IS NOT NULL THEN
+            UPDATE public.accounts SET balance_cents = balance_cents - v_payment.amount_cents WHERE id = v_payment.account_id;
+
+            INSERT INTO public.account_movements (account_id, type, amount_cents, description, reference_id, reference_type)
+            VALUES (v_payment.account_id, 'sale_reversal', -v_payment.amount_cents, 'Reversa por edicion de venta de mostrador', p_order_id, 'order');
+        END IF;
+    END LOOP;
+
+    DELETE FROM public.payments WHERE order_id = p_order_id;
+
+    -- 3. Actualizar los campos editables de la orden (conserva id/order_number/seller_id/created_at).
+    UPDATE public.orders
+    SET customer_name = NULLIF(p_order->>'customer_name', ''),
+        customer_phone = NULLIF(p_order->>'customer_phone', ''),
+        notes = NULLIF(p_order->>'notes', ''),
+        subtotal_cents = COALESCE((p_order->>'subtotal_cents')::INT, 0),
+        discount_cents = COALESCE((p_order->>'discount_cents')::INT, 0),
+        total_cents = COALESCE((p_order->>'total_cents')::INT, 0),
+        updated_at = NOW()
+    WHERE id = p_order_id
+    RETURNING * INTO v_order;
+
+    -- 4. Re-aplicar items nuevos (mismo bloque que create_pos_sale).
+    FOR v_new_item IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        v_product_id := (v_new_item->>'product_id')::UUID;
+        v_variant_id := NULLIF(v_new_item->>'variant_id', '')::UUID;
+        v_qty := (v_new_item->>'qty')::INT;
+
+        IF v_variant_id IS NOT NULL THEN
+            SELECT stock_qty INTO v_current_stock FROM public.product_variants WHERE id = v_variant_id FOR UPDATE;
+            IF v_current_stock IS NULL THEN
+                RAISE EXCEPTION 'Variante % no encontrada', v_variant_id;
+            END IF;
+            IF v_current_stock < v_qty THEN
+                RAISE EXCEPTION 'Stock insuficiente para la variante %', v_variant_id;
+            END IF;
+            UPDATE public.product_variants SET stock_qty = stock_qty - v_qty WHERE id = v_variant_id;
+        ELSE
+            SELECT stock_qty INTO v_current_stock FROM public.products WHERE id = v_product_id FOR UPDATE;
+            IF v_current_stock IS NULL THEN
+                RAISE EXCEPTION 'Producto % no encontrado', v_product_id;
+            END IF;
+            IF v_current_stock < v_qty THEN
+                RAISE EXCEPTION 'Stock insuficiente para el producto %', v_product_id;
+            END IF;
+            UPDATE public.products SET stock_qty = stock_qty - v_qty WHERE id = v_product_id;
+        END IF;
+
+        INSERT INTO public.order_items (
+            order_id, product_id, product_title, product_sku, product_image,
+            variant_id, product_talla, qty, price_cents, cost_cents, discount_cents, total_cents
+        ) VALUES (
+            p_order_id, v_product_id, v_new_item->>'product_title', NULLIF(v_new_item->>'product_sku', ''),
+            NULLIF(v_new_item->>'product_image', ''), v_variant_id, NULLIF(v_new_item->>'product_talla', ''),
+            v_qty, (v_new_item->>'price_cents')::INT, COALESCE((v_new_item->>'cost_cents')::INT, 0),
+            COALESCE((v_new_item->>'discount_cents')::INT, 0), (v_new_item->>'total_cents')::INT
+        );
+
+        INSERT INTO public.inventory_movements (
+            product_id, variant_id, qty, type, note, reference_id, reference_type
+        ) VALUES (
+            v_product_id, v_variant_id, -v_qty, 'sale', 'Venta de mostrador editada ' || v_order.order_number,
+            p_order_id, 'order'
+        );
+    END LOOP;
+
+    -- 5. Re-aplicar pagos nuevos (mismo bloque que create_pos_sale).
+    FOR v_new_payment IN SELECT * FROM jsonb_array_elements(p_payments)
+    LOOP
+        v_account_id := NULLIF(v_new_payment->>'account_id', '')::UUID;
+        v_amount_cents := (v_new_payment->>'amount_cents')::BIGINT;
+
+        INSERT INTO public.payments (
+            order_id, provider, amount_cents, method, method_detail, status, commission_cents, account_id
+        ) VALUES (
+            p_order_id, 'pos', v_amount_cents, v_new_payment->>'method',
+            NULLIF(v_new_payment->>'method_detail', ''), 'succeeded',
+            COALESCE((v_new_payment->>'commission_cents')::INT, 0), v_account_id
+        );
+
+        IF v_account_id IS NOT NULL THEN
+            UPDATE public.accounts SET balance_cents = balance_cents + v_amount_cents WHERE id = v_account_id;
+
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'Cuenta % no encontrada', v_account_id;
+            END IF;
+
+            INSERT INTO public.account_movements (
+                account_id, type, amount_cents, description, reference_id, reference_type
+            ) VALUES (
+                v_account_id, 'sale', v_amount_cents, 'Venta de mostrador editada ' || v_order.order_number,
+                p_order_id, 'order'
+            );
+        END IF;
+    END LOOP;
+
+    RETURN v_order;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION public.edit_pos_sale(UUID, JSONB, JSONB, JSONB) TO service_role;

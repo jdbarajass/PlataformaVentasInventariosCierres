@@ -9,6 +9,24 @@
 
 ---
 
+### 10.x Detalle de la sub-fase 3.13 (completada)
+
+**Migración `00017_edit_pos_sale.sql`**: función `edit_pos_sale(p_order_id, p_order, p_items, p_payments)` — mismo patrón `SECURITY DEFINER` que `create_pos_sale`/`cancel_pos_sale`. Revierte por completo los efectos de la venta actual (restaura stock, revierte crédito de cuentas, borra items/pagos viejos) y vuelve a aplicar los nuevos, **conservando el mismo `id`/`order_number`** en vez de crear una orden nueva — igual que "revierte y re-aplica el crédito de cuenta anterior" del software local.
+
+**Refactor sin cambio de comportamiento**: se extrajo la lógica de resolución de productos/comisión (antes duplicada solo en `POST /api/pos/sales`) a `lib/pos-sale.ts` (`resolveSale`), para reutilizarla también en el nuevo `PUT`. Se verificó que el `POST` sigue devolviendo exactamente los mismos códigos/mensajes de error que antes.
+
+**Nuevas rutas**: `GET /api/pos/sales/[id]` (detalle, para precargar el formulario de edición) y `PUT /api/pos/sales/[id]` (edita vía `edit_pos_sale`).
+
+**Pantalla nueva** `/admin/ventas-dia` (agregada al sidebar): selector de fecha (no solo "hoy"), lista de ventas de esa fecha con **editar** (carrito completo: agregar/quitar productos, cambiar cantidad/precio, cambiar métodos de pago) y cancelar, más una sección de **gastos operativos del día** (reutiliza la tabla de la sub-fase 3.7).
+
+**Alcance no incluido (documentado, no crítico)**: la "edición masiva de método de pago" del local (cambiar el método de varias ventas a la vez) no se construyó — editar una venta a la vez (ya disponible) cubre la misma necesidad funcional con más clics para lotes grandes. Se prioriza así por ser la opción más segura (cualquier operación en lote sobre dinero/stock aumenta el riesgo).
+
+**Verificación reforzada** (por tocar dinero + stock con lógica nueva): `tsc --noEmit` (0 errores), `eslint` (0 nuevos), `vitest run` (62/62), y además un `npm run build` de producción completo.
+
+**⚠️ Pendiente manual**: aplicar `00017_edit_pos_sale.sql` en el SQL Editor del proyecto Supabase real antes de poder usar "Editar" en `/admin/ventas-dia`.
+
+**Cómo probarlo**: registrar una venta de prueba en Registrar Venta, ir a `/admin/ventas-dia` en la fecha de hoy, editarla (cambiar cantidad de un producto y agregar un segundo método de pago), guardar, y confirmar que el stock y los saldos de cuentas quedan coherentes con los valores nuevos (no con la suma de ambos). Agregar un gasto operativo del día y confirmar que se refleja en el total.
+
 ## 10. Fase 3B — Cierre de brechas de fidelidad (2026-07-21 en adelante)
 
 Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en `main`, verificación tsc/eslint/vitest/build después de cada una, documentación al cierre).
@@ -17,8 +35,8 @@ Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en 
 |---|---|---|
 | 3.11 | Calculadora (precio/margen/comisión, sin persistir; "Cascos desde Factura" con PDF se evalúa aparte, ver nota) | ⏳ En curso |
 | 3.12 | Mi Cuadre (vista en vivo, sin costos, auto-refresh) | Pendiente |
-| 3.13 | Completar Ventas del Día (selector de fecha, **editar** una venta ya registrada, gastos operativos del día inline) | Pendiente |
-| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | Pendiente |
+| 3.13 | Completar Ventas del Día (selector de fecha, **editar** una venta ya registrada, gastos operativos del día inline) | ✅ Completada (commit local; requiere aplicar migración 00017) |
+| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | ⏳ Pendiente — siguiente paso |
 | 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | Pendiente |
 | 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | Pendiente |
 

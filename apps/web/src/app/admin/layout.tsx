@@ -31,6 +31,7 @@ import {
   FileSpreadsheet,
   Calculator,
   Gauge,
+  CalendarClock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -43,6 +44,7 @@ const navigation = [
   { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
   { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
   { name: 'Mi Cuadre', href: '/admin/mi-cuadre', icon: Gauge },
+  { name: 'Ventas del Día', href: '/admin/ventas-dia', icon: CalendarClock },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
   { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
   { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
