@@ -1,9 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
   // Optimización de imágenes
   images: {
     // Formatos modernos con mejor compresión
