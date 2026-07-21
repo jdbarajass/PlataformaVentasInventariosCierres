@@ -3,7 +3,28 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-21
-**Estado actual**: **Fase 3 completa (sub-fases 3.1 a 3.10)**. 9 commits locales en `main`, ninguno pusheado — esperando autorización explícita del usuario para hacer `git push` (y así disparar el despliegue automático de Vercel). Migraciones 00008-00016 ya aplicadas por el usuario en el Supabase real.
+**Estado actual**: Fase 3 (3.1-3.10) completa + limpieza de tipos (68→0 errores) + `ignoreBuildErrors` quitado. 14 commits locales en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00016 ya aplicadas por el usuario en Supabase real.
+
+**⚠️ Hallazgo de auditoría (2026-07-21)**: el usuario comparó una captura del software local corriendo (16 módulos en su sidebar) contra la nube y encontró que la Fase 2 (sección 5.3) **se saltó 4 módulos** que la Fase 1 sí había identificado correctamente (línea 58 de este documento): **Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo** (solo existe una versión parcial dentro de Registrar Venta). También quedó parcial la **Configuración POS** (comisiones por método sin pantalla de edición, gastos fijos mensuales sin modelar). Se abre una ronda nueva de sub-fases (3.11-3.16) para cerrar estas brechas — ver sección 10.
+
+---
+
+## 10. Fase 3B — Cierre de brechas de fidelidad (2026-07-21 en adelante)
+
+Ronda de sub-fases adicional, con el mismo flujo de siempre (commits locales en `main`, verificación tsc/eslint/vitest/build después de cada una, documentación al cierre).
+
+| # | Sub-fase | Estado |
+|---|---|---|
+| 3.11 | Calculadora (precio/margen/comisión, sin persistir; "Cascos desde Factura" con PDF se evalúa aparte, ver nota) | ⏳ En curso |
+| 3.12 | Mi Cuadre (vista en vivo, sin costos, auto-refresh) | Pendiente |
+| 3.13 | Completar Ventas del Día (selector de fecha, **editar** una venta ya registrada, gastos operativos del día inline) | Pendiente |
+| 3.14 | Historial Mensual (vista por mes, comisiones acumuladas, exportar/imprimir PDF) | Pendiente |
+| 3.15 | Configuración POS (comisiones por método de pago + gastos fijos mensuales — cierra el ciclo de "Utilidad Real" de la sub-fase 3.8) | Pendiente |
+| 3.16 | Revisión final: regresión completa + tabla comparativa actualizada | Pendiente |
+
+**Nota sobre "Cascos desde Factura"** (parte de Calculadora en el local): en el local usa dos parsers de PDF (`pdf_pedido_parser.py`, `pdf_distrifabrica_parser.py`) hechos a la medida del formato exacto de facturas de dos proveedores específicos. No tengo muestras de esos PDFs para replicar el parseo exacto, así que en 3.11 se construye la calculadora completa (funcional, fiel) y esta pieza específica de extracción de PDF se deja como pendiente documentado, a menos que el usuario provea ejemplos de esas facturas para diseñarlo correctamente.
+
+---
 
 Importante: las migraciones 00001-00007 NO deben re-ejecutarse — ya están aplicadas desde el montaje original del sitio, y 00004 hace un DROP masivo de políticas que borraría las nuevas del 00010.
 
