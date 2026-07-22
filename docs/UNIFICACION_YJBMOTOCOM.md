@@ -830,7 +830,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 14 | Reportes | ✅ Auditada y corregida | Ver 15.14 |
 | 15 | Rendimiento Vendedores | ✅ Auditada y corregida | Ver 15.15 |
 | 16 | Usuarios | ✅ Auditada y corregida | Ver 15.16 |
-| 17 | Auditoría | ⏳ pendiente | |
+| 17 | Auditoría | ✅ Auditada, hallazgo grande documentado | Ver 15.17 |
 | 18 | Exportar/Importar | ⏳ pendiente | |
 | 19 | Configuración (comisiones/gastos fijos + tienda) | ⏳ pendiente | |
 
@@ -1018,5 +1018,17 @@ Comparado `config_panel.py._seccion_usuarios` (local: crear usuario con nombre/r
 - UI: formulario "Nuevo usuario", botón de restablecer contraseña (icono de llave, inline) y botón de eliminar (oculto para el propio usuario) en cada fila.
 
 Todas las acciones nuevas quedan admin-only server-side (`requireAuth(request, ['admin'])`) y registran en `audit_logs`.
+
+Verificado tsc/eslint/vitest.
+
+### 15.17 Auditoría (2026-07-22)
+
+Comparado `utils/auditoria.py` (local: `registrar()` se llama en decenas de puntos — venta registrada, factura creada/eliminada, fiado creado/abono/eliminado, préstamo, gasto, usuario creado/eliminado, nota, presupuesto, cambios de configuración, login...) contra `admin/auditoria/page.tsx` + `api/admin/audit-logs/route.ts` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.1): la página ya no usa datos mock — el hallazgo explícito de la sección 12 ("admin/auditoria usa datos mock, no está conectada a la tabla real") ya estaba cerrado; ahora consulta `audit_logs` real vía `GET /api/admin/audit-logs`, con filtros por acción/tabla/actor/fecha y admin-only tanto en cliente como servidor.
+
+**Hallazgo corregido (menor)**: las 4 acciones nuevas que introduje en la sección 15.16 (`user_created`, `user_password_reset`, `user_deleted`, y el ya existente `user_updated`) no tenían etiqueta en español en `actionConfig` — se agregaron.
+
+**Hallazgo grande, confirmado pero NO corregido en esta ronda (fuera de alcance por tamaño)**: la cobertura real de `audit_logs.insert()` en la nube es mucho más angosta que la del local. Grep sobre `apps/web/src/app/api` muestra que solo escriben en `audit_logs` hoy: `inventory/adjust`, `orders/[id]`, `payments/*webhook`, `products/[id]`, `settings`, `daily-closures`, y `users` (recién agregado). **No registran nada**: Registrar Venta (`pos/sales`), Facturas (`supplier-invoices`), Fiado (`customer-credits`), Préstamos (`loans`), Notas, Presupuesto (`monthly-budgets`/`operating-expenses`), Cuentas (`account-movements`/`transfer`/`account-closures`). La infraestructura (tabla, API de lectura, UI con filtros) está completa y lista — falta añadir el `insert` correspondiente en cada una de esas ~8 rutas, una tarea mecánica pero extensa (multiplica por cada acción POST/PUT/DELETE de cada módulo). Dado el tamaño, se deja documentado como candidato claro para una **Fase 5 dedicada** en vez de intentarlo apresurado dentro de esta ronda de auditoría.
 
 Verificado tsc/eslint/vitest.

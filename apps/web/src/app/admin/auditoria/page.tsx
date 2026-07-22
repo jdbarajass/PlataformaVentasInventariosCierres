@@ -43,6 +43,10 @@ const actionConfig: Record<string, { label: string; color: string }> = {
     label: 'Pago confirmado',
     color: 'bg-emerald-500/10 text-emerald-500',
   },
+  user_created: { label: 'Usuario creado', color: 'bg-green-500/10 text-green-500' },
+  user_updated: { label: 'Usuario actualizado', color: 'bg-blue-500/10 text-blue-500' },
+  user_password_reset: { label: 'Contraseña restablecida', color: 'bg-amber-500/10 text-amber-500' },
+  user_deleted: { label: 'Usuario eliminado', color: 'bg-red-500/10 text-red-500' },
 }
 
 const tableConfig: Record<string, string> = {
