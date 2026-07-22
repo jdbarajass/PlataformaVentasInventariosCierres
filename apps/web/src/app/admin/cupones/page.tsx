@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
+import { useAuth } from '@/lib/auth-context'
 import { Coupon } from '@/types/database'
 import { formatPrice } from '@/lib/utils'
 
@@ -49,6 +50,13 @@ const emptyForm: FormData = {
 
 export default function CuponesPage() {
   const { toast } = useToast()
+  const { session } = useAuth()
+  // /api/coupons exige rol admin (requireAuth) — sin este header todas las
+  // operaciones (ver/crear/editar/eliminar) fallaban en silencio con 401.
+  const authHeaders = useCallback(
+    () => ({ Authorization: `Bearer ${session?.access_token}` }),
+    [session?.access_token]
+  )
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [search, setSearch] = useState('')
   const [filterActive, setFilterActive] = useState<string>('all')
@@ -60,8 +68,9 @@ export default function CuponesPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
 
   const fetchCoupons = useCallback(async () => {
+    if (!session?.access_token) return
     try {
-      const res = await fetch('/api/coupons')
+      const res = await fetch('/api/coupons', { headers: authHeaders() })
       const data = await res.json()
       setCoupons(Array.isArray(data) ? data : [])
     } catch {
@@ -69,7 +78,7 @@ export default function CuponesPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [toast])
+  }, [toast, session?.access_token, authHeaders])
 
   useEffect(() => {
     fetchCoupons()
@@ -139,7 +148,7 @@ export default function CuponesPage() {
       const method = editingCoupon ? 'PUT' : 'POST'
       const res = await fetch('/api/coupons', {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(payload),
       })
 
@@ -165,7 +174,7 @@ export default function CuponesPage() {
     try {
       const res = await fetch('/api/coupons', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ id: coupon.id, active: !coupon.active }),
       })
       if (res.ok) {
@@ -184,7 +193,7 @@ export default function CuponesPage() {
     if (!confirm(`¿Eliminar el cupon "${coupon.code}"? Esta accion no se puede deshacer.`)) return
     setDeletingId(coupon.id)
     try {
-      const res = await fetch(`/api/coupons?id=${coupon.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/coupons?id=${coupon.id}`, { method: 'DELETE', headers: authHeaders() })
       if (res.ok) {
         toast({ title: 'Cupon eliminado', description: coupon.code })
         fetchCoupons()

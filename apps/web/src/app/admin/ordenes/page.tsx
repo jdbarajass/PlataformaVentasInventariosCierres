@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDateTime } from '@/lib/utils'
 import { Order } from '@/types/database'
 import { useToast } from '@/components/ui/use-toast'
+import { useAuth } from '@/lib/auth-context'
 
 const statusLabels: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' | 'secondary' }> = {
   pending: { label: 'Pendiente', variant: 'warning' },
@@ -39,21 +40,30 @@ export default function OrdersPage() {
   const [trackingUrl, setTrackingUrl] = useState('')
   const [newStatus, setNewStatus] = useState('')
   const { toast } = useToast()
+  const { session } = useAuth()
 
+  // GET/PUT /api/orders exige admin/seller (requireAuth) — sin el header
+  // Authorization la API devuelve 401 {error: ...}, y como antes se hacía
+  // `setOrders(data || [])` sin validar que fuera un arreglo, ese objeto de
+  // error terminaba en el estado y `orders.filter(...)` reventaba la
+  // página entera ("Algo salió mal").
   const fetchOrders = useCallback(async () => {
+    if (!session?.access_token) return
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.append('status', statusFilter)
 
-      const response = await fetch(`/api/orders?${params}`)
+      const response = await fetch(`/api/orders?${params}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
       const data = await response.json()
-      setOrders(data || [])
+      setOrders(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching orders:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [statusFilter])
+  }, [statusFilter, session?.access_token])
 
   useEffect(() => {
     fetchOrders()
@@ -75,7 +85,10 @@ export default function OrdersPage() {
     try {
       const res = await fetch(`/api/orders/${selectedOrder.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({
           status: newStatus,
           tracking_number: trackingNumber || undefined,

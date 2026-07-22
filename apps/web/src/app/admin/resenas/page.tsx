@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
+import { useAuth } from '@/lib/auth-context'
 
 type Review = {
   id: string
@@ -39,6 +40,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function ResenasPage() {
   const { toast } = useToast()
+  const { session } = useAuth()
   const [reviews, setReviews] = useState<Review[]>([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -46,14 +48,22 @@ export default function ResenasPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
 
+  // /api/reviews exige rol admin (requireAuth) — sin este header todas las
+  // operaciones (ver/aprobar/eliminar) fallaban en silencio con 401.
+  const authHeaders = useCallback(
+    () => ({ Authorization: `Bearer ${session?.access_token}` }),
+    [session?.access_token]
+  )
+
   const fetchReviews = useCallback(async () => {
+    if (!session?.access_token) return
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
       if (filterStatus === 'pending') params.set('approved', 'false')
       if (filterStatus === 'approved') params.set('approved', 'true')
 
-      const res = await fetch(`/api/reviews?${params}`)
+      const res = await fetch(`/api/reviews?${params}`, { headers: authHeaders() })
       const data = await res.json()
       setReviews(Array.isArray(data) ? data : [])
     } catch {
@@ -61,7 +71,7 @@ export default function ResenasPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [filterStatus, toast])
+  }, [filterStatus, toast, session?.access_token, authHeaders])
 
   useEffect(() => {
     fetchReviews()
@@ -72,7 +82,7 @@ export default function ResenasPage() {
     try {
       const res = await fetch('/api/reviews', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ id: review.id, approved: !review.approved }),
       })
       if (res.ok) {
@@ -102,7 +112,7 @@ export default function ResenasPage() {
 
     setProcessingId(review.id)
     try {
-      const res = await fetch(`/api/reviews?id=${review.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/reviews?id=${review.id}`, { method: 'DELETE', headers: authHeaders() })
       if (res.ok) {
         toast({ title: 'Resena eliminada' })
         fetchReviews()
