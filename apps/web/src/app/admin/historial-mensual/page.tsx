@@ -17,7 +17,13 @@ interface OrderRow {
   total_cents: number
   created_at: string
   order_items: { product_id: string; product_title: string; qty: number; total_cents: number; cost_cents: number }[]
-  payments: { commission_cents: number }[]
+  payments: { method: string; commission_cents: number }[]
+}
+
+const methodLabels: Record<string, string> = {
+  cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
+  nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
+  addi: 'Addi', card: 'Datáfono', other: 'Otro',
 }
 
 async function fetchMonthOrders(year: number, month: number) {
@@ -25,7 +31,7 @@ async function fetchMonthOrders(year: number, month: number) {
   const to = new Date(year, month, 1).toISOString()
   const { data } = await supabase
     .from('orders')
-    .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(commission_cents)')
+    .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(method, commission_cents)')
     .eq('payment_status', 'paid')
     .gte('created_at', from)
     .lt('created_at', to)
@@ -95,6 +101,15 @@ export default function HistorialMensualPage() {
   const totalCost = orders.reduce((sum, o) => sum + (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0), 0)
   const totalCommission = orders.reduce((sum, o) => sum + (o.payments || []).reduce((s, p) => s + (p.commission_cents || 0), 0), 0)
   const grossProfit = totalRevenue - totalCost
+
+  // Desglose de comisión por método de pago — igual que el local
+  // (_panel_comisiones en ui/historial_panel.py), que no se limitaba al total.
+  const commissionByMethod = orders.reduce<Record<string, number>>((acc, o) => {
+    (o.payments || []).forEach((p) => {
+      if (p.commission_cents > 0) acc[p.method] = (acc[p.method] || 0) + p.commission_cents
+    })
+    return acc
+  }, {})
 
   // Utilidad Real: igual fórmula que Reportes (sección 13.2 / 4.2.1) — el
   // gasto fijo mensual se resta completo, sin prorratear.
@@ -243,6 +258,18 @@ export default function HistorialMensualPage() {
               <div className="rounded-xl border bg-card p-4">
                 <p className="text-sm text-muted-foreground">Comisiones acumuladas</p>
                 <p className="text-xl font-bold">{formatPrice(totalCommission)}</p>
+                {Object.keys(commissionByMethod).length > 0 && (
+                  <div className="mt-2 space-y-0.5">
+                    {Object.entries(commissionByMethod)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([method, cents]) => (
+                        <div key={method} className="flex justify-between text-xs text-muted-foreground">
+                          <span>{methodLabels[method] || method}</span>
+                          <span>{formatPrice(cents)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
               <div className="rounded-xl border bg-card p-4">
                 <div className="flex items-center gap-2">

@@ -818,7 +818,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 2 | Calculadora | ✅ Auditada, sin hallazgos | Ver 15.2 |
 | 3 | Mi Cuadre | ✅ Auditada, sin hallazgos | Ver 15.3 |
 | 4 | Ventas del Día | ✅ Auditada y corregida | Ver 15.4 |
-| 5 | Historial Mensual | ⏳ pendiente | |
+| 5 | Historial Mensual | ✅ Auditada y corregida | Ver 15.5 |
 | 6 | Inventario | ⏳ pendiente | |
 | 7 | Cuentas | ⏳ pendiente | |
 | 8 | Facturas | ⏳ pendiente | |
@@ -870,3 +870,18 @@ Comparado `ui/ventas_dia_panel.py` + `controllers/ventas_dia_controller.py` (loc
 - No se tocó el esquema de base de datos (la columna sigue siendo `TEXT` libre — filas viejas con categorías arbitrarias, si las hay, no se ven afectadas) ni las validaciones de servidor (zod ya exige no-vacío, ahora el cliente solo puede elegir de la lista cerrada).
 
 No se creó migración nueva (solo cambio de UI/cliente). Verificado tsc/eslint/vitest.
+
+### 15.5 Historial Mensual (2026-07-22)
+
+Comparado `ui/historial_panel.py` + `controllers/historial_controller.py` (local) contra `admin/historial-mensual/page.tsx` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.2): Utilidad Real del mes (sin prorratear, igual que Reportes), comparativa vs. mes anterior con % de delta, rentabilidad por producto (top 10 por ganancia neta), tabla diaria con estado Positivo/Negativo, Top 10 productos, gating de costo/ganancia solo a admin, exportar/imprimir con totales.
+
+**Hallazgo corregido**: el local desglosa la comisión por método de pago en un panel de chips (`_panel_comisiones`); la nube solo mostraba el total acumulado sin desglose. Se agregó el desglose por método debajo de la tarjeta "Comisiones acumuladas" (se amplió el `select` de Supabase para traer `payments(method, commission_cents)` en vez de solo `commission_cents`).
+
+**Diferencias que se dejaron como están, por tener equivalente funcional en otra parte de la app (no son huecos reales)**:
+- Drill-down para editar/eliminar ventas de un día específico desde este panel: no está aquí, pero `/admin/ventas-dia` ya cubre exactamente eso (elegir cualquier fecha y editar/eliminar).
+- Modo "rango de fechas libre" (alternativo al mes calendario): no está aquí, pero `/admin/reportes` ya lo tiene.
+- Exportar a Excel con hoja de préstamos incluida (el local lo hace desde Historial): la nube exporta/imprime HTML simple desde aquí, pero el Excel completo de 18 hojas (incluida Préstamos) ya existe en `/admin/exportar-importar`.
+
+Commit pendiente (se incluye junto con el resto de esta sesión). Verificado tsc/eslint/vitest.
