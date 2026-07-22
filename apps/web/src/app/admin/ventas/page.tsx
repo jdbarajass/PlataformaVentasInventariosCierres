@@ -39,7 +39,10 @@ interface ProductResult {
 
 interface CartLine {
   key: string
-  product_id: string
+  // null = ítem manual fuera de catálogo (igual que el software local, que
+  // permite vender un producto que no está en inventario con nombre/costo
+  // /precio libres — ver _LineaProducto._cargar_variantes en venta_form.py).
+  product_id: string | null
   variant_id: string | null
   title: string
   talla: string | null
@@ -114,6 +117,13 @@ export default function VentasPage() {
   // atender otro cliente y retomarla después — solo estado del navegador,
   // sin persistencia en BD, igual que el software local (venta_form.py).
   const [standbyCarts, setStandbyCarts] = useState<StandbyCart[]>([])
+
+  // Ítem manual fuera de catálogo (ver CartLine.product_id) — mismo caso de
+  // uso que el software local: un producto que no está en inventario.
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualTitle, setManualTitle] = useState('')
+  const [manualPrice, setManualPrice] = useState('')
+  const [manualCost, setManualCost] = useState('')
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -247,6 +257,34 @@ export default function VentasPage() {
     })
   }
 
+  const addManualItem = () => {
+    const price = Math.round((parseFloat(manualPrice) || 0) * 100)
+    if (!manualTitle.trim() || price <= 0) {
+      toast({ title: 'Error', description: 'Ingresa un nombre y un precio mayor a cero', variant: 'destructive' })
+      return
+    }
+    const cost = canViewProfit ? Math.round((parseFloat(manualCost) || 0) * 100) : 0
+    setCart((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        product_id: null,
+        variant_id: null,
+        title: manualTitle.trim(),
+        talla: null,
+        qty: 1,
+        price_cents: price,
+        cost_cents: cost,
+        discount_cents: 0,
+        max_stock: 999999,
+      },
+    ])
+    setManualTitle('')
+    setManualPrice('')
+    setManualCost('')
+    setShowManualForm(false)
+  }
+
   const updateCartLine = (key: string, patch: Partial<CartLine>) => {
     setCart((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
   }
@@ -358,6 +396,8 @@ export default function VentasPage() {
           items: cart.map((l) => ({
             product_id: l.product_id,
             variant_id: l.variant_id,
+            manual_title: l.product_id ? undefined : l.title,
+            manual_cost_cents: l.product_id ? undefined : l.cost_cents,
             qty: l.qty,
             price_cents: l.price_cents,
             discount_cents: l.discount_cents,
@@ -459,6 +499,54 @@ export default function VentasPage() {
             )}
           </div>
 
+          {/* Ítem manual fuera de catálogo — igual que el software local,
+              que permite vender un producto que no está en inventario. */}
+          <div>
+            {showManualForm ? (
+              <div className="space-y-2 rounded-xl border bg-card p-3">
+                <p className="text-xs font-medium text-muted-foreground">Producto fuera de catálogo</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Input
+                    placeholder="Nombre del producto"
+                    value={manualTitle}
+                    onChange={(e) => setManualTitle(e.target.value)}
+                    className="rounded-lg"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Precio de venta"
+                    value={manualPrice}
+                    onChange={(e) => setManualPrice(e.target.value)}
+                    className="rounded-lg"
+                  />
+                  {canViewProfit && (
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Costo (opcional)"
+                      value={manualCost}
+                      onChange={(e) => setManualCost(e.target.value)}
+                      className="rounded-lg"
+                    />
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="rounded-lg" onClick={addManualItem}>
+                    <Plus className="mr-1 h-3 w-3" /> Agregar al carrito
+                  </Button>
+                  <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setShowManualForm(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" className="rounded-lg" onClick={() => setShowManualForm(true)}>
+                <Plus className="mr-1 h-3 w-3" /> Producto fuera de catálogo
+              </Button>
+            )}
+          </div>
+
           {results.length > 0 && (
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border bg-card p-2">
               {results.map((product) => (
@@ -521,6 +609,11 @@ export default function VentasPage() {
                         <td className="px-4 py-2">
                           <p className="font-medium">{line.title}</p>
                           {line.talla && <Badge variant="outline" className="mt-1">{line.talla}</Badge>}
+                          {!line.product_id && (
+                            <Badge variant="outline" className="mt-1 border-amber-500/30 bg-amber-500/10 text-amber-600">
+                              Fuera de catálogo
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-4 py-2">
                           <Input

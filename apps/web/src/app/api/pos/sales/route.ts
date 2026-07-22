@@ -4,14 +4,23 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { resolveSale } from '@/lib/pos-sale'
 import { z } from 'zod'
 
-const saleItemSchema = z.object({
-  product_id: z.string().uuid(),
-  variant_id: z.string().uuid().optional().nullable(),
-  qty: z.number().int().positive(),
-  // El precio debe ser mayor a cero, igual que el software local.
-  price_cents: z.number().int().positive(),
-  discount_cents: z.number().int().min(0).default(0),
-})
+const saleItemSchema = z
+  .object({
+    // Ausente/null = ítem manual fuera de catálogo (el local permite vender
+    // un producto que no está en inventario con nombre/costo/precio libres).
+    product_id: z.string().uuid().optional().nullable(),
+    variant_id: z.string().uuid().optional().nullable(),
+    manual_title: z.string().trim().min(1).optional(),
+    manual_cost_cents: z.number().int().min(0).optional(),
+    qty: z.number().int().positive(),
+    // El precio debe ser mayor a cero, igual que el software local.
+    price_cents: z.number().int().positive(),
+    discount_cents: z.number().int().min(0).default(0),
+  })
+  .refine((item) => item.product_id || item.manual_title, {
+    message: 'El ítem debe tener product_id o un nombre manual (manual_title)',
+    path: ['product_id'],
+  })
 
 const salePaymentSchema = z.object({
   method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi']),

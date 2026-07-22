@@ -1,8 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface SaleItemInput {
-  product_id: string
+  // Ausente/null = ítem manual fuera de catálogo (igual que el software
+  // local, que permite vender un producto que no está en inventario con
+  // nombre/costo/precio libres) — en ese caso manual_title es obligatorio.
+  product_id?: string | null
   variant_id?: string | null
+  manual_title?: string
+  manual_cost_cents?: number
   qty: number
   price_cents: number
   discount_cents?: number
@@ -30,11 +35,11 @@ export async function resolveSale(
   items: SaleItemInput[],
   payments: SalePaymentInput[]
 ) {
-  const productIds = Array.from(new Set(items.map((i) => i.product_id)))
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, title, sku, images, cost_cents, active')
-    .in('id', productIds)
+  const productIds = Array.from(new Set(items.map((i) => i.product_id).filter(Boolean))) as string[]
+  const { data: products, error: productsError } =
+    productIds.length > 0
+      ? await supabase.from('products').select('id, title, sku, images, cost_cents, active').in('id', productIds)
+      : { data: [], error: null }
 
   if (productsError) throw productsError
 
@@ -53,6 +58,12 @@ export async function resolveSale(
   }
 
   for (const item of items) {
+    if (!item.product_id) {
+      if (!item.manual_title?.trim()) {
+        throw new Error('Los ítems fuera de catálogo requieren un nombre')
+      }
+      continue
+    }
     const product = productsById.get(item.product_id)
     if (!product || !product.active) {
       throw new Error(`Producto no encontrado o inactivo: ${item.product_id}`)
@@ -63,10 +74,29 @@ export async function resolveSale(
   }
 
   const resolvedItems = items.map((item) => {
-    const product = productsById.get(item.product_id)
-    const variant = item.variant_id ? variantsById.get(item.variant_id) : null
     const discount_cents = item.discount_cents || 0
     const total_cents = item.qty * item.price_cents - discount_cents
+
+    // Ítem manual fuera de catálogo: sin product_id, se usa lo que el
+    // usuario escribió (nombre/costo) tal cual, igual que el software local.
+    if (!item.product_id) {
+      return {
+        product_id: null,
+        variant_id: null,
+        product_title: item.manual_title!.trim(),
+        product_sku: null,
+        product_image: null,
+        product_talla: null,
+        qty: item.qty,
+        price_cents: item.price_cents,
+        cost_cents: item.manual_cost_cents || 0,
+        discount_cents,
+        total_cents,
+      }
+    }
+
+    const product = productsById.get(item.product_id)
+    const variant = item.variant_id ? variantsById.get(item.variant_id) : null
     return {
       product_id: item.product_id,
       variant_id: item.variant_id || null,
