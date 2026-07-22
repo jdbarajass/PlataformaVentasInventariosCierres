@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, Fragment } from 'react'
+import Link from 'next/link'
 import {
   Package,
   Search,
@@ -9,6 +10,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Download,
+  Upload,
   Loader2,
   Check,
   X,
@@ -436,6 +438,14 @@ export default function InventarioPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {canEdit && (
+            <Link href="/admin/inventario/cargue-pedidos">
+              <Button variant="outline" className="rounded-xl">
+                <Upload className="mr-2 h-4 w-4" />
+                Cargue de Pedidos
+              </Button>
+            </Link>
+          )}
           <Button variant="outline" className="rounded-xl" onClick={handleExportCSV}>
             <Download className="mr-2 h-4 w-4" />
             Exportar
