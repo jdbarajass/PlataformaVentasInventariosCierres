@@ -12,6 +12,11 @@ const creditUpdateSchema = z.object({
   // El software local permite editar el monto total de un fiado ya creado
   // — sección 12.4/13.3 ítem 4.3.11 de la auditoría de fidelidad.
   total_amount_cents: z.number().int().min(0).optional(),
+  // El local permite marcar un fiado como pagado sin verificar que el saldo
+  // esté cubierto (condona la deuda restante) — _on_marcar_pagado en
+  // ui/fiado_panel.py. La nube no tenía ninguna vía para esto (sección 12.4).
+  // Solo admin puede condonar deuda (ver gate de rol más abajo).
+  force_paid: z.boolean().optional(),
 })
 
 // GET - Detalle de un fiado (con abonos)
@@ -63,11 +68,22 @@ export async function PUT(
     const body = await request.json()
     const validatedData = creditUpdateSchema.parse(body)
 
-    const updatePayload: Record<string, any> = { ...validatedData, updated_at: new Date().toISOString() }
+    if (validatedData.force_paid && auth.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Solo un administrador puede marcar un fiado como pagado sin cubrir el saldo' },
+        { status: 403 }
+      )
+    }
+
+    const { force_paid, ...rest } = validatedData
+    const updatePayload: Record<string, any> = { ...rest, updated_at: new Date().toISOString() }
+    if (force_paid) {
+      updatePayload.status = 'paid'
+    }
 
     // Si se edita el monto total, recalcula el estado contra lo ya abonado
     // (nunca se permite bajar el total por debajo de lo ya pagado).
-    if (validatedData.total_amount_cents !== undefined) {
+    if (!force_paid && validatedData.total_amount_cents !== undefined) {
       const { data: paymentsData } = await supabase
         .from('customer_credit_payments')
         .select('amount_cents')

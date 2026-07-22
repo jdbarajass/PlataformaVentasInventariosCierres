@@ -35,7 +35,19 @@ interface CustomerCredit {
   total_amount_cents: number
   status: 'pending' | 'paid'
   notes: string | null
+  created_at: string
   payments: CreditPayment[]
+}
+
+// Antigüedad del fiado — igual que la columna "Días" coloreada del local
+// (ui/fiado_panel.py): verde ≤7 días, naranja ≤30, rojo >30.
+function daysOld(createdAt: string): number {
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24))
+}
+function ageBadgeClass(days: number): string {
+  if (days <= 7) return 'bg-green-500/10 text-green-500 border-green-500/20'
+  if (days <= 30) return 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+  return 'bg-red-500/10 text-red-500 border-red-500/20'
 }
 
 interface Account {
@@ -68,6 +80,8 @@ export default function FiadoPage() {
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const isAdmin = userProfile?.role === 'admin'
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -124,8 +138,8 @@ export default function FiadoPage() {
     .reduce((sum, c) => sum + (c.total_amount_cents - paidSoFar(c)), 0)
 
   const handleCreate = async () => {
-    if (!form.customer_name.trim() || !form.total_amount) {
-      toast({ title: 'Error', description: 'Nombre del cliente y monto son obligatorios', variant: 'destructive' })
+    if (!form.customer_name.trim() || !form.description.trim() || !form.total_amount || parseFloat(form.total_amount) <= 0) {
+      toast({ title: 'Error', description: 'Nombre del cliente, descripción y un monto mayor a cero son obligatorios', variant: 'destructive' })
       return
     }
     try {
@@ -214,6 +228,28 @@ export default function FiadoPage() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSavingAmount(false)
+    }
+  }
+
+  const handleMarkPaid = async (credit: CustomerCredit) => {
+    if (!confirm(`¿Marcar el fiado de "${credit.customer_name}" como pagado? Esto condona el saldo pendiente sin registrar un abono por esa diferencia.`)) return
+    try {
+      setMarkingPaidId(credit.id)
+      const res = await fetch(`/api/customer-credits/${credit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ force_paid: true }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al marcar el fiado como pagado')
+      }
+      toast({ title: 'Fiado marcado como pagado' })
+      await fetchCredits()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setMarkingPaidId(null)
     }
   }
 
@@ -321,6 +357,11 @@ export default function FiadoPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    {credit.status === 'pending' && (
+                      <Badge variant="outline" className={ageBadgeClass(daysOld(credit.created_at))}>
+                        {daysOld(credit.created_at)}d
+                      </Badge>
+                    )}
                     <Badge variant="outline" className={credit.status === 'paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
                       {credit.status === 'paid' ? 'Pagado' : 'Pendiente'}
                     </Badge>
@@ -425,6 +466,18 @@ export default function FiadoPage() {
                         >
                           Usar saldo restante
                         </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-lg text-amber-600"
+                            onClick={() => handleMarkPaid(credit)}
+                            disabled={markingPaidId === credit.id}
+                          >
+                            {markingPaidId === credit.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                            Marcar como pagado (condonar saldo)
+                          </Button>
+                        )}
                       </div>
                     )}
 

@@ -7,8 +7,11 @@ const creditSchema = z.object({
   customer_name: z.string().min(1, 'El nombre del cliente es obligatorio'),
   customer_id_number: z.string().optional().nullable(),
   customer_phone: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  total_amount_cents: z.number().int().min(0),
+  // El local exige descripción y monto > 0 (models/fiado.py) — la nube los
+  // permitía vacíos/cero (sección 12.4 de la auditoría de fidelidad, nunca
+  // cerrado en la Fase 4).
+  description: z.string().min(1, 'La descripción es obligatoria'),
+  total_amount_cents: z.number().int().positive('El monto debe ser mayor a cero'),
   notes: z.string().optional().nullable(),
   initial_payment_cents: z.number().int().min(0).optional(),
   initial_payment_account_id: z.string().uuid().optional().nullable(),

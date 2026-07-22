@@ -822,7 +822,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 6 | Inventario | ✅ Auditada y corregida | Ver 15.8 |
 | 7 | Cuentas | ✅ Auditada, sin hallazgos | Ver 15.6 |
 | 8 | Facturas | ✅ Auditada y corregida | Ver 15.7 |
-| 9 | Fiado | ⏳ pendiente | |
+| 9 | Fiado | ✅ Auditada y corregida | Ver 15.9 |
 | 10 | Préstamos | ⏳ pendiente | |
 | 11 | Notas | ⏳ pendiente | |
 | 12 | Presupuesto | ⏳ pendiente | |
@@ -920,5 +920,18 @@ Comparado `ui/inventario_panel.py` (local, 1796 líneas) contra `admin/inventari
 **Hallazgos corregidos**:
 1. **Valor total de inventario** (`_lbl_valor_inventario` del local: `Σ costo_unitario × cantidad`, oculto a vendedor) no tenía ningún equivalente en la nube — el ítem había quedado como "a verificar" en la sección 12, nunca confirmado ni cerrado. Se agregó una 5ª tarjeta "Valor de inventario" (solo si `canViewCost`), calculada aparte de la lista paginada de productos (que no trae costo de variante) con dos consultas directas a `products` y `product_variants` vía `supabaseBrowser`, sumando el costo del nivel correcto según si el producto tiene variantes o no (para no contar el stock dos veces). Se refresca tras cualquier ajuste de stock o cambio de variante.
 2. Los tipos de movimiento `exchange`/`deleted` (ya soportados en la base de datos desde Fase 4.3) no tenían etiqueta en español en la lista de "Movimientos recientes" de esta página (`typeLabels` solo tenía los 5 tipos originales) — se agregaron "Cambio" y "Eliminado".
+
+Verificado tsc/eslint/vitest.
+
+### 15.9 Fiado (2026-07-22)
+
+Comparado `ui/fiado_panel.py` + `controllers/fiado_controller.py` (local) contra `admin/fiado/page.tsx` + `api/customer-credits/**` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.3): edición del monto total de un fiado ya creado (`creditUpdateSchema` sí incluye `total_amount_cents`, contra lo que decía la sección 12 — ya se había cerrado), botón "Usar saldo restante". La integración Fiado↔Cuentas sigue siendo una mejora consciente sobre el local (decisión de la sección 12.7, no se toca).
+
+**Hallazgos corregidos** (ambos señalados en la sección 12, ninguno cerrado hasta ahora):
+1. **Validaciones más laxas que el local**: la nube permitía crear un fiado sin descripción y con monto $0; el local exige ambos (`models/fiado.py`). Se corrigió el zod de `POST /api/customer-credits` (`description` ahora obligatoria, `total_amount_cents` debe ser `> 0`, antes `>= 0`) y la validación de cliente en el formulario.
+2. **Sin antigüedad ni alertas de fiados vencidos**: el local colorea la fila con los días transcurridos (verde ≤7, naranja ≤30, rojo >30); la nube no tenía ninguna columna de antigüedad (el recordatorio al iniciar sesión de la Fase 4.3 solo cubre el popup, no la vista de la lista). Se agregó un badge de días con los mismos 3 umbrales de color en cada fiado pendiente.
+3. **Sin forma de "marcar como pagado" condonando saldo**: el local permite cerrar un fiado como pagado aunque quede saldo sin cubrir (`_on_marcar_pagado`); la nube solo llegaba a `paid` automáticamente cuando la suma de abonos cubría el 100%. Se agregó `force_paid` al endpoint `PUT /api/customer-credits/[id]` (fija `status='paid'` sin validar cobertura) — **restringido a admin únicamente** server-side (a diferencia del resto de acciones de Fiado, que son admin+seller), porque condonar una deuda es una decisión de negocio más sensible que registrar un abono normal. Botón visible solo para admin, con confirmación explícita.
 
 Verificado tsc/eslint/vitest.
