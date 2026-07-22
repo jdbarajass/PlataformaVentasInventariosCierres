@@ -826,7 +826,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 10 | Préstamos | ✅ Auditada y corregida | Ver 15.10 |
 | 11 | Notas | ✅ Auditada y corregida | Ver 15.11 |
 | 12 | Presupuesto | ✅ Auditada y corregida | Ver 15.12 |
-| 13 | Cierres | ⏳ pendiente | |
+| 13 | Cierres | ✅ Auditada, sin cambios (ver nota) | Ver 15.13 |
 | 14 | Reportes | ⏳ pendiente | |
 | 15 | Rendimiento Vendedores | ⏳ pendiente | |
 | 16 | Usuarios | ⏳ pendiente | |
@@ -918,7 +918,13 @@ Comparado `ui/presupuesto_panel.py` (local) contra `admin/presupuesto/page.tsx` 
 
 Verificado tsc/eslint/vitest.
 
-### 15.6 Cuentas (2026-07-22)
+### 15.13 Cierres (2026-07-22)
+
+El local **no tiene ningún módulo llamado "Cierres"** por separado — su único concepto de cierre es el cierre mensual de cuentas (`hacer_cierre_mes`), que vive dentro de `ui/cuentas_panel.py` (pestaña "Cierres") y que ya se auditó y confirmó fiel en la sección 15.6 (`/admin/cuentas` → pestaña Cierres, tabla `account_closures`).
+
+`/admin/cierres` en la nube (`DailyClosuresPage`, tabla `daily_closures`) es una funcionalidad **preexistente de la tienda, anterior a este proyecto de unificación** — una declaración manual diaria de cuánto se recibió en efectivo/tarjeta/transferencia/billetera/otro, independiente de las ventas reales del sistema. No corresponde a nada del software local, así que no hay nada que "corregir" por fidelidad.
+
+**Observación para decidir con el usuario (no se tocó código)**: `/admin/cierres` (declaración manual) y `/admin/mi-cuadre` (cálculo automático real a partir de las ventas de mostrador, sección 15.3) cubren un terreno similar — reconciliar el efectivo/medios de pago del día — pero una es manual/declarativa y la otra es automática/real. Vale la pena que el usuario confirme si `/admin/cierres` todavía se usa (p. ej. para comparar lo declarado contra lo real y detectar faltantes de caja) o si quedó como remanente de antes de tener ventas de mostrador reales, en cuyo caso podría consolidarse o retirarse. No se modificó ni eliminó nada sin esa confirmación.
 
 Comparado `ui/cuentas_panel.py` (local, "visible solo para Admin") contra `admin/cuentas/page.tsx` + rutas API relacionadas. **Sin hallazgos** — confirmado 100% fiel y en algunos puntos más seguro que el local:
 - La página completa está gateada a admin (`if (!isAdmin) return <Lock/>...`), igual que el local.
