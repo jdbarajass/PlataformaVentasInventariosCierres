@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-22
-**Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas** — los 16 módulos del local están en la nube (sección 11) y los ~35 hallazgos de la auditoría de fidelidad detallada quedaron corregidos (sección 12/13). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00024 aplicadas por el usuario en Supabase real, salvo las últimas confirmaciones pendientes de la Fase 4 (ver sección 13.5). Además se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, ver sección 14). **En curso: sección 15, nueva auditoría exhaustiva sección-por-sección** (a pedido del usuario, para verificar que las Fases 4.1-4.4 realmente cerraron todo y detectar lo que se haya escapado) — ver progreso y hallazgos ahí.
+**Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas**, más una **segunda auditoría exhaustiva sección-por-sección (sección 15/16) también completa** — las 19 secciones del panel admin fueron comparadas contra el software local módulo por módulo y se corrigieron 15 hallazgos reales adicionales que la Fase 4 no había cerrado (ver sección 16 para el resumen ejecutivo). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00025 pendientes de aplicar/confirmar por el usuario en Supabase real (la `00025` es nueva, de esta ronda). Se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, sección 14). Queda documentado un candidato claro para una futura Fase 5: ampliar la cobertura de `audit_logs` a ~8 módulos que hoy no registran nada (sección 15.17).
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
 
@@ -832,7 +832,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 16 | Usuarios | ✅ Auditada y corregida | Ver 15.16 |
 | 17 | Auditoría | ✅ Auditada, hallazgo grande documentado | Ver 15.17 |
 | 18 | Exportar/Importar | ✅ Auditada y corregida | Ver 15.18 |
-| 19 | Configuración (comisiones/gastos fijos + tienda) | ⏳ pendiente | |
+| 19 | Configuración (comisiones/gastos fijos + tienda) | ✅ Auditada y corregida | Ver 15.19 |
 
 ### 15.1 Registrar Venta (2026-07-22)
 
@@ -1044,3 +1044,46 @@ Comparado `services/exportador.py`/`services/importador.py` (local) contra `lib/
 **Revisado y descartado deliberadamente (no es un hallazgo, es una decisión de seguridad)**: "Borrar base de datos" (`resetear_base_datos()` del local) **no se implementó a propósito**. En el local, la base SQLite es de uso interno exclusivo del negocio — borrarla no afecta nada más. En la nube, la base de datos es la **misma** que sirve la tienda pública en vivo (catálogo, pedidos reales, clientes) — un botón de "borrar todo" aquí sería capaz de destruir la tienda en producción, no solo los datos internos del POS. Replicar esta función literalmente sería peligroso, no fiel; se deja fuera y se documenta el motivo.
 
 Verificado tsc/eslint/vitest.
+
+### 15.19 Configuración (2026-07-22)
+
+Comparado `models/configuracion.py` + `ui/config_panel.py` (local) contra `admin/configuracion-pos/page.tsx` (comisiones/gastos fijos) + `admin/configuracion/page.tsx` (tienda) + `api/settings/route.ts` (nube). Última sección de esta ronda.
+
+**Confirmado que ya coincide** (de la Fase 4.2/4.1): comisiones NU y QR/Bancolombia ya tienen campo independiente (antes cayeron en un "transfer" genérico — hallazgo de la sección 12, ya cerrado), gate de cliente en ambas páginas de configuración (`admin/configuracion-pos` y `admin/configuracion`).
+
+**Hallazgo corregido**: no había ninguna validación de rango en las comisiones (se podía guardar un valor negativo o mayor a 100%) ni en los gastos fijos (montos negativos, "días del mes" fuera de 1-31) — señalado en la sección 12 ("acepta cualquier número, incluso negativo, sin el `min='0'` del HTML siendo suficiente barrera real"). Se agregó validación con zod en `PUT /api/settings` (comisiones 0-100%, gastos fijos ≥0, días del mes 1-31) y en el cliente antes de enviar. A diferencia del local (que solo valida Addi/Datafono/Transferencia, dejando Nequi/NU/QR/Daviplata sin validar — su propia auditoría lo señala como incompleto), aquí se validan **todos** los métodos de forma consistente, sin replicar el hueco del local.
+
+**Confirmado sin cambios, por ser decisiones ya tomadas explícitamente** (sección 12.7/13): `clave_inventario` (step-up de admin) no se replica — Fase 4.1 optó por restringir la escritura de inventario a admin directamente, más simple y "igual de seguro". `nombre_impresora`/ESC-POS no aplica — los recibos usan PDF+navegador. `timeout_minutos`/bloqueo por inactividad y `backup_automatico_activo` no tienen equivalente — el primero no se ha priorizado, el segundo no aplica igual en la nube (Supabase gestiona sus propios backups de infraestructura, a diferencia de una SQLite local sin ningún respaldo automático de la plataforma).
+
+Verificado tsc/eslint/vitest.
+
+---
+
+## 16. Cierre de la auditoría exhaustiva sección-por-sección (2026-07-22)
+
+Las 19 secciones de la sección 15 quedaron auditadas. Resumen ejecutivo:
+
+**Hallazgos reales encontrados y corregidos en esta ronda** (16 commits, todos en `main`, ninguno pusheado):
+1. Registrar Venta — ítems fuera de catálogo (crítico, migración `00025` pendiente de aplicar).
+2. Ventas del Día / Presupuesto — categorías de gasto cerradas (antes texto libre).
+3. Historial Mensual — comisión por método de pago.
+4. Inventario — valor total de inventario + etiquetas de movimiento.
+5. Facturas — desglose de vencimientos en $ por franja.
+6. Fiado — validaciones más estrictas, antigüedad/alertas, condonar saldo (admin-only).
+7. Préstamos — producto fuera de catálogo en la UI.
+8. Notas — contador de resumen, edición de texto/fecha.
+9. Presupuesto — panel de contexto de gastos fijos mensuales.
+10. Reportes — comisión por método, método más usado, horas pico, día más rentable, tabla diaria con estado.
+11. Rendimiento Vendedores — incluir vendedores sin ventas.
+12. Usuarios — crear/eliminar/restablecer contraseña (antes solo editar rol).
+13. Auditoría — etiquetas de acciones nuevas.
+14. Exportar/Importar — plantilla vacía.
+15. Configuración — validación de rango en comisiones/gastos fijos.
+
+**Sin hallazgos, confirmadas 100% fieles**: Calculadora, Mi Cuadre, Cuentas.
+
+**Sin equivalente local / fuera de alcance por diseño (documentado, no corregido)**: Cierres (`/admin/cierres` es una función preexistente de la tienda, posible redundancia con Mi Cuadre — pregunta abierta para el usuario) y la cobertura de `audit_logs` en ~8 módulos que todavía no registran nada (Registrar Venta, Facturas, Fiado, Préstamos, Notas, Presupuesto, Cuentas) — candidato claro para una **Fase 5 dedicada**, ya que la infraestructura de lectura/UI está lista, solo falta agregar el `insert` en cada ruta.
+
+**Decisiones deliberadas confirmadas, no son bugs**: costo oculto al vendedor sin markup ficticio, edición de inventario 100% admin-only sin step-up, "Borrar base de datos" no replicado (peligroso en una BD compartida con la tienda en vivo), validaciones "invertidas" de Facturas mantenidas por ser mejores que las del local, seller_id automático en vez de combo manual de vendedor (confirmado con el usuario que cada vendedor tiene su propia cuenta).
+
+**Pendientes acumulados de todo el proyecto** (sin cambios desde antes de esta ronda): aplicar en Supabase, en orden, las migraciones `00019` a `00025`; autorizar el `git push` cuando el usuario quiera desplegar.

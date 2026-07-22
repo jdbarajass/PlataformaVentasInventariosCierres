@@ -56,9 +56,14 @@ export default function ConfiguracionPosPage() {
 
   const handleSaveRates = async () => {
     if (!session?.access_token) return
+    const payload = Object.fromEntries(Object.entries(rates).map(([k, v]) => [k, parseFloat(v) || 0]))
+    const outOfRange = Object.entries(payload).find(([, v]) => v < 0 || v > 100)
+    if (outOfRange) {
+      toast({ title: 'Error', description: `${methodLabels[outOfRange[0]] || outOfRange[0]}: la comisión debe estar entre 0 y 100%`, variant: 'destructive' })
+      return
+    }
     try {
       setSavingRates(true)
-      const payload = Object.fromEntries(Object.entries(rates).map(([k, v]) => [k, parseFloat(v) || 0]))
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -124,7 +129,7 @@ export default function ConfiguracionPosPage() {
             <div key={key}>
               <label className="text-sm text-muted-foreground">{label} (%)</label>
               <Input
-                type="number" min="0" step="0.1"
+                type="number" min="0" max="100" step="0.1"
                 value={rates[key] ?? '0'}
                 onChange={(e) => setRates((prev) => ({ ...prev, [key]: e.target.value }))}
                 className="rounded-lg"

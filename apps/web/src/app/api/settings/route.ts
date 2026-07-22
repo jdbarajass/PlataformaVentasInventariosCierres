@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { z } from 'zod'
+
+// Validación de rango 0-100% en comisiones y de montos no-negativos en
+// gastos fijos — el local también valida esto (config_controller.py
+// ._validar()), aunque de forma incompleta (solo Addi/Datafono/Transferencia).
+// Aquí se valida de forma consistente para todos los métodos, en vez de
+// replicar el hueco del local (sección 12.2 de la auditoría de fidelidad:
+// "la nube no valida ningún rango... acepta cualquier número, incluso negativo").
+const commissionRatesSchema = z.record(z.string(), z.number().min(0).max(100)).optional()
+const fixedExpensesSchema = z
+  .object({
+    arriendo_cents: z.number().int().min(0),
+    sueldo_cents: z.number().int().min(0),
+    servicios_cents: z.number().int().min(0),
+    otros_gastos_cents: z.number().int().min(0),
+    dias_mes: z.number().int().min(1).max(31),
+  })
+  .optional()
 
 export async function GET() {
   try {
@@ -34,6 +52,25 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
+
+    if (body.pos_commission_rates !== undefined) {
+      const validation = commissionRatesSchema.safeParse(body.pos_commission_rates)
+      if (!validation.success) {
+        return NextResponse.json(
+          { error: 'Las comisiones deben estar entre 0 y 100%', details: validation.error.errors },
+          { status: 400 }
+        )
+      }
+    }
+    if (body.fixed_monthly_expenses !== undefined) {
+      const validation = fixedExpensesSchema.safeParse(body.fixed_monthly_expenses)
+      if (!validation.success) {
+        return NextResponse.json(
+          { error: 'Gastos fijos inválidos (montos no pueden ser negativos, días del mes entre 1 y 31)', details: validation.error.errors },
+          { status: 400 }
+        )
+      }
+    }
 
     const supabase = getServiceSupabase()
 
