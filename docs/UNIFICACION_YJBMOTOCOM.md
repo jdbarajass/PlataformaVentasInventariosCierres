@@ -827,7 +827,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 11 | Notas | ✅ Auditada y corregida | Ver 15.11 |
 | 12 | Presupuesto | ✅ Auditada y corregida | Ver 15.12 |
 | 13 | Cierres | ✅ Auditada, sin cambios (ver nota) | Ver 15.13 |
-| 14 | Reportes | ⏳ pendiente | |
+| 14 | Reportes | ✅ Auditada y corregida | Ver 15.14 |
 | 15 | Rendimiento Vendedores | ⏳ pendiente | |
 | 16 | Usuarios | ⏳ pendiente | |
 | 17 | Auditoría | ⏳ pendiente | |
@@ -926,6 +926,8 @@ El local **no tiene ningún módulo llamado "Cierres"** por separado — su úni
 
 **Observación para decidir con el usuario (no se tocó código)**: `/admin/cierres` (declaración manual) y `/admin/mi-cuadre` (cálculo automático real a partir de las ventas de mostrador, sección 15.3) cubren un terreno similar — reconciliar el efectivo/medios de pago del día — pero una es manual/declarativa y la otra es automática/real. Vale la pena que el usuario confirme si `/admin/cierres` todavía se usa (p. ej. para comparar lo declarado contra lo real y detectar faltantes de caja) o si quedó como remanente de antes de tener ventas de mostrador reales, en cuyo caso podría consolidarse o retirarse. No se modificó ni eliminó nada sin esa confirmación.
 
+### 15.6 Cuentas (2026-07-22)
+
 Comparado `ui/cuentas_panel.py` (local, "visible solo para Admin") contra `admin/cuentas/page.tsx` + rutas API relacionadas. **Sin hallazgos** — confirmado 100% fiel y en algunos puntos más seguro que el local:
 - La página completa está gateada a admin (`if (!isAdmin) return <Lock/>...`), igual que el local.
 - `GET /api/accounts` sigue disponible para `seller` (porque Registrar Venta/Ventas del Día/Presupuesto/Fiado/Facturas necesitan el combo de cuenta), pero el servidor **elimina `balance_cents` de la respuesta si el rol no es admin** — comentario explícito en el código citando esta misma regla. El vendedor nunca ve saldos, ni siquiera inspeccionando la respuesta de red.
@@ -971,5 +973,24 @@ Comparado `ui/fiado_panel.py` + `controllers/fiado_controller.py` (local) contra
 1. **Validaciones más laxas que el local**: la nube permitía crear un fiado sin descripción y con monto $0; el local exige ambos (`models/fiado.py`). Se corrigió el zod de `POST /api/customer-credits` (`description` ahora obligatoria, `total_amount_cents` debe ser `> 0`, antes `>= 0`) y la validación de cliente en el formulario.
 2. **Sin antigüedad ni alertas de fiados vencidos**: el local colorea la fila con los días transcurridos (verde ≤7, naranja ≤30, rojo >30); la nube no tenía ninguna columna de antigüedad (el recordatorio al iniciar sesión de la Fase 4.3 solo cubre el popup, no la vista de la lista). Se agregó un badge de días con los mismos 3 umbrales de color en cada fiado pendiente.
 3. **Sin forma de "marcar como pagado" condonando saldo**: el local permite cerrar un fiado como pagado aunque quede saldo sin cubrir (`_on_marcar_pagado`); la nube solo llegaba a `paid` automáticamente cuando la suma de abonos cubría el 100%. Se agregó `force_paid` al endpoint `PUT /api/customer-credits/[id]` (fija `status='paid'` sin validar cobertura) — **restringido a admin únicamente** server-side (a diferencia del resto de acciones de Fiado, que son admin+seller), porque condonar una deuda es una decisión de negocio más sensible que registrar un abono normal. Botón visible solo para admin, con confirmación explícita.
+
+Verificado tsc/eslint/vitest.
+
+### 15.14 Reportes (2026-07-22)
+
+Comparado `services/reportes.py`/`generar_reporte_mensual_pdf` (local) contra `admin/reportes/page.tsx` (nube). Esta era la sección con más huecos pendientes de la auditoría original (sección 12): de la larga lista de "falta completamente en la nube", solo la fórmula de Utilidad Real sin prorratear se había cerrado (Fase 4.2) — el resto seguía exactamente igual que en la auditoría original, nunca tocado.
+
+**Hallazgos corregidos** (todos "ausentes por completo" según la sección 12):
+1. **Comisiones detalladas por método de pago** — antes solo el total acumulado; se agregó el desglose (mismo patrón ya usado en Historial Mensual/Mi Cuadre).
+2. **Método de pago más usado** — nueva tarjeta, cuenta pagos por método sobre el rango.
+3. **Horas pico de venta** (franjas de 2h) — nueva sección con barras, contando órdenes por franja horaria de `created_at`.
+4. **Día más rentable** — nueva tarjeta (requirió trackear costo por día, no solo ingreso, en el acumulado diario).
+5. **Resumen por día en tabla con "Estado Positivo/Negativo"** — antes solo había gráfica de barras de ingresos; se agregó una tabla con fecha/ventas/ganancia/estado por día (solo admin, ya que necesita costo).
+
+**Revisado y dejado sin cambio, por criterio o por ya estar cubierto en otra parte**:
+- **Categoría top**: no se implementó — requeriría un join adicional producto→categoría no trivial dado el modelo de datos actual de la orden; se deja como posible mejora futura, no crítica.
+- **Sección de inventario general**: no se duplicó aquí — ya existe una tarjeta "Valor de inventario" dedicada en `/admin/inventario` (sección 15.8), agregar un resumen redundante en Reportes no aporta.
+- **Exportación a PDF real** (reportlab del local): se mantiene solo CSV — coherente con la decisión ya tomada para recibos/Historial Mensual (impresión vía navegador en vez de generación de PDF real); no se agregó una versión imprimible aquí para no dispersar el alcance de esta ronda, pero es una mejora candidata a futuro si el usuario la pide explícitamente.
+- **Filtro por mes calendario** (alternativa al rango libre): ya existe en Historial Mensual; no se duplicó aquí.
 
 Verificado tsc/eslint/vitest.

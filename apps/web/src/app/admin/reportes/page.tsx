@@ -33,7 +33,13 @@ interface OrderWithItems {
     total_cents: number
     cost_cents: number
   }>
-  payments: Array<{ commission_cents: number }> | null
+  payments: Array<{ method: string; commission_cents: number }> | null
+}
+
+const methodLabels: Record<string, string> = {
+  cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
+  nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
+  addi: 'Addi', card: 'Datáfono', other: 'Otro',
 }
 
 export default function ReportsPage() {
@@ -47,6 +53,10 @@ export default function ReportsPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [totals, setTotals] = useState({ revenue: 0, orders: 0, avgOrder: 0 })
   const [profitTotals, setProfitTotals] = useState({ cost: 0, commission: 0, grossProfit: 0, expenses: 0, netProfit: 0 })
+  const [dailyProfit, setDailyProfit] = useState<{ date: string; total: number; cost: number; profit: number }[]>([])
+  const [commissionByMethod, setCommissionByMethod] = useState<Record<string, number>>({})
+  const [methodCounts, setMethodCounts] = useState<Record<string, number>>({})
+  const [peakHours, setPeakHours] = useState<{ label: string; count: number }[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { userProfile } = useAuth()
   // Igual que en el software local: solo Admin ve costo/comisión/ganancia.
@@ -58,7 +68,7 @@ export default function ReportsPage() {
     // Fetch orders in date range
     const { data: ordersData } = await supabase
       .from('orders')
-      .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(commission_cents)')
+      .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(method, commission_cents)')
       .eq('payment_status', 'paid')
       .gte('created_at', `${dateFrom}T00:00:00`)
       .lte('created_at', `${dateTo}T23:59:59`)
@@ -67,17 +77,33 @@ export default function ReportsPage() {
     const orders = (ordersData as unknown as OrderWithItems[]) || []
 
     if (orders.length > 0) {
-      // Calculate daily sales
-      const dailySales: Record<string, { total: number; orders: number }> = {}
+      // Calculate daily sales (con costo, para Estado Positivo/Negativo y
+      // día más rentable — igual que el resumen diario del local)
+      const dailySales: Record<string, { total: number; orders: number; cost: number }> = {}
       const productSales: Record<string, { title: string; qty: number; revenue: number }> = {}
+      // Método de pago más usado y horas pico de venta (franjas de 2h) —
+      // ambos ausentes por completo antes (sección 12, nunca cerrado).
+      const methodCountsAcc: Record<string, number> = {}
+      const hourBuckets: Record<string, number> = {}
 
       orders.forEach((order) => {
         const date = order.created_at.split('T')[0]
+        const dayCost = (order.order_items || []).reduce((s, item) => s + item.qty * (item.cost_cents || 0), 0)
         if (!dailySales[date]) {
-          dailySales[date] = { total: 0, orders: 0 }
+          dailySales[date] = { total: 0, orders: 0, cost: 0 }
         }
         dailySales[date].total += order.total_cents
         dailySales[date].orders += 1
+        dailySales[date].cost += dayCost
+
+        const hour = new Date(order.created_at).getHours()
+        const bucketStart = Math.floor(hour / 2) * 2
+        const bucketLabel = `${bucketStart}-${bucketStart + 2}h`
+        hourBuckets[bucketLabel] = (hourBuckets[bucketLabel] || 0) + 1
+
+        ;(order.payments || []).forEach((p) => {
+          methodCountsAcc[p.method] = (methodCountsAcc[p.method] || 0) + 1
+        })
 
         // Track product sales
         if (order.order_items && Array.isArray(order.order_items)) {
@@ -97,6 +123,14 @@ export default function ReportsPage() {
       const salesArray = Object.entries(dailySales)
         .map(([date, data]) => ({ date, ...data }))
         .sort((a, b) => a.date.localeCompare(b.date))
+
+      setDailyProfit(salesArray.map((d) => ({ date: d.date, total: d.total, cost: d.cost, profit: d.total - d.cost })))
+      setMethodCounts(methodCountsAcc)
+      setPeakHours(
+        Object.entries(hourBuckets)
+          .map(([label, count]) => ({ label, count }))
+          .sort((a, b) => parseInt(a.label) - parseInt(b.label))
+      )
 
       const topProductsArray = Object.entries(productSales)
         .map(([id, data]) => ({ id, ...data }))
@@ -121,6 +155,13 @@ export default function ReportsPage() {
         (sum, o) => sum + (o.payments || []).reduce((s, p) => s + (p.commission_cents || 0), 0),
         0
       )
+      const commissionByMethodAcc: Record<string, number> = {}
+      orders.forEach((o) => {
+        (o.payments || []).forEach((p) => {
+          if (p.commission_cents > 0) commissionByMethodAcc[p.method] = (commissionByMethodAcc[p.method] || 0) + p.commission_cents
+        })
+      })
+      setCommissionByMethod(commissionByMethodAcc)
       const grossProfit = totalRevenue - totalCost
 
       // Gasto real del periodo (gastos operativos registrados en Presupuesto),
@@ -165,6 +206,10 @@ export default function ReportsPage() {
       setTopProducts([])
       setTotals({ revenue: 0, orders: 0, avgOrder: 0 })
       setProfitTotals({ cost: 0, commission: 0, grossProfit: 0, expenses: 0, netProfit: 0 })
+      setDailyProfit([])
+      setCommissionByMethod({})
+      setMethodCounts({})
+      setPeakHours([])
     }
 
     setIsLoading(false)
@@ -187,6 +232,11 @@ export default function ReportsPage() {
   }
 
   const maxSales = Math.max(...salesData.map((d) => d.total), 1)
+  const maxPeakHour = Math.max(...peakHours.map((h) => h.count), 1)
+  const mostUsedMethod = Object.entries(methodCounts).sort((a, b) => b[1] - a[1])[0]
+  const mostProfitableDay = dailyProfit.length > 0
+    ? [...dailyProfit].sort((a, b) => b.profit - a.profit)[0]
+    : null
 
   return (
     <div className="space-y-6">
@@ -230,7 +280,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
@@ -258,6 +308,17 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatPrice(totals.avgOrder)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Método más usado</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{mostUsedMethod ? (methodLabels[mostUsedMethod[0]] || mostUsedMethod[0]) : '—'}</div>
+            {mostUsedMethod && <p className="text-xs text-muted-foreground">{mostUsedMethod[1]} pago(s)</p>}
           </CardContent>
         </Card>
       </div>
@@ -302,8 +363,57 @@ export default function ReportsPage() {
               <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos del periodo y gasto fijo mensual completo ({formatPrice(profitTotals.expenses)})</p>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Día más rentable</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {mostProfitableDay ? new Date(mostProfitableDay.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }) : '—'}
+              </div>
+              {mostProfitableDay && <p className="text-xs text-muted-foreground">Ganancia: {formatPrice(mostProfitableDay.profit)}</p>}
+            </CardContent>
+          </Card>
         </div>
       )}
+
+      {/* Comisión por método y horas pico — completamente ausentes antes
+          (sección 12 de la auditoría, nunca cerrado) */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {canViewProfit && Object.keys(commissionByMethod).length > 0 && (
+          <Card>
+            <CardHeader><CardTitle>Comisión por método de pago</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {Object.entries(commissionByMethod)
+                .sort((a, b) => b[1] - a[1])
+                .map(([method, cents]) => (
+                  <div key={method} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{methodLabels[method] || method}</span>
+                    <span className="font-medium">{formatPrice(cents)}</span>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {peakHours.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle>Horas pico de venta</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {peakHours.map((h) => (
+                <div key={h.label} className="flex items-center gap-3">
+                  <span className="w-16 text-sm text-muted-foreground">{h.label}</span>
+                  <div className="flex-1">
+                    <div className="h-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(h.count / maxPeakHour) * 100}%` }} />
+                  </div>
+                  <span className="w-10 text-right text-sm font-medium">{h.count}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -384,6 +494,42 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Resumen diario con Estado Positivo/Negativo — el local lo muestra
+          en tabla además de la gráfica; antes solo había gráfica de barras. */}
+      {canViewProfit && dailyProfit.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Resumen diario</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-4">Fecha</th>
+                    <th className="py-2 pr-4 text-right">Ventas</th>
+                    <th className="py-2 pr-4 text-right">Ganancia</th>
+                    <th className="py-2 text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyProfit.map((d) => (
+                    <tr key={d.date} className="border-b last:border-0">
+                      <td className="py-2 pr-4">{new Date(d.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}</td>
+                      <td className="py-2 pr-4 text-right">{formatPrice(d.total)}</td>
+                      <td className={`py-2 pr-4 text-right ${d.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(d.profit)}</td>
+                      <td className="py-2 text-right">
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${d.profit >= 0 ? 'border-green-500/20 bg-green-500/10 text-green-500' : 'border-red-500/20 bg-red-500/10 text-red-500'}`}>
+                          {d.profit >= 0 ? 'Positivo' : 'Negativo'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
