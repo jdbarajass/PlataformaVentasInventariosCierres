@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
 interface ProductStock {
   id: string
@@ -33,6 +34,7 @@ interface ProductStock {
   stock_qty: number
   low_stock_threshold: number
   price_cents: number
+  cost_cents: number
   category: { name: string } | null
 }
 
@@ -51,7 +53,7 @@ interface ProductVariant {
 interface InventoryMovement {
   id: string
   qty: number
-  type: 'in' | 'out' | 'adjustment' | 'sale' | 'return'
+  type: 'in' | 'out' | 'adjustment' | 'sale' | 'return' | 'exchange' | 'deleted'
   note: string | null
   created_at: string
   product: { id: string; title: string; sku: string | null } | null
@@ -63,6 +65,8 @@ const typeLabels: Record<string, string> = {
   adjustment: 'Ajuste',
   sale: 'Venta',
   return: 'Devolución',
+  exchange: 'Cambio',
+  deleted: 'Eliminado',
 }
 
 export default function InventarioPage() {
@@ -122,6 +126,7 @@ export default function InventarioPage() {
           stock_qty: p.stock_qty,
           low_stock_threshold: p.low_stock_threshold,
           price_cents: p.price_cents,
+          cost_cents: p.cost_cents || 0,
           category: p.category || p.categories || null,
         }))
       )
@@ -129,6 +134,27 @@ export default function InventarioPage() {
       console.error('Error fetching products:', error)
     }
   }, [session?.access_token])
+
+  // Valor total del inventario (costo × stock) — visible solo a admin, igual
+  // que _lbl_valor_inventario en ui/inventario_panel.py. Se calcula aparte
+  // (no desde `products`, que no trae costo por variante) para no contar
+  // dos veces el stock de un producto que además tiene variantes de talla:
+  // si tiene variantes, el stock/costo real vive en product_variants.
+  const [inventoryValue, setInventoryValue] = useState<number | null>(null)
+
+  const fetchInventoryValue = useCallback(async () => {
+    if (!isAdmin) return
+    const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
+      supabase.from('products').select('id, cost_cents, stock_qty'),
+      supabase.from('product_variants').select('product_id, cost_cents, stock_qty'),
+    ])
+    const productsWithVariants = new Set((allVariants || []).map((v: any) => v.product_id))
+    const fromProducts = (allProducts || [])
+      .filter((p: any) => !productsWithVariants.has(p.id))
+      .reduce((sum: number, p: any) => sum + p.cost_cents * p.stock_qty, 0)
+    const fromVariants = (allVariants || []).reduce((sum: number, v: any) => sum + v.cost_cents * v.stock_qty, 0)
+    setInventoryValue(fromProducts + fromVariants)
+  }, [isAdmin])
 
   const fetchMovements = useCallback(async () => {
     if (!session?.access_token) return
@@ -152,11 +178,11 @@ export default function InventarioPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchProducts(), fetchMovements()])
+      await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue()])
       setLoading(false)
     }
     load()
-  }, [fetchProducts, fetchMovements])
+  }, [fetchProducts, fetchMovements, fetchInventoryValue])
 
   const handleAdjust = async () => {
     if (!session?.access_token || !adjustingProduct || !adjustmentQty) return
@@ -201,7 +227,7 @@ export default function InventarioPage() {
       setAdjustingProduct(null)
       setAdjustmentQty('')
       setAdjustmentNote('')
-      await Promise.all([fetchProducts(), fetchMovements()])
+      await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue()])
     } catch (error: any) {
       console.error('Error adjusting inventory:', error)
       toast({
@@ -280,7 +306,7 @@ export default function InventarioPage() {
 
       toast({ title: 'Variante creada', description: 'Se agregó la talla al producto' })
       setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
-      await fetchVariants(productId)
+      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -301,7 +327,7 @@ export default function InventarioPage() {
       })
       if (!res.ok) throw new Error('Error al eliminar la variante')
       toast({ title: 'Variante desactivada' })
-      await fetchVariants(productId)
+      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -349,7 +375,7 @@ export default function InventarioPage() {
       toast({ title: 'Variante ajustada' })
       setAdjustingVariant(null)
       setVariantAdjQty('')
-      await fetchVariants(productId)
+      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -463,7 +489,7 @@ export default function InventarioPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-4 ${canViewCost ? 'lg:grid-cols-5' : ''}`}>
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
@@ -508,6 +534,19 @@ export default function InventarioPage() {
             </div>
           </div>
         </div>
+        {canViewCost && (
+          <div className="rounded-xl border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10">
+                <Package className="h-5 w-5 text-cyan-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{inventoryValue === null ? '—' : formatPrice(inventoryValue)}</p>
+                <p className="text-sm text-muted-foreground">Valor de inventario</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}

@@ -819,7 +819,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 3 | Mi Cuadre | ✅ Auditada, sin hallazgos | Ver 15.3 |
 | 4 | Ventas del Día | ✅ Auditada y corregida | Ver 15.4 |
 | 5 | Historial Mensual | ✅ Auditada y corregida | Ver 15.5 |
-| 6 | Inventario | ⏳ pendiente | |
+| 6 | Inventario | ✅ Auditada y corregida | Ver 15.6 |
 | 7 | Cuentas | ⏳ pendiente | |
 | 8 | Facturas | ⏳ pendiente | |
 | 9 | Fiado | ⏳ pendiente | |
@@ -885,3 +885,18 @@ Comparado `ui/historial_panel.py` + `controllers/historial_controller.py` (local
 - Exportar a Excel con hoja de préstamos incluida (el local lo hace desde Historial): la nube exporta/imprime HTML simple desde aquí, pero el Excel completo de 18 hojas (incluida Préstamos) ya existe en `/admin/exportar-importar`.
 
 Commit pendiente (se incluye junto con el resto de esta sesión). Verificado tsc/eslint/vitest.
+
+### 15.6 Inventario (2026-07-22)
+
+Comparado `ui/inventario_panel.py` (local, 1796 líneas) contra `admin/inventario/page.tsx` (nube).
+
+**Confirmado que ya coincide/fue decisión deliberada** (no son hallazgos):
+- La edición de inventario (ajustar stock, crear/desactivar variantes) es 100% admin-only en la nube (`canEdit = isAdmin`), sin ningún mecanismo de step-up. Esto **no replica** la "clave maestra" (`clave_inventario`) del local (que permite a un vendedor editar tras ingresarla) — es una decisión ya documentada explícitamente en la sección 13 (ítem 4.1.1): "más simple y igual de seguro que replicar la clave maestra del local; el vendedor conserva solo lectura". No se cambia.
+- Costo oculto por completo al vendedor (sin el markup ficticio ×1.30 del local) — decisión ya tomada en la sección 12.7.
+- Tipos de movimiento "Cambio" (`exchange`) y "Eliminado" (`deleted`) ya existen en el CHECK de `inventory_movements` desde las migraciones 00022/00023 (Fase 4.3).
+
+**Hallazgos corregidos**:
+1. **Valor total de inventario** (`_lbl_valor_inventario` del local: `Σ costo_unitario × cantidad`, oculto a vendedor) no tenía ningún equivalente en la nube — el ítem había quedado como "a verificar" en la sección 12, nunca confirmado ni cerrado. Se agregó una 5ª tarjeta "Valor de inventario" (solo si `canViewCost`), calculada aparte de la lista paginada de productos (que no trae costo de variante) con dos consultas directas a `products` y `product_variants` vía `supabaseBrowser`, sumando el costo del nivel correcto según si el producto tiene variantes o no (para no contar el stock dos veces). Se refresca tras cualquier ajuste de stock o cambio de variante.
+2. Los tipos de movimiento `exchange`/`deleted` (ya soportados en la base de datos desde Fase 4.3) no tenían etiqueta en español en la lista de "Movimientos recientes" de esta página (`typeLabels` solo tenía los 5 tipos originales) — se agregaron "Cambio" y "Eliminado".
+
+Verificado tsc/eslint/vitest.
