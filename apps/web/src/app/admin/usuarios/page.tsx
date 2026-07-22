@@ -14,6 +14,9 @@ import {
   Check,
   X,
   Lock,
+  Plus,
+  Trash2,
+  KeyRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,6 +63,19 @@ export default function UsuariosPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editRole, setEditRole] = useState<'admin' | 'seller' | 'viewer'>('viewer')
   const [saving, setSaving] = useState(false)
+
+  // Crear usuario — igual que "+ Crear" del local (config_panel.py), que
+  // crea el login directamente con nombre/rol/contraseña.
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [createForm, setCreateForm] = useState({ email: '', password: '', name: '', phone: '', role: 'seller' as 'admin' | 'seller' | 'viewer' })
+  const [creating, setCreating] = useState(false)
+
+  // Restablecer contraseña de cualquier usuario — igual que "Cambiar
+  // contraseña de usuario" del local.
+  const [resettingId, setResettingId] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [savingReset, setSavingReset] = useState(false)
+
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
@@ -143,6 +159,87 @@ export default function UsuariosPage() {
     }
   }
 
+  const handleCreateUser = async () => {
+    if (!createForm.email.trim() || !createForm.password || !createForm.name.trim()) {
+      toast({ title: 'Error', description: 'Email, contraseña y nombre son obligatorios', variant: 'destructive' })
+      return
+    }
+    if (createForm.password.length < 6) {
+      toast({ title: 'Error', description: 'La contraseña debe tener al menos 6 caracteres', variant: 'destructive' })
+      return
+    }
+    try {
+      setCreating(true)
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          email: createForm.email,
+          password: createForm.password,
+          name: createForm.name,
+          role: createForm.role,
+          phone: createForm.phone || null,
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al crear el usuario')
+      }
+      toast({ title: 'Usuario creado', description: `${createForm.name} (${createForm.role})` })
+      setCreateForm({ email: '', password: '', name: '', phone: '', role: 'seller' })
+      setShowCreateForm(false)
+      await fetchUsers()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleDeleteUser = async (user: UserData) => {
+    if (!confirm(`¿Eliminar al usuario "${user.name || user.email}"? Esta acción no se puede deshacer.`)) return
+    try {
+      const res = await fetch(`/api/users?userId=${user.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al eliminar el usuario')
+      }
+      toast({ title: 'Usuario eliminado' })
+      await fetchUsers()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    }
+  }
+
+  const handleResetPassword = async (userId: string) => {
+    if (newPassword.length < 6) {
+      toast({ title: 'Error', description: 'Mínimo 6 caracteres', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingReset(true)
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ userId, new_password: newPassword }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al restablecer la contraseña')
+      }
+      toast({ title: 'Contraseña actualizada' })
+      setResettingId(null)
+      setNewPassword('')
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingReset(false)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CO', {
       year: 'numeric',
@@ -176,7 +273,35 @@ export default function UsuariosPage() {
             Gestiona los usuarios y sus permisos
           </p>
         </div>
+        <Button className="rounded-xl" onClick={() => setShowCreateForm((v) => !v)}>
+          <Plus className="mr-2 h-4 w-4" /> Nuevo usuario
+        </Button>
       </div>
+
+      {showCreateForm && (
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold">Crear usuario</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input placeholder="Nombre" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="rounded-lg" />
+            <Input type="email" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="rounded-lg" />
+            <Input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="rounded-lg" />
+            <Input placeholder="Teléfono (opcional)" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} className="rounded-lg" />
+            <select
+              value={createForm.role}
+              onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'seller' | 'viewer' })}
+              className="rounded-lg border bg-background px-3 py-2 text-sm"
+            >
+              {roles.map((r) => (
+                <option key={r} value={r}>{roleConfig[r].label}</option>
+              ))}
+            </select>
+          </div>
+          <Button className="mt-4 rounded-lg" onClick={handleCreateUser} disabled={creating}>
+            {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+            Crear
+          </Button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
@@ -360,17 +485,55 @@ export default function UsuariosPage() {
                           {formatDate(user.created_at)}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg"
-                              onClick={() => handleEditRole(user)}
-                              title="Editar rol"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          {resettingId === user.id ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <Input
+                                type="password"
+                                placeholder="Nueva contraseña"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="h-8 w-40 rounded-lg text-xs"
+                              />
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleResetPassword(user.id)} disabled={savingReset}>
+                                {savingReset ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-500" />}
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setResettingId(null); setNewPassword('') }}>
+                                <X className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg"
+                                onClick={() => handleEditRole(user)}
+                                title="Editar rol"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg"
+                                onClick={() => setResettingId(user.id)}
+                                title="Restablecer contraseña"
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </Button>
+                              {user.id !== userProfile?.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg"
+                                  onClick={() => handleDeleteUser(user)}
+                                  title="Eliminar usuario"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )

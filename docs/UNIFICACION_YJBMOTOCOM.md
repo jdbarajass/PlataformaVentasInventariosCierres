@@ -829,7 +829,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 13 | Cierres | ✅ Auditada, sin cambios (ver nota) | Ver 15.13 |
 | 14 | Reportes | ✅ Auditada y corregida | Ver 15.14 |
 | 15 | Rendimiento Vendedores | ✅ Auditada y corregida | Ver 15.15 |
-| 16 | Usuarios | ⏳ pendiente | |
+| 16 | Usuarios | ✅ Auditada y corregida | Ver 15.16 |
 | 17 | Auditoría | ⏳ pendiente | |
 | 18 | Exportar/Importar | ⏳ pendiente | |
 | 19 | Configuración (comisiones/gastos fijos + tienda) | ⏳ pendiente | |
@@ -1002,5 +1002,21 @@ Comparado `ui/rendimiento_vendedores_panel.py` (local) contra `admin/rendimiento
 **Confirmado que ya coincide**: gating 100% admin, orden por ingreso descendente, columna "% del total" (mejora sobre el local, que no la tiene), filtro por canal `pos` (coherente, el local es 100% mostrador). Ninguno de los dos calcula comisión/ticket promedio/ganancia por vendedor — coincide (ambos se quedan en ventas/unidades/ingresos), como ya señalaba la sección 12.
 
 **Hallazgo corregido**: la nube solo listaba vendedores con al menos una orden en el rango — un vendedor sin ventas ese período simplemente no aparecía. El local siempre muestra **todos los usuarios registrados**, incluso con 0 ventas, marcados en gris con "—" (`obtener_todos_usuarios()`). Se corrigió el endpoint para traer también todos los usuarios `admin`/`seller` y mezclarlos con los datos reales de órdenes (los que no vendieron quedan en 0), y la UI ahora muestra "—" en gris para esas filas en vez de "0" — igual que el local.
+
+Verificado tsc/eslint/vitest.
+
+### 15.16 Usuarios (2026-07-22)
+
+Comparado `config_panel.py._seccion_usuarios` (local: crear usuario con nombre/rol/contraseña, eliminar usuario salvo "Admin", cambiar la contraseña de cualquier usuario) contra `admin/usuarios/page.tsx` + `api/users/route.ts` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.1): gate de cliente (`if (!isAdmin) return <Lock/>`) — el hallazgo original de la sección 12 (página sin gate visible al vendedor) ya estaba cerrado.
+
+**Hallazgo crítico corregido, no cubierto por la auditoría original**: la API (`api/users/route.ts`) solo tenía `GET` (listar) y `PUT` (editar rol/nombre/teléfono) — **no había forma de crear un usuario nuevo, eliminarlo, ni restablecer su contraseña** desde el panel. El admin de la nube dependía de que la persona se autorregistrara en `/registro` (arrancando siempre en rol `viewer`) y luego promoverle el rol manualmente aquí — sin ningún control directo de alta/baja/contraseña como sí tiene el local. Se agregó:
+- `POST /api/users`: crea el login real de Supabase Auth (`auth.admin.createUser`, con el rol elegido desde el inicio, no siempre `viewer`) + su fila en `public.users`; si falla la fila de perfil, revierte el usuario de Auth para no dejar una cuenta huérfana.
+- `PUT /api/users` ganó `new_password` opcional: restablece la contraseña de cualquier usuario (`auth.admin.updateUserById`).
+- `DELETE /api/users?userId=...`: elimina el usuario (cascada a `public.users` vía FK), bloqueado si es el propio usuario autenticado o si es el único administrador restante (equivalente más general a la protección del local, que solo protegía a un "Admin" fijo por nombre).
+- UI: formulario "Nuevo usuario", botón de restablecer contraseña (icono de llave, inline) y botón de eliminar (oculto para el propio usuario) en cada fila.
+
+Todas las acciones nuevas quedan admin-only server-side (`requireAuth(request, ['admin'])`) y registran en `audit_logs`.
 
 Verificado tsc/eslint/vitest.
