@@ -11,10 +11,10 @@ const transferSchema = z.object({
   created_by: z.string().uuid().optional(),
 })
 
-// POST - Transferir saldo entre dos cuentas (valida saldo suficiente)
+// POST - Transferir saldo entre dos cuentas (valida saldo suficiente). Solo admin.
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }

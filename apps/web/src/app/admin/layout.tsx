@@ -39,17 +39,22 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 
+// adminOnly: oculta el enlace del menú a 'seller', igual que el software
+// local oculta el botón de navegación completo para estas páginas
+// (main_window._ocultas_vendedor). Cada una de estas páginas ya rechaza
+// o bloquea el acceso a 'seller' por su cuenta (servidor y/o cliente); esto
+// solo evita que el vendedor vea el enlace en primer lugar.
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Productos', href: '/admin/productos', icon: Package },
   { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
   { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
-  { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
+  { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator, adminOnly: true },
   { name: 'Mi Cuadre', href: '/admin/mi-cuadre', icon: Gauge },
   { name: 'Ventas del Día', href: '/admin/ventas-dia', icon: CalendarClock },
   { name: 'Historial Mensual', href: '/admin/historial-mensual', icon: History },
   { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
-  { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet },
+  { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet, adminOnly: true },
   { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
   { name: 'Fiado', href: '/admin/fiado', icon: HandCoins },
   { name: 'Préstamos', href: '/admin/prestamos', icon: PackageOpen },
@@ -58,14 +63,14 @@ const navigation = [
   { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
   { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
   { name: 'Reportes', href: '/admin/reportes', icon: FileText },
-  { name: 'Rendimiento Vendedores', href: '/admin/rendimiento-vendedores', icon: Trophy },
+  { name: 'Rendimiento Vendedores', href: '/admin/rendimiento-vendedores', icon: Trophy, adminOnly: true },
   { name: 'Cupones', href: '/admin/cupones', icon: Tag },
   { name: 'Resenas', href: '/admin/resenas', icon: MessageSquare },
-  { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
-  { name: 'Auditoria', href: '/admin/auditoria', icon: Shield },
-  { name: 'Exportar/Importar', href: '/admin/exportar-importar', icon: FileSpreadsheet },
-  { name: 'Comisiones y Gastos Fijos', href: '/admin/configuracion-pos', icon: Percent },
-  { name: 'Configuracion', href: '/admin/configuracion', icon: Settings },
+  { name: 'Usuarios', href: '/admin/usuarios', icon: Users, adminOnly: true },
+  { name: 'Auditoria', href: '/admin/auditoria', icon: Shield, adminOnly: true },
+  { name: 'Exportar/Importar', href: '/admin/exportar-importar', icon: FileSpreadsheet, adminOnly: true },
+  { name: 'Comisiones y Gastos Fijos', href: '/admin/configuracion-pos', icon: Percent, adminOnly: true },
+  { name: 'Configuracion', href: '/admin/configuracion', icon: Settings, adminOnly: true },
 ]
 
 export default function AdminLayout({
@@ -145,7 +150,9 @@ export default function AdminLayout({
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {navigation.map((item) => {
+            {navigation
+              .filter((item) => !item.adminOnly || userProfile?.role === 'admin')
+              .map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/admin' && pathname?.startsWith(item.href))
 

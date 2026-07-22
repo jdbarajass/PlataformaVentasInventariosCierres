@@ -13,6 +13,7 @@ import {
   Loader2,
   Check,
   X,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -59,11 +60,12 @@ export default function UsuariosPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editRole, setEditRole] = useState<'admin' | 'seller' | 'viewer'>('viewer')
   const [saving, setSaving] = useState(false)
-  const { session } = useAuth()
+  const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const isAdmin = userProfile?.role === 'admin'
 
   const fetchUsers = useCallback(async () => {
-    if (!session?.access_token) return
+    if (!session?.access_token || !isAdmin) return
 
     try {
       setLoading(true)
@@ -93,7 +95,7 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, searchQuery, selectedRole, toast])
+  }, [session?.access_token, isAdmin, searchQuery, selectedRole, toast])
 
   useEffect(() => {
     fetchUsers()
@@ -153,6 +155,15 @@ export default function UsuariosPage() {
     admin: users.filter((u) => u.role === 'admin').length,
     seller: users.filter((u) => u.role === 'seller').length,
     viewer: users.filter((u) => u.role === 'viewer').length,
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+        <Lock className="h-10 w-10" />
+        <p>Esta sección solo está disponible para administradores.</p>
+      </div>
+    )
   }
 
   return (

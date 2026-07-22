@@ -10,6 +10,7 @@ import {
   Minus,
   History,
   CheckCircle2,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -255,6 +256,17 @@ export default function CuentasPage() {
     } finally {
       setClosingMonth(false)
     }
+  }
+
+  // Cuentas es un módulo 100% de Admin, igual que el software local (el
+  // vendedor no ve ni el botón de navegación de este módulo).
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+        <Lock className="h-10 w-10" />
+        <p>Esta sección solo está disponible para administradores.</p>
+      </div>
+    )
   }
 
   return (

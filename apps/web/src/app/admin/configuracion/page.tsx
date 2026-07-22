@@ -11,6 +11,7 @@ import {
   Share2,
   Loader2,
   Save,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,8 +71,9 @@ export default function ConfiguracionPage() {
   const [settings, setSettings] = useState<SettingsState>(defaultSettings)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const { session } = useAuth()
+  const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const isAdmin = userProfile?.role === 'admin'
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -185,6 +187,15 @@ export default function ConfiguracionPage() {
       <div className="flex items-center justify-center p-24">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <span className="ml-3 text-muted-foreground">Cargando configuración...</span>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+        <Lock className="h-10 w-10" />
+        <p>Esta sección solo está disponible para administradores.</p>
       </div>
     )
   }

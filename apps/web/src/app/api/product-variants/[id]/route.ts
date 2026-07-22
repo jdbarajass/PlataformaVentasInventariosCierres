@@ -9,7 +9,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    // Solo admin puede editar inventario, igual que el software local exige
+    // la clave maestra de Admin para esta acción incluso con sesión de vendedor.
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }
@@ -61,7 +63,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }

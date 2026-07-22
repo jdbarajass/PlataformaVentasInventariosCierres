@@ -10,10 +10,10 @@ const manualAdjustmentSchema = z.object({
   created_by: z.string().uuid().optional(),
 })
 
-// GET - Listar movimientos de cuentas
+// GET - Listar movimientos de cuentas. Solo admin (ver nota en accounts/route.ts).
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }
@@ -59,10 +59,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Ajuste manual de saldo de una cuenta (entrada/salida con signo)
+// POST - Ajuste manual de saldo de una cuenta (entrada/salida con signo). Solo admin.
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }

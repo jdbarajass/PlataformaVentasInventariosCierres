@@ -1,20 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   FileText,
   Search,
-  Filter,
   ChevronDown,
   ChevronRight,
   User,
   Calendar,
   Database,
   Activity,
+  Loader2,
+  Lock,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/lib/auth-context'
 
 interface AuditLog {
   id: string
@@ -29,75 +30,6 @@ interface AuditLog {
   user_agent: string | null
   created_at: string
 }
-
-// Mock data
-const mockLogs: AuditLog[] = [
-  {
-    id: '1',
-    actor_id: '1',
-    actor_email: 'admin@yjbmotocom.com',
-    action: 'create',
-    table_name: 'products',
-    record_id: 'prod-123',
-    old_data: null,
-    new_data: { title: 'Casco Integral XYZ', price_cents: 35000000 },
-    ip_address: '192.168.1.1',
-    user_agent: 'Mozilla/5.0',
-    created_at: '2024-12-20T14:30:00Z',
-  },
-  {
-    id: '2',
-    actor_id: '2',
-    actor_email: 'vendedor1@yjbmotocom.com',
-    action: 'update',
-    table_name: 'products',
-    record_id: 'prod-456',
-    old_data: { stock_qty: 10 },
-    new_data: { stock_qty: 8 },
-    ip_address: '192.168.1.2',
-    user_agent: 'Mozilla/5.0',
-    created_at: '2024-12-20T13:15:00Z',
-  },
-  {
-    id: '3',
-    actor_id: '1',
-    actor_email: 'admin@yjbmotocom.com',
-    action: 'inventory_adjustment',
-    table_name: 'products',
-    record_id: 'prod-789',
-    old_data: { stock_qty: 5 },
-    new_data: { stock_qty: 15 },
-    ip_address: '192.168.1.1',
-    user_agent: 'Mozilla/5.0',
-    created_at: '2024-12-20T11:00:00Z',
-  },
-  {
-    id: '4',
-    actor_id: null,
-    actor_email: 'system',
-    action: 'payment_confirmed',
-    table_name: 'orders',
-    record_id: 'order-001',
-    old_data: { payment_status: 'pending' },
-    new_data: { payment_status: 'paid' },
-    ip_address: null,
-    user_agent: 'Stripe Webhook',
-    created_at: '2024-12-20T10:45:00Z',
-  },
-  {
-    id: '5',
-    actor_id: '3',
-    actor_email: 'vendedor2@yjbmotocom.com',
-    action: 'create',
-    table_name: 'daily_closures',
-    record_id: 'closure-123',
-    old_data: null,
-    new_data: { date: '2024-12-19', total_amount_cents: 250000000 },
-    ip_address: '192.168.1.3',
-    user_agent: 'Mozilla/5.0',
-    created_at: '2024-12-19T18:00:00Z',
-  },
-]
 
 const actionConfig: Record<string, { label: string; color: string }> = {
   create: { label: 'Crear', color: 'bg-green-500/10 text-green-500' },
@@ -123,12 +55,35 @@ const tableConfig: Record<string, string> = {
 }
 
 export default function AuditoriaPage() {
-  const [logs, setLogs] = useState<AuditLog[]>(mockLogs)
+  const [logs, setLogs] = useState<AuditLog[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedAction, setSelectedAction] = useState<string>('all')
   const [selectedTable, setSelectedTable] = useState<string>('all')
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const { session, userProfile } = useAuth()
+  const isAdmin = userProfile?.role === 'admin'
+
+  const fetchLogs = useCallback(async () => {
+    if (!session?.access_token || !isAdmin) return
+    try {
+      setIsLoading(true)
+      const res = await fetch('/api/admin/audit-logs?limit=100', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error('Error fetching audit logs')
+      const { data } = await res.json()
+      setLogs(data || [])
+    } catch (error) {
+      console.error('Error fetching audit logs:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [session?.access_token, isAdmin])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
@@ -164,6 +119,24 @@ export default function AuditoriaPage() {
 
   const uniqueActions = Array.from(new Set(logs.map((l) => l.action)))
   const uniqueTables = Array.from(new Set(logs.map((l) => l.table_name)))
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+        <Lock className="h-10 w-10" />
+        <p>Esta sección solo está disponible para administradores.</p>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-3 text-muted-foreground">Cargando auditoría...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">

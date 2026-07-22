@@ -15,8 +15,9 @@ const adjustmentSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Validate authentication and role
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    // Solo admin puede ajustar stock, igual que el local exige la clave
+    // maestra de Admin para cualquier edición de inventario.
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }

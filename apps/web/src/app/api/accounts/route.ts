@@ -10,7 +10,14 @@ const accountSchema = z.object({
   sort_order: z.number().int().default(0),
 })
 
-// GET - Listar cuentas (saldo por medio de pago)
+// GET - Listar cuentas. Se mantiene disponible para 'seller' porque otras
+// pantallas (Registrar Venta, Ventas del Día, Presupuesto, Fiado, Facturas)
+// necesitan la lista de cuentas para elegir a cuál se acredita/debita un
+// pago — igual que el software local, donde el combo de "cuenta" está en
+// todos esos formularios. Lo que sí se oculta a 'seller' es el saldo
+// (balance_cents): el módulo Cuentas en sí (saldos, movimientos, ajustes,
+// transferencias, cierres) es 100% admin, ver /admin/cuentas y
+// /api/account-movements.
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
@@ -30,7 +37,12 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    return NextResponse.json({ data })
+    const isAdmin = auth.user.role === 'admin'
+    const sanitized = isAdmin
+      ? data
+      : (data || []).map(({ balance_cents, ...rest }: any) => rest)
+
+    return NextResponse.json({ data: sanitized })
   } catch (error) {
     console.error('Error fetching accounts:', error)
     return NextResponse.json(

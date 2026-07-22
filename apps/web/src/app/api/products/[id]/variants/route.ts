@@ -42,7 +42,9 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    // Solo admin puede crear variantes de inventario (ver PUT/DELETE en
+    // /api/product-variants/[id] para el mismo criterio).
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }

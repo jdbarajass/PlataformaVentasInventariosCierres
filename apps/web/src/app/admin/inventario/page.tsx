@@ -88,9 +88,14 @@ export default function InventarioPage() {
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const isAdmin = userProfile?.role === 'admin'
   // El rol 'seller' no ve el costo real de las variantes, igual que en
   // el software local (solo Admin ve costos/ganancia).
-  const canViewCost = userProfile?.role === 'admin'
+  const canViewCost = isAdmin
+  // Editar inventario (ajustar stock, agregar/desactivar variantes) es
+  // solo de Admin — el software local exige la clave maestra de Admin
+  // para esto incluso con sesión de vendedor; aquí se restringe directo.
+  const canEdit = isAdmin
 
   const fetchProducts = useCallback(async () => {
     if (!session?.access_token) return
@@ -600,7 +605,9 @@ export default function InventarioPage() {
                           </Button>
                         </td>
                         <td className="px-6 py-4">
-                          {isAdjusting ? (
+                          {!canEdit ? (
+                            <p className="text-center text-xs text-muted-foreground">Solo lectura</p>
+                          ) : isAdjusting ? (
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center gap-1">
                                 <select
@@ -721,7 +728,9 @@ export default function InventarioPage() {
                                         {canViewCost && (
                                           <th className="px-4 py-2 text-left font-medium text-muted-foreground">Costo</th>
                                         )}
-                                        <th className="px-4 py-2 text-center font-medium text-muted-foreground">Acciones</th>
+                                        {canEdit && (
+                                          <th className="px-4 py-2 text-center font-medium text-muted-foreground">Acciones</th>
+                                        )}
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -746,6 +755,7 @@ export default function InventarioPage() {
                                             {canViewCost && (
                                               <td className="px-4 py-2">{formatPrice(variant.cost_cents)}</td>
                                             )}
+                                            {canEdit && (
                                             <td className="px-4 py-2">
                                               {variantAdjusting ? (
                                                 <div className="flex items-center justify-center gap-1">
@@ -813,6 +823,7 @@ export default function InventarioPage() {
                                                 </div>
                                               )}
                                             </td>
+                                            )}
                                           </tr>
                                         )
                                       })}
@@ -820,6 +831,7 @@ export default function InventarioPage() {
                                   </table>
                                 </div>
                               )}
+                              {canEdit && (
                               <div className="flex flex-wrap items-center gap-2">
                                 <Input
                                   placeholder="Talla (ej. M, L, 42)"
@@ -866,6 +878,7 @@ export default function InventarioPage() {
                                   Agregar talla
                                 </Button>
                               </div>
+                              )}
                             </div>
                           </td>
                         </tr>
