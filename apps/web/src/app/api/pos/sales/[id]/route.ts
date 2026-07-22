@@ -8,12 +8,12 @@ const saleItemSchema = z.object({
   product_id: z.string().uuid(),
   variant_id: z.string().uuid().optional().nullable(),
   qty: z.number().int().positive(),
-  price_cents: z.number().int().min(0),
+  price_cents: z.number().int().positive(),
   discount_cents: z.number().int().min(0).default(0),
 })
 
 const salePaymentSchema = z.object({
-  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'daviplata', 'other', 'addi']),
+  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi']),
   method_detail: z.string().optional().nullable(),
   account_id: z.string().uuid().optional().nullable(),
   amount_cents: z.number().int().positive(),
@@ -25,6 +25,7 @@ const editSaleSchema = z.object({
   notes: z.string().optional().nullable(),
   items: z.array(saleItemSchema).min(1, 'La venta debe tener al menos un producto'),
   payments: z.array(salePaymentSchema).min(1, 'La venta debe tener al menos un método de pago'),
+  force: z.boolean().optional().default(false),
 })
 
 // GET - Detalle de una venta de mostrador (para precargar el formulario de edición)
@@ -80,7 +81,7 @@ export async function PUT(
       )
     }
 
-    const { customer_name, customer_phone, notes, items, payments } = validation.data
+    const { customer_name, customer_phone, notes, items, payments, force } = validation.data
 
     const supabase = createAuthenticatedClient(auth.token)
 
@@ -102,6 +103,7 @@ export async function PUT(
       p_order: orderPayload,
       p_items: resolvedItems,
       p_payments: resolvedPayments,
+      p_force: force,
     })
 
     if (error) {
@@ -120,7 +122,8 @@ export async function PUT(
     if (error instanceof Error && (
       error.message.includes('no encontrado') ||
       error.message.includes('no encontrada') ||
-      error.message.includes('suma de los pagos')
+      error.message.includes('suma de los pagos') ||
+      error.message.includes('descuento no puede ser mayor')
     )) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }

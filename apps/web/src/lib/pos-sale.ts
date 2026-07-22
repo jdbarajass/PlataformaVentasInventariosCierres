@@ -16,7 +16,7 @@ export interface SalePaymentInput {
 }
 
 const defaultCommissionRates: Record<string, number> = {
-  cash: 0, transfer: 0, wallet: 0, nequi: 0, daviplata: 0, addi: 0, card: 0, other: 0,
+  cash: 0, transfer: 0, wallet: 0, nequi: 0, daviplata: 0, addi: 0, card: 0, other: 0, nu: 0, qr: 0,
 }
 
 /**
@@ -84,11 +84,24 @@ export async function resolveSale(
 
   const subtotal_cents = items.reduce((sum, i) => sum + i.qty * i.price_cents, 0)
   const discount_cents = items.reduce((sum, i) => sum + (i.discount_cents || 0), 0)
+  // El descuento no puede superar el total del carrito, igual que el
+  // software local ("El descuento no puede ser mayor al total del carrito").
+  if (discount_cents > subtotal_cents) {
+    throw new Error('El descuento no puede ser mayor al total del carrito')
+  }
   const total_cents = subtotal_cents - discount_cents
 
+  // La suma de pagos combinados debe ser EXACTA al total, igual que el
+  // software local (no se calcula vuelto dentro del sistema: si el cliente
+  // paga de más en efectivo, el vendedor entrega el vuelto por fuera y
+  // registra solo el monto que aplica a la venta).
   const paymentsSum = payments.reduce((sum, p) => sum + p.amount_cents, 0)
-  if (paymentsSum < total_cents) {
-    throw new Error('La suma de los pagos es menor al total de la venta')
+  if (paymentsSum !== total_cents) {
+    throw new Error(
+      paymentsSum < total_cents
+        ? `La suma de los pagos es menor al total de la venta (faltan ${total_cents - paymentsSum} centavos)`
+        : `La suma de los pagos supera el total de la venta (sobran ${paymentsSum - total_cents} centavos) — ajusta el monto o registra el vuelto por fuera`
+    )
   }
 
   // Comisión informativa por método (se traslada al cliente como sobreprecio:

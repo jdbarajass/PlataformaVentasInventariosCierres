@@ -8,12 +8,13 @@ const saleItemSchema = z.object({
   product_id: z.string().uuid(),
   variant_id: z.string().uuid().optional().nullable(),
   qty: z.number().int().positive(),
-  price_cents: z.number().int().min(0),
+  // El precio debe ser mayor a cero, igual que el software local.
+  price_cents: z.number().int().positive(),
   discount_cents: z.number().int().min(0).default(0),
 })
 
 const salePaymentSchema = z.object({
-  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'daviplata', 'other', 'addi']),
+  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi']),
   method_detail: z.string().optional().nullable(),
   account_id: z.string().uuid().optional().nullable(),
   amount_cents: z.number().int().positive(),
@@ -26,6 +27,9 @@ const saleSchema = z.object({
   notes: z.string().optional().nullable(),
   items: z.array(saleItemSchema).min(1, 'La venta debe tener al menos un producto'),
   payments: z.array(salePaymentSchema).min(1, 'La venta debe tener al menos un método de pago'),
+  // Forzar la venta aunque el stock sea insuficiente (advertencia previa en
+  // el cliente, igual que el software local) — el stock nunca baja de 0.
+  force: z.boolean().optional().default(false),
 })
 
 // POST - Registrar una venta de mostrador (carrito, pagos combinados, descuenta
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { customer_name, customer_phone, customer_id_number, notes, items, payments } =
+    const { customer_name, customer_phone, customer_id_number, notes, items, payments, force } =
       validation.data
 
     const supabase = createAuthenticatedClient(auth.token)
@@ -73,6 +77,7 @@ export async function POST(request: NextRequest) {
       p_order: orderPayload,
       p_items: resolvedItems,
       p_payments: resolvedPayments,
+      p_force: force,
     })
 
     if (error) {
@@ -88,7 +93,8 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && (
       error.message.includes('no encontrado') ||
       error.message.includes('no encontrada') ||
-      error.message.includes('suma de los pagos')
+      error.message.includes('suma de los pagos') ||
+      error.message.includes('descuento no puede ser mayor')
     )) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Printer, TrendingUp, Package, DollarSign } from 'lucide-react'
+import { Printer, TrendingUp, Package, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 
@@ -19,31 +20,69 @@ interface OrderRow {
   payments: { commission_cents: number }[]
 }
 
+async function fetchMonthOrders(year: number, month: number) {
+  const from = new Date(year, month - 1, 1).toISOString()
+  const to = new Date(year, month, 1).toISOString()
+  const { data } = await supabase
+    .from('orders')
+    .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(commission_cents)')
+    .eq('payment_status', 'paid')
+    .gte('created_at', from)
+    .lt('created_at', to)
+    .order('created_at', { ascending: true })
+  return (data as unknown as OrderRow[]) || []
+}
+
 export default function HistorialMensualPage() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [prevRevenue, setPrevRevenue] = useState(0)
+  const [prevProfit, setPrevProfit] = useState(0)
+  const [totalOperatingExpenses, setTotalOperatingExpenses] = useState(0)
+  const [fixedMonthlyTotal, setFixedMonthlyTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const { userProfile } = useAuth()
   const canViewProfit = userProfile?.role === 'admin'
 
   const fetchMonth = useCallback(async () => {
     setLoading(true)
-    const from = new Date(year, month - 1, 1).toISOString()
-    const to = new Date(year, month, 1).toISOString()
 
-    const { data } = await supabase
-      .from('orders')
-      .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(commission_cents)')
-      .eq('payment_status', 'paid')
-      .gte('created_at', from)
-      .lt('created_at', to)
-      .order('created_at', { ascending: true })
+    const data = await fetchMonthOrders(year, month)
+    setOrders(data)
 
-    setOrders((data as unknown as OrderRow[]) || [])
+    // Mes anterior, para la comparativa (misma fuente, solo revenue/ganancia).
+    const prevMonthDate = new Date(year, month - 2, 1)
+    const prevData = await fetchMonthOrders(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1)
+    const pRevenue = prevData.reduce((sum, o) => sum + o.total_cents, 0)
+    const pCost = prevData.reduce((sum, o) => sum + (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0), 0)
+    setPrevRevenue(pRevenue)
+    setPrevProfit(pRevenue - pCost)
+
+    if (canViewProfit) {
+      const from = new Date(year, month - 1, 1).toISOString().split('T')[0]
+      const to = new Date(year, month, 1).toISOString().split('T')[0]
+      const { data: expensesData } = await supabase
+        .from('operating_expenses')
+        .select('amount_cents')
+        .gte('date', from)
+        .lt('date', to)
+      setTotalOperatingExpenses(((expensesData as { amount_cents: number }[]) || []).reduce((sum, e) => sum + e.amount_cents, 0))
+
+      const { data: settingsData } = await supabase
+        .from('store_settings')
+        .select('fixed_monthly_expenses')
+        .eq('id', 1)
+        .single()
+      const fixed = (settingsData as any)?.fixed_monthly_expenses
+      setFixedMonthlyTotal(
+        fixed ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents : 0
+      )
+    }
+
     setLoading(false)
-  }, [year, month])
+  }, [year, month, canViewProfit])
 
   useEffect(() => { fetchMonth() }, [fetchMonth])
 
@@ -57,28 +96,45 @@ export default function HistorialMensualPage() {
   const totalCommission = orders.reduce((sum, o) => sum + (o.payments || []).reduce((s, p) => s + (p.commission_cents || 0), 0), 0)
   const grossProfit = totalRevenue - totalCost
 
-  const dailyMap = orders.reduce<Record<string, number>>((acc, o) => {
+  // Utilidad Real: igual fórmula que Reportes (sección 13.2 / 4.2.1) — el
+  // gasto fijo mensual se resta completo, sin prorratear.
+  const utilidadReal = grossProfit - totalOperatingExpenses - fixedMonthlyTotal
+
+  // Comparativa vs. mes anterior.
+  const revenueDeltaPct = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : null
+  const profitDeltaPct = prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null
+
+  const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number }>>((acc, o) => {
     const day = o.created_at.split('T')[0]
-    acc[day] = (acc[day] || 0) + o.total_cents
+    if (!acc[day]) acc[day] = { revenue: 0, cost: 0 }
+    acc[day].revenue += o.total_cents
+    acc[day].cost += (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0)
     return acc
   }, {})
   const dailyArray = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0]))
-  const maxDaily = Math.max(...dailyArray.map((d) => d[1]), 1)
+  const maxDaily = Math.max(...dailyArray.map(([, d]) => d.revenue), 1)
+  const positiveDays = dailyArray.filter(([, d]) => d.revenue - d.cost >= 0).length
+  const negativeDays = dailyArray.length - positiveDays
 
-  const productMap = orders.reduce<Record<string, { title: string; qty: number; revenue: number }>>((acc, o) => {
+  const productMap = orders.reduce<Record<string, { title: string; qty: number; revenue: number; cost: number }>>((acc, o) => {
     (o.order_items || []).forEach((item) => {
-      if (!acc[item.product_id]) acc[item.product_id] = { title: item.product_title, qty: 0, revenue: 0 }
+      if (!acc[item.product_id]) acc[item.product_id] = { title: item.product_title, qty: 0, revenue: 0, cost: 0 }
       acc[item.product_id].qty += item.qty
       acc[item.product_id].revenue += item.total_cents
+      acc[item.product_id].cost += item.qty * (item.cost_cents || 0)
     })
     return acc
   }, {})
   const topProducts = Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 10)
+  const mostProfitableProducts = Object.values(productMap)
+    .map((p) => ({ ...p, profit: p.revenue - p.cost, margin: p.revenue > 0 ? ((p.revenue - p.cost) / p.revenue) * 100 : 0 }))
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 10)
 
   const handlePrint = () => {
     const win = window.open('', '_blank')
     if (!win) return
-    const rows = dailyArray.map(([day, cents]) => `<tr><td>${day}</td><td style="text-align:right">${formatPrice(cents)}</td></tr>`).join('')
+    const rows = dailyArray.map(([day, d]) => `<tr><td>${day}</td><td style="text-align:right">${formatPrice(d.revenue)}</td></tr>`).join('')
     win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
       <title>Historial ${monthNames[month - 1]} ${year} - YJBMOTOCOM</title>
       <style>
@@ -99,6 +155,8 @@ export default function HistorialMensualPage() {
         <div><span>Costo total</span><strong>${formatPrice(totalCost)}</strong></div>
         <div><span>Comisiones acumuladas</span><strong>${formatPrice(totalCommission)}</strong></div>
         <div><span>Ganancia neta</span><strong>${formatPrice(grossProfit)}</strong></div>
+        <div><span>Utilidad real del mes</span><strong>${formatPrice(utilidadReal)}</strong></div>
+        <div><span>Días positivos / negativos</span><strong>${positiveDays} / ${negativeDays}</strong></div>
         ` : ''}
       </div>
       <h3>Ventas por día</h3>
@@ -139,7 +197,16 @@ export default function HistorialMensualPage() {
             <div className="rounded-xl border bg-card p-4">
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
-                <div><p className="text-2xl font-bold">{formatPrice(totalRevenue)}</p><p className="text-sm text-muted-foreground">Ingresos del mes</p></div>
+                <div>
+                  <p className="text-2xl font-bold">{formatPrice(totalRevenue)}</p>
+                  <p className="text-sm text-muted-foreground">Ingresos del mes</p>
+                  {revenueDeltaPct !== null && (
+                    <p className={`flex items-center text-xs ${revenueDeltaPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {revenueDeltaPct >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                      {Math.abs(revenueDeltaPct).toFixed(1)}% vs. mes anterior
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             <div className="rounded-xl border bg-card p-4">
@@ -152,14 +219,23 @@ export default function HistorialMensualPage() {
               <div className="rounded-xl border bg-card p-4">
                 <div className="flex items-center gap-3">
                   <TrendingUp className="h-5 w-5 text-green-500" />
-                  <div><p className="text-2xl font-bold text-green-500">{formatPrice(grossProfit)}</p><p className="text-sm text-muted-foreground">Ganancia neta</p></div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-500">{formatPrice(grossProfit)}</p>
+                    <p className="text-sm text-muted-foreground">Ganancia neta</p>
+                    {profitDeltaPct !== null && (
+                      <p className={`flex items-center text-xs ${profitDeltaPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {profitDeltaPct >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                        {Math.abs(profitDeltaPct).toFixed(1)}% vs. mes anterior
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {canViewProfit && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border bg-card p-4">
                 <p className="text-sm text-muted-foreground">Costo total</p>
                 <p className="text-xl font-bold">{formatPrice(totalCost)}</p>
@@ -167,6 +243,17 @@ export default function HistorialMensualPage() {
               <div className="rounded-xl border bg-card p-4">
                 <p className="text-sm text-muted-foreground">Comisiones acumuladas</p>
                 <p className="text-xl font-bold">{formatPrice(totalCommission)}</p>
+              </div>
+              <div className="rounded-xl border bg-card p-4">
+                <div className="flex items-center gap-2">
+                  <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Utilidad real del mes</p>
+                </div>
+                <p className={`text-xl font-bold ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
+              </div>
+              <div className="rounded-xl border bg-card p-4">
+                <p className="text-sm text-muted-foreground">Días positivos / negativos</p>
+                <p className="text-xl font-bold">{positiveDays} / {negativeDays}</p>
               </div>
             </div>
           )}
@@ -178,11 +265,16 @@ export default function HistorialMensualPage() {
                 <p className="text-sm text-muted-foreground">No hay ventas este mes.</p>
               ) : (
                 <div className="space-y-2">
-                  {dailyArray.map(([day, cents]) => (
+                  {dailyArray.map(([day, d]) => (
                     <div key={day} className="flex items-center gap-4">
                       <span className="w-20 text-sm text-muted-foreground">{day.slice(8, 10)}/{day.slice(5, 7)}</span>
-                      <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(cents / maxDaily) * 100}%` }} /></div>
-                      <span className="w-28 text-right text-sm font-medium">{formatPrice(cents)}</span>
+                      <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.revenue / maxDaily) * 100}%` }} /></div>
+                      <span className="w-28 text-right text-sm font-medium">{formatPrice(d.revenue)}</span>
+                      {canViewProfit && (
+                        <Badge variant="outline" className={d.revenue - d.cost >= 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}>
+                          {d.revenue - d.cost >= 0 ? 'Positivo' : 'Negativo'}
+                        </Badge>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -205,6 +297,28 @@ export default function HistorialMensualPage() {
                 </div>
               )}
             </div>
+
+            {canViewProfit && (
+              <div className="rounded-xl border bg-card p-6 lg:col-span-2">
+                <h2 className="mb-4 text-lg font-semibold">Rentabilidad por producto (top 10 por ganancia neta)</h2>
+                {mostProfitableProducts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay ventas este mes.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {mostProfitableProducts.map((p, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-sm">{i + 1}</span>
+                        <div className="flex-1">
+                          <p className="line-clamp-1 font-medium">{p.title}</p>
+                          <p className="text-sm text-muted-foreground">{p.qty} unidades · margen {p.margin.toFixed(1)}%</p>
+                        </div>
+                        <span className={`font-semibold ${p.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(p.profit)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}

@@ -52,7 +52,7 @@ interface CartLine {
 
 interface PaymentSplit {
   key: string
-  method: 'cash' | 'card' | 'transfer' | 'addi' | 'other'
+  method: 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'other'
   method_detail: string
   account_id: string
   amount: string
@@ -64,10 +64,16 @@ interface Account {
   color: string | null
 }
 
+// Los 4 sub-tipos de transferencia (Nequi/NU/QR/Daviplata) tienen comisión
+// propia configurable en Comisiones y Gastos Fijos — igual que el software
+// local, que nunca ofrece un "Transferencia" genérico, solo estos 4 nombres.
 const methodLabels: Record<PaymentSplit['method'], string> = {
   cash: 'Efectivo',
   card: 'Datáfono',
-  transfer: 'Transferencia',
+  nequi: 'Nequi',
+  nu: 'NU',
+  qr: 'QR/Bancolombia',
+  daviplata: 'Daviplata',
   addi: 'Addi',
   other: 'Otro',
 }
@@ -91,8 +97,12 @@ export default function VentasPage() {
   const [loadingSales, setLoadingSales] = useState(true)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [commissionRates, setCommissionRates] = useState<Record<string, number>>({})
+
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  // Igual que en el software local: solo Admin ve costo/ganancia/comisión.
+  const canViewProfit = userProfile?.role === 'admin'
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -134,6 +144,16 @@ export default function VentasPage() {
     fetchAccounts()
     fetchTodaySales()
   }, [fetchAccounts, fetchTodaySales])
+
+  useEffect(() => {
+    if (!canViewProfit) return
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data?.pos_commission_rates) setCommissionRates(json.data.pos_commission_rates)
+      })
+      .catch(() => {})
+  }, [canViewProfit])
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
@@ -224,6 +244,16 @@ export default function VentasPage() {
   const total = subtotal - totalDiscount
   const paymentsTotal = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0) * 100, 0)
 
+  // Costo/ganancia/comisión estimados del carrito actual — solo Admin (ver
+  // canViewProfit). La comisión se traslada al cliente como sobreprecio y
+  // no afecta la ganancia registrada, igual que en el software local.
+  const totalCost = cart.reduce((sum, l) => sum + l.qty * l.cost_cents, 0)
+  const estimatedProfit = total - totalCost
+  const estimatedCommission = payments.reduce((sum, p) => {
+    const amount = (parseFloat(p.amount) || 0) * 100
+    return sum + amount * ((commissionRates[p.method] || 0) / 100)
+  }, 0)
+
   const addPaymentSplit = () => {
     setPayments((prev) => [
       ...prev,
@@ -249,7 +279,7 @@ export default function VentasPage() {
     setLastSaleId(null)
   }
 
-  const handleSubmitSale = async () => {
+  const handleSubmitSale = async (force = false) => {
     if (cart.length === 0) {
       toast({ title: 'Error', description: 'Agrega al menos un producto al carrito', variant: 'destructive' })
       return
@@ -259,10 +289,15 @@ export default function VentasPage() {
       toast({ title: 'Error', description: 'Ingresa al menos un método de pago', variant: 'destructive' })
       return
     }
-    if (Math.round(paymentsTotal) < total) {
+    // Los pagos deben sumar EXACTO al total (igual que el software local: no
+    // se calcula vuelto dentro del sistema, el vendedor lo entrega por fuera).
+    if (Math.round(paymentsTotal) !== total) {
+      const diff = Math.round(paymentsTotal) - total
       toast({
         title: 'Error',
-        description: `Los pagos (${formatPrice(paymentsTotal)}) no cubren el total (${formatPrice(total)})`,
+        description: diff < 0
+          ? `Faltan ${formatPrice(-diff)} para cubrir el total`
+          : `Sobran ${formatPrice(diff)} — ajusta el monto pagado (el vuelto se entrega por fuera del sistema)`,
         variant: 'destructive',
       })
       return
@@ -291,11 +326,21 @@ export default function VentasPage() {
             account_id: p.account_id || null,
             amount_cents: Math.round(parseFloat(p.amount) * 100),
           })),
+          force,
         }),
       })
 
       if (!res.ok) {
         const error = await res.json()
+        // Igual que el software local: avisa "Stock insuficiente" con opción
+        // de continuar de todas formas (el stock nunca queda negativo).
+        if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
+          setSaving(false)
+          if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
+            await handleSubmitSale(true)
+          }
+          return
+        }
         throw new Error(error.error || 'Error al registrar la venta')
       }
 
@@ -498,6 +543,13 @@ export default function VentasPage() {
                 <div className="flex justify-between text-green-500"><span>Descuento</span><span>-{formatPrice(totalDiscount)}</span></div>
               )}
               <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total</span><span>{formatPrice(total)}</span></div>
+              {canViewProfit && (
+                <div className="space-y-1 border-t pt-2 text-xs text-muted-foreground">
+                  <div className="flex justify-between"><span>Costo</span><span>{formatPrice(totalCost)}</span></div>
+                  <div className="flex justify-between"><span>Ganancia estimada</span><span className={estimatedProfit >= 0 ? 'text-green-500' : 'text-red-500'}>{formatPrice(estimatedProfit)}</span></div>
+                  <div className="flex justify-between"><span>Comisión estimada</span><span>{formatPrice(Math.round(estimatedCommission))}</span></div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -557,10 +609,16 @@ export default function VentasPage() {
                 <span>Pagado</span>
                 <span>{formatPrice(Math.round(paymentsTotal))}</span>
               </div>
+              {Math.round(paymentsTotal) !== total && (
+                <div className={`flex justify-between text-xs font-medium ${Math.round(paymentsTotal) < total ? 'text-red-500' : 'text-amber-500'}`}>
+                  <span>{Math.round(paymentsTotal) < total ? 'Falta' : 'Sobra (vuelto por fuera)'}</span>
+                  <span>{formatPrice(Math.abs(Math.round(paymentsTotal) - total))}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          <Button className="w-full rounded-xl" size="lg" onClick={handleSubmitSale} disabled={saving}>
+          <Button className="w-full rounded-xl" size="lg" onClick={() => handleSubmitSale()} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
             Registrar venta
           </Button>
@@ -587,7 +645,13 @@ export default function VentasPage() {
           <p className="text-sm text-muted-foreground">Aún no hay ventas de mostrador registradas hoy.</p>
         ) : (
           <div className="space-y-2">
-            {todaySales.map((sale) => (
+            {todaySales.map((sale) => {
+              const saleCost = (sale.order_items || []).reduce(
+                (sum: number, i: any) => sum + i.qty * (i.cost_cents || 0),
+                0
+              )
+              const saleProfit = sale.total_cents - saleCost
+              return (
               <div key={sale.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="font-medium">
@@ -597,6 +661,12 @@ export default function VentasPage() {
                     {(sale.order_items || []).length} producto(s) ·{' '}
                     {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                   </p>
+                  {canViewProfit && (
+                    <p className="text-xs text-muted-foreground">
+                      Costo {formatPrice(saleCost)} · Ganancia{' '}
+                      <span className={saleProfit >= 0 ? 'text-green-500' : 'text-red-500'}>{formatPrice(saleProfit)}</span>
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="font-bold">{formatPrice(sale.total_cents)}</p>
@@ -619,7 +689,8 @@ export default function VentasPage() {
                   )}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

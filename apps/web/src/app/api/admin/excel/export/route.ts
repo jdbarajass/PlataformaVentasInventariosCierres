@@ -6,7 +6,8 @@ import { sheetDefinitions } from '@/lib/excel/sheets'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
-  nequi: 'Nequi', daviplata: 'Daviplata', addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
+  addi: 'Addi', card: 'Datáfono', other: 'Otro',
 }
 
 // GET - Exporta las 18 hojas del respaldo maestro a un .xlsx. Solo admin

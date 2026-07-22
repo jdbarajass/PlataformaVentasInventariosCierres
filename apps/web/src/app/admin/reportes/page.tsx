@@ -140,22 +140,21 @@ export default function ReportsPage() {
       )
 
       // Gastos fijos mensuales (Arriendo/Sueldo/Servicios/Otros de
-      // Configuración > Comisiones y Gastos Fijos) prorrateados por día,
-      // igual que la fórmula del software local (gasto_diario = total / días del mes).
+      // Configuración > Comisiones y Gastos Fijos). Igual que el software
+      // local (calcular_utilidad_real_mes en services/calculator.py): se
+      // resta el gasto fijo del MES COMPLETO tal cual está configurado,
+      // sin prorratear por la cantidad de días del rango elegido — el local
+      // nunca prorratea, sin importar si el rango consultado es corto o
+      // largo, para que ambos sistemas den el mismo número.
       const { data: settingsData } = await supabase
         .from('store_settings')
         .select('fixed_monthly_expenses')
         .eq('id', 1)
         .single()
       const fixed = (settingsData as any)?.fixed_monthly_expenses
-      const dailyFixedExpense = fixed
-        ? (fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents) / (fixed.dias_mes || 30)
+      const totalFixedExpenses = fixed
+        ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents
         : 0
-      const daysInRange = Math.max(
-        1,
-        Math.round((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86_400_000) + 1
-      )
-      const totalFixedExpenses = Math.round(dailyFixedExpense * daysInRange)
       const totalExpenses = totalOperatingExpenses + totalFixedExpenses
 
       setProfitTotals({
@@ -300,7 +299,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatPrice(profitTotals.netProfit)}</div>
-              <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos y fijos prorrateados del periodo ({formatPrice(profitTotals.expenses)})</p>
+              <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos del periodo y gasto fijo mensual completo ({formatPrice(profitTotals.expenses)})</p>
             </CardContent>
           </Card>
         </div>

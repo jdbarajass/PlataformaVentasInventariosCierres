@@ -38,7 +38,8 @@ export async function GET(
 
   const methodLabels: Record<string, string> = {
     cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
-    nequi: 'Nequi', daviplata: 'Daviplata', addi: 'Addi', card: 'Datáfono', other: 'Otro',
+    nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
+    addi: 'Addi', card: 'Datáfono', other: 'Otro',
   }
   const createdAt = new Date(order.created_at).toLocaleDateString('es-CO', {
     year: 'numeric', month: 'long', day: 'numeric',

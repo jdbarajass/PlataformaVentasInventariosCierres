@@ -18,6 +18,7 @@ interface SaleItem {
   product_talla: string | null
   qty: number
   price_cents: number
+  cost_cents: number
   discount_cents: number
   total_cents: number
 }
@@ -27,6 +28,7 @@ interface SalePayment {
   method_detail: string | null
   account_id: string | null
   amount_cents: number
+  commission_cents: number
 }
 interface Sale {
   id: string
@@ -52,7 +54,7 @@ interface CartLine {
 }
 interface PaymentSplit {
   key: string
-  method: 'cash' | 'card' | 'transfer' | 'addi' | 'other'
+  method: 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'other'
   method_detail: string
   account_id: string
   amount: string
@@ -67,7 +69,8 @@ interface ProductResult {
 interface Expense { id: string; description: string; amount_cents: number; category: string }
 
 const methodLabels: Record<PaymentSplit['method'], string> = {
-  cash: 'Efectivo', card: 'Datáfono', transfer: 'Transferencia', addi: 'Addi', other: 'Otro',
+  cash: 'Efectivo', card: 'Datáfono', nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia',
+  daviplata: 'Daviplata', addi: 'Addi', other: 'Otro',
 }
 
 export default function VentasDiaPage() {
@@ -92,8 +95,12 @@ export default function VentasDiaPage() {
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
   const [savingExpense, setSavingExpense] = useState(false)
 
+  const [dailyFixedExpense, setDailyFixedExpense] = useState(0)
+
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  // Igual que en el software local: solo Admin ve costo/ganancia/comisión/utilidad.
+  const canViewProfit = userProfile?.role === 'admin'
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -146,6 +153,20 @@ export default function VentasDiaPage() {
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
 
   useEffect(() => {
+    if (!canViewProfit) return
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const fixed = json?.data?.fixed_monthly_expenses
+        if (fixed) {
+          const total = fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents
+          setDailyFixedExpense(total / (fixed.dias_mes || 30))
+        }
+      })
+      .catch(() => {})
+  }, [canViewProfit])
+
+  useEffect(() => {
     if (!editQuery.trim() || !session?.access_token) {
       setEditResults([])
       return
@@ -162,8 +183,26 @@ export default function VentasDiaPage() {
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
 
-  const totalDia = sales.filter((s) => s.status !== 'cancelled').reduce((sum, s) => sum + s.total_cents, 0)
+  const activeSales = sales.filter((s) => s.status !== 'cancelled')
+  const totalDia = activeSales.reduce((sum, s) => sum + s.total_cents, 0)
   const totalGastos = expenses.reduce((sum, e) => sum + e.amount_cents, 0)
+
+  // Costo/ganancia/comisión/utilidad real del día — igual que el software
+  // local (calcular_utilidad_real_dia): el gasto fijo mensual se prorratea
+  // POR DÍA (total ÷ días del mes) porque esta es la vista de un solo día,
+  // a diferencia de Reportes/Historial Mensual que usan el gasto fijo
+  // completo sin prorratear (ver docs/UNIFICACION_YJBMOTOCOM.md sección 13.2).
+  const totalCost = activeSales.reduce(
+    (sum, s) => sum + (s.order_items || []).reduce((c, i) => c + i.qty * (i.cost_cents || 0), 0),
+    0
+  )
+  const totalCommission = activeSales.reduce(
+    (sum, s) => sum + (s.payments || []).reduce((c, p) => c + (p.commission_cents || 0), 0),
+    0
+  )
+  const netProfit = totalDia - totalCost
+  const netProfitPct = totalDia > 0 ? (netProfit / totalDia) * 100 : 0
+  const utilidadReal = netProfit - totalGastos - dailyFixedExpense
 
   const startEdit = (sale: Sale) => {
     setEditingId(sale.id)
@@ -221,7 +260,12 @@ export default function VentasDiaPage() {
     setEditPayments((prev) => [...prev, { key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: '', amount: '' }])
   }
 
-  const saveEdit = async (saleId: string) => {
+  const editSubtotal = editCart.reduce((sum, l) => sum + l.qty * l.price_cents, 0)
+  const editDiscount = editCart.reduce((sum, l) => sum + l.discount_cents, 0)
+  const editTotal = editSubtotal - editDiscount
+  const editPaymentsTotal = editPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0) * 100, 0)
+
+  const saveEdit = async (saleId: string, force = false) => {
     if (editCart.length === 0) {
       toast({ title: 'Error', description: 'La venta debe tener al menos un producto', variant: 'destructive' })
       return
@@ -229,6 +273,16 @@ export default function VentasDiaPage() {
     const validPayments = editPayments.filter((p) => parseFloat(p.amount) > 0)
     if (validPayments.length === 0) {
       toast({ title: 'Error', description: 'Ingresa al menos un método de pago', variant: 'destructive' })
+      return
+    }
+    // Los pagos deben sumar EXACTO al total, igual que al registrar la venta.
+    if (Math.round(editPaymentsTotal) !== editTotal) {
+      const diff = Math.round(editPaymentsTotal) - editTotal
+      toast({
+        title: 'Error',
+        description: diff < 0 ? `Faltan ${formatPrice(-diff)} para cubrir el total` : `Sobran ${formatPrice(diff)} — ajusta el monto pagado`,
+        variant: 'destructive',
+      })
       return
     }
     try {
@@ -247,10 +301,18 @@ export default function VentasDiaPage() {
             method: p.method, method_detail: p.method_detail || null,
             account_id: p.account_id || null, amount_cents: Math.round(parseFloat(p.amount) * 100),
           })),
+          force,
         }),
       })
       if (!res.ok) {
         const error = await res.json()
+        if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
+          setSaving(false)
+          if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
+            await saveEdit(saleId, true)
+          }
+          return
+        }
         throw new Error(error.error || 'Error al editar la venta')
       }
       toast({ title: 'Venta actualizada' })
@@ -319,15 +381,29 @@ export default function VentasDiaPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Total del día ({sales.filter((s) => s.status !== 'cancelled').length} ventas)</p>
+          <p className="text-sm text-muted-foreground">Total del día ({activeSales.length} ventas)</p>
           <p className="text-2xl font-bold">{formatPrice(totalDia)}</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
           <p className="text-sm text-muted-foreground">Gastos operativos del día</p>
           <p className="text-2xl font-bold text-red-500">{formatPrice(totalGastos)}</p>
         </div>
+        {canViewProfit && (
+          <>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Ganancia neta ({netProfitPct.toFixed(1)}%)</p>
+              <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(netProfit)}</p>
+              <p className="text-xs text-muted-foreground">Costo {formatPrice(totalCost)} · Comisión {formatPrice(totalCommission)}</p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-sm text-muted-foreground">Utilidad real del día</p>
+              <p className={`text-2xl font-bold ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
+              <p className="text-xs text-muted-foreground">Ganancia neta − gastos del día − gasto fijo diario ({formatPrice(dailyFixedExpense)})</p>
+            </div>
+          </>
+        )}
       </div>
 
       {loading ? (
@@ -511,6 +587,16 @@ export default function VentasDiaPage() {
                           <Button variant="outline" size="sm" className="rounded-lg" onClick={addEditPayment}>
                             <Plus className="mr-1 h-3 w-3" /> Agregar método de pago
                           </Button>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Total / Pagado</span>
+                            <span>{formatPrice(editTotal)} / {formatPrice(Math.round(editPaymentsTotal))}</span>
+                          </div>
+                          {Math.round(editPaymentsTotal) !== editTotal && (
+                            <div className={`flex justify-between text-xs font-medium ${Math.round(editPaymentsTotal) < editTotal ? 'text-red-500' : 'text-amber-500'}`}>
+                              <span>{Math.round(editPaymentsTotal) < editTotal ? 'Falta' : 'Sobra'}</span>
+                              <span>{formatPrice(Math.abs(Math.round(editPaymentsTotal) - editTotal))}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex gap-2">

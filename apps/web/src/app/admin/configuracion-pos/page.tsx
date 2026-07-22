@@ -9,7 +9,8 @@ import { useToast } from '@/components/ui/use-toast'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
-  nequi: 'Nequi', daviplata: 'Daviplata', addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
+  addi: 'Addi', card: 'Datáfono', other: 'Otro',
 }
 
 interface FixedExpenses {
@@ -164,7 +165,7 @@ export default function ConfiguracionPosPage() {
           </div>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Se prorratean como gasto diario (total ÷ días del mes) al calcular la Utilidad Real en Reportes — igual que el software local.
+          Se usan completos (sin prorratear) en la Utilidad Real de Reportes e Historial Mensual, y prorrateados por día (total ÷ días del mes) en la Utilidad Real de Ventas del Día — igual que el software local.
         </p>
         <Button className="mt-4 rounded-lg" onClick={handleSaveExpenses} disabled={savingExpenses}>
           {savingExpenses ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
