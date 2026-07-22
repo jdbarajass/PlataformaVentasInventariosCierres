@@ -47,6 +47,13 @@ export default function PresupuestoPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Gastos fijos mensuales (Arriendo/Sueldo/Servicios/Otros de Comisiones y
+  // Gastos Fijos) — panel de contexto que el local sí muestra junto al
+  // presupuesto variable (_panel_gastos_fijos en ui/presupuesto_panel.py),
+  // para saber cuánto es el "piso" fijo del mes además de lo presupuestado
+  // por categoría aquí.
+  const [fixedExpenses, setFixedExpenses] = useState<{ arriendo_cents: number; sueldo_cents: number; servicios_cents: number; otros_gastos_cents: number } | null>(null)
+
   const [newCategory, setNewCategory] = useState('')
   const [newAmount, setNewAmount] = useState('')
   const [savingBudget, setSavingBudget] = useState(false)
@@ -106,14 +113,26 @@ export default function PresupuestoPage() {
     }
   }, [session?.access_token, authHeaders])
 
+  const fetchFixedExpenses = useCallback(async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch('/api/settings', { headers: authHeaders() })
+      if (!res.ok) return
+      const { data } = await res.json()
+      if (data?.fixed_monthly_expenses) setFixedExpenses(data.fixed_monthly_expenses)
+    } catch (error) {
+      console.error('Error fetching fixed expenses:', error)
+    }
+  }, [session?.access_token, authHeaders])
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchBudgets(), fetchExpenses(), fetchAccounts()])
+      await Promise.all([fetchBudgets(), fetchExpenses(), fetchAccounts(), fetchFixedExpenses()])
       setLoading(false)
     }
     load()
-  }, [fetchBudgets, fetchExpenses, fetchAccounts])
+  }, [fetchBudgets, fetchExpenses, fetchAccounts, fetchFixedExpenses])
 
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
@@ -294,6 +313,25 @@ export default function PresupuestoPage() {
               <p className="text-2xl font-bold">{formatPrice(totalSpent)}</p>
             </div>
           </div>
+
+          {fixedExpenses && (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="mb-2 text-sm font-medium text-muted-foreground">
+                Gastos fijos mensuales (contexto — no forman parte del presupuesto por categoría de arriba)
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                <div><span className="text-muted-foreground">Arriendo:</span> {formatPrice(fixedExpenses.arriendo_cents)}</div>
+                <div><span className="text-muted-foreground">Sueldo:</span> {formatPrice(fixedExpenses.sueldo_cents)}</div>
+                <div><span className="text-muted-foreground">Servicios:</span> {formatPrice(fixedExpenses.servicios_cents)}</div>
+                <div><span className="text-muted-foreground">Otros:</span> {formatPrice(fixedExpenses.otros_gastos_cents)}</div>
+              </div>
+              <p className="mt-2 border-t pt-2 text-sm font-semibold">
+                Total fijo del mes: {formatPrice(
+                  fixedExpenses.arriendo_cents + fixedExpenses.sueldo_cents + fixedExpenses.servicios_cents + fixedExpenses.otros_gastos_cents
+                )}
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold">Agregar/actualizar categoría</h2>

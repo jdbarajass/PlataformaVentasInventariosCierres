@@ -825,7 +825,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 9 | Fiado | ✅ Auditada y corregida | Ver 15.9 |
 | 10 | Préstamos | ✅ Auditada y corregida | Ver 15.10 |
 | 11 | Notas | ✅ Auditada y corregida | Ver 15.11 |
-| 12 | Presupuesto | ⏳ pendiente | |
+| 12 | Presupuesto | ✅ Auditada y corregida | Ver 15.12 |
 | 13 | Cierres | ⏳ pendiente | |
 | 14 | Reportes | ⏳ pendiente | |
 | 15 | Rendimiento Vendedores | ⏳ pendiente | |
@@ -905,6 +905,16 @@ Comparado `ui/notas_panel.py` (local) contra `admin/notas/page.tsx` (nube).
 **Hallazgos corregidos** (ambos menores, señalados en la sección 12, nunca cerrados):
 1. **Sin contador de resumen**: el local muestra "N pendientes • N en total • ⚠ N vencidas" (`_lbl_count`); la nube no mostraba ningún conteo. Se agregó el mismo contador — esto requirió cambiar `fetchNotes` para traer todas las notas de una sola vez (antes pedía al servidor solo las del filtro activo vía `?completed=`) y filtrar el toggle Pendientes/Completadas en el cliente, para que el conteo sea sobre el total real y no solo lo visible.
 2. **Sin edición de texto/fecha**: la nube solo tenía checkbox de completado y eliminar, no un botón para editar el texto o la fecha límite de una nota ya creada (el local sí, vía `_on_edit`/`actualizar_nota`, y la API `PUT /api/notes/[id]` ya soportaba `text`/`due_date` — solo faltaba el botón). Se agregó edición inline (lápiz → campos de texto/fecha → guardar/cancelar).
+
+Verificado tsc/eslint/vitest.
+
+### 15.12 Presupuesto (2026-07-22)
+
+Comparado `ui/presupuesto_panel.py` (local) contra `admin/presupuesto/page.tsx` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.3/4.4, más la categoría cerrada corregida en 15.4): "Copiar mes anterior", alerta al 80% de ejecución, fila de "Diferencia"/"Superado por" y % ejecutado por categoría, categorías cerradas (7 valores, ya corregido en esta misma auditoría).
+
+**Hallazgo corregido**: faltaba el panel de contexto de gastos fijos mensuales (Arriendo/Sueldo/Servicios/Otros de Comisiones y Gastos Fijos) que el local muestra junto al presupuesto variable (`_panel_gastos_fijos`) — sirve para que el admin vea de un vistazo cuánto es el "piso" fijo del mes además de lo presupuestado por categoría. Se agregó una tarjeta con los 4 montos + el total fijo, reutilizando `store_settings.fixed_monthly_expenses` (la misma fuente que ya usan Reportes/Historial Mensual/Ventas del Día para la Utilidad Real).
 
 Verificado tsc/eslint/vitest.
 
