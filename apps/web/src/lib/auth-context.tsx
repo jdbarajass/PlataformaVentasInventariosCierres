@@ -36,16 +36,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session.
-    // IMPORTANT: setLoading(false) must run no matter what — if
-    // getSession() rejects (expired/invalid refresh token, network blip on
-    // a hard reload) or the profile fetch below throws, the admin layout's
-    // spinner would otherwise spin forever with no way to recover.
-    supabase.auth
-      .getSession()
-      .then(async ({ data: { session }, error }) => {
+    // IMPORTANT: setLoading(false) must run no matter what. getSession()
+    // puede quedarse colgada indefinidamente (nunca resuelve ni rechaza) en
+    // algunos navegadores/pestañas — un problema conocido de la librería
+    // @supabase/auth-helpers-nextjs (deprecada) con el lock interno de
+    // refresco de sesión entre pestañas — dejando el spinner de /admin
+    // girando para siempre sin ninguna forma de recuperarse. Se envuelve en
+    // una carrera con timeout (mismo patrón ya usado en mi-cuenta/page.tsx)
+    // y, si se agota, se intenta getUser() como respaldo — hace una
+    // llamada de red nueva e independiente que no depende del mismo lock.
+    let cancelled = false
+
+    const resolveSession = async () => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('getSession timeout')), 8000)
+      )
+      try {
+        const { data: { session }, error } = await Promise.race([supabase.auth.getSession(), timeout])
         if (error) {
           console.error('Error getting session:', error)
         }
+        return session
+      } catch (raceError) {
+        console.error('getSession colgada o falló, reintentando con getUser():', raceError)
+        try {
+          const { data: { user: fallbackUser }, error: userError } = await supabase.auth.getUser()
+          if (userError || !fallbackUser) return null
+          // getUser() no devuelve el objeto Session completo, pero alcanza
+          // con user para desbloquear la UI — session se completará sola
+          // vía onAuthStateChange si el cliente logra recuperarse después.
+          return { user: fallbackUser } as any
+        } catch (fallbackError) {
+          console.error('Fallback getUser() también falló:', fallbackError)
+          return null
+        }
+      }
+    }
+
+    resolveSession()
+      .then(async (session) => {
+        if (cancelled) return
         setSession(session)
         setUser(session?.user ?? null)
 
@@ -58,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .eq('id', session.user.id)
               .single()
 
+            if (cancelled) return
             setUserProfile({
               id: session.user.id,
               email: session.user.email || '',
@@ -69,11 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       })
-      .catch((sessionError) => {
-        console.error('Unhandled error getting session:', sessionError)
-      })
       .finally(() => {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       })
 
     // Listen for auth changes
@@ -109,7 +137,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signOut = async () => {
