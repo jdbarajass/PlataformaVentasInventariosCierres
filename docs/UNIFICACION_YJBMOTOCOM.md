@@ -824,7 +824,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 8 | Facturas | ✅ Auditada y corregida | Ver 15.7 |
 | 9 | Fiado | ✅ Auditada y corregida | Ver 15.9 |
 | 10 | Préstamos | ✅ Auditada y corregida | Ver 15.10 |
-| 11 | Notas | ⏳ pendiente | |
+| 11 | Notas | ✅ Auditada y corregida | Ver 15.11 |
 | 12 | Presupuesto | ⏳ pendiente | |
 | 13 | Cierres | ⏳ pendiente | |
 | 14 | Reportes | ⏳ pendiente | |
@@ -893,6 +893,18 @@ Comparado `ui/prestamos_panel.py` + `controllers/prestamos_controller.py` + `mod
 **Confirmado que ya coincide**: los 3 estados, edición de producto/almacén/observaciones, eliminación — todo con CRUD completo (`api/loans/[id]/route.ts` con PUT/DELETE).
 
 **Hallazgo corregido**: el backend (`POST /api/loans`) ya aceptaba `product_id` opcional/nulo (`models/prestamo.py` del local nunca exige que el producto exista en inventario, es un campo de texto libre), pero la UI obligaba a elegir un producto de la búsqueda del catálogo antes de poder registrar el préstamo — no había forma de prestar algo que no fuera un producto real (ej. una exhibición, una herramienta). Se agregó un enlace "¿No está en el catálogo? Escribe el nombre a mano" que cambia a un campo de texto libre, enviando `product_id: null`.
+
+Verificado tsc/eslint/vitest.
+
+### 15.11 Notas (2026-07-22)
+
+Comparado `ui/notas_panel.py` (local) contra `admin/notas/page.tsx` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.4): gradiente de urgencia por colores (vencida/hoy/≤3 días/futura) y orden combinado vencidas-primero — ambos ya implementados, coinciden con `_badge_dias`/`obtener_notas()` del local.
+
+**Hallazgos corregidos** (ambos menores, señalados en la sección 12, nunca cerrados):
+1. **Sin contador de resumen**: el local muestra "N pendientes • N en total • ⚠ N vencidas" (`_lbl_count`); la nube no mostraba ningún conteo. Se agregó el mismo contador — esto requirió cambiar `fetchNotes` para traer todas las notas de una sola vez (antes pedía al servidor solo las del filtro activo vía `?completed=`) y filtrar el toggle Pendientes/Completadas en el cliente, para que el conteo sea sobre el total real y no solo lo visible.
+2. **Sin edición de texto/fecha**: la nube solo tenía checkbox de completado y eliminar, no un botón para editar el texto o la fecha límite de una nota ya creada (el local sí, vía `_on_edit`/`actualizar_nota`, y la API `PUT /api/notes/[id]` ya soportaba `text`/`due_date` — solo faltaba el botón). Se agregó edición inline (lápiz → campos de texto/fecha → guardar/cancelar).
 
 Verificado tsc/eslint/vitest.
 

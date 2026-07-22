@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { StickyNote, Plus, Loader2, Trash2, Check } from 'lucide-react'
+import { StickyNote, Plus, Loader2, Trash2, Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +27,11 @@ export default function NotasPage() {
   const [dueDate, setDueDate] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
   const { session } = useAuth()
   const { toast } = useToast()
 
@@ -35,11 +40,14 @@ export default function NotasPage() {
     [session?.access_token]
   )
 
+  // Se cargan todas las notas (no solo las del filtro activo) para poder
+  // mostrar el contador "N pendientes • N en total • ⚠ N vencidas" — igual
+  // que _lbl_count del local, que cuenta sobre el total, no solo lo visible.
   const fetchNotes = useCallback(async () => {
     if (!session?.access_token) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/notes?completed=${showCompleted}`, { headers: authHeaders() })
+      const res = await fetch('/api/notes', { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
       setNotes(data || [])
@@ -48,7 +56,7 @@ export default function NotasPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, authHeaders, showCompleted])
+  }, [session?.access_token, authHeaders])
 
   useEffect(() => {
     fetchNotes()
@@ -71,7 +79,14 @@ export default function NotasPage() {
 
   // Orden combinado: vencidas primero, luego hoy, luego próximas, luego
   // futuras, sin fecha al final — igual que obtener_notas() del local.
-  const sortedNotes = [...notes].sort((a, b) => getUrgency(a.due_date).rank - getUrgency(b.due_date).rank)
+  const sortedNotes = notes
+    .filter((n) => n.completed === showCompleted)
+    .sort((a, b) => getUrgency(a.due_date).rank - getUrgency(b.due_date).rank)
+
+  // Contador "N pendientes • N en total • ⚠ N vencidas" — igual que
+  // _lbl_count del local (ui/notas_panel.py).
+  const pendingCount = notes.filter((n) => !n.completed).length
+  const overdueCount = notes.filter((n) => !n.completed && getUrgency(n.due_date).rank === 0).length
 
   const handleCreate = async () => {
     if (!text.trim()) {
@@ -108,6 +123,35 @@ export default function NotasPage() {
       await fetchNotes()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    }
+  }
+
+  const startEdit = (note: Note) => {
+    setEditingId(note.id)
+    setEditText(note.text)
+    setEditDueDate(note.due_date || '')
+  }
+
+  const handleSaveEdit = async (noteId: string) => {
+    if (!editText.trim()) {
+      toast({ title: 'Error', description: 'El texto no puede estar vacío', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingEdit(true)
+      const res = await fetch(`/api/notes/${noteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ text: editText, due_date: editDueDate || null }),
+      })
+      if (!res.ok) throw new Error('Error al actualizar la nota')
+      toast({ title: 'Nota actualizada' })
+      setEditingId(null)
+      await fetchNotes()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -148,13 +192,19 @@ export default function NotasPage() {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button variant={!showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg" onClick={() => setShowCompleted(false)}>
-          Pendientes
-        </Button>
-        <Button variant={showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg" onClick={() => setShowCompleted(true)}>
-          Completadas
-        </Button>
+      <div className="flex items-center gap-4">
+        <div className="flex gap-2">
+          <Button variant={!showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg" onClick={() => setShowCompleted(false)}>
+            Pendientes
+          </Button>
+          <Button variant={showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg" onClick={() => setShowCompleted(true)}>
+            Completadas
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''} · {notes.length} en total
+          {overdueCount > 0 && <span className="text-red-500"> · ⚠ {overdueCount} vencida{overdueCount !== 1 ? 's' : ''}</span>}
+        </p>
       </div>
 
       {loading ? (
@@ -170,6 +220,23 @@ export default function NotasPage() {
         <div className="space-y-2">
           {sortedNotes.map((note) => {
             const urgency = getUrgency(note.due_date)
+            if (editingId === note.id) {
+              return (
+                <div key={note.id} className="space-y-2 rounded-xl border bg-card p-4">
+                  <Input value={editText} onChange={(e) => setEditText(e.target.value)} className="rounded-lg" placeholder="Texto de la nota" />
+                  <div className="flex items-center gap-2">
+                    <Input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="rounded-lg" />
+                    <Button size="sm" className="rounded-lg" onClick={() => handleSaveEdit(note.id)} disabled={savingEdit}>
+                      {savingEdit ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
+                      Guardar
+                    </Button>
+                    <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditingId(null)}>
+                      <X className="mr-1 h-3 w-3" /> Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )
+            }
             return (
               <div key={note.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
                 <div className="flex items-center gap-3">
@@ -191,9 +258,14 @@ export default function NotasPage() {
                     </div>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(note)}>
-                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(note)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(note)}>
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                  </Button>
+                </div>
               </div>
             )
           })}
