@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
@@ -74,11 +74,7 @@ export default function MiCuentaPage() {
   const [editName, setEditName] = useState('')
   const [editPhone, setEditPhone] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Tiempo de espera agotado')), 10000)
     )
@@ -138,7 +134,11 @@ export default function MiCuentaPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router, toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()

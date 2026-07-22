@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Plus,
   Search,
@@ -59,11 +59,7 @@ export default function CuponesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData>(emptyForm)
 
-  useEffect(() => {
-    fetchCoupons()
-  }, [])
-
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       const res = await fetch('/api/coupons')
       const data = await res.json()
@@ -73,7 +69,11 @@ export default function CuponesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    fetchCoupons()
+  }, [fetchCoupons])
 
   const openCreateModal = () => {
     setEditingCoupon(null)

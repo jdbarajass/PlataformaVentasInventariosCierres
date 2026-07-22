@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Search, Trash2, CheckCircle, XCircle, Star, Loader2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,11 +46,7 @@ export default function ResenasPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchReviews()
-  }, [filterStatus])
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
@@ -65,7 +61,11 @@ export default function ResenasPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [filterStatus, toast])
+
+  useEffect(() => {
+    fetchReviews()
+  }, [fetchReviews])
 
   const handleApprove = async (review: Review) => {
     setProcessingId(review.id)

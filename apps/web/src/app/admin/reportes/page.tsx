@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Download, Calendar, TrendingUp, Package, DollarSign, Wallet, PiggyBank } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,11 +52,7 @@ export default function ReportsPage() {
   // Igual que en el software local: solo Admin ve costo/comisión/ganancia.
   const canViewProfit = userProfile?.role === 'admin'
 
-  useEffect(() => {
-    fetchReports()
-  }, [dateFrom, dateTo])
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setIsLoading(true)
 
     // Fetch orders in date range
@@ -172,7 +168,11 @@ export default function ReportsPage() {
     }
 
     setIsLoading(false)
-  }
+  }, [dateFrom, dateTo])
+
+  useEffect(() => {
+    fetchReports()
+  }, [fetchReports])
 
   const exportCSV = () => {
     const headers = ['Fecha', 'Ventas (COP)', 'Ordenes']

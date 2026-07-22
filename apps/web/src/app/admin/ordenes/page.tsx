@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Search, Eye, Truck, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,11 +40,7 @@ export default function OrdersPage() {
   const [newStatus, setNewStatus] = useState('')
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchOrders()
-  }, [statusFilter])
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.append('status', statusFilter)
@@ -57,7 +53,11 @@ export default function OrdersPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [statusFilter])
+
+  useEffect(() => {
+    fetchOrders()
+  }, [fetchOrders])
 
   const openOrderModal = (order: Order) => {
     setSelectedOrder(order)
