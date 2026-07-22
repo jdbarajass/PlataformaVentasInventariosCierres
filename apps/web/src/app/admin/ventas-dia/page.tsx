@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
 
 interface SaleItem {
   id: string
@@ -717,7 +718,12 @@ export default function VentasDiaPage() {
         <h2 className="mb-4 text-lg font-semibold">Gastos operativos del día</h2>
         <div className="mb-4 flex flex-wrap gap-2">
           <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
-          <Input placeholder="Categoría" value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg" />
+          <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+            <option value="">Categoría...</option>
+            {EXPENSE_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <Input type="number" min="0" placeholder="Monto" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="rounded-lg" />
           <select value={expenseForm.account_id} onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
             <option value="">Sin cuenta</option>

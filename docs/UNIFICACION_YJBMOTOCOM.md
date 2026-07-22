@@ -815,9 +815,9 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | # | Sección | Estado | Hallazgos |
 |---|---------|--------|-----------|
 | 1 | Registrar Venta | ✅ Auditada y corregida | Ver 15.1 |
-| 2 | Calculadora | ⏳ pendiente | |
-| 3 | Mi Cuadre | ⏳ pendiente | |
-| 4 | Ventas del Día | ⏳ pendiente | |
+| 2 | Calculadora | ✅ Auditada, sin hallazgos | Ver 15.2 |
+| 3 | Mi Cuadre | ✅ Auditada, sin hallazgos | Ver 15.3 |
+| 4 | Ventas del Día | ✅ Auditada y corregida | Ver 15.4 |
 | 5 | Historial Mensual | ⏳ pendiente | |
 | 6 | Inventario | ⏳ pendiente | |
 | 7 | Cuentas | ⏳ pendiente | |
@@ -848,4 +848,25 @@ Comparado `ui/venta_form.py` + `controllers/venta_controller.py` + `models/venta
 
 Commit `21c9651`. Migración `00025` **pendiente de aplicar por el usuario** (se suma a las anteriores sin aplicar, si las hubiera).
 
-**Punto abierto, no corregido — requiere decisión del usuario, no es claramente un bug**: en el local, "Vendedor" es un combo obligatorio que lista a *todos* los usuarios registrados, independiente de quién tenga la sesión abierta en el software (permite que, p. ej., el admin opere la caja pero atribuya la venta a un vendedor específico para que "Rendimiento de Vendedores" sea preciso). En la nube, la venta siempre se atribuye a `auth.user.id` (quien esté logueado en el navegador) — no hay ningún selector que la reatribuya a otra persona. Si en la operación real del negocio cada vendedor inicia sesión con su propia cuenta, esto es equivalente (incluso más seguro). Si en la práctica se comparte una sola sesión en el mostrador, "Rendimiento de Vendedores" en la nube quedaría sesgado hacia quien esté logueado. **Pendiente de preguntarle al usuario cómo se usa en la práctica** antes de decidir si hace falta un selector manual de vendedor que sobreescriba `seller_id` (cambiaría el modelo de auditoría/seguridad, por eso no se implementó sin confirmar).
+**Punto abierto — resuelto sin cambio de código (2026-07-22)**: se le preguntó al usuario cómo se usa en la práctica el combo "Vendedor" del local (atribuye la venta a cualquier usuario registrado, sin importar quién tenga la sesión abierta) frente a la nube (siempre atribuye a `auth.user.id`, el logueado). El usuario confirmó que **cada vendedor tiene su propia cuenta** — no se comparte login en el mostrador. Por lo tanto `seller_id = auth.user.id` ya es equivalente (y más seguro) que el combo manual del local; no hace falta ningún selector adicional.
+
+### 15.2 Calculadora (2026-07-22)
+
+Comparado `ui/calculadora_panel.py` (local) contra `admin/calculadora/page.tsx` (nube). **Sin hallazgos** — coincide en las 3 fórmulas (precio desde % margen real / % sobre costo, con las mismas fórmulas matemáticas exactas), la Calculadora de Cascos (precio de factura → quitar IVA 19% → aplicar descuento de proveedor → costo real, con la misma tabla de precios sugeridos por % de ganancia) y la Calculadora Rápida (costo+precio → ganancia/margen). El buscador de inventario que revela costos reales sigue gateado solo a admin (`isAdmin`), igual que la decisión de la Fase 4.4. La nube incluso añade una mejora que el local no tiene: cálculo de comisión por método de pago sobre el precio calculado. No se tocó código.
+
+### 15.3 Mi Cuadre (2026-07-22)
+
+Comparado `ui/mi_cuadre_panel.py` (local) contra `admin/mi-cuadre/page.tsx` (nube). **Sin hallazgos** — mismas tarjetas (unidades vendidas, total recaudado), mismo desglose por método de pago, mismo auto-refresh cada 60s + botón manual (Fase 4.4), sin costos ni márgenes visibles (ambos). Se detectó una diferencia positiva: el local agrupa toda venta con pago combinado bajo un solo bucket "Combinado" (no la desglosa por sub-método real), mientras la nube sí separa cada venta combinada en sus métodos reales (itera `payments` reales de cada orden) — es una mejora de precisión sobre el local, no una regresión, así que se dejó como está. No se tocó código.
+
+### 15.4 Ventas del Día (2026-07-22)
+
+Comparado `ui/ventas_dia_panel.py` + `controllers/ventas_dia_controller.py` (local) contra `admin/ventas-dia/page.tsx` + `api/pos/sales/bulk-method` + `api/operating-expenses` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.2/4.3): edición y eliminación de ventas (revierte stock/cuenta), cambio masivo de método de pago excluyendo automáticamente ventas con pago combinado (mismo criterio, misma recalculación de comisión — `api/pos/sales/bulk-method/route.ts` replica `_on_editar_metodo_masivo` casi línea por línea), exportar a Excel, "Utilidad Real" del día prorrateando el gasto fijo mensual por día (`dailyFixedExpense = fixed/dias_mes`, comentario explícito citando `calcular_utilidad_real_dia` del local) a diferencia de Reportes/Historial Mensual que no prorratean.
+
+**Hallazgo nuevo, no cubierto por la auditoría original (sección 12)**: el local tiene un panel inline "Gastos Operativos del Día" **dentro de Ventas del Día** (no solo en Presupuesto) con categoría de una lista **cerrada** de 7 valores (`CATEGORIAS_GASTO`: Montado, Relleno Cascos, Devueltas de dinero, Sueldo, Arriendo, Luz, Otro). La nube ya tenía el panel inline equivalente (Fase 4.3), pero el campo de categoría era **texto libre** tanto ahí como en la pestaña "Gastos" de Presupuesto y en el formulario de "Agregar/actualizar categoría" de Presupuesto — esto era justamente el riesgo de "gasto huérfano" por typo que la sección 12 ya había señalado para Presupuesto, pero que nunca se cerró en la Fase 4. Se corrigió:
+- Nuevo `lib/expense-categories.ts` con las 7 categorías exactas del local.
+- Los 3 selectores de categoría de gasto/presupuesto (`admin/ventas-dia`, `admin/presupuesto` × 2) pasan de `<Input>` de texto libre a `<select>` con esa lista fija.
+- No se tocó el esquema de base de datos (la columna sigue siendo `TEXT` libre — filas viejas con categorías arbitrarias, si las hay, no se ven afectadas) ni las validaciones de servidor (zod ya exige no-vacío, ahora el cliente solo puede elegir de la lista cerrada).
+
+No se creó migración nueva (solo cambio de UI/cliente). Verificado tsc/eslint/vitest.

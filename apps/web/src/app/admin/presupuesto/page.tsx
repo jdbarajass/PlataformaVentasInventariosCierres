@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
 
 interface Budget {
   id: string
@@ -297,7 +298,12 @@ export default function PresupuestoPage() {
           <div className="rounded-xl border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold">Agregar/actualizar categoría</h2>
             <div className="flex flex-wrap gap-2">
-              <Input placeholder="Categoría" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="rounded-lg" />
+              <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="rounded-lg border bg-background px-3 py-2 text-sm">
+                <option value="">Categoría...</option>
+                {EXPENSE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
               <Input type="number" min="0" placeholder="Monto presupuestado" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="rounded-lg" />
               <Button className="rounded-lg" onClick={handleSaveBudget} disabled={savingBudget}>
                 {savingBudget ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -368,7 +374,12 @@ export default function PresupuestoPage() {
             <h2 className="mb-4 text-lg font-semibold">Nuevo gasto operativo</h2>
             <div className="flex flex-wrap gap-2">
               <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
-              <Input placeholder="Categoría" value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg" />
+              <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+                <option value="">Categoría...</option>
+                {EXPENSE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
               <Input type="number" min="0" placeholder="Monto" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="rounded-lg" />
               <select
                 value={expenseForm.account_id}
