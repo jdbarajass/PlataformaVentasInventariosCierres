@@ -3,7 +3,7 @@
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
 **Última actualización**: 2026-07-22
-**Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas** — los 16 módulos del local están en la nube (sección 11) y los ~35 hallazgos de la auditoría de fidelidad detallada quedaron corregidos (sección 12/13). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00024 aplicadas por el usuario en Supabase real, salvo las últimas confirmaciones pendientes de la Fase 4 (ver sección 13.5). Además se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, ver sección 14).
+**Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas** — los 16 módulos del local están en la nube (sección 11) y los ~35 hallazgos de la auditoría de fidelidad detallada quedaron corregidos (sección 12/13). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00024 aplicadas por el usuario en Supabase real, salvo las últimas confirmaciones pendientes de la Fase 4 (ver sección 13.5). Además se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, ver sección 14). **En curso: sección 15, nueva auditoría exhaustiva sección-por-sección** (a pedido del usuario, para verificar que las Fases 4.1-4.4 realmente cerraron todo y detectar lo que se haya escapado) — ver progreso y hallazgos ahí.
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
 
@@ -805,3 +805,47 @@ No era un bug (ambas páginas funcionaban), pero sí era una duplicación innece
 - Se eliminó `apps/web/src/app/login/page.tsx` (quedaba sin ningún enlace apuntándole).
 
 **Verificado**: `tsc --noEmit` 0 errores (se limpió el caché `.next/types` que aún referenciaba la página borrada), `eslint` sin warnings nuevos, `vitest run` 62/62, `npm run build` completo (`/login` ya no aparece en la lista de rutas), y prueba manual con `npm run dev` + `curl`: `/login` → 404, `/iniciar-sesion` → 200, `/admin` sin sesión → redirige 307 a `/iniciar-sesion?redirect=%2Fadmin` correctamente.
+
+## 15. Auditoría exhaustiva sección-por-sección (2026-07-22, en curso)
+
+El usuario pidió una segunda vuelta de auditoría, más minuciosa que la de la sección 12: comparar **cada módulo del software local** (`C:\Users\JJBarajas\Pictures\VENTAS_YJBMOTOCOM`) contra su equivalente en la nube, sección por sección (no por fases), verificando fidelidad de **lógica/funcionalidad** (el estilo visual no importa — se prefiere el de la nube). Modo de trabajo elegido explícitamente por el usuario: **auditar y corregir sobre la marcha** (igual que la Fase 4) — si una sección tiene algo faltante o mal, se corrige ahí mismo con su verificación completa (tsc/eslint/vitest, y build si toca `(shop)/`) antes de pasar a la siguiente.
+
+Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el usuario pidió):
+
+| # | Sección | Estado | Hallazgos |
+|---|---------|--------|-----------|
+| 1 | Registrar Venta | ✅ Auditada y corregida | Ver 15.1 |
+| 2 | Calculadora | ⏳ pendiente | |
+| 3 | Mi Cuadre | ⏳ pendiente | |
+| 4 | Ventas del Día | ⏳ pendiente | |
+| 5 | Historial Mensual | ⏳ pendiente | |
+| 6 | Inventario | ⏳ pendiente | |
+| 7 | Cuentas | ⏳ pendiente | |
+| 8 | Facturas | ⏳ pendiente | |
+| 9 | Fiado | ⏳ pendiente | |
+| 10 | Préstamos | ⏳ pendiente | |
+| 11 | Notas | ⏳ pendiente | |
+| 12 | Presupuesto | ⏳ pendiente | |
+| 13 | Cierres | ⏳ pendiente | |
+| 14 | Reportes | ⏳ pendiente | |
+| 15 | Rendimiento Vendedores | ⏳ pendiente | |
+| 16 | Usuarios | ⏳ pendiente | |
+| 17 | Auditoría | ⏳ pendiente | |
+| 18 | Exportar/Importar | ⏳ pendiente | |
+| 19 | Configuración (comisiones/gastos fijos + tienda) | ⏳ pendiente | |
+
+### 15.1 Registrar Venta (2026-07-22)
+
+Comparado `ui/venta_form.py` + `controllers/venta_controller.py` + `models/venta.py` (local) contra `admin/ventas/page.tsx` + `api/pos/sales/*` + `lib/pos-sale.ts` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.2): pagos combinados deben sumar exacto al total, descuento no puede superar el subtotal, aviso de "stock insuficiente, ¿continuar?" con `force` (el stock nunca queda negativo), costo/ganancia/comisión visibles solo a admin, comisión trasladada al cliente sin afectar la ganancia registrada, carritos en standby (solo estado de navegador, sin persistencia — igual que el local), escaneo de código de barras, recibo vía PDF/navegador (decisión ya tomada, no ESC/POS).
+
+**Hallazgo crítico corregido** (venía de la sección 12, nunca se cerró en la Fase 4): Registrar Venta exigía `product_id` (UUID) siempre — no había forma de vender un producto fuera de catálogo. El local sí lo permite (`_LineaProducto._cargar_variantes`, rama "No está en inventario": deja nombre/costo/precio libres). La columna `order_items.product_id` ya era `NULLABLE` en el esquema desde el inicio — el bloqueo estaba solo en la capa de aplicación (zod + `resolveSale()` + las 3 funciones RPC `create_pos_sale`/`edit_pos_sale`/`cancel_pos_sale`, que asumían producto siempre presente). Se corrigió con:
+- Nueva migración `00025_manual_pos_sale_items.sql`: las 3 funciones ahora saltan el chequeo/descuento de stock y el insert en `inventory_movements` (que tiene `product_id NOT NULL`) cuando el ítem no trae `product_id` ni `variant_id`.
+- `lib/pos-sale.ts` (`resolveSale`): acepta `manual_title`/`manual_cost_cents` como alternativa a `product_id`.
+- `api/pos/sales/route.ts` y `api/pos/sales/[id]/route.ts`: zod permite `product_id` ausente si viene `manual_title`.
+- `admin/ventas/page.tsx`: botón "Producto fuera de catálogo" con nombre + precio (+ costo solo si `canViewProfit`), badge "Fuera de catálogo" en la fila del carrito.
+
+Commit `21c9651`. Migración `00025` **pendiente de aplicar por el usuario** (se suma a las anteriores sin aplicar, si las hubiera).
+
+**Punto abierto, no corregido — requiere decisión del usuario, no es claramente un bug**: en el local, "Vendedor" es un combo obligatorio que lista a *todos* los usuarios registrados, independiente de quién tenga la sesión abierta en el software (permite que, p. ej., el admin opere la caja pero atribuya la venta a un vendedor específico para que "Rendimiento de Vendedores" sea preciso). En la nube, la venta siempre se atribuye a `auth.user.id` (quien esté logueado en el navegador) — no hay ningún selector que la reatribuya a otra persona. Si en la operación real del negocio cada vendedor inicia sesión con su propia cuenta, esto es equivalente (incluso más seguro). Si en la práctica se comparte una sola sesión en el mostrador, "Rendimiento de Vendedores" en la nube quedaría sesgado hacia quien esté logueado. **Pendiente de preguntarle al usuario cómo se usa en la práctica** antes de decidir si hace falta un selector manual de vendedor que sobreescriba `seller_id` (cambiaría el modelo de auditoría/seguridad, por eso no se implementó sin confirmar).
