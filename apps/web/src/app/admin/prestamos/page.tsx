@@ -43,6 +43,12 @@ export default function PrestamosPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductResult[]>([])
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; title: string; variantId: string | null; talla: string | null } | null>(null)
+  // El local no exige que el producto prestado exista en inventario (es
+  // simplemente un texto libre en models/prestamo.py) — se permite el mismo
+  // caso para algo que no está en el catálogo (ej. una exhibición, una
+  // herramienta prestada, no solo mercancía).
+  const [manualMode, setManualMode] = useState(false)
+  const [manualTitle, setManualTitle] = useState('')
   const [warehouse, setWarehouse] = useState('')
   const [observations, setObservations] = useState('')
   const [saving, setSaving] = useState(false)
@@ -103,8 +109,8 @@ export default function PrestamosPage() {
     new Date(dateString).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
 
   const handleCreate = async () => {
-    if (!selectedProduct || !warehouse.trim()) {
-      toast({ title: 'Error', description: 'Selecciona un producto e ingresa el almacén', variant: 'destructive' })
+    if ((!selectedProduct && !manualTitle.trim()) || !warehouse.trim()) {
+      toast({ title: 'Error', description: 'Selecciona un producto (o escribe su nombre) e ingresa el almacén', variant: 'destructive' })
       return
     }
     try {
@@ -113,9 +119,11 @@ export default function PrestamosPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
-          product_id: selectedProduct.id,
-          variant_id: selectedProduct.variantId,
-          product_title: selectedProduct.talla ? `${selectedProduct.title} (${selectedProduct.talla})` : selectedProduct.title,
+          product_id: selectedProduct?.id || null,
+          variant_id: selectedProduct?.variantId || null,
+          product_title: selectedProduct
+            ? (selectedProduct.talla ? `${selectedProduct.title} (${selectedProduct.talla})` : selectedProduct.title)
+            : manualTitle.trim(),
           warehouse,
           observations: observations || null,
         }),
@@ -126,6 +134,8 @@ export default function PrestamosPage() {
       }
       toast({ title: 'Préstamo registrado' })
       setSelectedProduct(null)
+      setManualMode(false)
+      setManualTitle('')
       setWarehouse('')
       setObservations('')
       setQuery('')
@@ -206,7 +216,18 @@ export default function PrestamosPage() {
       <div className="rounded-xl border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Nuevo préstamo</h2>
         <div className="space-y-3">
-          {!selectedProduct ? (
+          {!selectedProduct && manualMode ? (
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Nombre del producto (fuera de catálogo)"
+                value={manualTitle}
+                onChange={(e) => setManualTitle(e.target.value)}
+                className="rounded-lg"
+                autoFocus
+              />
+              <Button variant="ghost" size="sm" onClick={() => { setManualMode(false); setManualTitle('') }}>Cancelar</Button>
+            </div>
+          ) : !selectedProduct ? (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -215,6 +236,13 @@ export default function PrestamosPage() {
                 onChange={(e) => setQuery(e.target.value)}
                 className="rounded-lg pl-10"
               />
+              <button
+                type="button"
+                onClick={() => setManualMode(true)}
+                className="mt-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                ¿No está en el catálogo? Escribe el nombre a mano
+              </button>
               {results.length > 0 && (
                 <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
                   {results.map((product) =>

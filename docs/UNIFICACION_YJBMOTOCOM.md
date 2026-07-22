@@ -823,7 +823,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 7 | Cuentas | ✅ Auditada, sin hallazgos | Ver 15.6 |
 | 8 | Facturas | ✅ Auditada y corregida | Ver 15.7 |
 | 9 | Fiado | ✅ Auditada y corregida | Ver 15.9 |
-| 10 | Préstamos | ⏳ pendiente | |
+| 10 | Préstamos | ✅ Auditada y corregida | Ver 15.10 |
 | 11 | Notas | ⏳ pendiente | |
 | 12 | Presupuesto | ⏳ pendiente | |
 | 13 | Cierres | ⏳ pendiente | |
@@ -885,6 +885,16 @@ Comparado `ui/historial_panel.py` + `controllers/historial_controller.py` (local
 - Exportar a Excel con hoja de préstamos incluida (el local lo hace desde Historial): la nube exporta/imprime HTML simple desde aquí, pero el Excel completo de 18 hojas (incluida Préstamos) ya existe en `/admin/exportar-importar`.
 
 Commit pendiente (se incluye junto con el resto de esta sesión). Verificado tsc/eslint/vitest.
+
+### 15.10 Préstamos (2026-07-22)
+
+Comparado `ui/prestamos_panel.py` + `controllers/prestamos_controller.py` + `models/prestamo.py` (local) contra `admin/prestamos/page.tsx` + `api/loans/**` (nube). Es el módulo más simple del sistema: solo registra qué producto se prestó a qué almacén externo, sin ningún valor monetario ni integración con Cuentas/Inventario (3 estados: pendiente/devuelto/cobrado).
+
+**Confirmado que ya coincide**: los 3 estados, edición de producto/almacén/observaciones, eliminación — todo con CRUD completo (`api/loans/[id]/route.ts` con PUT/DELETE).
+
+**Hallazgo corregido**: el backend (`POST /api/loans`) ya aceptaba `product_id` opcional/nulo (`models/prestamo.py` del local nunca exige que el producto exista en inventario, es un campo de texto libre), pero la UI obligaba a elegir un producto de la búsqueda del catálogo antes de poder registrar el préstamo — no había forma de prestar algo que no fuera un producto real (ej. una exhibición, una herramienta). Se agregó un enlace "¿No está en el catálogo? Escribe el nombre a mano" que cambia a un campo de texto libre, enviando `product_id: null`.
+
+Verificado tsc/eslint/vitest.
 
 ### 15.6 Cuentas (2026-07-22)
 
