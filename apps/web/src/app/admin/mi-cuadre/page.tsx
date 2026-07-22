@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Wallet, Package, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 
 const methodLabels: Record<string, string> = {
@@ -21,6 +22,7 @@ interface Sale {
 export default function MiCuadrePage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const { session } = useAuth()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -40,6 +42,12 @@ export default function MiCuadrePage() {
       console.error('Error fetching Mi Cuadre:', error)
     }
   }, [session?.access_token])
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true)
+    await fetchToday()
+    setRefreshing(false)
+  }
 
   useEffect(() => {
     fetchToday()
@@ -68,9 +76,15 @@ export default function MiCuadrePage() {
           <h1 className="text-3xl font-bold">Mi Cuadre</h1>
           <p className="text-muted-foreground">Resumen de ventas de hoy — sin costos ni márgenes</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <RefreshCw className="h-3.5 w-3.5" />
-          {lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString('es-CO')}` : 'Cargando...'}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <RefreshCw className="h-3.5 w-3.5" />
+            {lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString('es-CO')}` : 'Cargando...'}
+          </div>
+          <Button variant="outline" size="sm" className="rounded-lg" onClick={handleManualRefresh} disabled={refreshing}>
+            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
         </div>
       </div>
 

@@ -54,10 +54,24 @@ export default function NotasPage() {
     fetchNotes()
   }, [fetchNotes])
 
-  const isOverdue = (dueDate: string | null) => !!dueDate && new Date(dueDate).getTime() < Date.now()
-
   const formatDate = (dateString: string) =>
     new Date(dateString + 'T00:00:00').toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })
+
+  // Gradiente de urgencia (vencida/hoy/≤3 días/futura) — igual que el
+  // software local (_badge_dias en ui/notas_panel.py), que resalta las
+  // notas próximas a vencer en vez de solo distinguir vencida sí/no.
+  const getUrgency = (dueDate: string | null) => {
+    if (!dueDate) return { label: null, colorClass: '', rank: 4 }
+    const days = Math.floor((new Date(dueDate + 'T00:00:00').getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000)
+    if (days < 0) return { label: `Vencida hace ${-days}d`, colorClass: 'text-red-500 font-medium', rank: 0 }
+    if (days === 0) return { label: 'Vence hoy', colorClass: 'text-red-500 font-medium', rank: 1 }
+    if (days <= 3) return { label: `Vence en ${days}d`, colorClass: 'text-amber-500 font-medium', rank: 2 }
+    return { label: `Vence ${formatDate(dueDate)}`, colorClass: 'text-muted-foreground', rank: 3 }
+  }
+
+  // Orden combinado: vencidas primero, luego hoy, luego próximas, luego
+  // futuras, sin fecha al final — igual que obtener_notas() del local.
+  const sortedNotes = [...notes].sort((a, b) => getUrgency(a.due_date).rank - getUrgency(b.due_date).rank)
 
   const handleCreate = async () => {
     if (!text.trim()) {
@@ -154,34 +168,35 @@ export default function NotasPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {notes.map((note) => (
-            <div key={note.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={cn('h-7 w-7 rounded-full', note.completed && 'bg-green-500/10 text-green-500 border-green-500/30')}
-                  onClick={() => handleToggleCompleted(note)}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </Button>
-                <div>
-                  <p className={cn('font-medium', note.completed && 'line-through text-muted-foreground')}>{note.text}</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Badge variant="outline">{note.type === 'task' ? 'Tarea' : 'Resurtido'}</Badge>
-                    {note.due_date && (
-                      <span className={cn(isOverdue(note.due_date) && !note.completed && 'text-red-500 font-medium')}>
-                        Vence {formatDate(note.due_date)}
-                      </span>
-                    )}
+          {sortedNotes.map((note) => {
+            const urgency = getUrgency(note.due_date)
+            return (
+              <div key={note.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={cn('h-7 w-7 rounded-full', note.completed && 'bg-green-500/10 text-green-500 border-green-500/30')}
+                    onClick={() => handleToggleCompleted(note)}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <div>
+                    <p className={cn('font-medium', note.completed && 'line-through text-muted-foreground')}>{note.text}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Badge variant="outline">{note.type === 'task' ? 'Tarea' : 'Resurtido'}</Badge>
+                      {urgency.label && (
+                        <span className={cn(!note.completed && urgency.colorClass)}>{urgency.label}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(note)}>
+                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                </Button>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(note)}>
-                <Trash2 className="h-3.5 w-3.5 text-red-500" />
-              </Button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

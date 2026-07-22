@@ -72,6 +72,12 @@ export default function CuentasPage() {
   const [closures, setClosures] = useState<AccountClosure[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Filtros de la pestaña Movimientos (la API ya los soportaba, faltaba el
+  // control en la UI — ver docs/UNIFICACION_YJBMOTOCOM.md sección 13.4, ítem 4.4.8).
+  const [movementAccountFilter, setMovementAccountFilter] = useState('')
+  const [movementFrom, setMovementFrom] = useState('')
+  const [movementTo, setMovementTo] = useState('')
+
   // Ajuste manual
   const [adjustAccount, setAdjustAccount] = useState('')
   const [adjustDirection, setAdjustDirection] = useState<'in' | 'out'>('in')
@@ -113,14 +119,18 @@ export default function CuentasPage() {
   const fetchMovements = useCallback(async () => {
     if (!session?.access_token) return
     try {
-      const res = await fetch('/api/account-movements?limit=50', { headers: authHeaders() })
+      const params = new URLSearchParams({ limit: '50' })
+      if (movementAccountFilter) params.set('account_id', movementAccountFilter)
+      if (movementFrom) params.set('from', `${movementFrom}T00:00:00`)
+      if (movementTo) params.set('to', `${movementTo}T23:59:59`)
+      const res = await fetch(`/api/account-movements?${params.toString()}`, { headers: authHeaders() })
       if (!res.ok) throw new Error('Error fetching movements')
       const { data } = await res.json()
       setMovements(data || [])
     } catch (error) {
       console.error('Error fetching account movements:', error)
     }
-  }, [session?.access_token, authHeaders])
+  }, [session?.access_token, authHeaders, movementAccountFilter, movementFrom, movementTo])
 
   const fetchClosures = useCallback(async () => {
     if (!session?.access_token || !isAdmin) return
@@ -445,6 +455,32 @@ export default function CuentasPage() {
           )}
 
           {tab === 'movimientos' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-4">
+                <select
+                  value={movementAccountFilter}
+                  onChange={(e) => setMovementAccountFilter(e.target.value)}
+                  className="rounded-lg border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Todas las cuentas</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <Input type="date" value={movementFrom} onChange={(e) => setMovementFrom(e.target.value)} className="w-auto rounded-lg" />
+                <span className="text-sm text-muted-foreground">a</span>
+                <Input type="date" value={movementTo} onChange={(e) => setMovementTo(e.target.value)} className="w-auto rounded-lg" />
+                {(movementAccountFilter || movementFrom || movementTo) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-lg"
+                    onClick={() => { setMovementAccountFilter(''); setMovementFrom(''); setMovementTo('') }}
+                  >
+                    Limpiar filtros
+                  </Button>
+                )}
+              </div>
             <div className="rounded-xl border bg-card">
               {movements.length === 0 ? (
                 <p className="p-8 text-center text-muted-foreground">
@@ -498,6 +534,7 @@ export default function CuentasPage() {
                   </table>
                 </div>
               )}
+            </div>
             </div>
           )}
 

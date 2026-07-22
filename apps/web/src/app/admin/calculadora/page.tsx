@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { Calculator, Info, Lock } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Calculator, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 
 type MarginMode = 'real' | 'sobre_costo'
@@ -15,15 +14,48 @@ const methodLabels: Record<string, string> = {
   addi: 'Addi', card: 'Datáfono', other: 'Otro',
 }
 
+const GANANCIAS = [25, 30, 35, 40, 45, 50, 55, 60, 65]
+const DCTOS_CLIENTE = [5, 10, 15, 20]
+const DCTOS_PROVEEDOR = [0, 3, 5, 8, 10]
+
+function precioDesdePct(costo: number, pct: number, modo: MarginMode): number {
+  if (modo === 'real') return costo / (1 - pct / 100)
+  return costo * (1 + pct / 100)
+}
+
+interface ProductResult {
+  id: string
+  title: string
+  cost_cents: number
+  variants: { id: string; talla: string | null; cost_cents: number }[]
+}
+
 export default function CalculadoraPage() {
   const [rates, setRates] = useState<Record<string, number>>({})
   const [mode, setMode] = useState<MarginMode>('real')
   const [costo, setCosto] = useState('')
   const [precio, setPrecio] = useState('')
   const [margenDeseado, setMargenDeseado] = useState('')
+  const [dctoCliente, setDctoCliente] = useState('')
   const [method, setMethod] = useState('cash')
-  const { userProfile } = useAuth()
+  const { userProfile, session } = useAuth()
   const isAdmin = userProfile?.role === 'admin'
+
+  // Buscador de inventario (autocompleta el costo) — solo admin, para no
+  // revelar costos reales del catálogo al rol vendedor (ver docs/
+  // UNIFICACION_YJBMOTOCOM.md sección 13.4, ítem 4.4.4).
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ProductResult[]>([])
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Calculadora de Cascos (factura proveedor)
+  const [precioFactura, setPrecioFactura] = useState('')
+  const [dctoProveedor, setDctoProveedor] = useState('5')
+  const [incluyeIva, setIncluyeIva] = useState(true)
+
+  // Calculadora Rápida
+  const [rapCosto, setRapCosto] = useState('')
+  const [rapPrecio, setRapPrecio] = useState('')
 
   useEffect(() => {
     fetch('/api/settings')
@@ -33,6 +65,24 @@ export default function CalculadoraPage() {
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (query.trim().length < 2) {
+      setResults([])
+      return
+    }
+    searchTimer.current = setTimeout(async () => {
+      if (!session?.access_token) return
+      const res = await fetch(`/api/pos/search?q=${encodeURIComponent(query.trim())}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) return
+      const { data } = await res.json()
+      setResults(data || [])
+    }, 250)
+  }, [query, isAdmin, session?.access_token])
 
   const formatPrice = (value: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
@@ -56,24 +106,47 @@ export default function CalculadoraPage() {
   const precioSugerido = useMemo(() => {
     if (costoNum <= 0 || margenDeseadoNum <= 0) return 0
     if (mode === 'real') {
-      // margen = (precio - costo) / precio  =>  precio = costo / (1 - margen)
       if (margenDeseadoNum >= 100) return 0
       return costoNum / (1 - margenDeseadoNum / 100)
     }
-    // sobre costo: margen = (precio - costo) / costo  =>  precio = costo * (1 + margen)
     return costoNum * (1 + margenDeseadoNum / 100)
   }, [costoNum, margenDeseadoNum, mode])
 
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
-        <Lock className="h-10 w-10" />
-        <p>Esta sección solo está disponible para administradores.</p>
-        <p className="text-sm">
-          Igual que en el software local: el rol Vendedor no ve costo, margen, ganancia ni comisión en ninguna pantalla.
-        </p>
-      </div>
-    )
+  // Descuento al cliente sobre el precio sugerido (chips 5/10/15/20%).
+  const dctoClienteNum = parseFloat(dctoCliente) || 0
+  const precioConDcto = dctoClienteNum > 0 && precioSugerido > 0 ? precioSugerido * (1 - dctoClienteNum / 100) : 0
+  const gananciaConDcto = precioConDcto - costoNum
+  const margenConDcto = precioConDcto > 0 ? (gananciaConDcto / precioConDcto) * 100 : 0
+
+  // Calculadora de Cascos: costo real = (precio factura sin IVA) * (1 - dcto proveedor).
+  const precioFacturaNum = parseFloat(precioFactura) || 0
+  const dctoProveedorNum = parseFloat(dctoProveedor) || 0
+  const costoRealCasco = useMemo(() => {
+    if (precioFacturaNum <= 0) return 0
+    const base = incluyeIva ? precioFacturaNum / 1.19 : precioFacturaNum
+    return Math.round(base * (1 - dctoProveedorNum / 100))
+  }, [precioFacturaNum, dctoProveedorNum, incluyeIva])
+
+  const tablaCascos = useMemo(() => {
+    if (costoRealCasco <= 0) return []
+    return GANANCIAS.map((pct) => {
+      const pv = Math.round(precioDesdePct(costoRealCasco, pct, mode))
+      return { pct, pv, ganancia: pv - costoRealCasco }
+    })
+  }, [costoRealCasco, mode])
+
+  // Calculadora Rápida: costo + precio -> ganancia instantánea.
+  const rapCostoNum = parseFloat(rapCosto) || 0
+  const rapPrecioNum = parseFloat(rapPrecio) || 0
+  const rapGanancia = rapPrecioNum - rapCostoNum
+  const rapPctCosto = rapCostoNum > 0 ? (rapGanancia / rapCostoNum) * 100 : 0
+  const rapPctVenta = rapPrecioNum > 0 ? (rapGanancia / rapPrecioNum) * 100 : 0
+  const rapActivo = rapCostoNum > 0 && rapPrecioNum > 0
+
+  const selectFromSearch = (costCents: number) => {
+    setCosto((costCents / 100).toString())
+    setQuery('')
+    setResults([])
   }
 
   return (
@@ -90,6 +163,37 @@ export default function CalculadoraPage() {
             <Calculator className="h-5 w-5" /> Costo + Precio → Margen y comisión
           </h2>
           <div className="space-y-3">
+            {isAdmin && (
+              <div className="relative">
+                <label className="text-sm text-muted-foreground">Buscar producto en inventario (autocompleta el costo)</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Nombre o SKU..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="rounded-lg pl-10"
+                  />
+                </div>
+                {results.length > 0 && (
+                  <div className="absolute z-10 mt-1 max-h-48 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+                    {results.map((p) =>
+                      p.variants.length === 0 ? (
+                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => selectFromSearch(p.cost_cents)}>
+                          {p.title}
+                        </button>
+                      ) : (
+                        p.variants.map((v) => (
+                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => selectFromSearch(v.cost_cents)}>
+                            {p.title} {v.talla ? `(${v.talla})` : ''}
+                          </button>
+                        ))
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-sm text-muted-foreground">Costo</label>
               <Input type="number" min="0" value={costo} onChange={(e) => setCosto(e.target.value)} className="rounded-lg" />
@@ -119,6 +223,22 @@ export default function CalculadoraPage() {
               <div className="flex justify-between border-t pt-2 text-base font-bold"><span>Total que paga el cliente</span><span>{formatPrice(totalConComision)}</span></div>
               <p className="text-xs text-muted-foreground">La comisión se traslada al cliente como sobreprecio — no reduce la ganancia registrada.</p>
             </div>
+          </div>
+
+          <div className="mt-6 border-t pt-4">
+            <h3 className="mb-1 text-sm font-semibold">Calculadora Rápida</h3>
+            <p className="mb-3 text-xs text-muted-foreground">Costo + precio → ganancia instantánea</p>
+            <div className="flex gap-2">
+              <Input type="number" min="0" placeholder="Costo" value={rapCosto} onChange={(e) => setRapCosto(e.target.value)} className="rounded-lg" />
+              <Input type="number" min="0" placeholder="Precio venta" value={rapPrecio} onChange={(e) => setRapPrecio(e.target.value)} className="rounded-lg" />
+            </div>
+            {rapActivo && (
+              <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${rapGanancia >= 0 ? 'border-green-500/30 bg-green-500/10 text-green-600' : 'border-red-500/30 bg-red-500/10 text-red-600'}`}>
+                {rapGanancia >= 0
+                  ? `Ganancia: ${formatPrice(rapGanancia)} · ${rapPctCosto.toFixed(1)}% sobre costo · ${rapPctVenta.toFixed(1)}% margen`
+                  : `Pérdida: ${formatPrice(Math.abs(rapGanancia))} — estás vendiendo por debajo del costo`}
+              </p>
+            )}
           </div>
         </div>
 
@@ -170,19 +290,102 @@ export default function CalculadoraPage() {
                 </p>
               )}
             </div>
+
+            {precioSugerido > 0 && (
+              <div>
+                <label className="text-sm text-muted-foreground">% Descuento al cliente</label>
+                <div className="flex gap-1.5">
+                  {DCTOS_CLIENTE.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setDctoCliente(dctoCliente === String(d) ? '' : String(d))}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${dctoCliente === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                    >
+                      {d}%
+                    </button>
+                  ))}
+                </div>
+                {dctoClienteNum > 0 && (
+                  <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${gananciaConDcto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    Con {dctoClienteNum}% dcto: {formatPrice(precioConDcto)} — Ganancia {formatPrice(gananciaConDcto)} · Margen {margenConDcto.toFixed(1)}%
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>
-          <strong>Pendiente:</strong> el software local también tiene un módulo &quot;Cascos desde Factura&quot; que
-          extrae ítems automáticamente de PDFs de dos proveedores específicos. No se incluyó todavía porque
-          requiere ejemplos reales de esas facturas para replicar el formato exacto — si los tienes, se puede
-          construir en una sub-fase aparte.
-          <Badge variant="outline" className="ml-2">No implementado</Badge>
+      {/* Calculadora de Cascos (Factura proveedor) */}
+      <div className="rounded-xl border bg-card p-6">
+        <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
+          <Calculator className="h-5 w-5" /> Calculadora de Cascos (Factura proveedor)
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Ingresa el precio que aparece en la factura del proveedor (columna PRECIO, con IVA) para calcular el costo real.
         </p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-muted-foreground">Precio en factura por unidad</label>
+              <Input type="number" min="0" placeholder="ej. 302500" value={precioFactura} onChange={(e) => setPrecioFactura(e.target.value)} className="rounded-lg" />
+            </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="text-sm text-muted-foreground">% Descuento proveedor</label>
+                <div className="flex gap-1.5">
+                  {DCTOS_PROVEEDOR.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setDctoProveedor(String(d))}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${dctoProveedor === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                    >
+                      {d}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={incluyeIva} onChange={(e) => setIncluyeIva(e.target.checked)} />
+                Precio incluye IVA 19%
+              </label>
+            </div>
+            <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
+              <p className="text-xs text-muted-foreground">Costo real por casco</p>
+              <p className="text-xl font-bold text-orange-600">{costoRealCasco > 0 ? formatPrice(costoRealCasco) : '—'}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold text-muted-foreground">
+              Tabla de precios de venta según {mode === 'real' ? '% margen real' : '% ganancia'}:
+            </p>
+            {tablaCascos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ingresa el precio de factura para ver la tabla.</p>
+            ) : (
+              <div className="overflow-hidden rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-secondary">
+                      <th className="px-3 py-1.5 text-left">{mode === 'real' ? '% Margen' : '% Ganancia'}</th>
+                      <th className="px-3 py-1.5 text-right">Precio de venta</th>
+                      <th className="px-3 py-1.5 text-right">Ganancia $</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tablaCascos.map((row) => (
+                      <tr key={row.pct} className="border-t">
+                        <td className="px-3 py-1">{row.pct}%</td>
+                        <td className="px-3 py-1 text-right">{formatPrice(row.pv)}</td>
+                        <td className="px-3 py-1 text-right">{formatPrice(row.ganancia)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

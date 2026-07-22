@@ -756,6 +756,20 @@ El usuario aportó 3 PDFs reales (2 de ACCESORIOS PARA MOTOS S.A.S. — pedidos 
 | 4.4.9 | Cuentas semilla sin color por defecto | Asignar colores a las 6 cuentas existentes (migración de datos, no de esquema) | Migración nueva `UPDATE accounts SET color=...` |
 | 4.4.10 | Verificación y cierre | `tsc`/`eslint`/`vitest`/`build` completo, actualizar tabla de sección 11/13 con el estado final, commit de cierre de Fase 4 | — |
 
+### 13.4.1 Fase 4.4 completada (2026-07-22) — Fase 4 completa
+
+- **4.4.1/4.4.2/4.4.5** — `admin/calculadora/page.tsx` se reescribió agregando: panel "Calculadora de Cascos (Factura proveedor)" (precio con/sin IVA, chips de % descuento proveedor 0/3/5/8/10%, costo real resultante, tabla de precio/ganancia para los 9 niveles de % del local); "Calculadora Rápida" como sección propia dentro del primer panel (costo+precio → ganancia o pérdida instantánea); chips de descuento al cliente (5/10/15/20%) en el panel de "Precio sugerido", mostrando precio/ganancia/margen resultante. Todas las fórmulas son las mismas que `calculadora_panel.py` del local (`costo_real = (precio/1.19) × (1 - dcto%)`, `_precio_desde_pct`, etc.).
+- **4.4.3/4.4.4** — Se quitó el bloqueo total a `seller` (y se sacó `Calculadora` de la lista `adminOnly` del sidebar en `admin/layout.tsx`): ahora el vendedor puede usar todos los paneles con entrada manual de costo. El buscador de producto en inventario (que autocompleta el costo desde el catálogo real) quedó condicionado a `isAdmin` — el vendedor no lo ve, solo puede escribir el costo a mano, igual que el software local nunca expone el costo real al vendedor en esta pantalla.
+- **4.4.6** — `admin/notas/page.tsx`: nueva función `getUrgency()` con 4 franjas (vencida hace Nd / vence hoy / vence en ≤3 días / vence en fecha futura) y su color correspondiente (rojo/rojo/ámbar/gris), y `sortedNotes` que ordena por urgencia (vencidas primero) en vez del orden de llegada de la API.
+- **4.4.7** — `admin/mi-cuadre/page.tsx`: botón "Actualizar" junto al indicador de auto-refresh, con ícono girando mientras refresca.
+- **4.4.8** — `admin/cuentas/page.tsx`: la pestaña "Movimientos" ganó selector de cuenta + rango de fechas (la API ya los soportaba desde antes, solo faltaba el control de UI) y un botón "Limpiar filtros".
+- **4.4.9** — Nueva migración `00024_account_colors.sql`: asigna a las 6 cuentas semilla los mismos colores exactos que usa `database/schema.py` del software local (Efectivo `#22C55E`, Nequi `#8B5CF6`, QR/Bancolombia `#F59E0B`, NU `#EF4444`, Daviplata `#F97316`, Addi `#06B6D4`), solo si `color` sigue en `NULL` (no pisa un color que el usuario ya haya personalizado).
+- **4.4.10** — `tsc --noEmit`: 0 errores. `eslint`: mismos 5 warnings preexistentes. `vitest run`: 10 archivos, 62 tests, todos pasando. `npm run build`: completo sin errores. `git status`: cero archivos bajo `apps/web/src/app/(shop)/` tocados en ninguna sub-fase de la Fase 4.
+
+**⚠️ Pendiente manual**: aplicar `00024_account_colors.sql` en el SQL Editor de Supabase (después de `00019`-`00023`).
+
+**🎉 Fase 4 completa: las 4 sub-fases (4.1 Seguridad, 4.2 Cálculos financieros, 4.3 Huecos funcionales, 4.4 Calculadora y UX) quedaron implementadas — los ~35 hallazgos de la auditoría de fidelidad de la sección 12 fueron corregidos o documentados como mejora consciente (Fiado↔Cuentas, sección 12.7).** Todo el trabajo vive en commits locales en `main`, ninguno pusheado — falta que el usuario autorice el `git push` y aplique las migraciones `00019` a `00024` en Supabase.
+
 ### 13.1.1 Fase 4.1 completada (2026-07-22)
 
 Los 6 ítems de 13.1 quedaron implementados y verificados:
@@ -771,6 +785,6 @@ Los 6 ítems de 13.1 quedaron implementados y verificados:
 
 ### 13.5 Cómo retomar
 
-**Fases 4.1, 4.2 y 4.3 completas — ver 13.1.1, 13.2.1, 13.3.1/13.3.2.** Seguir por **13.4 (Fase 4.4, Calculadora y detalles de UX)** en orden 4.4.1 → 4.4.10. Cada ítem se implementa, se verifica, y se documenta aquí mismo (reemplazando "Acción propuesta" por lo realmente hecho, igual que en las fases anteriores) antes de pasar al siguiente. No se hace `git push` en ningún punto sin autorización explícita del usuario.
+**Fase 4 completa (4.1, 4.2, 4.3 y 4.4) — ver 13.1.1, 13.2.1, 13.3.1/13.3.2, 13.4.1.** No queda ningún ítem pendiente de la auditoría de fidelidad (sección 12). Si el usuario retoma este proyecto, las opciones son: (a) autorizar el `git push` para desplegar todo lo de la Fase 4, (b) pedir el módulo "Cascos desde Factura" **automático por PDF** dentro de Cargue de Pedidos si aparecen más proveedores no soportados, o (c) abrir una fase nueva para peticiones futuras — no hay trabajo abierto de esta ronda.
 
-**Pendientes manuales acumulados de la Fase 4**: aplicar, en este orden, `00019_cuentas_admin_only.sql`, `00020_nu_qr_payment_methods.sql`, `00021_pos_sale_force_stock.sql`, `00022_inventory_exchange_type.sql` y `00023_inventory_deleted_type.sql` en el SQL Editor de Supabase.
+**Pendientes manuales acumulados de la Fase 4**: aplicar, en este orden, `00019_cuentas_admin_only.sql`, `00020_nu_qr_payment_methods.sql`, `00021_pos_sale_force_stock.sql`, `00022_inventory_exchange_type.sql`, `00023_inventory_deleted_type.sql` y `00024_account_colors.sql` en el SQL Editor de Supabase.
