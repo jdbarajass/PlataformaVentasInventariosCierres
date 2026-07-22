@@ -15,13 +15,25 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('q')
   const limit = parseInt(searchParams.get('limit') || '20')
   const offset = parseInt(searchParams.get('offset') || '0')
+  const includeInactive = searchParams.get('include_inactive') === 'true'
+
+  // include_inactive expone productos no publicados en la tienda (ej. el
+  // inventario físico recién migrado, aún sin foto/descripción) — solo el
+  // panel de administración (Inventario) puede pedirlo, y solo si autentica.
+  if (includeInactive) {
+    const auth = await requireAuth(request, ['admin', 'seller'])
+    if (!auth.success) return auth.response
+  }
 
   let query = supabase
     .from('products')
     .select('*, categories(name, slug)', { count: 'exact' })
-    .eq('active', true)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
+
+  if (!includeInactive) {
+    query = query.eq('active', true)
+  }
 
   if (category) {
     const { data: catData } = await supabase
