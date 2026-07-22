@@ -18,7 +18,7 @@ export async function middleware(req: NextRequest) {
   // Protect all /admin/* routes
   if (pathname.startsWith('/admin')) {
     if (!session) {
-      const loginUrl = new URL('/login', req.url)
+      const loginUrl = new URL('/iniciar-sesion', req.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }

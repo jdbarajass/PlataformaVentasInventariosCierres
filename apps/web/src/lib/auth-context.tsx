@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setSession(null)
     setUserProfile(null)
-    window.location.href = '/login'
+    window.location.href = '/iniciar-sesion'
   }
 
   return (

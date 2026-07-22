@@ -2,8 +2,8 @@
 
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
-**Última actualización**: 2026-07-21
-**Estado actual**: **Fase 3 + Fase 3B completas** (sub-fases 3.1-3.16) + limpieza de tipos (68→0 errores) + `ignoreBuildErrors` quitado. Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00016 ya aplicadas por el usuario en Supabase real; **faltan 00017 y 00018** (sub-fases 3.13 y 3.15 de la Fase 3B). Auditoría final de los 16 módulos del local: ver sección 11.
+**Última actualización**: 2026-07-22
+**Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas** — los 16 módulos del local están en la nube (sección 11) y los ~35 hallazgos de la auditoría de fidelidad detallada quedaron corregidos (sección 12/13). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00024 aplicadas por el usuario en Supabase real, salvo las últimas confirmaciones pendientes de la Fase 4 (ver sección 13.5). Además se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, ver sección 14).
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
 
@@ -788,3 +788,20 @@ Los 6 ítems de 13.1 quedaron implementados y verificados:
 **Fase 4 completa (4.1, 4.2, 4.3 y 4.4) — ver 13.1.1, 13.2.1, 13.3.1/13.3.2, 13.4.1.** No queda ningún ítem pendiente de la auditoría de fidelidad (sección 12). Si el usuario retoma este proyecto, las opciones son: (a) autorizar el `git push` para desplegar todo lo de la Fase 4, (b) pedir el módulo "Cascos desde Factura" **automático por PDF** dentro de Cargue de Pedidos si aparecen más proveedores no soportados, o (c) abrir una fase nueva para peticiones futuras — no hay trabajo abierto de esta ronda.
 
 **Pendientes manuales acumulados de la Fase 4**: aplicar, en este orden, `00019_cuentas_admin_only.sql`, `00020_nu_qr_payment_methods.sql`, `00021_pos_sale_force_stock.sql`, `00022_inventory_exchange_type.sql`, `00023_inventory_deleted_type.sql` y `00024_account_colors.sql` en el SQL Editor de Supabase.
+
+## 14. Consolidación del login del sitio (2026-07-22)
+
+El usuario notó en producción que existían **dos rutas de login distintas**:
+
+- **`/iniciar-sesion`** (dentro de `(shop)/`, con header/footer/nav de la tienda): a donde apuntaba el ícono de cuenta del header (`components/layout/header.tsx`) y las páginas de Registro/Recuperar contraseña. Ya tenía lógica de redirección inteligente post-login (admin/seller → `/admin`, cliente → `/mi-cuenta`).
+- **`/login`** (standalone, fuera de `(shop)/`, tema oscuro tipo panel): **no estaba enlazada desde ningún lugar de la tienda** — solo existía como destino de redirección cuando `middleware.ts`/`admin/layout.tsx`/`auth-context.tsx` detectaban una sesión de administrador expirada o ausente al visitar `/admin/*`. Por eso el usuario la veía "vacía"/sin mucho por hacer: es una pantalla de re-login dedicada al panel, nunca pensada para que un visitante llegara ahí por su cuenta.
+
+No era un bug (ambas páginas funcionaban), pero sí era una duplicación innecesaria. El usuario eligió consolidar todo en `/iniciar-sesion`.
+
+**Cambios**:
+- `middleware.ts`: el guard de `/admin/*` ahora redirige a `/iniciar-sesion?redirect=<ruta>` en vez de `/login?redirect=<ruta>` — y de paso corrige que antes el redirect de admin perdía la ruta original (`admin/layout.tsx` no pasaba `?redirect=`), ahora la preserva porque `/iniciar-sesion` ya sabía leer ese parámetro.
+- `admin/layout.tsx`: el redirect por falta de sesión (chequeo del lado cliente) pasa de `/login` a `/iniciar-sesion`.
+- `lib/auth-context.tsx`: `signOut()` (usado por el botón "Cerrar sesión" del panel admin) redirige a `/iniciar-sesion` en vez de `/login`.
+- Se eliminó `apps/web/src/app/login/page.tsx` (quedaba sin ningún enlace apuntándole).
+
+**Verificado**: `tsc --noEmit` 0 errores (se limpió el caché `.next/types` que aún referenciaba la página borrada), `eslint` sin warnings nuevos, `vitest run` 62/62, `npm run build` completo (`/login` ya no aparece en la lista de rutas), y prueba manual con `npm run dev` + `curl`: `/login` → 404, `/iniciar-sesion` → 200, `/admin` sin sesión → redirige 307 a `/iniciar-sesion?redirect=%2Fadmin` correctamente.

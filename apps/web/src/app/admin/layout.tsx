@@ -85,7 +85,7 @@ export default function AdminLayout({
   // Redirigir al login si no hay usuario autenticado
   useEffect(() => {
     if (!loading && !user) {
-      window.location.href = '/login'
+      window.location.href = '/iniciar-sesion'
     }
   }, [loading, user])
 
