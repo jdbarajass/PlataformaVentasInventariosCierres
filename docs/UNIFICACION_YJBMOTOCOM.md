@@ -828,7 +828,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 12 | Presupuesto | ✅ Auditada y corregida | Ver 15.12 |
 | 13 | Cierres | ✅ Auditada, sin cambios (ver nota) | Ver 15.13 |
 | 14 | Reportes | ✅ Auditada y corregida | Ver 15.14 |
-| 15 | Rendimiento Vendedores | ⏳ pendiente | |
+| 15 | Rendimiento Vendedores | ✅ Auditada y corregida | Ver 15.15 |
 | 16 | Usuarios | ⏳ pendiente | |
 | 17 | Auditoría | ⏳ pendiente | |
 | 18 | Exportar/Importar | ⏳ pendiente | |
@@ -992,5 +992,15 @@ Comparado `services/reportes.py`/`generar_reporte_mensual_pdf` (local) contra `a
 - **Sección de inventario general**: no se duplicó aquí — ya existe una tarjeta "Valor de inventario" dedicada en `/admin/inventario` (sección 15.8), agregar un resumen redundante en Reportes no aporta.
 - **Exportación a PDF real** (reportlab del local): se mantiene solo CSV — coherente con la decisión ya tomada para recibos/Historial Mensual (impresión vía navegador en vez de generación de PDF real); no se agregó una versión imprimible aquí para no dispersar el alcance de esta ronda, pero es una mejora candidata a futuro si el usuario la pide explícitamente.
 - **Filtro por mes calendario** (alternativa al rango libre): ya existe en Historial Mensual; no se duplicó aquí.
+
+Verificado tsc/eslint/vitest.
+
+### 15.15 Rendimiento Vendedores (2026-07-22)
+
+Comparado `ui/rendimiento_vendedores_panel.py` (local) contra `admin/rendimiento-vendedores/page.tsx` + `api/reports/seller-performance/route.ts` (nube).
+
+**Confirmado que ya coincide**: gating 100% admin, orden por ingreso descendente, columna "% del total" (mejora sobre el local, que no la tiene), filtro por canal `pos` (coherente, el local es 100% mostrador). Ninguno de los dos calcula comisión/ticket promedio/ganancia por vendedor — coincide (ambos se quedan en ventas/unidades/ingresos), como ya señalaba la sección 12.
+
+**Hallazgo corregido**: la nube solo listaba vendedores con al menos una orden en el rango — un vendedor sin ventas ese período simplemente no aparecía. El local siempre muestra **todos los usuarios registrados**, incluso con 0 ventas, marcados en gris con "—" (`obtener_todos_usuarios()`). Se corrigió el endpoint para traer también todos los usuarios `admin`/`seller` y mezclarlos con los datos reales de órdenes (los que no vendieron quedan en 0), y la UI ahora muestra "—" en gris para esas filas en vez de "0" — igual que el local.
 
 Verificado tsc/eslint/vitest.

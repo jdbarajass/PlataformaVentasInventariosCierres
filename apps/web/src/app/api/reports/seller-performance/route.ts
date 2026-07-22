@@ -49,6 +49,20 @@ export async function GET(request: NextRequest) {
 
     const bySeller: Record<string, { seller_id: string | null; name: string; orders: number; units: number; revenue_cents: number }> = {}
 
+    // Incluye a todos los usuarios registrados (admin/seller), aunque no
+    // hayan tenido ventas en el período — igual que obtener_todos_usuarios()
+    // del local (ui/rendimiento_vendedores_panel.py), que muestra en gris
+    // "—" a quien no vendió nada ese mes. Antes solo aparecían vendedores
+    // con al menos una orden en el rango (sección 12.6, nunca cerrado).
+    const { data: usersData } = await supabase
+      .from('users')
+      .select('id, name, email, role')
+      .in('role', ['admin', 'seller'])
+
+    for (const u of (usersData || []) as { id: string; name: string | null; email: string; role: string }[]) {
+      bySeller[u.id] = { seller_id: u.id, name: u.name || u.email, orders: 0, units: 0, revenue_cents: 0 }
+    }
+
     orders.forEach((order) => {
       const key = order.seller_id || 'sin_vendedor'
       if (!bySeller[key]) {

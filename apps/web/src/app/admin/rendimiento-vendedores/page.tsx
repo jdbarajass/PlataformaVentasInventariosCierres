@@ -83,7 +83,7 @@ export default function RendimientoVendedoresPage() {
       ) : data.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
           <Trophy className="mx-auto mb-2 h-8 w-8" />
-          No hay ventas de mostrador en el rango seleccionado
+          No hay vendedores registrados
         </div>
       ) : (
         <div className="rounded-xl border bg-card">
@@ -99,17 +99,23 @@ export default function RendimientoVendedoresPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((seller) => (
-                  <tr key={seller.seller_id || 'sin_vendedor'} className="border-b last:border-0">
-                    <td className="px-6 py-4 font-medium">{seller.name}</td>
-                    <td className="px-6 py-4 text-center">{seller.orders}</td>
-                    <td className="px-6 py-4 text-center">{seller.units}</td>
-                    <td className="px-6 py-4 text-right font-bold">{formatPrice(seller.revenue_cents)}</td>
-                    <td className="px-6 py-4 text-right text-muted-foreground">
-                      {totalRevenue > 0 ? ((seller.revenue_cents / totalRevenue) * 100).toFixed(1) : '0'}%
-                    </td>
-                  </tr>
-                ))}
+                {data.map((seller) => {
+                  // Vendedor sin ventas en el rango — igual que el local, que
+                  // muestra en gris "—" a los usuarios registrados que no
+                  // vendieron nada ese mes (obtener_todos_usuarios()).
+                  const noSales = seller.orders === 0
+                  return (
+                    <tr key={seller.seller_id || 'sin_vendedor'} className={`border-b last:border-0 ${noSales ? 'text-muted-foreground' : ''}`}>
+                      <td className="px-6 py-4 font-medium">{seller.name}</td>
+                      <td className="px-6 py-4 text-center">{noSales ? '—' : seller.orders}</td>
+                      <td className="px-6 py-4 text-center">{noSales ? '—' : seller.units}</td>
+                      <td className={`px-6 py-4 text-right ${noSales ? '' : 'font-bold'}`}>{noSales ? '—' : formatPrice(seller.revenue_cents)}</td>
+                      <td className="px-6 py-4 text-right text-muted-foreground">
+                        {noSales || totalRevenue === 0 ? '—' : `${((seller.revenue_cents / totalRevenue) * 100).toFixed(1)}%`}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
