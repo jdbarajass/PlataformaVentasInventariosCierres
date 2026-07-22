@@ -9,6 +9,9 @@ const creditUpdateSchema = z.object({
   customer_phone: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // El software local permite editar el monto total de un fiado ya creado
+  // — sección 12.4/13.3 ítem 4.3.11 de la auditoría de fidelidad.
+  total_amount_cents: z.number().int().min(0).optional(),
 })
 
 // GET - Detalle de un fiado (con abonos)
@@ -44,7 +47,7 @@ export async function GET(
   }
 }
 
-// PUT - Editar datos descriptivos del fiado (nunca el estado/monto directo)
+// PUT - Editar datos descriptivos del fiado, incluido el monto total
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -60,10 +63,34 @@ export async function PUT(
     const body = await request.json()
     const validatedData = creditUpdateSchema.parse(body)
 
+    const updatePayload: Record<string, any> = { ...validatedData, updated_at: new Date().toISOString() }
+
+    // Si se edita el monto total, recalcula el estado contra lo ya abonado
+    // (nunca se permite bajar el total por debajo de lo ya pagado).
+    if (validatedData.total_amount_cents !== undefined) {
+      const { data: paymentsData } = await supabase
+        .from('customer_credit_payments')
+        .select('amount_cents')
+        .eq('credit_id', params.id)
+      const paidSoFar = ((paymentsData || []) as { amount_cents: number }[]).reduce(
+        (sum, p) => sum + p.amount_cents,
+        0
+      )
+      if (validatedData.total_amount_cents < paidSoFar) {
+        return NextResponse.json(
+          { error: `El monto total no puede ser menor a lo ya abonado (${paidSoFar / 100})` },
+          { status: 400 }
+        )
+      }
+      updatePayload.status = paidSoFar >= validatedData.total_amount_cents && validatedData.total_amount_cents > 0
+        ? 'paid'
+        : 'pending'
+    }
+
     const { data: credit, error } = await supabase
       .from('customer_credits')
       // @ts-ignore - Supabase type inference issue
-      .update({ ...validatedData, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', params.id)
       .select()
       .single()

@@ -13,6 +13,18 @@ interface ImportResult {
   error?: string
 }
 
+async function downloadBackup(token: string, prefix: string = 'Respaldo') {
+  const res = await fetch('/api/admin/excel/export', { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error('Error al generar el respaldo automático')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `YJBMOTOCOM_${prefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 const importableSheets = [
   'Cuentas', 'Inventario', 'Préstamos', 'Facturas', 'Facturas Items', 'Abonos',
   'Fiado', 'Abonos Fiado', 'Notas', 'Presupuesto', 'Gastos', 'Mov. Cuentas', 'Mov. Inventario',
@@ -23,6 +35,7 @@ export default function ExportarImportarPage() {
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
   const [results, setResults] = useState<ImportResult[] | null>(null)
+  const [warnings, setWarnings] = useState<string[] | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { session, userProfile } = useAuth()
@@ -42,17 +55,7 @@ export default function ExportarImportarPage() {
     if (!session?.access_token) return
     try {
       setExporting(true)
-      const res = await fetch('/api/admin/excel/export', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      if (!res.ok) throw new Error('Error al generar el respaldo')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `YJBMOTOCOM_Respaldo_${new Date().toISOString().split('T')[0]}.xlsx`
-      a.click()
-      URL.revokeObjectURL(url)
+      await downloadBackup(session.access_token)
       toast({ title: 'Respaldo generado', description: 'Se descargó el archivo Excel con las 18 hojas' })
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -61,28 +64,48 @@ export default function ExportarImportarPage() {
     }
   }
 
+  const runImport = async (file: File, force = false) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`/api/admin/excel/import${force ? '?force=true' : ''}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session!.access_token}` },
+      body: formData,
+    })
+    return { res, json: await res.json() }
+  }
+
   const handleImportFile = async (file: File) => {
     if (!session?.access_token) return
-    if (!confirm(`¿Importar "${file.name}"? Esto actualizará (o creará) filas en las tablas internas del módulo YJBMOTOCOM según lo que traiga el archivo.`)) {
+    if (!confirm(`¿Importar "${file.name}"? Esto actualizará (o creará) filas en las tablas internas del módulo YJBMOTOCOM según lo que traiga el archivo. Antes de aplicar los cambios se descargará automáticamente un respaldo del estado actual.`)) {
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
     try {
       setImporting(true)
       setResults(null)
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/admin/excel/import', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-      })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Error al importar el archivo')
+      setWarnings(null)
+
+      // Respaldo automático del estado actual antes de tocar nada, igual
+      // que el software local (backup_antes_importar_<timestamp>.xlsx).
+      await downloadBackup(session.access_token, 'Respaldo_previo_import')
+
+      let { res, json } = await runImport(file)
+
+      if (!res.ok && json.canForce) {
+        const detalle = (json.details || []).join('\n')
+        if (!confirm(`${json.error}:\n\n${detalle}\n\n¿Importar de todas formas?`)) {
+          return
+        }
+        ;({ res, json } = await runImport(file, true))
       }
-      const { results } = await res.json()
-      setResults(results)
+
+      if (!res.ok) {
+        throw new Error(json.error || 'Error al importar el archivo')
+      }
+
+      setResults(json.results)
+      setWarnings(json.warnings || null)
       toast({ title: 'Importación completada' })
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -157,6 +180,12 @@ export default function ExportarImportarPage() {
           ))}
         </div>
       </div>
+
+      {warnings && warnings.length > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700">
+          {warnings.map((w, i) => <p key={i}>⚠ {w}</p>)}
+        </div>
+      )}
 
       {results && (
         <div className="rounded-xl border bg-card p-6">

@@ -6,9 +6,15 @@ import { z } from 'zod'
 const loanUpdateSchema = z.object({
   status: z.enum(['pending', 'returned', 'charged']).optional(),
   observations: z.string().optional().nullable(),
+  // El software local permite editar producto/almacén de un préstamo ya
+  // creado (EditPrestamoDialog) — sección 12.3/13.3 ítem 4.3.10 de la
+  // auditoría de fidelidad.
+  product_title: z.string().min(1).optional(),
+  warehouse: z.string().min(1).optional(),
 })
 
-// PUT - Cambiar estado (pendiente/devuelto/cobrado) o notas de un préstamo
+// PUT - Cambiar estado (pendiente/devuelto/cobrado), notas, o
+// producto/almacén de un préstamo
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }

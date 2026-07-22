@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { PackageOpen, Plus, Loader2, Search, Trash2 } from 'lucide-react'
+import { PackageOpen, Plus, Loader2, Search, Trash2, Pencil, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +47,10 @@ export default function PrestamosPage() {
   const [observations, setObservations] = useState('')
   const [saving, setSaving] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ product_title: '', warehouse: '', observations: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const { session } = useAuth()
   const { toast } = useToast()
@@ -145,6 +149,38 @@ export default function PrestamosPage() {
       await fetchLoans()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    }
+  }
+
+  const startEdit = (loan: Loan) => {
+    setEditingId(loan.id)
+    setEditForm({ product_title: loan.product_title, warehouse: loan.warehouse, observations: loan.observations || '' })
+  }
+
+  const handleSaveEdit = async (loanId: string) => {
+    if (!editForm.product_title.trim() || !editForm.warehouse.trim()) {
+      toast({ title: 'Error', description: 'Producto y almacén son obligatorios', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingEdit(true)
+      const res = await fetch(`/api/loans/${loanId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          product_title: editForm.product_title,
+          warehouse: editForm.warehouse,
+          observations: editForm.observations || null,
+        }),
+      })
+      if (!res.ok) throw new Error('Error al actualizar el préstamo')
+      toast({ title: 'Préstamo actualizado' })
+      setEditingId(null)
+      await fetchLoans()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -253,32 +289,67 @@ export default function PrestamosPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {loans.map((loan) => (
-            <div key={loan.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
-              <div>
-                <p className="font-medium">{loan.product_title}</p>
-                <p className="text-sm text-muted-foreground">
-                  {loan.warehouse} · {formatDate(loan.created_at)}
-                  {loan.observations ? ` · ${loan.observations}` : ''}
-                </p>
+          {loans.map((loan) =>
+            editingId === loan.id ? (
+              <div key={loan.id} className="space-y-2 rounded-xl border bg-card p-4">
+                <Input
+                  value={editForm.product_title}
+                  onChange={(e) => setEditForm({ ...editForm, product_title: e.target.value })}
+                  className="rounded-lg"
+                  placeholder="Producto"
+                />
+                <Input
+                  value={editForm.warehouse}
+                  onChange={(e) => setEditForm({ ...editForm, warehouse: e.target.value })}
+                  className="rounded-lg"
+                  placeholder="Almacén"
+                />
+                <Input
+                  value={editForm.observations}
+                  onChange={(e) => setEditForm({ ...editForm, observations: e.target.value })}
+                  className="rounded-lg"
+                  placeholder="Observaciones"
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" className="rounded-lg" onClick={() => handleSaveEdit(loan.id)} disabled={savingEdit}>
+                    {savingEdit ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
+                    Guardar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditingId(null)}>
+                    <X className="mr-1 h-3 w-3" /> Cancelar
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={statusColors[loan.status]}>{statusLabels[loan.status]}</Badge>
-                <select
-                  value={loan.status}
-                  onChange={(e) => handleStatusChange(loan, e.target.value as Loan['status'])}
-                  className="rounded-lg border bg-background px-2 py-1 text-xs"
-                >
-                  <option value="pending">Pendiente</option>
-                  <option value="returned">Devuelto</option>
-                  <option value="charged">Cobrado</option>
-                </select>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(loan)}>
-                  <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                </Button>
+            ) : (
+              <div key={loan.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
+                <div>
+                  <p className="font-medium">{loan.product_title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {loan.warehouse} · {formatDate(loan.created_at)}
+                    {loan.observations ? ` · ${loan.observations}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={statusColors[loan.status]}>{statusLabels[loan.status]}</Badge>
+                  <select
+                    value={loan.status}
+                    onChange={(e) => handleStatusChange(loan, e.target.value as Loan['status'])}
+                    className="rounded-lg border bg-background px-2 py-1 text-xs"
+                  >
+                    <option value="pending">Pendiente</option>
+                    <option value="returned">Devuelto</option>
+                    <option value="charged">Cobrado</option>
+                  </select>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(loan)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(loan)}>
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
     </div>

@@ -14,6 +14,30 @@ const importOrder = [
   'Mov. Inventario',
 ]
 
+// Validación de datos al importar (hallazgo de la auditoría de fidelidad,
+// docs/UNIFICACION_YJBMOTOCOM.md sección 12.6 / 13.3 ítem 4.3.6): el software
+// local detecta columnas desplazadas/corrompidas (importador.py) revisando
+// que los campos numéricos/monetarios sean parseables — si no lo son,
+// pesosToCents/parseInt de sheets.ts los convierte silenciosamente en 0,
+// enmascarando el problema. Aquí se detectan ANTES de escribir nada: si más
+// de la mitad de las filas de una hoja tienen algún campo numérico
+// ilegible, se aborta toda la importación (igual que el "error crítico que
+// bloquea la importación" del local), en vez de guardar datos corruptos.
+const NUMERIC_COLUMN_HINTS = /monto|costo|stock|saldo|cantidad|precio/i
+
+function findSuspiciousNumericCells(objects: Record<string, any>[], columns: string[]) {
+  const numericCols = columns.filter((c) => NUMERIC_COLUMN_HINTS.test(c) && c !== 'ID' && !c.endsWith(' ID'))
+  let rowsWithIssues = 0
+  for (const obj of objects) {
+    const hasIssue = numericCols.some((col) => {
+      const raw = obj[col]
+      return raw !== null && raw !== undefined && raw !== '' && Number.isNaN(parseFloat(String(raw)))
+    })
+    if (hasIssue) rowsWithIssues++
+  }
+  return { numericCols, rowsWithIssues }
+}
+
 function sheetToObjects(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
   const headers: string[] = []
   worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell, colNumber) => {
@@ -55,24 +79,81 @@ export async function POST(request: NextRequest) {
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(buffer as any)
 
-    const supabase = getServiceSupabase()
-    const results: { sheet: string; imported: number; skipped: number; error?: string }[] = []
+    const { searchParams } = new URL(request.url)
+    const force = searchParams.get('force') === 'true'
+
+    // Primera pasada: leer y validar TODAS las hojas antes de escribir nada.
+    // Si más de la mitad de las filas de alguna hoja tienen un campo
+    // numérico/monetario ilegible (columnas desplazadas, texto donde iba un
+    // número), se aborta la importación completa — igual que el software
+    // local, que nunca escribe datos que detecta como sospechosos.
+    const sheetsData: {
+      sheetName: string
+      def: (typeof sheetDefinitions)[number]
+      table: string
+      objects: Record<string, any>[]
+    }[] = []
+    const criticalErrors: string[] = []
+    const warnings: string[] = []
 
     for (const sheetName of importOrder) {
       const def = sheetDefinitions.find((d) => d.name === sheetName && d.importable)
       if (!def || !def.table || !def.fromRow) continue
 
       const worksheet = workbook.getWorksheet(sheetName)
-      if (!worksheet) {
-        results.push({ sheet: sheetName, imported: 0, skipped: 0, error: 'Hoja no encontrada en el archivo (se omite)' })
-        continue
-      }
+      if (!worksheet) continue
 
       const objects = sheetToObjects(worksheet)
-      const mapped = objects
+      if (objects.length > 0) {
+        const { numericCols, rowsWithIssues } = findSuspiciousNumericCells(objects, def.columns)
+        if (numericCols.length > 0 && rowsWithIssues / objects.length > 0.5) {
+          criticalErrors.push(
+            `"${sheetName}": ${rowsWithIssues} de ${objects.length} filas tienen un valor no numérico en una columna de ${numericCols.join('/')} — probable columna desplazada. Revisa el archivo antes de reintentar.`
+          )
+        }
+      }
+
+      sheetsData.push({ sheetName, def, table: def.table, objects })
+    }
+
+    if (criticalErrors.length > 0 && !force) {
+      return NextResponse.json(
+        {
+          error: 'Se detectaron datos sospechosos, no se importó nada todavía',
+          details: criticalErrors,
+          canForce: true,
+        },
+        { status: 400 }
+      )
+    }
+
+    const supabase = getServiceSupabase()
+    const results: { sheet: string; imported: number; skipped: number; error?: string }[] = []
+
+    for (const { sheetName, def, table, objects } of sheetsData) {
+      let candidateObjects = objects
+      let skippedForValidation = 0
+
+      // Gastos con monto negativo no se insertan (nunca debería existir un
+      // gasto operativo negativo — igual que el CHECK amount_cents > 0 que
+      // ya exige la creación normal vía /api/operating-expenses).
+      if (sheetName === 'Gastos') {
+        const before = candidateObjects.length
+        candidateObjects = candidateObjects.filter((obj) => (parseFloat(String(obj['Monto'])) || 0) > 0)
+        skippedForValidation = before - candidateObjects.length
+      }
+
+      const mapped = candidateObjects
         .map((obj) => def.fromRow!(obj))
         .filter((row): row is Record<string, any> => row !== null)
       const skipped = objects.length - mapped.length
+
+      if (sheetName === 'Facturas' && objects.length > 0) {
+        const zeroCount = objects.filter((obj) => (parseFloat(String(obj['Monto'])) || 0) === 0).length
+        if (zeroCount / objects.length > 0.5) {
+          warnings.push(`"Facturas": ${zeroCount} de ${objects.length} filas tienen Monto = 0.`)
+        }
+      }
 
       if (mapped.length === 0) {
         results.push({ sheet: sheetName, imported: 0, skipped })
@@ -87,7 +168,7 @@ export async function POST(request: NextRequest) {
         return copy
       })
 
-      const { error, data } = await (supabase.from(def.table) as any)
+      const { error, data } = await (supabase.from(table) as any)
         .upsert(cleaned, { onConflict: 'id' })
         .select('id')
 
@@ -96,10 +177,10 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      results.push({ sheet: sheetName, imported: data?.length || cleaned.length, skipped })
+      results.push({ sheet: sheetName, imported: data?.length || cleaned.length, skipped: skipped + skippedForValidation })
     }
 
-    return NextResponse.json({ results })
+    return NextResponse.json({ results, warnings: warnings.length > 0 ? warnings : undefined })
   } catch (error) {
     console.error('Error importing Excel:', error)
     return NextResponse.json(

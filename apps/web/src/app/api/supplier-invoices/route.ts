@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('supplier_invoices')
-      .select('*, payments:supplier_invoice_payments(*)')
+      .select('*, payments:supplier_invoice_payments(*), items:supplier_invoice_items(*)')
       .order('due_date', { ascending: true, nullsFirst: false })
 
     if (status) {

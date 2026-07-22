@@ -38,6 +38,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
+import { SessionAlerts } from '@/components/admin/session-alerts'
 
 // adminOnly: oculta el enlace del menú a 'seller', igual que el software
 // local oculta el botón de navegación completo para estas páginas
@@ -199,6 +200,7 @@ export default function AdminLayout({
       <main className="flex-1 pl-64">
         <div className="p-8">{children}</div>
       </main>
+      <SessionAlerts />
     </div>
   )
 }

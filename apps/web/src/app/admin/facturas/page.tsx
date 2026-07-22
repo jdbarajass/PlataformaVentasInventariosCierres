@@ -26,6 +26,14 @@ interface SupplierInvoicePayment {
   paid_at: string
 }
 
+interface SupplierInvoiceItem {
+  id: string
+  description: string
+  qty: number
+  unit_price_cents: number
+  subtotal_cents: number
+}
+
 interface SupplierInvoice {
   id: string
   description: string
@@ -37,6 +45,7 @@ interface SupplierInvoice {
   notes: string | null
   paid_at: string | null
   payments: SupplierInvoicePayment[]
+  items: SupplierInvoiceItem[]
 }
 
 interface Account {
@@ -59,6 +68,11 @@ export default function FacturasPage() {
   const [payAccount, setPayAccount] = useState('')
   const [payNotes, setPayNotes] = useState('')
   const [payingId, setPayingId] = useState<string | null>(null)
+
+  const [newItem, setNewItem] = useState({ description: '', qty: '1', unit_price: '' })
+  const [savingItem, setSavingItem] = useState(false)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editItem, setEditItem] = useState({ description: '', qty: '', unit_price: '' })
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -210,6 +224,78 @@ export default function FacturasPage() {
     }
   }
 
+  const handleAddItem = async (invoiceId: string) => {
+    const qty = parseInt(newItem.qty) || 1
+    const unitPrice = Math.round((parseFloat(newItem.unit_price) || 0) * 100)
+    if (!newItem.description.trim()) {
+      toast({ title: 'Error', description: 'La descripción del ítem es obligatoria', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingItem(true)
+      const res = await fetch(`/api/supplier-invoices/${invoiceId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ description: newItem.description, qty, unit_price_cents: unitPrice }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al agregar el ítem')
+      }
+      setNewItem({ description: '', qty: '1', unit_price: '' })
+      await fetchInvoices()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingItem(false)
+    }
+  }
+
+  const startEditItem = (item: SupplierInvoiceItem) => {
+    setEditingItemId(item.id)
+    setEditItem({
+      description: item.description,
+      qty: String(item.qty),
+      unit_price: String(item.unit_price_cents / 100),
+    })
+  }
+
+  const handleSaveEditItem = async (itemId: string) => {
+    try {
+      setSavingItem(true)
+      const res = await fetch(`/api/supplier-invoice-items/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          description: editItem.description,
+          qty: parseInt(editItem.qty) || 1,
+          unit_price_cents: Math.round((parseFloat(editItem.unit_price) || 0) * 100),
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al actualizar el ítem')
+      }
+      setEditingItemId(null)
+      await fetchInvoices()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingItem(false)
+    }
+  }
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!confirm('¿Quitar este ítem de la factura?')) return
+    try {
+      const res = await fetch(`/api/supplier-invoice-items/${itemId}`, { method: 'DELETE', headers: authHeaders() })
+      if (!res.ok) throw new Error('Error al eliminar el ítem')
+      await fetchInvoices()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -318,6 +404,77 @@ export default function FacturasPage() {
                       <p><span className="text-muted-foreground">Saldo:</span> {formatPrice(remaining)}</p>
                     </div>
                     {invoice.notes && <p className="text-sm text-muted-foreground">{invoice.notes}</p>}
+
+                    <div>
+                      <p className="mb-2 text-sm font-medium">Ítems</p>
+                      {invoice.items.length > 0 && (
+                        <div className="space-y-1">
+                          {invoice.items.map((item) => (
+                            <div key={item.id} className="rounded-lg border px-3 py-2 text-sm">
+                              {editingItemId === item.id ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Input
+                                    value={editItem.description}
+                                    onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}
+                                    className="h-7 flex-1 rounded-lg text-xs"
+                                  />
+                                  <Input
+                                    type="number" min="1" value={editItem.qty}
+                                    onChange={(e) => setEditItem({ ...editItem, qty: e.target.value })}
+                                    className="h-7 w-14 rounded-lg text-xs"
+                                  />
+                                  <Input
+                                    type="number" min="0" value={editItem.unit_price}
+                                    onChange={(e) => setEditItem({ ...editItem, unit_price: e.target.value })}
+                                    className="h-7 w-24 rounded-lg text-xs"
+                                  />
+                                  <Button size="sm" className="h-7 rounded-lg" onClick={() => handleSaveEditItem(item.id)} disabled={savingItem}>
+                                    <CheckCircle2 className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 rounded-lg" onClick={() => setEditingItemId(null)}>
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <span>{item.description} — {item.qty} x {formatPrice(item.unit_price_cents)}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{formatPrice(item.subtotal_cents)}</span>
+                                    <button onClick={() => startEditItem(item)} className="text-muted-foreground hover:text-foreground">
+                                      Editar
+                                    </button>
+                                    <button onClick={() => handleDeleteItem(item.id)} className="text-red-500 hover:underline">
+                                      Quitar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Input
+                          placeholder="Descripción del ítem"
+                          value={newItem.description}
+                          onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                          className="h-8 flex-1 rounded-lg text-xs"
+                        />
+                        <Input
+                          type="number" min="1" placeholder="Cant." value={newItem.qty}
+                          onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })}
+                          className="h-8 w-16 rounded-lg text-xs"
+                        />
+                        <Input
+                          type="number" min="0" placeholder="Precio unit." value={newItem.unit_price}
+                          onChange={(e) => setNewItem({ ...newItem, unit_price: e.target.value })}
+                          className="h-8 w-28 rounded-lg text-xs"
+                        />
+                        <Button size="sm" className="h-8 rounded-lg" onClick={() => handleAddItem(invoice.id)} disabled={savingItem}>
+                          <Plus className="mr-1 h-3 w-3" /> Agregar
+                        </Button>
+                      </div>
+                    </div>
 
                     {invoice.payments.length > 0 && (
                       <div>

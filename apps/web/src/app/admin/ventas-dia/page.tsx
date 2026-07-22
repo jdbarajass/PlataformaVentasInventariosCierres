@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Calendar, Search, Plus, Trash2, Loader2, Receipt, ChevronDown, ChevronRight, Pencil, X, CheckCircle2,
+  Calendar, Search, Plus, Trash2, Loader2, Receipt, ChevronDown, ChevronRight, Pencil, X, CheckCircle2, Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -96,6 +96,12 @@ export default function VentasDiaPage() {
   const [savingExpense, setSavingExpense] = useState(false)
 
   const [dailyFixedExpense, setDailyFixedExpense] = useState(0)
+
+  // Selección múltiple para cambio masivo de método de pago
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkMethod, setBulkMethod] = useState<PaymentSplit['method']>('cash')
+  const [applyingBulk, setApplyingBulk] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -337,6 +343,62 @@ export default function VentasDiaPage() {
     }
   }
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleBulkMethod = async () => {
+    if (selectedIds.size < 2 || !session?.access_token) return
+    try {
+      setApplyingBulk(true)
+      const res = await fetch('/api/pos/sales/bulk-method', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ orderIds: Array.from(selectedIds), method: bulkMethod }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al cambiar el método de pago')
+      }
+      const { data } = await res.json()
+      toast({
+        title: 'Método de pago actualizado',
+        description: `${data.updated} venta(s) actualizada(s)${data.excluded ? ` · ${data.excluded} con pago combinado se excluyeron` : ''}`,
+      })
+      setSelectedIds(new Set())
+      await fetchSales()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setApplyingBulk(false)
+    }
+  }
+
+  const handleExport = async () => {
+    if (!session?.access_token) return
+    try {
+      setExporting(true)
+      const res = await fetch(`/api/pos/sales/export?date=${date}`, { headers: authHeaders() })
+      if (!res.ok) throw new Error('Error al exportar')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ventas-${date}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const handleAddExpense = async () => {
     const amount = Math.round((parseFloat(expenseForm.amount) || 0) * 100)
     if (!expenseForm.description.trim() || !expenseForm.category.trim() || amount <= 0) {
@@ -378,8 +440,34 @@ export default function VentasDiaPage() {
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto rounded-lg" />
+          <Button variant="outline" className="rounded-lg" onClick={handleExport} disabled={exporting}>
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Exportar Excel
+          </Button>
         </div>
       </div>
+
+      {selectedIds.size >= 2 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4">
+          <span className="text-sm font-medium">{selectedIds.size} ventas seleccionadas</span>
+          <select
+            value={bulkMethod}
+            onChange={(e) => setBulkMethod(e.target.value as PaymentSplit['method'])}
+            className="rounded-lg border bg-background px-2 py-1 text-sm"
+          >
+            {Object.entries(methodLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <Button size="sm" className="rounded-lg" onClick={handleBulkMethod} disabled={applyingBulk}>
+            {applyingBulk ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Cambiar método de pago
+          </Button>
+          <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => setSelectedIds(new Set())}>
+            Cancelar selección
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border bg-card p-4">
@@ -427,6 +515,15 @@ export default function VentasDiaPage() {
                   onClick={() => !isEditing && setExpanded(isExpanded ? null : sale.id)}
                 >
                   <div className="flex items-center gap-2">
+                    {sale.status !== 'cancelled' && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(sale.id)}
+                        onChange={() => toggleSelect(sale.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 rounded"
+                      />
+                    )}
                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     <div>
                       <p className="font-medium">{sale.order_number} — {sale.customer_name || 'Cliente de mostrador'}</p>

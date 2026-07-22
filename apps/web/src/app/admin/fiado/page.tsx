@@ -9,6 +9,9 @@ import {
   ChevronRight,
   Trash2,
   CheckCircle2,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +61,10 @@ export default function FiadoPage() {
   const [payAccount, setPayAccount] = useState('')
   const [payNotes, setPayNotes] = useState('')
   const [payingId, setPayingId] = useState<string | null>(null)
+
+  const [editingAmountId, setEditingAmountId] = useState<string | null>(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [savingAmount, setSavingAmount] = useState(false)
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -187,6 +194,29 @@ export default function FiadoPage() {
     }
   }
 
+  const handleSaveAmount = async (creditId: string) => {
+    const amount = Math.round((parseFloat(editAmount) || 0) * 100)
+    try {
+      setSavingAmount(true)
+      const res = await fetch(`/api/customer-credits/${creditId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ total_amount_cents: amount }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al actualizar el monto')
+      }
+      toast({ title: 'Monto actualizado' })
+      setEditingAmountId(null)
+      await fetchCredits()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingAmount(false)
+    }
+  }
+
   const handleDelete = async (credit: CustomerCredit) => {
     if (!confirm(`¿Eliminar el fiado de "${credit.customer_name}"? Se revertirán los abonos que hayan afectado alguna cuenta.`)) return
     try {
@@ -304,6 +334,37 @@ export default function FiadoPage() {
                       {credit.customer_id_number && <p><span className="text-muted-foreground">Cédula:</span> {credit.customer_id_number}</p>}
                       {credit.customer_phone && <p><span className="text-muted-foreground">Teléfono:</span> {credit.customer_phone}</p>}
                       <p><span className="text-muted-foreground">Saldo:</span> {formatPrice(remaining)}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Monto total:</span>
+                      {editingAmountId === credit.id ? (
+                        <>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editAmount}
+                            onChange={(e) => setEditAmount(e.target.value)}
+                            className="h-7 w-28 rounded-lg text-xs"
+                          />
+                          <Button size="sm" className="h-7 rounded-lg" onClick={() => handleSaveAmount(credit.id)} disabled={savingAmount}>
+                            {savingAmount ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 rounded-lg" onClick={() => setEditingAmountId(null)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-medium">{formatPrice(credit.total_amount_cents)}</span>
+                          <button
+                            onClick={() => { setEditingAmountId(credit.id); setEditAmount((credit.total_amount_cents / 100).toString()) }}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
                     </div>
                     {credit.notes && <p className="text-sm text-muted-foreground">{credit.notes}</p>}
 

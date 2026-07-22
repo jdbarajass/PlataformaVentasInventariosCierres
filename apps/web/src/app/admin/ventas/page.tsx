@@ -78,6 +78,17 @@ const methodLabels: Record<PaymentSplit['method'], string> = {
   other: 'Otro',
 }
 
+interface StandbyCart {
+  id: string
+  label: string
+  cart: CartLine[]
+  payments: PaymentSplit[]
+  customerName: string
+  customerPhone: string
+  customerIdNumber: string
+  notes: string
+}
+
 export default function VentasPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductResult[]>([])
@@ -98,6 +109,11 @@ export default function VentasPage() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [commissionRates, setCommissionRates] = useState<Record<string, number>>({})
+
+  // Carritos "en standby": pausar la venta actual (sin guardarla) para
+  // atender otro cliente y retomarla después — solo estado del navegador,
+  // sin persistencia en BD, igual que el software local (venta_form.py).
+  const [standbyCarts, setStandbyCarts] = useState<StandbyCart[]>([])
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -279,6 +295,32 @@ export default function VentasPage() {
     setLastSaleId(null)
   }
 
+  const handlePauseSale = () => {
+    if (cart.length === 0) return
+    const label = customerName.trim() || `Carrito ${standbyCarts.length + 1}`
+    setStandbyCarts((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), label, cart, payments, customerName, customerPhone, customerIdNumber, notes },
+    ])
+    resetSale()
+  }
+
+  const handleResumeStandby = (id: string) => {
+    const standby = standbyCarts.find((s) => s.id === id)
+    if (!standby) return
+    setCart(standby.cart)
+    setPayments(standby.payments)
+    setCustomerName(standby.customerName)
+    setCustomerPhone(standby.customerPhone)
+    setCustomerIdNumber(standby.customerIdNumber)
+    setNotes(standby.notes)
+    setStandbyCarts((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  const handleDiscardStandby = (id: string) => {
+    setStandbyCarts((prev) => prev.filter((s) => s.id !== id))
+  }
+
   const handleSubmitSale = async (force = false) => {
     if (cart.length === 0) {
       toast({ title: 'Error', description: 'Agrega al menos un producto al carrito', variant: 'destructive' })
@@ -382,6 +424,22 @@ export default function VentasPage() {
         <h1 className="text-3xl font-bold">Registrar Venta</h1>
         <p className="text-muted-foreground">Venta de mostrador — carrito, tallas y pagos combinados</p>
       </div>
+
+      {standbyCarts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+          <span className="text-xs font-medium text-muted-foreground">Carritos en espera:</span>
+          {standbyCarts.map((s) => (
+            <div key={s.id} className="flex items-center gap-1 rounded-lg border bg-secondary px-3 py-1.5 text-xs">
+              <button onClick={() => handleResumeStandby(s.id)} className="font-medium hover:underline">
+                {s.label} ({s.cart.length})
+              </button>
+              <button onClick={() => handleDiscardStandby(s.id)} className="text-muted-foreground hover:text-red-500">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Búsqueda + carrito */}
@@ -622,6 +680,12 @@ export default function VentasPage() {
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
             Registrar venta
           </Button>
+
+          {cart.length > 0 && (
+            <Button variant="outline" className="w-full rounded-xl" onClick={handlePauseSale}>
+              Pausar venta (atender otro cliente)
+            </Button>
+          )}
 
           {lastSaleId && (
             <a
