@@ -33,6 +33,7 @@ const exportOnlySheets = ['Ventas', 'Configuración', 'Usuarios', 'Log Auditorí
 
 export default function ExportarImportarPage() {
   const [exporting, setExporting] = useState(false)
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
   const [importing, setImporting] = useState(false)
   const [results, setResults] = useState<ImportResult[] | null>(null)
   const [warnings, setWarnings] = useState<string[] | null>(null)
@@ -61,6 +62,26 @@ export default function ExportarImportarPage() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setExporting(false)
+    }
+  }
+
+  const handleDownloadTemplate = async () => {
+    if (!session?.access_token) return
+    try {
+      setDownloadingTemplate(true)
+      const res = await fetch('/api/admin/excel/template', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      if (!res.ok) throw new Error('Error al generar la plantilla')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'YJBMOTOCOM_Plantilla.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setDownloadingTemplate(false)
     }
   }
 
@@ -134,6 +155,10 @@ export default function ExportarImportarPage() {
           <Button className="mt-4 w-full rounded-lg" onClick={handleExport} disabled={exporting}>
             {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Descargar respaldo (.xlsx)
+          </Button>
+          <Button variant="outline" className="mt-2 w-full rounded-lg" onClick={handleDownloadTemplate} disabled={downloadingTemplate}>
+            {downloadingTemplate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Descargar plantilla vacía (para llenar a mano)
           </Button>
         </div>
 

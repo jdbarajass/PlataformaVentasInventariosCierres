@@ -831,7 +831,7 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 15 | Rendimiento Vendedores | ✅ Auditada y corregida | Ver 15.15 |
 | 16 | Usuarios | ✅ Auditada y corregida | Ver 15.16 |
 | 17 | Auditoría | ✅ Auditada, hallazgo grande documentado | Ver 15.17 |
-| 18 | Exportar/Importar | ⏳ pendiente | |
+| 18 | Exportar/Importar | ✅ Auditada y corregida | Ver 15.18 |
 | 19 | Configuración (comisiones/gastos fijos + tienda) | ⏳ pendiente | |
 
 ### 15.1 Registrar Venta (2026-07-22)
@@ -1030,5 +1030,17 @@ Comparado `utils/auditoria.py` (local: `registrar()` se llama en decenas de punt
 **Hallazgo corregido (menor)**: las 4 acciones nuevas que introduje en la sección 15.16 (`user_created`, `user_password_reset`, `user_deleted`, y el ya existente `user_updated`) no tenían etiqueta en español en `actionConfig` — se agregaron.
 
 **Hallazgo grande, confirmado pero NO corregido en esta ronda (fuera de alcance por tamaño)**: la cobertura real de `audit_logs.insert()` en la nube es mucho más angosta que la del local. Grep sobre `apps/web/src/app/api` muestra que solo escriben en `audit_logs` hoy: `inventory/adjust`, `orders/[id]`, `payments/*webhook`, `products/[id]`, `settings`, `daily-closures`, y `users` (recién agregado). **No registran nada**: Registrar Venta (`pos/sales`), Facturas (`supplier-invoices`), Fiado (`customer-credits`), Préstamos (`loans`), Notas, Presupuesto (`monthly-budgets`/`operating-expenses`), Cuentas (`account-movements`/`transfer`/`account-closures`). La infraestructura (tabla, API de lectura, UI con filtros) está completa y lista — falta añadir el `insert` correspondiente en cada una de esas ~8 rutas, una tarea mecánica pero extensa (multiplica por cada acción POST/PUT/DELETE de cada módulo). Dado el tamaño, se deja documentado como candidato claro para una **Fase 5 dedicada** en vez de intentarlo apresurado dentro de esta ronda de auditoría.
+
+Verificado tsc/eslint/vitest.
+
+### 15.18 Exportar/Importar (2026-07-22)
+
+Comparado `services/exportador.py`/`services/importador.py` (local) contra `lib/excel/sheets.ts` + `api/admin/excel/{export,import}` + `admin/exportar-importar/page.tsx` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.3): las 18 hojas exactas, validación de datos al importar (columnas desplazadas/corruptas detectadas ANTES de escribir, aborta si >50% de filas de una hoja tienen un campo numérico ilegible — igual que el "error crítico" del local), backup automático descargado antes de cada importación (`downloadBackup(..., 'Respaldo_previo_import')`, equivalente a `backup_antes_importar_<timestamp>.xlsx`), gastos con monto negativo filtrados, advertencia de facturas con monto=0 mayoritario.
+
+**Hallazgo corregido**: faltaba "Plantilla vacía para llenar a mano" (`generar_plantilla_todo()` del local) — no había forma de descargar un Excel solo con encabezados (sin datos) para llenar manualmente y luego importar. Se agregó `GET /api/admin/excel/template` (reutiliza `sheetDefinitions`, solo las hojas `importable`) + botón "Descargar plantilla vacía" junto al de respaldo.
+
+**Revisado y descartado deliberadamente (no es un hallazgo, es una decisión de seguridad)**: "Borrar base de datos" (`resetear_base_datos()` del local) **no se implementó a propósito**. En el local, la base SQLite es de uso interno exclusivo del negocio — borrarla no afecta nada más. En la nube, la base de datos es la **misma** que sirve la tienda pública en vivo (catálogo, pedidos reales, clientes) — un botón de "borrar todo" aquí sería capaz de destruir la tienda en producción, no solo los datos internos del POS. Replicar esta función literalmente sería peligroso, no fiel; se deja fuera y se documenta el motivo.
 
 Verificado tsc/eslint/vitest.
