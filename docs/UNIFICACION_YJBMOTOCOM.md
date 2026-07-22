@@ -819,9 +819,9 @@ Orden de secciones (sigue el menú de `admin/layout.tsx`, empezando por donde el
 | 3 | Mi Cuadre | ✅ Auditada, sin hallazgos | Ver 15.3 |
 | 4 | Ventas del Día | ✅ Auditada y corregida | Ver 15.4 |
 | 5 | Historial Mensual | ✅ Auditada y corregida | Ver 15.5 |
-| 6 | Inventario | ✅ Auditada y corregida | Ver 15.6 |
-| 7 | Cuentas | ⏳ pendiente | |
-| 8 | Facturas | ⏳ pendiente | |
+| 6 | Inventario | ✅ Auditada y corregida | Ver 15.8 |
+| 7 | Cuentas | ✅ Auditada, sin hallazgos | Ver 15.6 |
+| 8 | Facturas | ✅ Auditada y corregida | Ver 15.7 |
 | 9 | Fiado | ⏳ pendiente | |
 | 10 | Préstamos | ⏳ pendiente | |
 | 11 | Notas | ⏳ pendiente | |
@@ -886,7 +886,29 @@ Comparado `ui/historial_panel.py` + `controllers/historial_controller.py` (local
 
 Commit pendiente (se incluye junto con el resto de esta sesión). Verificado tsc/eslint/vitest.
 
-### 15.6 Inventario (2026-07-22)
+### 15.6 Cuentas (2026-07-22)
+
+Comparado `ui/cuentas_panel.py` (local, "visible solo para Admin") contra `admin/cuentas/page.tsx` + rutas API relacionadas. **Sin hallazgos** — confirmado 100% fiel y en algunos puntos más seguro que el local:
+- La página completa está gateada a admin (`if (!isAdmin) return <Lock/>...`), igual que el local.
+- `GET /api/accounts` sigue disponible para `seller` (porque Registrar Venta/Ventas del Día/Presupuesto/Fiado/Facturas necesitan el combo de cuenta), pero el servidor **elimina `balance_cents` de la respuesta si el rol no es admin** — comentario explícito en el código citando esta misma regla. El vendedor nunca ve saldos, ni siquiera inspeccionando la respuesta de red.
+- Ajustes, transferencias, cierres y `DELETE/PUT` de cuentas: los 4 endpoints exigen `requireAuth(request, ['admin'])` server-side, no solo gate de cliente.
+- Filtros de Movimientos (cuenta + rango de fechas) de la Fase 4.4 siguen presentes.
+
+No se tocó código.
+
+### 15.7 Facturas (2026-07-22)
+
+Comparado `ui/facturas_panel.py` + `controllers/facturas_controller.py` (local) contra `admin/facturas/page.tsx` + `api/supplier-invoices/**` (nube).
+
+**Confirmado que ya coincide** (de la Fase 4.3): ítems de factura con CRUD completo (`api/supplier-invoice-items/[id]/route.ts` ya tiene PUT y DELETE, no solo POST — el módulo "huérfano" que describía la sección 12 ya está conectado), botón "Usar saldo restante" que precarga el monto pendiente en el formulario de abono (compensa la falta de un "marcar pagada" directo sin crear una fila de abono — mismo efecto neto, modelo de datos más trazable), recordatorio de facturas por vencer al iniciar sesión (`session-alerts.tsx`).
+
+**Revisado y mantenido deliberadamente (no es un bug)**: la "inversión" de validaciones que señalaba la sección 12 (local exige `fecha_llegada` siempre y no valida `proveedor`; la nube exige `proveedor` no vacío y permite `arrival_date` nulo) se mantiene tal cual está en la nube — exigir el proveedor y no la fecha de llegada es la regla más sensata de las dos (se puede registrar una factura antes de que llegue la mercancía, pero no tiene sentido una factura sin proveedor). No se replica la regla del local aquí.
+
+**Hallazgo corregido**: la barra resumen de vencimientos solo mostraba un conteo (`dueSoonCount`, sin $) de facturas que vencen en ≤7 días — el local muestra 3 franjas en **valor de dinero** (Vencidas / ≤7 días / ≤30 días). Se agregaron las 3 franjas en pesos (saldo pendiente ya descontados los abonos, no el monto bruto de la factura), ampliando el grid de 2 a 4 tarjetas.
+
+Verificado tsc/eslint/vitest.
+
+### 15.8 Inventario (2026-07-22)
 
 Comparado `ui/inventario_panel.py` (local, 1796 líneas) contra `admin/inventario/page.tsx` (nube).
 

@@ -141,6 +141,22 @@ export default function FacturasPage() {
     .filter((i) => i.status === 'pending')
     .reduce((sum, i) => sum + (i.amount_cents - paidSoFar(i)), 0)
 
+  // Barra de vencimiento en $ por franja — igual que el local (barra resumen
+  // de ui/facturas_panel.py: Vencidas / 7 días / 30 días, en valor de dinero,
+  // no solo conteo). Cada franja es el saldo pendiente (ya descontados los
+  // abonos) de las facturas cuyo vencimiento cae en esa ventana.
+  const daysUntilDue = (dueDate: string) => (new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  const pendingWithDueDate = invoices.filter((i) => i.status === 'pending' && i.due_date)
+  const overdueAmount = pendingWithDueDate
+    .filter((i) => daysUntilDue(i.due_date as string) < 0)
+    .reduce((sum, i) => sum + (i.amount_cents - paidSoFar(i)), 0)
+  const dueSoon7Amount = pendingWithDueDate
+    .filter((i) => { const d = daysUntilDue(i.due_date as string); return d >= 0 && d <= 7 })
+    .reduce((sum, i) => sum + (i.amount_cents - paidSoFar(i)), 0)
+  const dueSoon30Amount = pendingWithDueDate
+    .filter((i) => { const d = daysUntilDue(i.due_date as string); return d >= 0 && d <= 30 })
+    .reduce((sum, i) => sum + (i.amount_cents - paidSoFar(i)), 0)
+
   const handleCreate = async () => {
     if (!form.description.trim() || !form.supplier.trim() || !form.amount) {
       toast({ title: 'Error', description: 'Descripción, proveedor y monto son obligatorios', variant: 'destructive' })
@@ -308,17 +324,28 @@ export default function FacturasPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border bg-card p-4">
           <p className="text-sm text-muted-foreground">Total pendiente</p>
           <p className="text-2xl font-bold">{formatPrice(totalPending)}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+            <p className="text-sm text-muted-foreground">Vencidas</p>
+          </div>
+          <p className="text-2xl font-bold text-red-500">{formatPrice(overdueAmount)}</p>
+        </div>
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-orange-500" />
-            <p className="text-sm text-muted-foreground">Vencen en ≤7 días</p>
+            <p className="text-sm text-muted-foreground">Vencen en ≤7 días ({dueSoonCount})</p>
           </div>
-          <p className="text-2xl font-bold">{dueSoonCount}</p>
+          <p className="text-2xl font-bold text-orange-500">{formatPrice(dueSoon7Amount)}</p>
+        </div>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Vencen en ≤30 días</p>
+          <p className="text-2xl font-bold">{formatPrice(dueSoon30Amount)}</p>
         </div>
       </div>
 
