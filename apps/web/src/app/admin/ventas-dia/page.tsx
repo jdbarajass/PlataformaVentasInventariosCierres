@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Calendar, Search, Plus, Trash2, Loader2, Receipt, ChevronDown, ChevronRight, Pencil, X, CheckCircle2, Download,
 } from 'lucide-react'
@@ -69,17 +70,28 @@ interface ProductResult {
   variants: { id: string; talla: string | null }[]
 }
 interface Expense { id: string; description: string; amount_cents: number; category: string }
+interface Loan { id: string; product_title: string; warehouse: string; status: string; created_at: string }
 
 const methodLabels: Record<PaymentSplit['method'], string> = {
   cash: 'Efectivo', card: 'Datáfono', nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia',
   daviplata: 'Daviplata', addi: 'Addi', other: 'Otro',
 }
 
-export default function VentasDiaPage() {
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
+function VentasDiaContent() {
+  // ?date=YYYY-MM-DD para llegar directo a un día desde Historial Mensual
+  // ("Ver Vista del Día" del software local, ver docs/UNIFICACION_YJBMOTOCOM.md
+  // sección 21) — sin el parámetro, se abre en el día de hoy como siempre.
+  const searchParams = useSearchParams()
+  const [date, setDate] = useState(() => searchParams.get('date') || new Date().toISOString().split('T')[0])
   const [sales, setSales] = useState<Sale[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  // Préstamos pendientes: TODOS los que siguen sin devolverse, sin importar
+  // la fecha — igual que la Vista del Día del software local
+  // (obtener_prestamos_pendientes no filtra por fecha; funciona como
+  // recordatorio persistente de mercancía prestada, ver
+  // docs/UNIFICACION_YJBMOTOCOM.md sección 21).
+  const [pendingLoans, setPendingLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -156,9 +168,22 @@ export default function VentasDiaPage() {
     }
   }, [session?.access_token, authHeaders])
 
+  const fetchLoans = useCallback(async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch('/api/loans?status=pending', { headers: authHeaders() })
+      if (!res.ok) return
+      const { data } = await res.json()
+      setPendingLoans(data || [])
+    } catch (error) {
+      console.error('Error fetching loans:', error)
+    }
+  }, [session?.access_token, authHeaders])
+
   useEffect(() => { fetchSales() }, [fetchSales])
   useEffect(() => { fetchExpenses() }, [fetchExpenses])
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
+  useEffect(() => { fetchLoans() }, [fetchLoans])
 
   useEffect(() => {
     if (!canViewProfit) return
@@ -211,6 +236,17 @@ export default function VentasDiaPage() {
   const netProfit = totalDia - totalCost
   const netProfitPct = totalDia > 0 ? (netProfit / totalDia) * 100 : 0
   const utilidadReal = netProfit - totalGastos - dailyFixedExpense
+
+  // Ingresos por método de pago del día — igual que "Por método" de Vista
+  // del Día en el local (_build_totales en vista_diaria_dialog.py): cada
+  // pago se suma a su método real, incluidos los que vienen de una venta
+  // con pago combinado (cada split ya es su propia fila en `payments`).
+  const revenueByMethod = activeSales.reduce<Record<string, number>>((acc, s) => {
+    ;(s.payments || []).forEach((p) => {
+      acc[p.method] = (acc[p.method] || 0) + p.amount_cents
+    })
+    return acc
+  }, {})
 
   const startEdit = (sale: Sale) => {
     setEditingId(sale.id)
@@ -496,6 +532,59 @@ export default function VentasDiaPage() {
         )}
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="mb-3 text-lg font-semibold">Por método de pago</h2>
+          {Object.keys(revenueByMethod).length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin pagos registrados este día.</p>
+          ) : (
+            <div className="space-y-2">
+              {Object.entries(revenueByMethod)
+                .sort((a, b) => b[1] - a[1])
+                .map(([method, cents]) => (
+                  <div key={method} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                    <span>{methodLabels[method as PaymentSplit['method']] || method}</span>
+                    <span className="font-medium">{formatPrice(cents)}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="mb-3 text-lg font-semibold">Préstamos pendientes ({pendingLoans.length})</h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Toda la mercancía prestada que aún no se ha devuelto, sin importar la fecha.
+          </p>
+          {pendingLoans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay préstamos pendientes.</p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-2">Fecha</th>
+                    <th className="py-2 pr-2">Producto</th>
+                    <th className="py-2">Almacén</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingLoans.map((loan) => (
+                    <tr key={loan.id} className="border-b last:border-0">
+                      <td className="py-2 pr-2 text-muted-foreground">
+                        {new Date(loan.created_at).toLocaleDateString('es-CO')}
+                      </td>
+                      <td className="py-2 pr-2">{loan.product_title}</td>
+                      <td className="py-2">{loan.warehouse}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -749,5 +838,19 @@ export default function VentasDiaPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function VentasDiaPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-40 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <VentasDiaContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { Printer, TrendingUp, Package, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +49,8 @@ export default function HistorialMensualPage() {
   const [prevProfit, setPrevProfit] = useState(0)
   const [totalOperatingExpenses, setTotalOperatingExpenses] = useState(0)
   const [fixedMonthlyTotal, setFixedMonthlyTotal] = useState(0)
+  const [diasMes, setDiasMes] = useState(30)
+  const [expensesByDay, setExpensesByDay] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const { userProfile } = useAuth()
   const canViewProfit = userProfile?.role === 'admin'
@@ -71,10 +74,17 @@ export default function HistorialMensualPage() {
       const to = new Date(year, month, 1).toISOString().split('T')[0]
       const { data: expensesData } = await supabase
         .from('operating_expenses')
-        .select('amount_cents')
+        .select('amount_cents, date')
         .gte('date', from)
         .lt('date', to)
-      setTotalOperatingExpenses(((expensesData as { amount_cents: number }[]) || []).reduce((sum, e) => sum + e.amount_cents, 0))
+      const expensesRows = (expensesData as { amount_cents: number; date: string }[]) || []
+      setTotalOperatingExpenses(expensesRows.reduce((sum, e) => sum + e.amount_cents, 0))
+      setExpensesByDay(
+        expensesRows.reduce<Record<string, number>>((acc, e) => {
+          acc[e.date] = (acc[e.date] || 0) + e.amount_cents
+          return acc
+        }, {})
+      )
 
       const { data: settingsData } = await supabase
         .from('store_settings')
@@ -85,6 +95,7 @@ export default function HistorialMensualPage() {
       setFixedMonthlyTotal(
         fixed ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents : 0
       )
+      setDiasMes(fixed?.dias_mes || 30)
     }
 
     setLoading(false)
@@ -119,6 +130,13 @@ export default function HistorialMensualPage() {
   const revenueDeltaPct = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : null
   const profitDeltaPct = prevProfit !== 0 ? ((grossProfit - prevProfit) / Math.abs(prevProfit)) * 100 : null
 
+  // Utilidad Real POR DÍA (distinta de la del mes): el gasto fijo mensual se
+  // prorratea (÷ días del mes) y se le suma el gasto operativo puntual de
+  // ESE día — misma fórmula que Ventas del Día y que calcular_resumen_diario
+  // del software local (ver docs/UNIFICACION_YJBMOTOCOM.md sección 13.2).
+  // Los días que solo tuvieron gastos (sin ventas) también cuentan, igual
+  // que el local (todas_fechas = ventas ∪ gastos_por_dia.keys()).
+  const dailyFixedExpense = fixedMonthlyTotal / diasMes
   const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number }>>((acc, o) => {
     const day = o.created_at.split('T')[0]
     if (!acc[day]) acc[day] = { revenue: 0, cost: 0 }
@@ -126,9 +144,18 @@ export default function HistorialMensualPage() {
     acc[day].cost += (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0)
     return acc
   }, {})
-  const dailyArray = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0]))
-  const maxDaily = Math.max(...dailyArray.map(([, d]) => d.revenue), 1)
-  const positiveDays = dailyArray.filter(([, d]) => d.revenue - d.cost >= 0).length
+  for (const day of Object.keys(expensesByDay)) {
+    if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cost: 0 }
+  }
+  const dailyArray = Object.entries(dailyMap)
+    .map(([day, d]) => {
+      const gastosDia = expensesByDay[day] || 0
+      const utilidadRealDia = canViewProfit ? d.revenue - d.cost - dailyFixedExpense - gastosDia : d.revenue - d.cost
+      return { day, ...d, gastosDia, utilidadRealDia }
+    })
+    .sort((a, b) => a.day.localeCompare(b.day))
+  const maxDaily = Math.max(...dailyArray.map((d) => d.revenue), 1)
+  const positiveDays = dailyArray.filter((d) => d.utilidadRealDia >= 0).length
   const negativeDays = dailyArray.length - positiveDays
 
   const productMap = orders.reduce<Record<string, { title: string; qty: number; revenue: number; cost: number }>>((acc, o) => {
@@ -149,7 +176,7 @@ export default function HistorialMensualPage() {
   const handlePrint = () => {
     const win = window.open('', '_blank')
     if (!win) return
-    const rows = dailyArray.map(([day, d]) => `<tr><td>${day}</td><td style="text-align:right">${formatPrice(d.revenue)}</td></tr>`).join('')
+    const rows = dailyArray.map((d) => `<tr><td>${d.day}</td><td style="text-align:right">${formatPrice(d.revenue)}</td></tr>`).join('')
     win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
       <title>Historial ${monthNames[month - 1]} ${year} - YJBMOTOCOM</title>
       <style>
@@ -287,22 +314,29 @@ export default function HistorialMensualPage() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-xl border bg-card p-6">
-              <h2 className="mb-4 text-lg font-semibold">Ventas por día</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Ventas por día</h2>
+                <p className="text-xs text-muted-foreground">Haz clic en un día para ver el detalle</p>
+              </div>
               {dailyArray.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay ventas este mes.</p>
               ) : (
                 <div className="space-y-2">
-                  {dailyArray.map(([day, d]) => (
-                    <div key={day} className="flex items-center gap-4">
-                      <span className="w-20 text-sm text-muted-foreground">{day.slice(8, 10)}/{day.slice(5, 7)}</span>
+                  {dailyArray.map((d) => (
+                    <Link
+                      key={d.day}
+                      href={`/admin/ventas-dia?date=${d.day}`}
+                      className="flex items-center gap-4 rounded-lg p-1 -m-1 hover:bg-muted"
+                    >
+                      <span className="w-20 text-sm text-muted-foreground">{d.day.slice(8, 10)}/{d.day.slice(5, 7)}</span>
                       <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.revenue / maxDaily) * 100}%` }} /></div>
                       <span className="w-28 text-right text-sm font-medium">{formatPrice(d.revenue)}</span>
                       {canViewProfit && (
-                        <Badge variant="outline" className={d.revenue - d.cost >= 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}>
-                          {d.revenue - d.cost >= 0 ? 'Positivo' : 'Negativo'}
+                        <Badge variant="outline" className={d.utilidadRealDia >= 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}>
+                          {d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}
                         </Badge>
                       )}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
