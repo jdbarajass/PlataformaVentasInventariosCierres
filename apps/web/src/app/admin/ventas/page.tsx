@@ -4,15 +4,26 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Search,
   Plus,
+  Minus,
   Trash2,
   Loader2,
   ShoppingCart,
   Receipt,
   X,
-  CheckCircle2,
+  ChevronDown,
+  Package,
+  Banknote,
+  CreditCard,
+  Smartphone,
+  QrCode,
+  Wallet,
+  MoreHorizontal,
+  Layers,
+  ArrowLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -37,6 +48,11 @@ interface ProductResult {
   matched_variant_id?: string
 }
 
+interface Category {
+  id: string
+  name: string
+}
+
 interface CartLine {
   key: string
   // null = ítem manual fuera de catálogo (igual que el software local, que
@@ -53,9 +69,11 @@ interface CartLine {
   max_stock: number
 }
 
+type Method = 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'other'
+
 interface PaymentSplit {
   key: string
-  method: 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'other'
+  method: Method
   method_detail: string
   account_id: string
   amount: string
@@ -70,7 +88,7 @@ interface Account {
 // Los 4 sub-tipos de transferencia (Nequi/NU/QR/Daviplata) tienen comisión
 // propia configurable en Comisiones y Gastos Fijos — igual que el software
 // local, que nunca ofrece un "Transferencia" genérico, solo estos 4 nombres.
-const methodLabels: Record<PaymentSplit['method'], string> = {
+const methodLabels: Record<Method, string> = {
   cash: 'Efectivo',
   card: 'Datáfono',
   nequi: 'Nequi',
@@ -81,9 +99,20 @@ const methodLabels: Record<PaymentSplit['method'], string> = {
   other: 'Otro',
 }
 
-const emptyPayment = (): PaymentSplit => ({
+const methodIcons: Record<Method, React.ComponentType<{ className?: string }>> = {
+  cash: Banknote,
+  card: CreditCard,
+  nequi: Smartphone,
+  nu: Smartphone,
+  qr: QrCode,
+  daviplata: Smartphone,
+  addi: Wallet,
+  other: MoreHorizontal,
+}
+
+const emptyPayment = (method: Method = 'cash'): PaymentSplit => ({
   key: crypto.randomUUID(),
-  method: 'cash',
+  method,
   method_detail: '',
   account_id: '',
   amount: '',
@@ -123,6 +152,8 @@ const newSession = (label: string): SaleSession => ({
 
 export default function VentasPage() {
   const [query, setQuery] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [categories, setCategories] = useState<Category[]>([])
   const [results, setResults] = useState<ProductResult[]>([])
   const [searching, setSearching] = useState(false)
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -175,6 +206,20 @@ export default function VentasPage() {
   const [manualPrice, setManualPrice] = useState('')
   const [manualCost, setManualCost] = useState('')
 
+  // Elegir talla de un producto con variantes — panel flotante sobre la
+  // grilla en vez de expandir cada card (más simple de mantener en un grid).
+  const [pickingVariantsFor, setPickingVariantsFor] = useState<ProductResult | null>(null)
+
+  // Cliente colapsado por defecto (como "Consumidor final" en Alegra),
+  // se expande solo si el vendedor necesita registrar los datos.
+  const [showCustomerFields, setShowCustomerFields] = useState(false)
+
+  // Modal de pago (se abre al presionar "Vender", igual que "Pagar factura"
+  // en Alegra): primero se eligen tiles de método, o "Combinado" para el
+  // editor de pagos divididos que ya existía.
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentStep, setPaymentStep] = useState<'methods' | 'single' | 'combined'>('methods')
+
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   // Igual que en el software local: solo Admin ve costo/ganancia/comisión.
@@ -222,6 +267,13 @@ export default function VentasPage() {
   }, [fetchAccounts, fetchTodaySales])
 
   useEffect(() => {
+    fetch('/api/categories')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => setCategories(json?.categories || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (!canViewProfit) return
     fetch('/api/settings')
       .then((res) => (res.ok ? res.json() : null))
@@ -231,17 +283,18 @@ export default function VentasPage() {
       .catch(() => {})
   }, [canViewProfit])
 
+  // Sin texto de búsqueda se muestra igual una grilla navegable (modo
+  // catálogo, como el POS de Alegra) — /api/pos/search ya soporta esto.
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    if (!query.trim()) {
-      setResults([])
-      return
-    }
     searchTimer.current = setTimeout(async () => {
       if (!session?.access_token) return
       setSearching(true)
       try {
-        const res = await fetch(`/api/pos/search?q=${encodeURIComponent(query)}`, {
+        const params = new URLSearchParams()
+        if (query.trim()) params.set('q', query.trim())
+        if (categoryId) params.set('category_id', categoryId)
+        const res = await fetch(`/api/pos/search?${params.toString()}`, {
           headers: authHeaders(),
         })
         if (!res.ok) return
@@ -253,7 +306,7 @@ export default function VentasPage() {
         setSearching(false)
       }
     }, 250)
-  }, [query, session?.access_token, authHeaders])
+  }, [query, categoryId, session?.access_token, authHeaders])
 
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', {
@@ -287,6 +340,19 @@ export default function VentasPage() {
     })
   }
 
+  const handleCardClick = (product: ProductResult) => {
+    if (product.variants.length === 0) {
+      addToCart(product, null)
+    } else {
+      setPickingVariantsFor(product)
+    }
+  }
+
+  const handlePickVariant = (product: ProductResult, variant: ProductVariant) => {
+    addToCart(product, variant)
+    setPickingVariantsFor(null)
+  }
+
   const handleBarcodeEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || !query.trim() || !session?.access_token) return
     try {
@@ -300,7 +366,6 @@ export default function VentasPage() {
         const variant = product.variants.find((v) => v.id === product.matched_variant_id)
         addToCart(product, variant || null)
         setQuery('')
-        setResults([])
       }
     } catch (error) {
       console.error('Error scanning barcode:', error)
@@ -384,6 +449,33 @@ export default function VentasPage() {
   const setCustomerIdNumber = (v: string) => updateActiveSession((s) => ({ ...s, customerIdNumber: v }))
   const setNotes = (v: string) => updateActiveSession((s) => ({ ...s, notes: v }))
 
+  // Abre el modal de pago — "Vender" en Alegra abre "Pagar factura". Si solo
+  // hay un producto o el carrito está vacío se avisa antes de abrir nada.
+  const openPaymentModal = () => {
+    if (cart.length === 0) {
+      toast({ title: 'Error', description: 'Agrega al menos un producto al carrito', variant: 'destructive' })
+      return
+    }
+    setPaymentStep('methods')
+    setShowPaymentModal(true)
+  }
+
+  const selectQuickMethod = (method: Method) => {
+    updateActiveSession((s) => ({
+      ...s,
+      payments: [{ ...emptyPayment(method), amount: (total / 100).toString() }],
+    }))
+    setPaymentStep('single')
+  }
+
+  const selectCombined = () => {
+    updateActiveSession((s) => ({
+      ...s,
+      payments: s.payments.length > 1 ? s.payments : [emptyPayment(), emptyPayment()],
+    }))
+    setPaymentStep('combined')
+  }
+
   const handleSubmitSale = async (force = false) => {
     const activeId = activeSessionId
     const current = sessions.find((s) => s.id === activeId)
@@ -460,6 +552,7 @@ export default function VentasPage() {
 
       const { data } = await res.json()
       toast({ title: 'Venta registrada', description: `Orden ${data.order_number}` })
+      setShowPaymentModal(false)
 
       // Si era una pestaña extra (no la primera), se cierra sola para no
       // acumular pestañas vacías; la primera pestaña se deja lista para la
@@ -541,22 +634,36 @@ export default function VentasPage() {
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Búsqueda + carrito */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre/SKU o escanear código de barras..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleBarcodeEnter}
-              className="rounded-xl pl-10"
-              autoFocus
-            />
-            {searching && (
-              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            )}
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* Búsqueda + grilla de productos */}
+        <div className="space-y-4 lg:col-span-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre/SKU o escanear código de barras..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleBarcodeEnter}
+                className="rounded-xl pl-10"
+                autoFocus
+              />
+              {searching && (
+                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="rounded-xl border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Categorías</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Ítem manual fuera de catálogo — igual que el software local,
@@ -572,23 +679,9 @@ export default function VentasPage() {
                     onChange={(e) => setManualTitle(e.target.value)}
                     className="rounded-lg"
                   />
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="Precio de venta"
-                    value={manualPrice}
-                    onChange={(e) => setManualPrice(e.target.value)}
-                    className="rounded-lg"
-                  />
+                  <MoneyInput placeholder="Precio de venta" value={manualPrice} onChange={setManualPrice} className="rounded-lg" />
                   {canViewProfit && (
-                    <Input
-                      type="number"
-                      min="0"
-                      placeholder="Costo (opcional)"
-                      value={manualCost}
-                      onChange={(e) => setManualCost(e.target.value)}
-                      className="rounded-lg"
-                    />
+                    <MoneyInput placeholder="Costo (opcional)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -607,148 +700,192 @@ export default function VentasPage() {
             )}
           </div>
 
-          {results.length > 0 && (
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border bg-card p-2">
-              {results.map((product) => (
-                <div key={product.id} className="rounded-lg p-2 hover:bg-muted">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{product.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {product.sku || 'sin SKU'} · {formatPrice(product.price_cents)}
-                      </p>
-                    </div>
-                    {product.variants.length === 0 ? (
-                      <Button size="sm" variant="outline" className="rounded-lg" onClick={() => addToCart(product, null)}>
-                        <Plus className="mr-1 h-3 w-3" /> Agregar ({product.stock_qty})
-                      </Button>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {product.variants.map((v) => (
-                          <Button
-                            key={v.id}
-                            size="sm"
-                            variant="outline"
-                            className="rounded-lg"
-                            onClick={() => addToCart(product, v)}
-                          >
-                            {v.talla || 'Única'} ({v.stock_qty})
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Elegir talla — panel flotante sobre la grilla */}
+          {pickingVariantsFor && (
+            <div className="rounded-xl border-2 border-primary bg-card p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-medium">Elige la talla de &quot;{pickingVariantsFor.title}&quot;</p>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPickingVariantsFor(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {pickingVariantsFor.variants.map((v) => (
+                  <Button
+                    key={v.id}
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    disabled={v.stock_qty === 0}
+                    onClick={() => handlePickVariant(pickingVariantsFor, v)}
+                  >
+                    {v.talla || 'Única'} ({v.stock_qty})
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Carrito */}
-          <div className="rounded-xl border bg-card">
-            {cart.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <ShoppingCart className="mx-auto mb-2 h-8 w-8" />
-                Busca un producto para agregarlo a la venta
+          {/* Grilla de productos (estilo Alegra) */}
+          <div className="max-h-[42rem] overflow-y-auto rounded-xl border bg-card p-3">
+            {searching && results.length === 0 ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : results.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">No se encontraron productos</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Producto</th>
-                      <th className="px-4 py-3 text-center font-medium text-muted-foreground">Cant.</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Precio</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Desc.</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Total</th>
-                      <th className="px-4 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.map((line) => (
-                      <tr key={line.key} className="border-b last:border-0">
-                        <td className="px-4 py-2">
-                          <p className="font-medium">{line.title}</p>
-                          {line.talla && <Badge variant="outline" className="mt-1">{line.talla}</Badge>}
-                          {!line.product_id && (
-                            <Badge variant="outline" className="mt-1 border-amber-500/30 bg-amber-500/10 text-amber-600">
-                              Fuera de catálogo
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          <Input
-                            type="number"
-                            min="1"
-                            max={line.max_stock}
-                            value={line.qty}
-                            onChange={(e) => updateCartLine(line.key, { qty: parseInt(e.target.value) || 1 })}
-                            className="h-8 w-16 rounded-lg text-center"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={line.price_cents / 100}
-                            onChange={(e) =>
-                              updateCartLine(line.key, { price_cents: Math.round((parseFloat(e.target.value) || 0) * 100) })
-                            }
-                            className="h-8 w-28 rounded-lg text-right"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={line.discount_cents / 100}
-                            onChange={(e) =>
-                              updateCartLine(line.key, { discount_cents: Math.round((parseFloat(e.target.value) || 0) * 100) })
-                            }
-                            className="h-8 w-24 rounded-lg text-right"
-                          />
-                        </td>
-                        <td className="px-4 py-2 text-right font-medium">
-                          {formatPrice(line.qty * line.price_cents - line.discount_cents)}
-                        </td>
-                        <td className="px-4 py-2">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {results.map((product) => {
+                  const totalStock =
+                    product.variants.length > 0
+                      ? product.variants.reduce((s, v) => s + v.stock_qty, 0)
+                      : product.stock_qty
+                  const agotado = totalStock === 0
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => handleCardClick(product)}
+                      className="flex flex-col rounded-xl border bg-background p-3 text-left transition-colors hover:border-primary hover:shadow-sm"
+                    >
+                      <span className="mb-1 self-start rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-cyan-600">
+                        {product.sku || product.id.slice(0, 8)}
+                      </span>
+                      <div className="flex h-16 items-center justify-center">
+                        <Package className="h-9 w-9 text-muted-foreground/30" />
+                      </div>
+                      <p
+                        className={`text-center text-xs font-medium ${
+                          agotado ? 'text-amber-600' : 'text-cyan-600'
+                        }`}
+                      >
+                        {agotado
+                          ? 'Agotado'
+                          : product.variants.length > 0
+                            ? `${product.variants.length} talla${product.variants.length !== 1 ? 's' : ''}`
+                            : `Inv. ${totalStock}`}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-sm font-medium leading-tight">{product.title}</p>
+                      <p className="mt-1 font-bold">{formatPrice(product.price_cents)}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Factura de venta */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="rounded-xl border bg-card p-4">
+            <h2 className="mb-3 text-base font-semibold">Factura de venta</h2>
+
+            <button
+              onClick={() => setShowCustomerFields((v) => !v)}
+              className="mb-3 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm"
+            >
+              <span>Cliente: {activeSession.customerName || 'Consumidor final'}</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${showCustomerFields ? 'rotate-180' : ''}`} />
+            </button>
+            {showCustomerFields && (
+              <div className="mb-3 space-y-2 rounded-lg border p-3">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Input placeholder="Nombre" value={activeSession.customerName} onChange={(e) => setCustomerName(e.target.value)} className="rounded-lg" />
+                  <Input placeholder="Teléfono" value={activeSession.customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="rounded-lg" />
+                  <Input placeholder="Cédula" value={activeSession.customerIdNumber} onChange={(e) => setCustomerIdNumber(e.target.value)} className="rounded-lg" />
+                </div>
+                <Input
+                  placeholder="Notas (opcional)"
+                  value={activeSession.notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="rounded-lg"
+                />
+              </div>
+            )}
+
+            {/* Carrito compacto */}
+            <div className="rounded-lg border">
+              {cart.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <ShoppingCart className="mx-auto mb-2 h-8 w-8" />
+                  Busca un producto para agregarlo a la venta
+                </div>
+              ) : (
+                <div className="max-h-80 divide-y overflow-y-auto">
+                  {cart.map((line) => (
+                    <div key={line.key} className="p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{line.title}</p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            {line.talla && <Badge variant="outline">{line.talla}</Badge>}
+                            {!line.product_id && (
+                              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600">
+                                Fuera de catálogo
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeCartLine(line.key)}>
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </Button>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 rounded-lg border">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => removeCartLine(line.key)}
+                            onClick={() => updateCartLine(line.key, { qty: Math.max(1, line.qty - 1) })}
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                            <Minus className="h-3 w-3" />
                           </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Datos del cliente */}
-          <div className="rounded-xl border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold">Cliente (opcional)</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Input placeholder="Nombre" value={activeSession.customerName} onChange={(e) => setCustomerName(e.target.value)} className="rounded-lg" />
-              <Input placeholder="Teléfono" value={activeSession.customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="rounded-lg" />
-              <Input placeholder="Cédula" value={activeSession.customerIdNumber} onChange={(e) => setCustomerIdNumber(e.target.value)} className="rounded-lg" />
+                          <input
+                            type="number"
+                            min="1"
+                            max={line.max_stock}
+                            value={line.qty}
+                            onChange={(e) =>
+                              updateCartLine(line.key, {
+                                qty: Math.min(line.max_stock, Math.max(1, parseInt(e.target.value) || 1)),
+                              })
+                            }
+                            className="w-10 border-0 bg-transparent text-center text-sm font-medium focus:outline-none"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateCartLine(line.key, { qty: Math.min(line.max_stock, line.qty + 1) })}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>Precio</span>
+                          <MoneyInput
+                            value={String(line.price_cents / 100)}
+                            onChange={(v) => updateCartLine(line.key, { price_cents: (parseInt(v) || 0) * 100 })}
+                            className="h-7 w-24 rounded-lg text-right text-xs"
+                          />
+                        </div>
+                        <p className="font-medium">{formatPrice(line.qty * line.price_cents - line.discount_cents)}</p>
+                      </div>
+                      <div className="mt-1 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                        <span>Descuento</span>
+                        <MoneyInput
+                          value={String(line.discount_cents / 100)}
+                          onChange={(v) => updateCartLine(line.key, { discount_cents: (parseInt(v) || 0) * 100 })}
+                          className="h-7 w-24 rounded-lg text-right text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <Input
-              placeholder="Notas (opcional)"
-              value={activeSession.notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="mt-3 rounded-lg"
-            />
-          </div>
-        </div>
 
-        {/* Pagos + resumen */}
-        <div className="space-y-4">
-          <div className="rounded-xl border bg-card p-4">
-            <div className="space-y-1 text-sm">
+            <div className="mt-3 space-y-1 border-t pt-3 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatPrice(subtotal)}</span></div>
               {totalDiscount > 0 && (
                 <div className="flex justify-between text-green-500"><span>Descuento</span><span>-{formatPrice(totalDiscount)}</span></div>
@@ -758,80 +895,14 @@ export default function VentasPage() {
                 <div className="space-y-1 border-t pt-2 text-xs text-muted-foreground">
                   <div className="flex justify-between"><span>Costo</span><span>{formatPrice(totalCost)}</span></div>
                   <div className="flex justify-between"><span>Ganancia estimada</span><span className={estimatedProfit >= 0 ? 'text-green-500' : 'text-red-500'}>{formatPrice(estimatedProfit)}</span></div>
-                  <div className="flex justify-between"><span>Comisión estimada</span><span>{formatPrice(Math.round(estimatedCommission))}</span></div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="rounded-xl border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold">Pago</h2>
-            <div className="space-y-3">
-              {payments.map((p) => (
-                <div key={p.key} className="space-y-2 rounded-lg border p-2">
-                  <div className="flex gap-2">
-                    <select
-                      value={p.method}
-                      onChange={(e) => updatePaymentSplit(p.key, { method: e.target.value as PaymentSplit['method'] })}
-                      className="flex-1 rounded-lg border bg-background px-2 py-1 text-xs"
-                    >
-                      {Object.entries(methodLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                    {payments.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removePaymentSplit(p.key)}>
-                        <X className="h-3 w-3 text-red-500" />
-                      </Button>
-                    )}
-                  </div>
-                  {(p.method === 'card' || p.method === 'other') && (
-                    <Input
-                      placeholder={p.method === 'card' ? 'Débito o Crédito' : 'Especifica...'}
-                      value={p.method_detail}
-                      onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
-                      className="h-8 rounded-lg text-xs"
-                    />
-                  )}
-                  <select
-                    value={p.account_id}
-                    onChange={(e) => updatePaymentSplit(p.key, { account_id: e.target.value })}
-                    className="w-full rounded-lg border bg-background px-2 py-1 text-xs"
-                  >
-                    <option value="">Cuenta (opcional)...</option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="Monto"
-                    value={p.amount}
-                    onChange={(e) => updatePaymentSplit(p.key, { amount: e.target.value })}
-                    className="h-8 rounded-lg text-xs"
-                  />
-                </div>
-              ))}
-              <Button variant="outline" size="sm" className="w-full rounded-lg" onClick={addPaymentSplit}>
-                <Plus className="mr-1 h-3 w-3" /> Agregar otro método
-              </Button>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Pagado</span>
-                <span>{formatPrice(Math.round(paymentsTotal))}</span>
-              </div>
-              {Math.round(paymentsTotal) !== total && (
-                <div className={`flex justify-between text-xs font-medium ${Math.round(paymentsTotal) < total ? 'text-red-500' : 'text-amber-500'}`}>
-                  <span>{Math.round(paymentsTotal) < total ? 'Falta' : 'Sobra (vuelto por fuera)'}</span>
-                  <span>{formatPrice(Math.abs(Math.round(paymentsTotal) - total))}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <Button className="w-full rounded-xl" size="lg" onClick={() => handleSubmitSale()} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-            Registrar venta
+          <Button className="w-full rounded-xl" size="lg" onClick={openPaymentModal} disabled={saving}>
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Vender {formatPrice(total)}
           </Button>
 
           {sessions.length > 1 && (
@@ -852,6 +923,185 @@ export default function VentasPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de pago — "Pagar factura" al estilo Alegra */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">
+                {paymentStep === 'methods' ? 'Pagar factura' : 'Confirmar pago'}
+              </h2>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPaymentModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mb-4 text-center">
+              <p className="text-xs uppercase text-muted-foreground">Total</p>
+              <p className="text-3xl font-bold">{formatPrice(total)}</p>
+            </div>
+
+            {paymentStep === 'methods' && (
+              <div className="grid grid-cols-3 gap-3">
+                {(Object.keys(methodLabels) as Method[]).map((m) => {
+                  const Icon = methodIcons[m]
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => selectQuickMethod(m)}
+                      className="flex flex-col items-center gap-2 rounded-xl border p-4 text-center hover:border-primary hover:bg-muted"
+                    >
+                      <Icon className="h-6 w-6" />
+                      <span className="text-xs font-medium">{methodLabels[m]}</span>
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={selectCombined}
+                  className="flex flex-col items-center gap-2 rounded-xl border p-4 text-center hover:border-primary hover:bg-muted"
+                >
+                  <Layers className="h-6 w-6" />
+                  <span className="text-xs font-medium">Combinado</span>
+                </button>
+              </div>
+            )}
+
+            {paymentStep === 'single' && payments.length === 1 && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => setPaymentStep('methods')}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Cambiar método
+                </button>
+                <div className="rounded-lg border p-3">
+                  <p className="mb-2 text-sm font-medium">{methodLabels[payments[0].method]}</p>
+                  {(payments[0].method === 'card' || payments[0].method === 'other') && (
+                    <Input
+                      placeholder={payments[0].method === 'card' ? 'Débito o Crédito' : 'Especifica...'}
+                      value={payments[0].method_detail}
+                      onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
+                      className="mb-2 rounded-lg"
+                    />
+                  )}
+                  <select
+                    value={payments[0].account_id}
+                    onChange={(e) => updatePaymentSplit(payments[0].key, { account_id: e.target.value })}
+                    className="mb-2 w-full rounded-lg border bg-background px-2 py-2 text-sm"
+                  >
+                    <option value="">Cuenta (opcional)...</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  <label className="mb-1 block text-xs text-muted-foreground">Monto recibido</label>
+                  <MoneyInput
+                    value={payments[0].amount}
+                    onChange={(v) => updatePaymentSplit(payments[0].key, { amount: v })}
+                    className="rounded-lg"
+                  />
+                </div>
+                {Math.round(paymentsTotal) !== total && (
+                  <p className={`text-xs font-medium ${Math.round(paymentsTotal) < total ? 'text-red-500' : 'text-amber-500'}`}>
+                    {Math.round(paymentsTotal) < total
+                      ? `Faltan ${formatPrice(total - Math.round(paymentsTotal))}`
+                      : `Sobran ${formatPrice(Math.round(paymentsTotal) - total)} (vuelto por fuera del sistema)`}
+                  </p>
+                )}
+                {canViewProfit && estimatedCommission > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Comisión estimada: {formatPrice(Math.round(estimatedCommission))}
+                  </p>
+                )}
+                <Button className="w-full rounded-xl" size="lg" onClick={() => handleSubmitSale()} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirmar venta
+                </Button>
+              </div>
+            )}
+
+            {paymentStep === 'combined' && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => setPaymentStep('methods')}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Cambiar método
+                </button>
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {payments.map((p) => (
+                    <div key={p.key} className="space-y-2 rounded-lg border p-2">
+                      <div className="flex gap-2">
+                        <select
+                          value={p.method}
+                          onChange={(e) => updatePaymentSplit(p.key, { method: e.target.value as Method })}
+                          className="flex-1 rounded-lg border bg-background px-2 py-1 text-xs"
+                        >
+                          {(Object.keys(methodLabels) as Method[]).map((value) => (
+                            <option key={value} value={value}>{methodLabels[value]}</option>
+                          ))}
+                        </select>
+                        {payments.length > 1 && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removePaymentSplit(p.key)}>
+                            <X className="h-3 w-3 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
+                      {(p.method === 'card' || p.method === 'other') && (
+                        <Input
+                          placeholder={p.method === 'card' ? 'Débito o Crédito' : 'Especifica...'}
+                          value={p.method_detail}
+                          onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
+                          className="h-8 rounded-lg text-xs"
+                        />
+                      )}
+                      <select
+                        value={p.account_id}
+                        onChange={(e) => updatePaymentSplit(p.key, { account_id: e.target.value })}
+                        className="w-full rounded-lg border bg-background px-2 py-1 text-xs"
+                      >
+                        <option value="">Cuenta (opcional)...</option>
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                      <MoneyInput
+                        placeholder="Monto"
+                        value={p.amount}
+                        onChange={(v) => updatePaymentSplit(p.key, { amount: v })}
+                        className="h-8 rounded-lg text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm" className="w-full rounded-lg" onClick={addPaymentSplit}>
+                  <Plus className="mr-1 h-3 w-3" /> Agregar otro método
+                </Button>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Pagado</span>
+                  <span>{formatPrice(Math.round(paymentsTotal))}</span>
+                </div>
+                {Math.round(paymentsTotal) !== total && (
+                  <div className={`flex justify-between text-xs font-medium ${Math.round(paymentsTotal) < total ? 'text-red-500' : 'text-amber-500'}`}>
+                    <span>{Math.round(paymentsTotal) < total ? 'Falta' : 'Sobra (vuelto por fuera)'}</span>
+                    <span>{formatPrice(Math.abs(Math.round(paymentsTotal) - total))}</span>
+                  </div>
+                )}
+                {canViewProfit && estimatedCommission > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Comisión estimada: {formatPrice(Math.round(estimatedCommission))}
+                  </p>
+                )}
+                <Button className="w-full rounded-xl" size="lg" onClick={() => handleSubmitSale()} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirmar venta
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Ventas de hoy */}
       <div className="rounded-xl border bg-card p-6">

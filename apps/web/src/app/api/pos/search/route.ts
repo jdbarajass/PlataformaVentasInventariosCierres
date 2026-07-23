@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')?.trim()
     const barcode = searchParams.get('barcode')?.trim()
+    const categoryId = searchParams.get('category_id')?.trim()
 
     const supabase = createAuthenticatedClient(auth.token)
 
@@ -46,20 +47,24 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    if (!q) {
-      return NextResponse.json({ data: [] })
-    }
-
     // No se filtra por products.active: ese campo solo controla si el
     // producto se muestra en la tienda pública — el POS (Registrar Venta)
     // es una operación interna de admin/vendedor y debe poder vender
     // cualquier producto con stock real, esté publicado o no (ej. los 190
     // productos migrados del inventario físico, aún sin foto/descripción).
-    const { data: products, error } = await supabase
-      .from('products')
-      .select('*, variants:product_variants(*)')
-      .or(`title.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%`)
-      .limit(20)
+    let query = supabase.from('products').select('*, variants:product_variants(*)')
+
+    if (q) {
+      query = query.or(`title.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%`)
+    }
+    if (categoryId) {
+      query = query.eq('category_id', categoryId)
+    }
+    // Sin texto de búsqueda: modo catálogo (grilla navegable, como el POS de
+    // Alegra), muestra un lote de productos en vez de nada.
+    query = q ? query.limit(20) : query.order('title', { ascending: true }).limit(60)
+
+    const { data: products, error } = await query
 
     if (error) {
       throw error
