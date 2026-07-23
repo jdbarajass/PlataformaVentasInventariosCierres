@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Calculator, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 
@@ -196,11 +197,11 @@ export default function CalculadoraPage() {
             )}
             <div>
               <label className="text-sm text-muted-foreground">Costo</label>
-              <Input type="number" min="0" value={costo} onChange={(e) => setCosto(e.target.value)} className="rounded-lg" />
+              <MoneyInput value={costo} onChange={setCosto} className="rounded-lg" />
             </div>
             <div>
               <label className="text-sm text-muted-foreground">Precio de venta</label>
-              <Input type="number" min="0" value={precio} onChange={(e) => setPrecio(e.target.value)} className="rounded-lg" />
+              <MoneyInput value={precio} onChange={setPrecio} className="rounded-lg" />
             </div>
             <div>
               <label className="text-sm text-muted-foreground">Método de pago (para la comisión)</label>
@@ -229,8 +230,8 @@ export default function CalculadoraPage() {
             <h3 className="mb-1 text-sm font-semibold">Calculadora Rápida</h3>
             <p className="mb-3 text-xs text-muted-foreground">Costo + precio → ganancia instantánea</p>
             <div className="flex gap-2">
-              <Input type="number" min="0" placeholder="Costo" value={rapCosto} onChange={(e) => setRapCosto(e.target.value)} className="rounded-lg" />
-              <Input type="number" min="0" placeholder="Precio venta" value={rapPrecio} onChange={(e) => setRapPrecio(e.target.value)} className="rounded-lg" />
+              <MoneyInput placeholder="Costo" value={rapCosto} onChange={setRapCosto} className="rounded-lg" />
+              <MoneyInput placeholder="Precio venta" value={rapPrecio} onChange={setRapPrecio} className="rounded-lg" />
             </div>
             {rapActivo && (
               <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${rapGanancia >= 0 ? 'border-green-500/30 bg-green-500/10 text-green-600' : 'border-red-500/30 bg-red-500/10 text-red-600'}`}>
@@ -270,7 +271,7 @@ export default function CalculadoraPage() {
             </div>
             <div>
               <label className="text-sm text-muted-foreground">Costo</label>
-              <Input type="number" min="0" value={costo} onChange={(e) => setCosto(e.target.value)} className="rounded-lg" />
+              <MoneyInput value={costo} onChange={setCosto} className="rounded-lg" />
             </div>
             <div>
               <label className="text-sm text-muted-foreground">
@@ -328,7 +329,7 @@ export default function CalculadoraPage() {
           <div className="space-y-3">
             <div>
               <label className="text-sm text-muted-foreground">Precio en factura por unidad</label>
-              <Input type="number" min="0" placeholder="ej. 302500" value={precioFactura} onChange={(e) => setPrecioFactura(e.target.value)} className="rounded-lg" />
+              <MoneyInput placeholder="ej. 302.500" value={precioFactura} onChange={setPrecioFactura} className="rounded-lg" />
             </div>
             <div className="flex flex-wrap items-end gap-4">
               <div>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -355,7 +356,7 @@ export default function FacturasPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Input placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-lg" />
             <Input placeholder="Proveedor" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="rounded-lg" />
-            <Input type="number" min="0" placeholder="Monto" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="rounded-lg" />
+            <MoneyInput placeholder="Monto" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} className="rounded-lg" />
             <Input type="date" placeholder="Fecha de llegada" value={form.arrival_date} onChange={(e) => setForm({ ...form, arrival_date: e.target.value })} className="rounded-lg" />
             <Input type="date" placeholder="Fecha de vencimiento" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="rounded-lg" />
             <Input placeholder="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-lg" />
@@ -450,9 +451,9 @@ export default function FacturasPage() {
                                     onChange={(e) => setEditItem({ ...editItem, qty: e.target.value })}
                                     className="h-7 w-14 rounded-lg text-xs"
                                   />
-                                  <Input
-                                    type="number" min="0" value={editItem.unit_price}
-                                    onChange={(e) => setEditItem({ ...editItem, unit_price: e.target.value })}
+                                  <MoneyInput
+                                    value={editItem.unit_price}
+                                    onChange={(v) => setEditItem({ ...editItem, unit_price: v })}
                                     className="h-7 w-24 rounded-lg text-xs"
                                   />
                                   <Button size="sm" className="h-7 rounded-lg" onClick={() => handleSaveEditItem(item.id)} disabled={savingItem}>
@@ -492,9 +493,9 @@ export default function FacturasPage() {
                           onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })}
                           className="h-8 w-16 rounded-lg text-xs"
                         />
-                        <Input
-                          type="number" min="0" placeholder="Precio unit." value={newItem.unit_price}
-                          onChange={(e) => setNewItem({ ...newItem, unit_price: e.target.value })}
+                        <MoneyInput
+                          placeholder="Precio unit." value={newItem.unit_price}
+                          onChange={(v) => setNewItem({ ...newItem, unit_price: v })}
                           className="h-8 w-28 rounded-lg text-xs"
                         />
                         <Button size="sm" className="h-8 rounded-lg" onClick={() => handleAddItem(invoice.id)} disabled={savingItem}>
@@ -521,11 +522,9 @@ export default function FacturasPage() {
                       <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
                         <div>
                           <label className="text-xs text-muted-foreground">Monto</label>
-                          <Input
-                            type="number"
-                            min="0"
+                          <MoneyInput
                             value={payAmount}
-                            onChange={(e) => setPayAmount(e.target.value)}
+                            onChange={setPayAmount}
                             className="h-8 w-28 rounded-lg text-xs"
                           />
                         </div>

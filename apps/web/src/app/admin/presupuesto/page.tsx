@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { PiggyBank, Plus, Loader2, Trash2, Receipt, Copy, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
@@ -342,7 +343,7 @@ export default function PresupuestoPage() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <Input type="number" min="0" placeholder="Monto presupuestado" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="rounded-lg" />
+              <MoneyInput placeholder="Monto presupuestado" value={newAmount} onChange={setNewAmount} className="rounded-lg" />
               <Button className="rounded-lg" onClick={handleSaveBudget} disabled={savingBudget}>
                 {savingBudget ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 Guardar
@@ -418,7 +419,7 @@ export default function PresupuestoPage() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <Input type="number" min="0" placeholder="Monto" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="rounded-lg" />
+              <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg" />
               <select
                 value={expenseForm.account_id}
                 onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })}

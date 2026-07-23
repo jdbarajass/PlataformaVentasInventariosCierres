@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Percent, Building2, Loader2, Save, Lock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -150,19 +151,19 @@ export default function ConfiguracionPosPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="text-sm text-muted-foreground">Arriendo</label>
-            <Input type="number" min="0" value={expenses.arriendo_cents / 100} onChange={(e) => setExpenses({ ...expenses, arriendo_cents: Math.round((parseFloat(e.target.value) || 0) * 100) })} className="rounded-lg" />
+            <MoneyInput value={String(expenses.arriendo_cents / 100)} onChange={(v) => setExpenses({ ...expenses, arriendo_cents: (parseInt(v) || 0) * 100 })} className="rounded-lg" />
           </div>
           <div>
             <label className="text-sm text-muted-foreground">Sueldo</label>
-            <Input type="number" min="0" value={expenses.sueldo_cents / 100} onChange={(e) => setExpenses({ ...expenses, sueldo_cents: Math.round((parseFloat(e.target.value) || 0) * 100) })} className="rounded-lg" />
+            <MoneyInput value={String(expenses.sueldo_cents / 100)} onChange={(v) => setExpenses({ ...expenses, sueldo_cents: (parseInt(v) || 0) * 100 })} className="rounded-lg" />
           </div>
           <div>
             <label className="text-sm text-muted-foreground">Servicios</label>
-            <Input type="number" min="0" value={expenses.servicios_cents / 100} onChange={(e) => setExpenses({ ...expenses, servicios_cents: Math.round((parseFloat(e.target.value) || 0) * 100) })} className="rounded-lg" />
+            <MoneyInput value={String(expenses.servicios_cents / 100)} onChange={(v) => setExpenses({ ...expenses, servicios_cents: (parseInt(v) || 0) * 100 })} className="rounded-lg" />
           </div>
           <div>
             <label className="text-sm text-muted-foreground">Otros gastos</label>
-            <Input type="number" min="0" value={expenses.otros_gastos_cents / 100} onChange={(e) => setExpenses({ ...expenses, otros_gastos_cents: Math.round((parseFloat(e.target.value) || 0) * 100) })} className="rounded-lg" />
+            <MoneyInput value={String(expenses.otros_gastos_cents / 100)} onChange={(v) => setExpenses({ ...expenses, otros_gastos_cents: (parseInt(v) || 0) * 100 })} className="rounded-lg" />
           </div>
           <div>
             <label className="text-sm text-muted-foreground">Días del mes</label>

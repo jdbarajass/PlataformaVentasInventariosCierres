@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Search, Landmark, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
 
@@ -401,17 +402,11 @@ export default function CierreCajaPage() {
               ].map(({ label, value, setter }) => (
                 <div key={label}>
                   <label className="mb-2 block text-sm font-medium">{label}</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={value || ''}
-                    onChange={(e) => setter(parseInt(e.target.value) || 0)}
+                  <MoneyInput
+                    value={String(value || '')}
+                    onChange={(v) => setter(parseInt(v) || 0)}
                     placeholder="0"
                   />
-                  {value > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">{formatCOP(value)}</p>
-                  )}
                 </div>
               ))}
             </div>
@@ -427,26 +422,17 @@ export default function CierreCajaPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="mb-2 block text-sm font-medium">Excedente en efectivo</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={excedente || ''}
-                  onChange={(e) => setExcedente(parseInt(e.target.value) || 0)}
+                <MoneyInput
+                  value={String(excedente || '')}
+                  onChange={(v) => setExcedente(parseInt(v) || 0)}
                   placeholder="0"
                 />
-                {excedente > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">{formatCOP(excedente)}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium">Gastos operativos</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={gastosOperativos || ''}
-                  onChange={(e) => setGastosOperativos(parseInt(e.target.value) || 0)}
+                <MoneyInput
+                  value={String(gastosOperativos || '')}
+                  onChange={(v) => setGastosOperativos(parseInt(v) || 0)}
                   placeholder="0"
                 />
                 <Input
@@ -458,12 +444,9 @@ export default function CierreCajaPage() {
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium">Préstamos</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={prestamos || ''}
-                  onChange={(e) => setPrestamos(parseInt(e.target.value) || 0)}
+                <MoneyInput
+                  value={String(prestamos || '')}
+                  onChange={(v) => setPrestamos(parseInt(v) || 0)}
                   placeholder="0"
                 />
                 <Input

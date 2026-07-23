@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -1445,11 +1446,9 @@ export default function InventarioPage() {
 
             <div>
               <label className="mb-1 block text-sm font-medium">Costo unitario</label>
-              <Input
-                type="number"
-                min="0"
+              <MoneyInput
                 value={ingresarCosto}
-                onChange={(e) => setIngresarCosto(e.target.value)}
+                onChange={setIngresarCosto}
                 placeholder="0"
                 className="rounded-xl"
               />
@@ -1844,11 +1843,10 @@ export default function InventarioPage() {
                                 className="h-7 rounded-lg text-xs"
                               />
                               <div className="flex gap-1">
-                                <Input
-                                  type="number"
+                                <MoneyInput
                                   placeholder="Costo"
                                   value={editProductForm.costo}
-                                  onChange={(e) => setEditProductForm({ ...editProductForm, costo: e.target.value })}
+                                  onChange={(v) => setEditProductForm({ ...editProductForm, costo: v })}
                                   className="h-7 rounded-lg text-xs"
                                 />
                                 <Input
@@ -2065,11 +2063,10 @@ export default function InventarioPage() {
                                                       onChange={(e) => setEditVariantForm({ ...editVariantForm, talla: e.target.value })}
                                                       className="h-7 w-16 rounded-lg text-xs"
                                                     />
-                                                    <Input
-                                                      type="number"
+                                                    <MoneyInput
                                                       placeholder="Costo"
                                                       value={editVariantForm.costo}
-                                                      onChange={(e) => setEditVariantForm({ ...editVariantForm, costo: e.target.value })}
+                                                      onChange={(v) => setEditVariantForm({ ...editVariantForm, costo: v })}
                                                       className="h-7 rounded-lg text-xs"
                                                     />
                                                   </div>
@@ -2225,13 +2222,10 @@ export default function InventarioPage() {
                                   className="h-8 w-28 rounded-lg text-xs"
                                 />
                                 {canViewCost && (
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
+                                  <MoneyInput
                                     placeholder="Costo unitario"
                                     value={newVariant.cost_cents}
-                                    onChange={(e) => setNewVariant({ ...newVariant, cost_cents: e.target.value })}
+                                    onChange={(v) => setNewVariant({ ...newVariant, cost_cents: v })}
                                     className="h-8 w-28 rounded-lg text-xs"
                                   />
                                 )}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -293,8 +294,8 @@ export default function FiadoPage() {
             <Input placeholder="Cédula" value={form.customer_id_number} onChange={(e) => setForm({ ...form, customer_id_number: e.target.value })} className="rounded-lg" />
             <Input placeholder="Teléfono" value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} className="rounded-lg" />
             <Input placeholder="Descripción (qué se apartó/fio)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-lg sm:col-span-2" />
-            <Input type="number" min="0" placeholder="Monto total" value={form.total_amount} onChange={(e) => setForm({ ...form, total_amount: e.target.value })} className="rounded-lg" />
-            <Input type="number" min="0" placeholder="Abono inicial (opcional)" value={form.initial_payment} onChange={(e) => setForm({ ...form, initial_payment: e.target.value })} className="rounded-lg" />
+            <MoneyInput placeholder="Monto total" value={form.total_amount} onChange={(v) => setForm({ ...form, total_amount: v })} className="rounded-lg" />
+            <MoneyInput placeholder="Abono inicial (opcional)" value={form.initial_payment} onChange={(v) => setForm({ ...form, initial_payment: v })} className="rounded-lg" />
             <select
               value={form.initial_payment_account_id}
               onChange={(e) => setForm({ ...form, initial_payment_account_id: e.target.value })}
@@ -427,11 +428,9 @@ export default function FiadoPage() {
                       <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
                         <div>
                           <label className="text-xs text-muted-foreground">Monto</label>
-                          <Input
-                            type="number"
-                            min="0"
+                          <MoneyInput
                             value={payAmount}
-                            onChange={(e) => setPayAmount(e.target.value)}
+                            onChange={setPayAmount}
                             className="h-8 w-28 rounded-lg text-xs"
                           />
                         </div>

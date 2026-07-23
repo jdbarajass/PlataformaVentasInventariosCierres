@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -634,9 +635,9 @@ export default function VentasDiaPage() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 text-right">
-                                    <Input
-                                      type="number" min="0" value={line.price_cents / 100}
-                                      onChange={(e) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, price_cents: Math.round((parseFloat(e.target.value) || 0) * 100) } : l))}
+                                    <MoneyInput
+                                      value={String(line.price_cents / 100)}
+                                      onChange={(v) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, price_cents: (parseInt(v) || 0) * 100 } : l))}
                                       className="h-7 w-24 rounded-lg text-right"
                                     />
                                   </td>
@@ -670,9 +671,9 @@ export default function VentasDiaPage() {
                                 <option value="">Sin cuenta</option>
                                 {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                               </select>
-                              <Input
-                                type="number" min="0" placeholder="Monto" value={p.amount}
-                                onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, amount: e.target.value } : x))}
+                              <MoneyInput
+                                placeholder="Monto" value={p.amount}
+                                onChange={(v) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, amount: v } : x))}
                                 className="h-8 w-28 rounded-lg text-xs"
                               />
                               {editPayments.length > 1 && (
@@ -724,7 +725,7 @@ export default function VentasDiaPage() {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <Input type="number" min="0" placeholder="Monto" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="rounded-lg" />
+          <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg" />
           <select value={expenseForm.account_id} onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
             <option value="">Sin cuenta</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
