@@ -81,7 +81,23 @@ const methodLabels: Record<PaymentSplit['method'], string> = {
   other: 'Otro',
 }
 
-interface StandbyCart {
+const emptyPayment = (): PaymentSplit => ({
+  key: crypto.randomUUID(),
+  method: 'cash',
+  method_detail: '',
+  account_id: '',
+  amount: '',
+})
+
+// Una "sesión de venta" = una pestaña de la barra de arriba (inspirada en la
+// interfaz de Alegra: varias ventas en curso en paralelo, cada una con su
+// propio carrito/cliente/pagos, cambiando de una a otra con un clic — sin el
+// paso extra de "pausar" que tenía el prototipo anterior). Reemplaza al
+// standby-por-chips (parquear/restaurar) del software local con algo más
+// directo, aunque el concepto de fondo (varios carritos en memoria del
+// navegador, sin persistencia en BD hasta que se registra la venta) es el
+// mismo que venta_form.py.
+interface SaleSession {
   id: string
   label: string
   cart: CartLine[]
@@ -90,33 +106,67 @@ interface StandbyCart {
   customerPhone: string
   customerIdNumber: string
   notes: string
+  lastSaleId: string | null
 }
+
+const newSession = (label: string): SaleSession => ({
+  id: crypto.randomUUID(),
+  label,
+  cart: [],
+  payments: [emptyPayment()],
+  customerName: '',
+  customerPhone: '',
+  customerIdNumber: '',
+  notes: '',
+  lastSaleId: null,
+})
 
 export default function VentasPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [cart, setCart] = useState<CartLine[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
-  const [payments, setPayments] = useState<PaymentSplit[]>([
-    { key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: '', amount: '' },
-  ])
-  const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [customerIdNumber, setCustomerIdNumber] = useState('')
-  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
-  const [lastSaleId, setLastSaleId] = useState<string | null>(null)
   const [todaySales, setTodaySales] = useState<any[]>([])
   const [loadingSales, setLoadingSales] = useState(true)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [commissionRates, setCommissionRates] = useState<Record<string, number>>({})
 
-  // Carritos "en standby": pausar la venta actual (sin guardarla) para
-  // atender otro cliente y retomarla después — solo estado del navegador,
-  // sin persistencia en BD, igual que el software local (venta_form.py).
-  const [standbyCarts, setStandbyCarts] = useState<StandbyCart[]>([])
+  // Pestañas de venta en paralelo (ver comentario de SaleSession arriba).
+  const [sessions, setSessions] = useState<SaleSession[]>([newSession('Venta principal')])
+  const [activeSessionId, setActiveSessionId] = useState(sessions[0].id)
+  const sessionCounter = useRef(1)
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0]
+
+  const updateActiveSession = useCallback(
+    (updater: (s: SaleSession) => SaleSession) => {
+      setSessions((prev) => prev.map((s) => (s.id === activeSessionId ? updater(s) : s)))
+    },
+    [activeSessionId]
+  )
+
+  const addSessionTab = () => {
+    sessionCounter.current += 1
+    const s = newSession(`Venta ${sessionCounter.current}`)
+    setSessions((prev) => [...prev, s])
+    setActiveSessionId(s.id)
+  }
+
+  const closeSessionTab = (id: string) => {
+    const target = sessions.find((s) => s.id === id)
+    if (!target) return
+    if (sessions.length === 1) return // siempre debe quedar al menos una pestaña
+    if (target.cart.length > 0 && !confirm('Esta venta tiene productos sin registrar. ¿Cerrar de todas formas?')) {
+      return
+    }
+    setSessions((prev) => prev.filter((s) => s.id !== id))
+    if (activeSessionId === id) {
+      const remaining = sessions.filter((s) => s.id !== id)
+      setActiveSessionId(remaining[0].id)
+    }
+  }
 
   // Ítem manual fuera de catálogo (ver CartLine.product_id) — mismo caso de
   // uso que el software local: un producto que no está en inventario.
@@ -205,6 +255,38 @@ export default function VentasPage() {
     }, 250)
   }, [query, session?.access_token, authHeaders])
 
+  const formatPrice = (cents: number) =>
+    new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+    }).format(cents / 100)
+
+  const addToCart = (product: ProductResult, variant: ProductVariant | null) => {
+    const key = variant ? `${product.id}:${variant.id}` : product.id
+    updateActiveSession((s) => {
+      const existing = s.cart.find((l) => l.key === key)
+      const cart = existing
+        ? s.cart.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l))
+        : [
+            ...s.cart,
+            {
+              key,
+              product_id: product.id,
+              variant_id: variant?.id || null,
+              title: product.title,
+              talla: variant?.talla || null,
+              qty: 1,
+              price_cents: product.price_cents,
+              cost_cents: variant ? variant.cost_cents : product.cost_cents,
+              discount_cents: 0,
+              max_stock: variant ? variant.stock_qty : product.stock_qty,
+            },
+          ]
+      return { ...s, cart }
+    })
+  }
+
   const handleBarcodeEnter = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' || !query.trim() || !session?.access_token) return
     try {
@@ -225,38 +307,6 @@ export default function VentasPage() {
     }
   }
 
-  const formatPrice = (cents: number) =>
-    new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-    }).format(cents / 100)
-
-  const addToCart = (product: ProductResult, variant: ProductVariant | null) => {
-    const key = variant ? `${product.id}:${variant.id}` : product.id
-    setCart((prev) => {
-      const existing = prev.find((l) => l.key === key)
-      if (existing) {
-        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l))
-      }
-      return [
-        ...prev,
-        {
-          key,
-          product_id: product.id,
-          variant_id: variant?.id || null,
-          title: product.title,
-          talla: variant?.talla || null,
-          qty: 1,
-          price_cents: product.price_cents,
-          cost_cents: variant ? variant.cost_cents : product.cost_cents,
-          discount_cents: 0,
-          max_stock: variant ? variant.stock_qty : product.stock_qty,
-        },
-      ]
-    })
-  }
-
   const addManualItem = () => {
     const price = Math.round((parseFloat(manualPrice) || 0) * 100)
     if (!manualTitle.trim() || price <= 0) {
@@ -264,21 +314,24 @@ export default function VentasPage() {
       return
     }
     const cost = canViewProfit ? Math.round((parseFloat(manualCost) || 0) * 100) : 0
-    setCart((prev) => [
-      ...prev,
-      {
-        key: crypto.randomUUID(),
-        product_id: null,
-        variant_id: null,
-        title: manualTitle.trim(),
-        talla: null,
-        qty: 1,
-        price_cents: price,
-        cost_cents: cost,
-        discount_cents: 0,
-        max_stock: 999999,
-      },
-    ])
+    updateActiveSession((s) => ({
+      ...s,
+      cart: [
+        ...s.cart,
+        {
+          key: crypto.randomUUID(),
+          product_id: null,
+          variant_id: null,
+          title: manualTitle.trim(),
+          talla: null,
+          qty: 1,
+          price_cents: price,
+          cost_cents: cost,
+          discount_cents: 0,
+          max_stock: 999999,
+        },
+      ],
+    }))
     setManualTitle('')
     setManualPrice('')
     setManualCost('')
@@ -286,12 +339,15 @@ export default function VentasPage() {
   }
 
   const updateCartLine = (key: string, patch: Partial<CartLine>) => {
-    setCart((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
+    updateActiveSession((s) => ({ ...s, cart: s.cart.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
   }
 
   const removeCartLine = (key: string) => {
-    setCart((prev) => prev.filter((l) => l.key !== key))
+    updateActiveSession((s) => ({ ...s, cart: s.cart.filter((l) => l.key !== key) }))
   }
+
+  const cart = activeSession.cart
+  const payments = activeSession.payments
 
   const subtotal = cart.reduce((sum, l) => sum + l.qty * l.price_cents, 0)
   const totalDiscount = cart.reduce((sum, l) => sum + l.discount_cents, 0)
@@ -309,70 +365,46 @@ export default function VentasPage() {
   }, 0)
 
   const addPaymentSplit = () => {
-    setPayments((prev) => [
-      ...prev,
-      { key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: '', amount: '' },
-    ])
+    updateActiveSession((s) => ({ ...s, payments: [...s.payments, emptyPayment()] }))
   }
 
   const updatePaymentSplit = (key: string, patch: Partial<PaymentSplit>) => {
-    setPayments((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)))
+    updateActiveSession((s) => ({ ...s, payments: s.payments.map((p) => (p.key === key ? { ...p, ...patch } : p)) }))
   }
 
   const removePaymentSplit = (key: string) => {
-    setPayments((prev) => (prev.length > 1 ? prev.filter((p) => p.key !== key) : prev))
+    updateActiveSession((s) => ({
+      ...s,
+      payments: s.payments.length > 1 ? s.payments.filter((p) => p.key !== key) : s.payments,
+    }))
   }
 
-  const resetSale = () => {
-    setCart([])
-    setCustomerName('')
-    setCustomerPhone('')
-    setCustomerIdNumber('')
-    setNotes('')
-    setPayments([{ key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: '', amount: '' }])
-    setLastSaleId(null)
-  }
-
-  const handlePauseSale = () => {
-    if (cart.length === 0) return
-    const label = customerName.trim() || `Carrito ${standbyCarts.length + 1}`
-    setStandbyCarts((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), label, cart, payments, customerName, customerPhone, customerIdNumber, notes },
-    ])
-    resetSale()
-  }
-
-  const handleResumeStandby = (id: string) => {
-    const standby = standbyCarts.find((s) => s.id === id)
-    if (!standby) return
-    setCart(standby.cart)
-    setPayments(standby.payments)
-    setCustomerName(standby.customerName)
-    setCustomerPhone(standby.customerPhone)
-    setCustomerIdNumber(standby.customerIdNumber)
-    setNotes(standby.notes)
-    setStandbyCarts((prev) => prev.filter((s) => s.id !== id))
-  }
-
-  const handleDiscardStandby = (id: string) => {
-    setStandbyCarts((prev) => prev.filter((s) => s.id !== id))
-  }
+  const setCustomerName = (v: string) => updateActiveSession((s) => ({ ...s, customerName: v }))
+  const setCustomerPhone = (v: string) => updateActiveSession((s) => ({ ...s, customerPhone: v }))
+  const setCustomerIdNumber = (v: string) => updateActiveSession((s) => ({ ...s, customerIdNumber: v }))
+  const setNotes = (v: string) => updateActiveSession((s) => ({ ...s, notes: v }))
 
   const handleSubmitSale = async (force = false) => {
-    if (cart.length === 0) {
+    const activeId = activeSessionId
+    const current = sessions.find((s) => s.id === activeId)
+    if (!current) return
+    if (current.cart.length === 0) {
       toast({ title: 'Error', description: 'Agrega al menos un producto al carrito', variant: 'destructive' })
       return
     }
-    const validPayments = payments.filter((p) => parseFloat(p.amount) > 0)
+    const validPayments = current.payments.filter((p) => parseFloat(p.amount) > 0)
     if (validPayments.length === 0) {
       toast({ title: 'Error', description: 'Ingresa al menos un método de pago', variant: 'destructive' })
       return
     }
+    const currentTotal =
+      current.cart.reduce((sum, l) => sum + l.qty * l.price_cents, 0) -
+      current.cart.reduce((sum, l) => sum + l.discount_cents, 0)
+    const currentPaymentsTotal = validPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0) * 100, 0)
     // Los pagos deben sumar EXACTO al total (igual que el software local: no
     // se calcula vuelto dentro del sistema, el vendedor lo entrega por fuera).
-    if (Math.round(paymentsTotal) !== total) {
-      const diff = Math.round(paymentsTotal) - total
+    if (Math.round(currentPaymentsTotal) !== currentTotal) {
+      const diff = Math.round(currentPaymentsTotal) - currentTotal
       toast({
         title: 'Error',
         description: diff < 0
@@ -389,11 +421,11 @@ export default function VentasPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
-          customer_name: customerName || null,
-          customer_phone: customerPhone || null,
-          customer_id_number: customerIdNumber || null,
-          notes: notes || null,
-          items: cart.map((l) => ({
+          customer_name: current.customerName || null,
+          customer_phone: current.customerPhone || null,
+          customer_id_number: current.customerIdNumber || null,
+          notes: current.notes || null,
+          items: current.cart.map((l) => ({
             product_id: l.product_id,
             variant_id: l.variant_id,
             manual_title: l.product_id ? undefined : l.title,
@@ -428,13 +460,20 @@ export default function VentasPage() {
 
       const { data } = await res.json()
       toast({ title: 'Venta registrada', description: `Orden ${data.order_number}` })
-      setLastSaleId(data.id)
-      setCart([])
-      setCustomerName('')
-      setCustomerPhone('')
-      setCustomerIdNumber('')
-      setNotes('')
-      setPayments([{ key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: '', amount: '' }])
+
+      // Si era una pestaña extra (no la primera), se cierra sola para no
+      // acumular pestañas vacías; la primera pestaña se deja lista para la
+      // siguiente venta, mostrando el link al recibo.
+      const isFirst = sessions[0]?.id === activeId
+      if (!isFirst && sessions.length > 1) {
+        const remaining = sessions.filter((s) => s.id !== activeId)
+        setSessions(remaining)
+        setActiveSessionId(remaining[0].id)
+      } else {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === activeId ? { ...newSession(s.label), lastSaleId: data.id } : s))
+        )
+      }
       await Promise.all([fetchAccounts(), fetchTodaySales()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -465,21 +504,42 @@ export default function VentasPage() {
         <p className="text-muted-foreground">Venta de mostrador — carrito, tallas y pagos combinados</p>
       </div>
 
-      {standbyCarts.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
-          <span className="text-xs font-medium text-muted-foreground">Carritos en espera:</span>
-          {standbyCarts.map((s) => (
-            <div key={s.id} className="flex items-center gap-1 rounded-lg border bg-secondary px-3 py-1.5 text-xs">
-              <button onClick={() => handleResumeStandby(s.id)} className="font-medium hover:underline">
-                {s.label} ({s.cart.length})
-              </button>
-              <button onClick={() => handleDiscardStandby(s.id)} className="text-muted-foreground hover:text-red-500">
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Pestañas de venta en paralelo (estilo Alegra) */}
+      <div className="flex flex-wrap items-center gap-1 border-b">
+        {sessions.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setActiveSessionId(s.id)}
+            className={`group flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              s.id === activeSessionId
+                ? 'border-primary bg-card text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            {s.label}
+            {s.cart.length > 0 && s.id !== activeSessionId && (
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            )}
+            {sessions.length > 1 && (
+              <X
+                className="h-3 w-3 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeSessionTab(s.id)
+                }}
+              />
+            )}
+          </button>
+        ))}
+        <button
+          onClick={addSessionTab}
+          title="Nueva venta en paralelo"
+          className="flex items-center gap-1 rounded-t-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Búsqueda + carrito */}
@@ -672,13 +732,13 @@ export default function VentasPage() {
           <div className="rounded-xl border bg-card p-4">
             <h2 className="mb-3 text-sm font-semibold">Cliente (opcional)</h2>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Input placeholder="Nombre" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="rounded-lg" />
-              <Input placeholder="Teléfono" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="rounded-lg" />
-              <Input placeholder="Cédula" value={customerIdNumber} onChange={(e) => setCustomerIdNumber(e.target.value)} className="rounded-lg" />
+              <Input placeholder="Nombre" value={activeSession.customerName} onChange={(e) => setCustomerName(e.target.value)} className="rounded-lg" />
+              <Input placeholder="Teléfono" value={activeSession.customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="rounded-lg" />
+              <Input placeholder="Cédula" value={activeSession.customerIdNumber} onChange={(e) => setCustomerIdNumber(e.target.value)} className="rounded-lg" />
             </div>
             <Input
               placeholder="Notas (opcional)"
-              value={notes}
+              value={activeSession.notes}
               onChange={(e) => setNotes(e.target.value)}
               className="mt-3 rounded-lg"
             />
@@ -774,15 +834,15 @@ export default function VentasPage() {
             Registrar venta
           </Button>
 
-          {cart.length > 0 && (
-            <Button variant="outline" className="w-full rounded-xl" onClick={handlePauseSale}>
-              Pausar venta (atender otro cliente)
-            </Button>
+          {sessions.length > 1 && (
+            <p className="text-center text-xs text-muted-foreground">
+              Tienes {sessions.length} ventas en paralelo — cambia de pestaña arriba para atender otro cliente sin perder esta.
+            </p>
           )}
 
-          {lastSaleId && (
+          {activeSession.lastSaleId && (
             <a
-              href={`/api/orders/${lastSaleId}/invoice`}
+              href={`/api/orders/${activeSession.lastSaleId}/invoice`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium text-cyan-500 hover:bg-cyan-500/10"
