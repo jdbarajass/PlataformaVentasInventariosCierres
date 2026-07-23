@@ -19,6 +19,8 @@ import {
   ChevronRight,
   Trash2,
   Tags,
+  LayoutGrid,
+  List,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,6 +72,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export default function InventarioPage() {
+  const [activeTab, setActiveTab] = useState<'detalle' | 'general'>('detalle')
   const [products, setProducts] = useState<ProductStock[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
   const [loading, setLoading] = useState(true)
@@ -156,6 +159,68 @@ export default function InventarioPage() {
     setInventoryValue(fromProducts + fromVariants)
   }, [isAdmin])
 
+  // "Inventario General": agrupa por categoría igual que
+  // _categoria_producto/_poblar_tabla_general del software local — usa la
+  // categoría explícita si el producto tiene category_id, si no infiere de
+  // la primera palabra del nombre (quitando el sufijo "-T:talla"). "refs"
+  // cuenta filas al nivel de variante/talla cuando existen (igual que el
+  // local, donde cada talla es su propia fila de inventario), no productos
+  // base.
+  const [categoryGroups, setCategoryGroups] = useState<
+    { categoria: string; refs: number; uds: number; valor: number }[]
+  >([])
+  const [loadingGeneral, setLoadingGeneral] = useState(false)
+
+  const inferCategoria = (title: string) => {
+    const limpio = title.replace(/\s*-T:\S*/gi, '').trim()
+    return limpio ? limpio.split(/\s+/)[0].toUpperCase() : 'OTRO'
+  }
+
+  const fetchCategoryRollup = useCallback(async () => {
+    if (!isAdmin) return
+    setLoadingGeneral(true)
+    try {
+      const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
+        supabase.from('products').select('id, title, cost_cents, stock_qty, categories(name)'),
+        supabase.from('product_variants').select('product_id, cost_cents, stock_qty'),
+      ])
+      const variantsByProduct = new Map<string, { stock_qty: number; cost_cents: number }[]>()
+      for (const v of (allVariants || []) as any[]) {
+        const list = variantsByProduct.get(v.product_id) || []
+        list.push(v)
+        variantsByProduct.set(v.product_id, list)
+      }
+      const grupos = new Map<string, { refs: number; uds: number; valor: number }>()
+      for (const p of (allProducts || []) as any[]) {
+        const categoria = p.categories?.name?.trim()
+          ? p.categories.name.trim().toUpperCase()
+          : inferCategoria(p.title)
+        const variants = variantsByProduct.get(p.id)
+        const tieneVariantes = !!variants && variants.length > 0
+        const uds = tieneVariantes ? variants!.reduce((s, v) => s + v.stock_qty, 0) : p.stock_qty
+        const valor = tieneVariantes
+          ? variants!.reduce((s, v) => s + v.stock_qty * v.cost_cents, 0)
+          : p.stock_qty * p.cost_cents
+        const g = grupos.get(categoria) || { refs: 0, uds: 0, valor: 0 }
+        g.refs += tieneVariantes ? variants!.length : 1
+        g.uds += uds
+        g.valor += valor
+        grupos.set(categoria, g)
+      }
+      const arr = Array.from(grupos.entries())
+        .map(([categoria, d]) => ({ categoria, ...d }))
+        .sort((a, b) => b.uds - a.uds)
+      setCategoryGroups(arr)
+    } finally {
+      setLoadingGeneral(false)
+    }
+  }, [isAdmin])
+
+  const [generalSearch, setGeneralSearch] = useState('')
+  const filteredCategoryGroups = categoryGroups.filter((g) =>
+    g.categoria.toLowerCase().includes(generalSearch.toLowerCase().trim())
+  )
+
   const fetchMovements = useCallback(async () => {
     if (!session?.access_token) return
 
@@ -178,11 +243,11 @@ export default function InventarioPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue()])
+      await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue(), fetchCategoryRollup()])
       setLoading(false)
     }
     load()
-  }, [fetchProducts, fetchMovements, fetchInventoryValue])
+  }, [fetchProducts, fetchMovements, fetchInventoryValue, fetchCategoryRollup])
 
   const handleAdjust = async () => {
     if (!session?.access_token || !adjustingProduct || !adjustmentQty) return
@@ -549,6 +614,111 @@ export default function InventarioPage() {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setActiveTab('detalle')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'detalle'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <List className="h-4 w-4" />
+          Detalle
+        </button>
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'general'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <LayoutGrid className="h-4 w-4" />
+          Inventario General
+        </button>
+      </div>
+
+      {activeTab === 'general' ? (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar categoría..."
+                value={generalSearch}
+                onChange={(e) => setGeneralSearch(e.target.value)}
+                className="rounded-xl pl-10"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-card">
+            {loadingGeneral ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="ml-3 text-muted-foreground">Cargando inventario general...</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                        Categoría
+                      </th>
+                      <th className="px-6 py-4 text-center text-sm font-medium text-muted-foreground">
+                        Referencias
+                      </th>
+                      <th className="px-6 py-4 text-center text-sm font-medium text-muted-foreground">
+                        Unidades en Stock
+                      </th>
+                      <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
+                        Valor en Stock
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCategoryGroups.map((g) => (
+                      <tr key={g.categoria} className="border-b last:border-0">
+                        <td className="px-6 py-4 font-semibold">{g.categoria}</td>
+                        <td className="px-6 py-4 text-center text-muted-foreground">{g.refs}</td>
+                        <td
+                          className={`px-6 py-4 text-center text-lg font-bold ${
+                            g.uds > 5 ? 'text-green-600' : g.uds > 0 ? 'text-orange-500' : 'text-red-600'
+                          }`}
+                        >
+                          {g.uds}
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium text-blue-600">
+                          {formatPrice(g.valor)}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredCategoryGroups.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                          No se encontraron categorías
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <span>
+              {filteredCategoryGroups.length} categoría{filteredCategoryGroups.length !== 1 ? 's' : ''}
+            </span>
+            <span>{filteredCategoryGroups.reduce((s, g) => s + g.uds, 0)} unidades en stock</span>
+            <span>Valor: {formatPrice(filteredCategoryGroups.reduce((s, g) => s + g.valor, 0))}</span>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1">
@@ -1022,6 +1192,8 @@ export default function InventarioPage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }
