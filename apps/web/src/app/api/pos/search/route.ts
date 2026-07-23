@@ -50,11 +50,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: [] })
     }
 
+    // No se filtra por products.active: ese campo solo controla si el
+    // producto se muestra en la tienda pública — el POS (Registrar Venta)
+    // es una operación interna de admin/vendedor y debe poder vender
+    // cualquier producto con stock real, esté publicado o no (ej. los 190
+    // productos migrados del inventario físico, aún sin foto/descripción).
     const { data: products, error } = await supabase
       .from('products')
       .select('*, variants:product_variants(*)')
-      .eq('active', true)
-      .or(`title.ilike.%${q}%,sku.ilike.%${q}%`)
+      .or(`title.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%`)
       .limit(20)
 
     if (error) {
