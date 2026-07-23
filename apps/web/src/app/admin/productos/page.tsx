@@ -54,7 +54,16 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products?limit=50')
+      // include_inactive=true: sin esto (y sin el token de sesión) esta
+      // lista solo mostraba productos activos — los 190 productos migrados
+      // del inventario físico (inactive=true a propósito, sin foto/
+      // descripción aún) no aparecían para poder completarlos y publicarlos.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const response = await fetch('/api/products?limit=250&include_inactive=true', {
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      })
       const data = await response.json()
       setProducts(data.products || [])
     } catch (error) {

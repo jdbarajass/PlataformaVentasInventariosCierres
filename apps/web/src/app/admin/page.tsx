@@ -1,6 +1,15 @@
-import { supabase } from '@/lib/supabase'
+import { getServiceSupabase } from '@/lib/supabase'
 import { Order } from '@/types/database'
 import { DashboardTabs } from '@/components/admin/dashboard-tabs'
+
+// Se usa el cliente de servicio (bypassa RLS) en vez del cliente anónimo:
+// esta página es un Server Component sin el JWT del usuario adjunto a la
+// petición, así que con el cliente anónimo las políticas RLS de orders
+// ("Admins can view all orders", que depende de auth.uid()) y de products
+// ("Anyone can view active products") dejaban esta consulta viendo 0
+// órdenes y solo los 4 productos activos de demo — el dashboard entero
+// mostraba ceros. La ruta ya está protegida por middleware (exige sesión).
+const supabase = getServiceSupabase()
 
 interface SalesData {
   total_cents: number
@@ -56,11 +65,12 @@ async function getDashboardStats() {
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pending')
 
-  // Low stock products
+  // Low stock products — no se filtra por active: el stock bajo debe
+  // alertar sobre cualquier producto con inventario real, esté publicado
+  // en la tienda o no (ver comentario junto al cliente de servicio arriba).
   const { data: lowStockProducts } = await supabase
     .from('products')
     .select('id, title, stock_qty, low_stock_threshold')
-    .eq('active', true)
     .filter('stock_qty', 'lte', 'low_stock_threshold')
     .limit(5)
 
