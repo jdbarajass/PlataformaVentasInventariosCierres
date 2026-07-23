@@ -22,6 +22,7 @@ import {
   LayoutGrid,
   List,
   PackagePlus,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +40,7 @@ import {
 interface ProductStock {
   id: string
   sku: string | null
+  barcode: string | null
   title: string
   stock_qty: number
   low_stock_threshold: number
@@ -93,6 +95,29 @@ export default function InventarioPage() {
   const [adjustmentNote, setAdjustmentNote] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Editar producto (nombre, costo, cantidad, mínimo, código de barras) —
+  // igual que el panel "Editar Producto" de Detalle en el local, que hoy
+  // no tenía equivalente en la nube (solo se podía ajustar cantidad).
+  const [editingProduct, setEditingProduct] = useState<string | null>(null)
+  const [editProductForm, setEditProductForm] = useState({
+    title: '',
+    costo: '',
+    stock: '',
+    umbral: '',
+    barcode: '',
+  })
+  const [savingProductEdit, setSavingProductEdit] = useState(false)
+
+  const [editingVariant, setEditingVariant] = useState<string | null>(null)
+  const [editVariantForm, setEditVariantForm] = useState({
+    talla: '',
+    costo: '',
+    stock: '',
+    umbral: '',
+    barcode: '',
+  })
+  const [savingVariantEdit, setSavingVariantEdit] = useState(false)
+
   // Variantes por talla / código de barras
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
   const [variantsByProduct, setVariantsByProduct] = useState<Record<string, ProductVariant[]>>({})
@@ -132,6 +157,7 @@ export default function InventarioPage() {
         data.map((p: any) => ({
           id: p.id,
           sku: p.sku,
+          barcode: p.barcode ?? null,
           title: p.title,
           stock_qty: p.stock_qty,
           low_stock_threshold: p.low_stock_threshold,
@@ -741,6 +767,144 @@ export default function InventarioPage() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const startEditProduct = (product: ProductStock) => {
+    setEditingProduct(product.id)
+    setEditProductForm({
+      title: product.title,
+      costo: (product.cost_cents / 100).toString(),
+      stock: product.stock_qty.toString(),
+      umbral: product.low_stock_threshold.toString(),
+      barcode: product.barcode || '',
+    })
+  }
+
+  const handleSaveProductEdit = async (productId: string) => {
+    if (!session?.access_token) return
+    const title = editProductForm.title.trim()
+    if (!title) {
+      toast({ title: 'Error', description: 'El nombre no puede estar vacío', variant: 'destructive' })
+      return
+    }
+    const nuevoStock = parseInt(editProductForm.stock) || 0
+    try {
+      setSavingProductEdit(true)
+      // 1. Traer el producto completo — PUT exige el esquema entero, así
+      // que se fusiona con los campos editados para no pisar price/images/etc.
+      const getRes = await fetch(`/api/products/${productId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!getRes.ok) throw new Error('No se pudo cargar el producto')
+      const current = await getRes.json()
+      const stockAnterior = current.stock_qty as number
+
+      const res = await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          title,
+          sku: current.sku,
+          description: current.description,
+          price_cents: current.price_cents,
+          cost_cents: Math.round((parseFloat(editProductForm.costo) || 0) * 100),
+          compare_at_price_cents: current.compare_at_price_cents,
+          category_id: current.category_id,
+          images: current.images || [],
+          stock_qty: stockAnterior,
+          low_stock_threshold: parseInt(editProductForm.umbral) || 0,
+          tags: current.tags || [],
+          active: current.active,
+          featured: current.featured,
+          slug: current.slug,
+          barcode: editProductForm.barcode.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al actualizar el producto')
+      }
+
+      // 2. Si la cantidad cambió, registrarlo como "Ajuste" (igual que
+      // actualizar_producto del local, que deja rastro en Movimientos).
+      if (nuevoStock !== stockAnterior) {
+        await fetch('/api/inventory/adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            product_id: productId,
+            qty: nuevoStock,
+            type: 'adjustment',
+            note: 'Ajuste manual desde edición de producto',
+            created_by: userProfile?.id,
+          }),
+        })
+      }
+
+      toast({ title: 'Producto actualizado' })
+      setEditingProduct(null)
+      await Promise.all([fetchProducts(), fetchInventoryValue(), fetchCategoryRollup()])
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo actualizar el producto', variant: 'destructive' })
+    } finally {
+      setSavingProductEdit(false)
+    }
+  }
+
+  const startEditVariant = (variant: ProductVariant) => {
+    setEditingVariant(variant.id)
+    setEditVariantForm({
+      talla: variant.talla || '',
+      costo: (variant.cost_cents / 100).toString(),
+      stock: variant.stock_qty.toString(),
+      umbral: variant.low_stock_threshold.toString(),
+      barcode: variant.barcode || '',
+    })
+  }
+
+  const handleSaveVariantEdit = async (productId: string, variantId: string, stockAnterior: number) => {
+    if (!session?.access_token) return
+    const nuevoStock = parseInt(editVariantForm.stock) || 0
+    try {
+      setSavingVariantEdit(true)
+      const res = await fetch(`/api/product-variants/${variantId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          talla: editVariantForm.talla.trim() || null,
+          barcode: editVariantForm.barcode.trim() || null,
+          cost_cents: Math.round((parseFloat(editVariantForm.costo) || 0) * 100),
+          low_stock_threshold: parseInt(editVariantForm.umbral) || 0,
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al actualizar la variante')
+      }
+
+      if (nuevoStock !== stockAnterior) {
+        await fetch('/api/inventory/adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            product_id: productId,
+            variant_id: variantId,
+            qty: nuevoStock,
+            type: 'adjustment',
+            note: 'Ajuste manual desde edición de variante',
+            created_by: userProfile?.id,
+          }),
+        })
+      }
+
+      toast({ title: 'Variante actualizada' })
+      setEditingVariant(null)
+      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo actualizar la variante', variant: 'destructive' })
+    } finally {
+      setSavingVariantEdit(false)
     }
   }
 
@@ -1621,6 +1785,7 @@ export default function InventarioPage() {
                       product.low_stock_threshold
                     )
                     const isAdjusting = adjustingProduct === product.id
+                    const isEditingProduct = editingProduct === product.id
                     const isExpanded = expandedProduct === product.id
                     const variants = variantsByProduct[product.id] || []
                     return (
@@ -1670,6 +1835,67 @@ export default function InventarioPage() {
                         <td className="px-6 py-4">
                           {!canEdit ? (
                             <p className="text-center text-xs text-muted-foreground">Solo lectura</p>
+                          ) : isEditingProduct ? (
+                            <div className="flex w-64 flex-col gap-1.5">
+                              <Input
+                                placeholder="Nombre"
+                                value={editProductForm.title}
+                                onChange={(e) => setEditProductForm({ ...editProductForm, title: e.target.value })}
+                                className="h-7 rounded-lg text-xs"
+                              />
+                              <div className="flex gap-1">
+                                <Input
+                                  type="number"
+                                  placeholder="Costo"
+                                  value={editProductForm.costo}
+                                  onChange={(e) => setEditProductForm({ ...editProductForm, costo: e.target.value })}
+                                  className="h-7 rounded-lg text-xs"
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Cant."
+                                  value={editProductForm.stock}
+                                  onChange={(e) => setEditProductForm({ ...editProductForm, stock: e.target.value })}
+                                  className="h-7 w-16 rounded-lg text-xs"
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Mín."
+                                  value={editProductForm.umbral}
+                                  onChange={(e) => setEditProductForm({ ...editProductForm, umbral: e.target.value })}
+                                  className="h-7 w-16 rounded-lg text-xs"
+                                />
+                              </div>
+                              <Input
+                                placeholder="Código de barras"
+                                value={editProductForm.barcode}
+                                onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })}
+                                className="h-7 rounded-lg text-xs"
+                              />
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={() => handleSaveProductEdit(product.id)}
+                                  disabled={savingProductEdit}
+                                >
+                                  {savingProductEdit ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3 w-3 text-green-500" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={() => setEditingProduct(null)}
+                                >
+                                  <X className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
                           ) : isAdjusting ? (
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center gap-1">
@@ -1763,6 +1989,15 @@ export default function InventarioPage() {
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg"
+                                title="Editar producto"
+                                onClick={() => startEditProduct(product)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
                             </div>
                           )}
                         </td>
@@ -1799,6 +2034,7 @@ export default function InventarioPage() {
                                     <tbody>
                                       {variants.map((variant) => {
                                         const variantAdjusting = adjustingVariant === variant.id
+                                        const isEditingVariant = editingVariant === variant.id
                                         return (
                                           <tr key={variant.id} className="border-b last:border-0">
                                             <td className="px-4 py-2">{variant.talla || '-'}</td>
@@ -1820,7 +2056,70 @@ export default function InventarioPage() {
                                             )}
                                             {canEdit && (
                                             <td className="px-4 py-2">
-                                              {variantAdjusting ? (
+                                              {isEditingVariant ? (
+                                                <div className="flex w-56 flex-col gap-1.5">
+                                                  <div className="flex gap-1">
+                                                    <Input
+                                                      placeholder="Talla"
+                                                      value={editVariantForm.talla}
+                                                      onChange={(e) => setEditVariantForm({ ...editVariantForm, talla: e.target.value })}
+                                                      className="h-7 w-16 rounded-lg text-xs"
+                                                    />
+                                                    <Input
+                                                      type="number"
+                                                      placeholder="Costo"
+                                                      value={editVariantForm.costo}
+                                                      onChange={(e) => setEditVariantForm({ ...editVariantForm, costo: e.target.value })}
+                                                      className="h-7 rounded-lg text-xs"
+                                                    />
+                                                  </div>
+                                                  <div className="flex gap-1">
+                                                    <Input
+                                                      type="number"
+                                                      placeholder="Cant."
+                                                      value={editVariantForm.stock}
+                                                      onChange={(e) => setEditVariantForm({ ...editVariantForm, stock: e.target.value })}
+                                                      className="h-7 w-16 rounded-lg text-xs"
+                                                    />
+                                                    <Input
+                                                      type="number"
+                                                      placeholder="Mín."
+                                                      value={editVariantForm.umbral}
+                                                      onChange={(e) => setEditVariantForm({ ...editVariantForm, umbral: e.target.value })}
+                                                      className="h-7 w-16 rounded-lg text-xs"
+                                                    />
+                                                  </div>
+                                                  <Input
+                                                    placeholder="Código de barras"
+                                                    value={editVariantForm.barcode}
+                                                    onChange={(e) => setEditVariantForm({ ...editVariantForm, barcode: e.target.value })}
+                                                    className="h-7 rounded-lg text-xs"
+                                                  />
+                                                  <div className="flex justify-end gap-1">
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="icon"
+                                                      className="h-7 w-7 shrink-0"
+                                                      onClick={() => handleSaveVariantEdit(product.id, variant.id, variant.stock_qty)}
+                                                      disabled={savingVariantEdit}
+                                                    >
+                                                      {savingVariantEdit ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                      ) : (
+                                                        <Check className="h-3 w-3 text-green-500" />
+                                                      )}
+                                                    </Button>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="icon"
+                                                      className="h-7 w-7 shrink-0"
+                                                      onClick={() => setEditingVariant(null)}
+                                                    >
+                                                      <X className="h-3 w-3 text-red-500" />
+                                                    </Button>
+                                                  </div>
+                                                </div>
+                                              ) : variantAdjusting ? (
                                                 <div className="flex items-center justify-center gap-1">
                                                   <select
                                                     value={variantAdjType}
@@ -1873,6 +2172,15 @@ export default function InventarioPage() {
                                                     }}
                                                   >
                                                     <RefreshCw className="h-3 w-3" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-lg"
+                                                    title="Editar variante"
+                                                    onClick={() => startEditVariant(variant)}
+                                                  >
+                                                    <Pencil className="h-3 w-3" />
                                                   </Button>
                                                   <Button
                                                     variant="outline"
