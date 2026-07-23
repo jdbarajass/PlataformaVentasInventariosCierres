@@ -72,7 +72,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export default function InventarioPage() {
-  const [activeTab, setActiveTab] = useState<'detalle' | 'general'>('detalle')
+  const [activeTab, setActiveTab] = useState<'detalle' | 'general' | 'movimientos'>('detalle')
   const [products, setProducts] = useState<ProductStock[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
   const [loading, setLoading] = useState(true)
@@ -239,6 +239,48 @@ export default function InventarioPage() {
       console.error('Error fetching movements:', error)
     }
   }, [session?.access_token])
+
+  // Pestaña "Movimientos": historial completo (últimos 300, igual que
+  // obtener_movimientos_recientes(300) del software local), con carga
+  // perezosa al entrar al tab — no se pide en la carga inicial de la
+  // página para no traer 300 filas si el usuario nunca abre este tab.
+  const [movimientosFull, setMovimientosFull] = useState<InventoryMovement[]>([])
+  const [movimientosLoaded, setMovimientosLoaded] = useState(false)
+  const [loadingMovimientos, setLoadingMovimientos] = useState(false)
+  const [movimientosSearch, setMovimientosSearch] = useState('')
+  const [movimientosTipo, setMovimientosTipo] = useState<string>('')
+
+  const fetchFullMovements = useCallback(async () => {
+    if (!session?.access_token) return
+    setLoadingMovimientos(true)
+    try {
+      const res = await fetch('/api/inventory/adjust?limit=300', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) throw new Error('Error fetching movements')
+      const { data } = await res.json()
+      setMovimientosFull(data || [])
+      setMovimientosLoaded(true)
+    } catch (error) {
+      console.error('Error fetching full movements:', error)
+    } finally {
+      setLoadingMovimientos(false)
+    }
+  }, [session?.access_token])
+
+  useEffect(() => {
+    if (activeTab === 'movimientos' && !movimientosLoaded) {
+      fetchFullMovements()
+    }
+  }, [activeTab, movimientosLoaded, fetchFullMovements])
+
+  const filteredMovimientos = movimientosFull.filter((m) => {
+    const matchesSearch = movimientosSearch.trim()
+      ? (m.product?.title || '').toLowerCase().includes(movimientosSearch.toLowerCase().trim())
+      : true
+    const matchesTipo = movimientosTipo ? m.type === movimientosTipo : true
+    return matchesSearch && matchesTipo
+  })
 
   useEffect(() => {
     const load = async () => {
@@ -638,9 +680,111 @@ export default function InventarioPage() {
           <LayoutGrid className="h-4 w-4" />
           Inventario General
         </button>
+        <button
+          onClick={() => setActiveTab('movimientos')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'movimientos'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <RefreshCw className="h-4 w-4" />
+          Movimientos
+        </button>
       </div>
 
-      {activeTab === 'general' ? (
+      {activeTab === 'movimientos' ? (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por producto..."
+                value={movimientosSearch}
+                onChange={(e) => setMovimientosSearch(e.target.value)}
+                className="rounded-xl pl-10"
+              />
+            </div>
+            <select
+              value={movimientosTipo}
+              onChange={(e) => setMovimientosTipo(e.target.value)}
+              className="rounded-xl border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Todos los tipos</option>
+              {Object.entries(typeLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Button variant="outline" className="rounded-xl" onClick={fetchFullMovements}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Actualizar
+            </Button>
+          </div>
+
+          <div className="rounded-xl border bg-card">
+            {loadingMovimientos ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="ml-3 text-muted-foreground">Cargando movimientos...</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">Fecha</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">Hora</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">Producto</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">Tipo</th>
+                      <th className="px-6 py-4 text-center text-sm font-medium text-muted-foreground">Cambio</th>
+                      <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">Notas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMovimientos.map((m) => {
+                      const d = new Date(m.created_at)
+                      const esPositivo = m.qty > 0
+                      return (
+                        <tr key={m.id} className="border-b last:border-0">
+                          <td className="px-6 py-4 text-sm">
+                            {d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">
+                            {d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-6 py-4 font-medium">{m.product?.title || 'Producto eliminado'}</td>
+                          <td className="px-6 py-4 text-sm">{typeLabels[m.type] || m.type}</td>
+                          <td
+                            className={`px-6 py-4 text-center font-bold ${
+                              esPositivo ? 'text-green-600' : m.qty < 0 ? 'text-red-600' : 'text-muted-foreground'
+                            }`}
+                          >
+                            {esPositivo ? '+' : ''}
+                            {m.qty}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{m.note || '-'}</td>
+                        </tr>
+                      )
+                    })}
+                    {filteredMovimientos.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                          No se encontraron movimientos
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Mostrando los últimos {movimientosFull.length} movimientos.
+          </p>
+        </div>
+      ) : activeTab === 'general' ? (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-1">
