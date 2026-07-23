@@ -302,6 +302,8 @@ export default function InventarioPage() {
     costCents: number
     barcode: string | null
     sku: string | null
+    categoria: string
+    lowStockThreshold: number
   }
   const [itemsInventario, setItemsInventario] = useState<ItemInventario[]>([])
   const [ingresarLoaded, setIngresarLoaded] = useState(false)
@@ -311,8 +313,12 @@ export default function InventarioPage() {
     setLoadingIngresar(true)
     try {
       const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
-        supabase.from('products').select('id, title, sku, barcode, cost_cents, stock_qty'),
-        supabase.from('product_variants').select('id, product_id, talla, sku, barcode, cost_cents, stock_qty'),
+        supabase
+          .from('products')
+          .select('id, title, sku, barcode, cost_cents, stock_qty, low_stock_threshold, categories(name)'),
+        supabase
+          .from('product_variants')
+          .select('id, product_id, talla, sku, barcode, cost_cents, stock_qty, low_stock_threshold'),
       ])
       const variantsByProduct = new Map<string, any[]>()
       for (const v of (allVariants || []) as any[]) {
@@ -322,6 +328,7 @@ export default function InventarioPage() {
       }
       const items: ItemInventario[] = []
       for (const p of (allProducts || []) as any[]) {
+        const categoria = p.categories?.name?.trim() ? p.categories.name.trim().toUpperCase() : inferCategoria(p.title)
         const variants = variantsByProduct.get(p.id)
         if (variants && variants.length > 0) {
           for (const v of variants) {
@@ -334,6 +341,8 @@ export default function InventarioPage() {
               costCents: v.cost_cents,
               barcode: v.barcode,
               sku: v.sku,
+              categoria,
+              lowStockThreshold: v.low_stock_threshold,
             })
           }
         } else {
@@ -346,6 +355,8 @@ export default function InventarioPage() {
             costCents: p.cost_cents,
             barcode: p.barcode,
             sku: p.sku,
+            categoria,
+            lowStockThreshold: p.low_stock_threshold,
           })
         }
       }
@@ -776,28 +787,190 @@ export default function InventarioPage() {
     return { label: 'En stock', color: 'bg-green-500/10 text-green-500 border-green-500/20' }
   }
 
-  const handleExportCSV = () => {
-    const headers = ['SKU', 'Producto', 'Stock', 'Umbral', 'Estado', 'Precio']
-    const rows = filteredProducts.map((p) => {
-      const status = getStockStatus(p.stock_qty, p.low_stock_threshold)
-      return [
-        p.sku || '',
-        p.title,
-        p.stock_qty.toString(),
-        p.low_stock_threshold.toString(),
-        status.label,
-        formatPrice(p.price_cents),
-      ]
+  // Diálogo "Exportar inventario" — puerto de _ExportarInventarioDialog +
+  // generar_pdf_inventario del software local (mismas opciones: qué
+  // incluir, categoría, talla, orden, resumen por categoría), más la
+  // opción de formato Excel/PDF que no existía en el local (allá el botón
+  // PDF y el de Excel eran cosas separadas).
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'excel' | 'pdf'>('pdf')
+  const [exportAlcance, setExportAlcance] = useState<'todos' | 'con_stock' | 'bajo_minimo'>('todos')
+  const [exportCategoria, setExportCategoria] = useState('')
+  const [exportTalla, setExportTalla] = useState('')
+  const [exportOrden, setExportOrden] = useState<'nombre' | 'categoria' | 'stock_desc' | 'stock_asc'>('nombre')
+  const [exportIncluirResumen, setExportIncluirResumen] = useState(true)
+
+  const openExportDialog = () => {
+    setShowExportDialog(true)
+    if (!ingresarLoaded) fetchIngresarData()
+  }
+
+  const categoriasDisponibles = Array.from(new Set(itemsInventario.map((i) => i.categoria))).sort()
+  const tallasDisponiblesExport = Array.from(
+    new Set(itemsInventario.filter((i) => i.talla).map((i) => i.talla as string))
+  ).sort()
+
+  const esBajoStock = (i: ItemInventario) =>
+    (i.lowStockThreshold > 0 && i.stockQty < i.lowStockThreshold) ||
+    (i.lowStockThreshold === 0 && i.stockQty > 0 && i.stockQty <= 2)
+
+  const itemsParaExportar = () => {
+    let items = [...itemsInventario]
+    if (exportAlcance === 'con_stock') items = items.filter((i) => i.stockQty > 0)
+    else if (exportAlcance === 'bajo_minimo') items = items.filter(esBajoStock)
+    if (exportCategoria) items = items.filter((i) => i.categoria === exportCategoria)
+    if (exportTalla === '__sin_talla__') items = items.filter((i) => !i.talla)
+    else if (exportTalla) items = items.filter((i) => i.talla === exportTalla)
+
+    const ordenadores: Record<string, (a: ItemInventario, b: ItemInventario) => number> = {
+      nombre: (a, b) => a.title.localeCompare(b.title),
+      categoria: (a, b) => a.categoria.localeCompare(b.categoria) || a.title.localeCompare(b.title),
+      stock_desc: (a, b) => b.stockQty - a.stockQty || a.title.localeCompare(b.title),
+      stock_asc: (a, b) => a.stockQty - b.stockQty || a.title.localeCompare(b.title),
+    }
+    return items.sort(ordenadores[exportOrden])
+  }
+
+  const resumenPorCategoria = (items: ItemInventario[]) => {
+    const grupos = new Map<string, { refs: number; uds: number; valor: number }>()
+    for (const i of items) {
+      const g = grupos.get(i.categoria) || { refs: 0, uds: 0, valor: 0 }
+      g.refs += 1
+      g.uds += i.stockQty
+      g.valor += i.stockQty * i.costCents
+      grupos.set(i.categoria, g)
+    }
+    return Array.from(grupos.entries())
+      .map(([categoria, d]) => ({ categoria, ...d }))
+      .sort((a, b) => b.uds - a.uds)
+  }
+
+  const handleGenerarExportacion = () => {
+    const items = itemsParaExportar()
+
+    if (exportFormat === 'excel') {
+      const headers = ['Serial', 'Producto', 'Talla', 'Categoría', 'Costo Unitario', 'Cantidad', 'Código de Barras']
+      const rows = items.map((i) => [
+        i.sku || '',
+        i.title,
+        i.talla || 'N/A',
+        i.categoria,
+        (i.costCents / 100).toString(),
+        i.stockQty.toString(),
+        i.barcode || '',
+      ])
+      const csv = [headers, ...rows]
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n')
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `inventario-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setShowExportDialog(false)
+      return
+    }
+
+    // PDF: se genera como HTML y se imprime desde el navegador (mismo
+    // patrón que /api/orders/[id]/invoice), en vez de un renderizador de
+    // PDF en servidor.
+    const totalRefs = items.length
+    const totalUds = items.reduce((s, i) => s + i.stockQty, 0)
+    const totalValor = items.reduce((s, i) => s + i.stockQty * i.costCents, 0)
+    const ahora = new Date().toLocaleString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     })
 
-    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `inventario-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    const alcanceTxt = { todos: 'Todos los productos', con_stock: 'Solo con stock', bajo_minimo: 'Solo bajo el mínimo' }[
+      exportAlcance
+    ]
+    const partesFiltro = [alcanceTxt]
+    if (exportCategoria) partesFiltro.push(`Categoría: ${exportCategoria}`)
+    if (exportTalla) partesFiltro.push(`Talla: ${exportTalla === '__sin_talla__' ? 'Sin talla' : exportTalla}`)
+
+    const filasTabla = items
+      .map((i, idx) => {
+        const bajo = esBajoStock(i)
+        const nombreTxt = i.title + (bajo ? ' (!)' : '')
+        return `<tr style="${bajo ? 'font-weight:bold;color:#DC2626;' : ''}">
+          <td style="text-align:center">${idx + 1}</td>
+          <td>${nombreTxt}</td>
+          <td style="text-align:center">${i.sku || '—'}</td>
+          <td style="text-align:center">${i.stockQty}</td>
+          <td style="text-align:right">${formatPrice(i.costCents)}</td>
+          <td style="text-align:right">${formatPrice(i.stockQty * i.costCents)}</td>
+        </tr>`
+      })
+      .join('')
+
+    const resumenCatHtml = exportIncluirResumen
+      ? `<h3 style="color:#1E293B;font-size:13px;margin:18px 0 6px;">Resumen por Categoría</h3>
+         <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+           <thead><tr style="background:#1E293B;color:white;">
+             <th style="padding:6px;text-align:left;">Categoría</th>
+             <th style="padding:6px;">Referencias</th>
+             <th style="padding:6px;">Unidades en Stock</th>
+             <th style="padding:6px;text-align:right;">Valor en Stock</th>
+           </tr></thead>
+           <tbody>
+             ${resumenPorCategoria(items)
+               .map(
+                 (g) => `<tr style="border-bottom:1px solid #E5E7EB;">
+                   <td style="padding:6px;font-weight:bold;">${g.categoria}</td>
+                   <td style="padding:6px;text-align:center;">${g.refs}</td>
+                   <td style="padding:6px;text-align:center;">${g.uds}</td>
+                   <td style="padding:6px;text-align:right;color:#1D4ED8;">${formatPrice(g.valor)}</td>
+                 </tr>`
+               )
+               .join('')}
+           </tbody>
+         </table>`
+      : ''
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inventario — YJBMOTOCOM</title>
+      <style>
+        body { font-family: Helvetica, Arial, sans-serif; padding: 24px; color: #111827; }
+        h1 { font-size: 20px; color: #1E293B; margin: 0 0 2px; }
+        h2 { font-size: 14px; color: #2563EB; font-weight: normal; margin: 0 0 6px; }
+        .meta { font-size: 11px; color: #6B7280; margin-bottom: 10px; }
+        hr { border: none; border-top: 1px solid #1E293B; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #E5E7EB; padding: 6px 8px; }
+        thead tr { background: #1E293B; color: white; }
+        .resumen td { text-align: center; font-weight: bold; font-size: 13px; }
+        .footer { margin-top: 20px; border-top: 1px solid #E5E7EB; padding-top: 8px; font-size: 9px; color: #9CA3AF; text-align: center; }
+        @media print { .no-print { display: none; } }
+      </style></head>
+      <body>
+        <button class="no-print" onclick="window.print()" style="padding:10px 24px;background:#e11d48;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:16px;">Imprimir / Guardar como PDF</button>
+        <h1>YJBMOTOCOM</h1>
+        <h2>Listado de Inventario</h2>
+        <p class="meta">Generado: ${ahora} &nbsp;•&nbsp; ${partesFiltro.join(' &nbsp;•&nbsp; ')}</p>
+        <hr />
+        <table class="resumen" style="margin-bottom:14px;">
+          <thead><tr><th>Referencias</th><th>Unidades en Stock</th><th>Valor en Costo</th></tr></thead>
+          <tbody><tr><td>${totalRefs}</td><td style="color:#15803D;">${totalUds}</td><td style="color:#1D4ED8;">${formatPrice(totalValor)}</td></tr></tbody>
+        </table>
+        ${resumenCatHtml}
+        <table>
+          <thead><tr><th>#</th><th>Producto</th><th>Serial</th><th>Stock</th><th>Costo Unit.</th><th>Valor Total</th></tr></thead>
+          <tbody>${filasTabla || '<tr><td colspan="6" style="text-align:center;color:#9CA3AF;">No hay productos para mostrar.</td></tr>'}</tbody>
+        </table>
+        <p class="footer">YJBMOTOCOM &nbsp;•&nbsp; Inventario generado el ${ahora}</p>
+      </body></html>`
+
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+    setShowExportDialog(false)
   }
 
   return (
@@ -827,12 +1000,126 @@ export default function InventarioPage() {
               </Link>
             </>
           )}
-          <Button variant="outline" className="rounded-xl" onClick={handleExportCSV}>
+          <Button variant="outline" className="rounded-xl" onClick={openExportDialog}>
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
         </div>
       </div>
+
+      {showExportDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg">
+            <h2 className="mb-4 text-lg font-semibold">Exportar inventario</h2>
+
+            {loadingIngresar ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Formato</label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={exportFormat === 'pdf' ? 'default' : 'outline'}
+                      className="flex-1 rounded-xl"
+                      onClick={() => setExportFormat('pdf')}
+                    >
+                      PDF
+                    </Button>
+                    <Button
+                      variant={exportFormat === 'excel' ? 'default' : 'outline'}
+                      className="flex-1 rounded-xl"
+                      onClick={() => setExportFormat('excel')}
+                    >
+                      Excel
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">¿Qué incluir?</label>
+                  <select
+                    value={exportAlcance}
+                    onChange={(e) => setExportAlcance(e.target.value as typeof exportAlcance)}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="todos">Todos los productos</option>
+                    <option value="con_stock">Solo con stock (cantidad &gt; 0)</option>
+                    <option value="bajo_minimo">Solo bajo el mínimo configurado</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Categoría</label>
+                  <select
+                    value={exportCategoria}
+                    onChange={(e) => setExportCategoria(e.target.value)}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Todas las categorías</option>
+                    {categoriasDisponibles.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Talla</label>
+                  <select
+                    value={exportTalla}
+                    onChange={(e) => setExportTalla(e.target.value)}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Todas las tallas</option>
+                    <option value="__sin_talla__">Sin talla</option>
+                    {tallasDisponiblesExport.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Ordenar por</label>
+                  <select
+                    value={exportOrden}
+                    onChange={(e) => setExportOrden(e.target.value as typeof exportOrden)}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="nombre">Nombre (A-Z)</option>
+                    <option value="categoria">Categoría</option>
+                    <option value="stock_desc">Stock (mayor a menor)</option>
+                    <option value="stock_asc">Stock (menor a mayor)</option>
+                  </select>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={exportIncluirResumen}
+                    onChange={(e) => setExportIncluirResumen(e.target.checked)}
+                  />
+                  Incluir resumen agrupado por categoría
+                </label>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" className="rounded-xl" onClick={() => setShowExportDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button className="rounded-xl" onClick={handleGenerarExportacion}>
+                    Generar {exportFormat === 'pdf' ? 'PDF' : 'Excel'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className={`grid gap-4 sm:grid-cols-4 ${canViewCost ? 'lg:grid-cols-5' : ''}`}>
