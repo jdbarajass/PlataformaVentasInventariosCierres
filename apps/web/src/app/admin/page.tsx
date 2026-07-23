@@ -68,13 +68,20 @@ async function getDashboardStats() {
   // Low stock products — no se filtra por active: el stock bajo debe
   // alertar sobre cualquier producto con inventario real, esté publicado
   // en la tienda o no (ver comentario junto al cliente de servicio arriba).
-  const { data: lowStockProducts } = await supabase
+  // PostgREST no soporta comparar dos columnas entre sí con .filter()
+  // (stock_qty vs low_stock_threshold) — .filter('stock_qty','lte',
+  // 'low_stock_threshold') trataba "low_stock_threshold" como un literal
+  // de texto y fallaba en silencio (data quedaba null, sin lanzar error
+  // visible), así que el widget siempre había estado vacío. Se trae todo
+  // y se compara en el servidor.
+  const { data: allProductsStock } = await supabase
     .from('products')
     .select('id, title, stock_qty, low_stock_threshold')
-    .filter('stock_qty', 'lte', 'low_stock_threshold')
-    .limit(5)
 
-  const typedLowStock = (lowStockProducts as LowStockProduct[]) || []
+  const typedLowStock = ((allProductsStock as LowStockProduct[]) || [])
+    .filter((p) => p.stock_qty <= p.low_stock_threshold)
+    .sort((a, b) => a.stock_qty - b.stock_qty)
+    .slice(0, 5)
 
   // Top products
   const { data: topProducts } = await supabase
