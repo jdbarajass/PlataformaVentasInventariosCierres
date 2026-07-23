@@ -21,6 +21,7 @@ import {
   Tags,
   LayoutGrid,
   List,
+  PackagePlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,12 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import {
+  TALLAS_DISPONIBLES,
+  detectarCategoria,
+  generarCodigoBarrasAuto,
+  generarSiguienteSerial,
+} from '@/lib/inventario-barcode'
 
 interface ProductStock {
   id: string
@@ -72,7 +79,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export default function InventarioPage() {
-  const [activeTab, setActiveTab] = useState<'detalle' | 'general' | 'movimientos'>('detalle')
+  const [activeTab, setActiveTab] = useState<'detalle' | 'general' | 'movimientos' | 'ingresar'>('detalle')
   const [products, setProducts] = useState<ProductStock[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
   const [loading, setLoading] = useState(true)
@@ -281,6 +288,238 @@ export default function InventarioPage() {
     const matchesTipo = movimientosTipo ? m.type === movimientosTipo : true
     return matchesSearch && matchesTipo
   })
+
+  // Pestaña "Ingresar": alta rápida de producto/talla nueva, con
+  // autocompletado, generación automática de serial y código de barras
+  // (services/inventario_gen.py del local) y panel de "productos similares"
+  // de la misma categoría detectada, para evitar duplicados.
+  interface ItemInventario {
+    productId: string
+    variantId: string | null
+    title: string
+    talla: string | null
+    stockQty: number
+    costCents: number
+    barcode: string | null
+    sku: string | null
+  }
+  const [itemsInventario, setItemsInventario] = useState<ItemInventario[]>([])
+  const [ingresarLoaded, setIngresarLoaded] = useState(false)
+  const [loadingIngresar, setLoadingIngresar] = useState(false)
+
+  const fetchIngresarData = useCallback(async () => {
+    setLoadingIngresar(true)
+    try {
+      const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
+        supabase.from('products').select('id, title, sku, barcode, cost_cents, stock_qty'),
+        supabase.from('product_variants').select('id, product_id, talla, sku, barcode, cost_cents, stock_qty'),
+      ])
+      const variantsByProduct = new Map<string, any[]>()
+      for (const v of (allVariants || []) as any[]) {
+        const list = variantsByProduct.get(v.product_id) || []
+        list.push(v)
+        variantsByProduct.set(v.product_id, list)
+      }
+      const items: ItemInventario[] = []
+      for (const p of (allProducts || []) as any[]) {
+        const variants = variantsByProduct.get(p.id)
+        if (variants && variants.length > 0) {
+          for (const v of variants) {
+            items.push({
+              productId: p.id,
+              variantId: v.id,
+              title: p.title,
+              talla: v.talla,
+              stockQty: v.stock_qty,
+              costCents: v.cost_cents,
+              barcode: v.barcode,
+              sku: v.sku,
+            })
+          }
+        } else {
+          items.push({
+            productId: p.id,
+            variantId: null,
+            title: p.title,
+            talla: null,
+            stockQty: p.stock_qty,
+            costCents: p.cost_cents,
+            barcode: p.barcode,
+            sku: p.sku,
+          })
+        }
+      }
+      setItemsInventario(items)
+      setIngresarLoaded(true)
+    } finally {
+      setLoadingIngresar(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'ingresar' && !ingresarLoaded) {
+      fetchIngresarData()
+    }
+  }, [activeTab, ingresarLoaded, fetchIngresarData])
+
+  const [ingresarNombre, setIngresarNombre] = useState('')
+  const [ingresarTalla, setIngresarTalla] = useState('N/A')
+  const [ingresarCosto, setIngresarCosto] = useState('')
+  const [ingresarCantidad, setIngresarCantidad] = useState('1')
+  const [ingresarManual, setIngresarManual] = useState(false)
+  const [ingresarSerialManual, setIngresarSerialManual] = useState('')
+  const [ingresarBarcodeManual, setIngresarBarcodeManual] = useState('')
+  const [savingIngresar, setSavingIngresar] = useState(false)
+
+  const codigosExistentes = itemsInventario.map((i) => i.barcode)
+  const skusExistentes = itemsInventario.map((i) => i.sku)
+  const serialSugerido = String(generarSiguienteSerial(skusExistentes))
+  const barcodeSugerido = ingresarNombre.trim()
+    ? generarCodigoBarrasAuto(ingresarNombre, ingresarTalla, codigosExistentes)
+    : ''
+
+  const categoriaDetectada = ingresarNombre.trim() ? detectarCategoria(ingresarNombre) : null
+  const productosSimilares = categoriaDetectada
+    ? itemsInventario.filter((i) => detectarCategoria(i.title) === categoriaDetectada)
+    : []
+
+  const nombresSugeridos = Array.from(new Set(itemsInventario.map((i) => i.title))).filter((t) =>
+    ingresarNombre.trim() ? t.toLowerCase().includes(ingresarNombre.toLowerCase().trim()) : false
+  )
+
+  const limpiarFormularioIngresar = () => {
+    setIngresarNombre('')
+    setIngresarTalla('N/A')
+    setIngresarCosto('')
+    setIngresarCantidad('1')
+    setIngresarManual(false)
+    setIngresarSerialManual('')
+    setIngresarBarcodeManual('')
+  }
+
+  const handleIngresar = async () => {
+    if (!session?.access_token) return
+    const nombre = ingresarNombre.trim()
+    const cantidad = parseInt(ingresarCantidad) || 0
+    if (!nombre) {
+      toast({ title: 'Error', description: 'Ingresa el nombre del producto', variant: 'destructive' })
+      return
+    }
+    if (cantidad <= 0) {
+      toast({ title: 'Error', description: 'La cantidad debe ser mayor a 0', variant: 'destructive' })
+      return
+    }
+    const costCents = Math.round((parseFloat(ingresarCosto) || 0) * 100)
+    const talla = ingresarTalla === 'N/A' ? null : ingresarTalla
+    const barcode = (ingresarManual ? ingresarBarcodeManual.trim() : barcodeSugerido) || null
+    const serial = ingresarManual ? ingresarSerialManual.trim() : serialSugerido
+
+    try {
+      setSavingIngresar(true)
+      const existente = itemsInventario.find(
+        (i) => i.title.trim().toLowerCase() === nombre.toLowerCase() && i.talla === talla
+      )
+
+      if (existente) {
+        // Ya existe el mismo producto+talla: sumar cantidad en vez de duplicar.
+        const res = await fetch('/api/inventory/adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            product_id: existente.productId,
+            variant_id: existente.variantId || undefined,
+            qty: cantidad,
+            type: 'in',
+            note: 'Ingresado desde "Ingresar" — se sumó a un producto/talla existente',
+            created_by: userProfile?.id,
+          }),
+        })
+        if (!res.ok) {
+          const error = await res.json()
+          throw new Error(error.error || 'Error al ingresar stock')
+        }
+      } else {
+        // Ver si el nombre ya existe como producto base (otra talla nueva) o es 100% nuevo.
+        const productoBase = itemsInventario.find(
+          (i) => i.title.trim().toLowerCase() === nombre.toLowerCase()
+        )
+        let productId = productoBase?.productId
+
+        if (!productId) {
+          const slug =
+            nombre
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)/g, '') +
+            '-' +
+            Math.random().toString(36).slice(2, 7)
+          const res = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              title: nombre,
+              slug,
+              price_cents: Math.round(costCents * 1.3) || 0,
+              cost_cents: costCents,
+              stock_qty: talla ? 0 : cantidad,
+              active: false,
+              images: [],
+              sku: serial,
+              barcode: talla ? null : barcode,
+            }),
+          })
+          if (!res.ok) {
+            const error = await res.json()
+            throw new Error(error.error || 'Error al crear el producto')
+          }
+          const created = await res.json()
+          productId = created.id
+        } else if (!talla) {
+          // Producto ya existe sin variantes y se está reingresando sin talla: sumar stock.
+          const res = await fetch('/api/inventory/adjust', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              product_id: productId,
+              qty: cantidad,
+              type: 'in',
+              note: 'Ingresado desde "Ingresar"',
+              created_by: userProfile?.id,
+            }),
+          })
+          if (!res.ok) {
+            const error = await res.json()
+            throw new Error(error.error || 'Error al ingresar stock')
+          }
+        }
+
+        if (talla && productId) {
+          const res = await fetch(`/api/products/${productId}/variants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              talla,
+              barcode,
+              stock_qty: cantidad,
+              cost_cents: costCents,
+            }),
+          })
+          if (!res.ok) {
+            const error = await res.json()
+            throw new Error(error.error || 'Error al crear la variante')
+          }
+        }
+      }
+
+      toast({ title: 'Producto ingresado', description: `Se agregaron ${cantidad} unidades de "${nombre}"` })
+      limpiarFormularioIngresar()
+      await Promise.all([fetchProducts(), fetchInventoryValue(), fetchCategoryRollup(), fetchIngresarData()])
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo ingresar el producto', variant: 'destructive' })
+    } finally {
+      setSavingIngresar(false)
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -691,9 +930,174 @@ export default function InventarioPage() {
           <RefreshCw className="h-4 w-4" />
           Movimientos
         </button>
+        {canEdit && (
+          <button
+            onClick={() => setActiveTab('ingresar')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'ingresar'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <PackagePlus className="h-4 w-4" />
+            Ingresar
+          </button>
+        )}
       </div>
 
-      {activeTab === 'movimientos' ? (
+      {activeTab === 'ingresar' ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Formulario */}
+          <div className="space-y-4 rounded-xl border bg-card p-6">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nombre del producto</label>
+              <Input
+                list="ingresar-nombres"
+                value={ingresarNombre}
+                onChange={(e) => setIngresarNombre(e.target.value)}
+                placeholder="Ej: CASCO XTRONG M70 NEGRO MATE"
+                className="rounded-xl"
+              />
+              <datalist id="ingresar-nombres">
+                {nombresSugeridos.slice(0, 20).map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Talla</label>
+                <select
+                  value={ingresarTalla}
+                  onChange={(e) => setIngresarTalla(e.target.value)}
+                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                >
+                  {TALLAS_DISPONIBLES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Cantidad a ingresar</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={ingresarCantidad}
+                  onChange={(e) => setIngresarCantidad(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Costo unitario</label>
+              <Input
+                type="number"
+                min="0"
+                value={ingresarCosto}
+                onChange={(e) => setIngresarCosto(e.target.value)}
+                placeholder="0"
+                className="rounded-xl"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={ingresarManual}
+                onChange={(e) => setIngresarManual(e.target.checked)}
+              />
+              Editar serial / código manualmente
+            </label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Serial (auto)</label>
+                <Input
+                  value={ingresarManual ? ingresarSerialManual : serialSugerido}
+                  onChange={(e) => setIngresarSerialManual(e.target.value)}
+                  disabled={!ingresarManual}
+                  className="rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                  Código de barras (auto)
+                </label>
+                <Input
+                  value={ingresarManual ? ingresarBarcodeManual : barcodeSugerido}
+                  onChange={(e) => setIngresarBarcodeManual(e.target.value)}
+                  disabled={!ingresarManual}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="rounded-xl" onClick={limpiarFormularioIngresar}>
+                <X className="mr-2 h-4 w-4" />
+                Limpiar campos
+              </Button>
+              <Button className="flex-1 rounded-xl" onClick={handleIngresar} disabled={savingIngresar}>
+                {savingIngresar ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                Ingresar al inventario
+              </Button>
+            </div>
+          </div>
+
+          {/* Productos similares */}
+          <div className="rounded-xl border bg-card p-6">
+            <h2 className="mb-1 text-lg font-semibold">Productos similares</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {categoriaDetectada
+                ? 'Productos de la misma categoría detectada — revisa antes de crear uno duplicado.'
+                : 'Escribe un nombre para ver productos parecidos.'}
+            </p>
+            {loadingIngresar ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="max-h-[28rem] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 pr-2">Serial</th>
+                      <th className="py-2 pr-2">Producto</th>
+                      <th className="py-2 pr-2">Talla</th>
+                      <th className="py-2 text-right">Cant.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productosSimilares.slice(0, 100).map((i) => (
+                      <tr key={i.variantId || i.productId} className="border-b last:border-0">
+                        <td className="py-2 pr-2 text-muted-foreground">{i.sku || '-'}</td>
+                        <td className="py-2 pr-2">{i.title}</td>
+                        <td className="py-2 pr-2">{i.talla || 'N/A'}</td>
+                        <td className="py-2 text-right">{i.stockQty}</td>
+                      </tr>
+                    ))}
+                    {categoriaDetectada && productosSimilares.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                          No hay productos en esta categoría todavía
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeTab === 'movimientos' ? (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1">
