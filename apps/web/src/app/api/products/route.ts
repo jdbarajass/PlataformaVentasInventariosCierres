@@ -20,12 +20,19 @@ export async function GET(request: NextRequest) {
   // include_inactive expone productos no publicados en la tienda (ej. el
   // inventario físico recién migrado, aún sin foto/descripción) — solo el
   // panel de administración (Inventario) puede pedirlo, y solo si autentica.
+  // La consulta debe ir con el cliente autenticado (JWT del usuario): el
+  // cliente anónimo no satisface la política RLS "Admins and sellers can
+  // manage products" (que depende de auth.uid()), así que sin esto la base
+  // de datos seguiría devolviendo solo activos aunque el filtro de la app
+  // se quite.
+  let db = supabase
   if (includeInactive) {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) return auth.response
+    db = createAuthenticatedClient(auth.token)
   }
 
-  let query = supabase
+  let query = db
     .from('products')
     .select('*, categories(name, slug)', { count: 'exact' })
     .order('created_at', { ascending: false })
