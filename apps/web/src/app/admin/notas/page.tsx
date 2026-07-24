@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { StickyNote, Plus, Loader2, Trash2, Check, Pencil, X } from 'lucide-react'
+import { StickyNote, PackageSearch, ListChecks, Plus, Loader2, Trash2, Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
@@ -20,10 +19,12 @@ interface Note {
 export default function NotasPage() {
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
+  // Igual que el software local: "Por Pedir / Resurtido" y "Tareas
+  // Operativas" son dos pestañas separadas, no una sola lista mezclada.
+  const [activeTab, setActiveTab] = useState<'restock' | 'task'>('restock')
   const [showCompleted, setShowCompleted] = useState(false)
 
   const [text, setText] = useState('')
-  const [type, setType] = useState<'task' | 'restock'>('task')
   const [dueDate, setDueDate] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -77,16 +78,20 @@ export default function NotasPage() {
     return { label: `Vence ${formatDate(dueDate)}`, colorClass: 'text-muted-foreground', rank: 3 }
   }
 
+  // Cada pestaña filtra por su propio tipo — la mezcla de "por pedir" y
+  // "tareas operativas" en una sola lista era justo lo que se quería evitar.
+  const tabNotes = notes.filter((n) => n.type === activeTab)
+
   // Orden combinado: vencidas primero, luego hoy, luego próximas, luego
   // futuras, sin fecha al final — igual que obtener_notas() del local.
-  const sortedNotes = notes
+  const sortedNotes = tabNotes
     .filter((n) => n.completed === showCompleted)
     .sort((a, b) => getUrgency(a.due_date).rank - getUrgency(b.due_date).rank)
 
   // Contador "N pendientes • N en total • ⚠ N vencidas" — igual que
-  // _lbl_count del local (ui/notas_panel.py).
-  const pendingCount = notes.filter((n) => !n.completed).length
-  const overdueCount = notes.filter((n) => !n.completed && getUrgency(n.due_date).rank === 0).length
+  // _lbl_count del local (ui/notas_panel.py), calculado sobre la pestaña activa.
+  const pendingCount = tabNotes.filter((n) => !n.completed).length
+  const overdueCount = tabNotes.filter((n) => !n.completed && getUrgency(n.due_date).rank === 0).length
 
   const handleCreate = async () => {
     if (!text.trim()) {
@@ -98,7 +103,7 @@ export default function NotasPage() {
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ type, text, due_date: dueDate || null }),
+        body: JSON.stringify({ type: activeTab, text, due_date: dueDate || null }),
       })
       if (!res.ok) throw new Error('Error al crear la nota')
       toast({ title: 'Nota creada' })
@@ -172,18 +177,43 @@ export default function NotasPage() {
         <p className="text-muted-foreground">Tareas y recordatorios de resurtido</p>
       </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Nueva nota</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as 'task' | 'restock')}
-            className="rounded-lg border bg-background px-3 py-2 text-sm"
+      <div className="flex gap-2 border-b">
+        {(
+          [
+            { key: 'restock' as const, label: 'Por Pedir / Resurtido', icon: PackageSearch },
+            { key: 'task' as const, label: 'Tareas Operativas', icon: ListChecks },
+          ]
+        ).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => {
+              setActiveTab(key)
+              setShowCompleted(false)
+            }}
+            className={cn(
+              'flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+              activeTab === key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
           >
-            <option value="task">Tarea</option>
-            <option value="restock">Por pedir / resurtido</option>
-          </select>
-          <Input placeholder="Texto de la nota" value={text} onChange={(e) => setText(e.target.value)} className="min-w-[240px] flex-1 rounded-lg" />
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h2 className="mb-4 text-lg font-semibold">
+          {activeTab === 'restock' ? 'Nuevo pendiente por pedir' : 'Nueva tarea'}
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            placeholder={activeTab === 'restock' ? 'Ej: Cascos XTR-M70 talla M x 5...' : 'Ej: Revisar cuentas de Addi del mes...'}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="min-w-[240px] flex-1 rounded-lg"
+          />
           <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="rounded-lg" />
           <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -202,7 +232,7 @@ export default function NotasPage() {
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''} · {notes.length} en total
+          {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''} · {tabNotes.length} en total
           {overdueCount > 0 && <span className="text-red-500"> · ⚠ {overdueCount} vencida{overdueCount !== 1 ? 's' : ''}</span>}
         </p>
       </div>
@@ -211,7 +241,7 @@ export default function NotasPage() {
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : notes.length === 0 ? (
+      ) : tabNotes.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
           <StickyNote className="mx-auto mb-2 h-8 w-8" />
           No hay notas {showCompleted ? 'completadas' : 'pendientes'}
@@ -250,12 +280,11 @@ export default function NotasPage() {
                   </Button>
                   <div>
                     <p className={cn('font-medium', note.completed && 'line-through text-muted-foreground')}>{note.text}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Badge variant="outline">{note.type === 'task' ? 'Tarea' : 'Resurtido'}</Badge>
-                      {urgency.label && (
+                    {urgency.label && (
+                      <div className="text-sm text-muted-foreground">
                         <span className={cn(!note.completed && urgency.colorClass)}>{urgency.label}</span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

@@ -1213,3 +1213,17 @@ Cambios:
 **Inventario — reubicación del botón "Cambios"**: el usuario notó que "Cambios" aparecía solo/aparte en la esquina superior derecha en vez de junto a las demás pestañas del módulo. Se movió a la fila de pestañas, después de "Ingresar" (Detalle / Inventario General / Movimientos / Ingresar / Cambios), dejando "Cargue de Pedidos" y "Exportar" donde estaban (son acciones globales, no pestañas de navegación interna).
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build` en todos los cambios de esta sección.
+
+## 25. Notas y Pendientes: separación en pestañas (2026-07-24)
+
+El usuario mostró capturas comparando `/admin/notas` desplegado (una sola lista donde "por pedir/resurtido" y "tareas operativas" aparecían mezclados, distinguibles solo por una etiqueta `Badge` inline) contra el software local, que ya maneja esto como dos pestañas separadas ("Por Pedir / Resurtido" y "Tareas Operativas"), y pidió recomendaciones para mostrarlo mejor.
+
+El modelo de datos ya traía `type: 'task' | 'restock'` en cada nota (`apps/web/src/app/admin/notas/page.tsx`), así que no hizo falta ningún cambio de esquema ni de API — solo reorganizar la vista:
+
+- Se agregó una fila de pestañas (estado `activeTab: 'restock' | 'task'`, por defecto `'restock'`) con el mismo patrón visual de borde inferior ya usado en el resto del panel.
+- `tabNotes = notes.filter(n => n.type === activeTab)` reemplaza el filtrado directo sobre `notes` en el conteo ("N pendientes · N en total · ⚠ N vencidas"), el orden por urgencia y el estado vacío — cada pestaña calcula sus propios totales, igual que `_lbl_count` del local calcula por pestaña, no sobre el total global.
+- El formulario "Nueva nota" ya no tiene el selector de tipo (ahora es implícito según la pestaña activa) y cambia su placeholder según el contexto (`"Ej: Cascos XTR-M70 talla M x 5..."` en Por Pedir / Resurtido, `"Ej: Revisar cuentas de Addi del mes..."` en Tareas Operativas).
+- Se quitó el `Badge` de tipo por nota (ya redundante, la pestaña activa lo indica) mantenimiento el resto de la funcionalidad intacta: toggle Pendientes/Completadas, checklist (botón ✓ que marca completada con tachado), edición y borrado por nota, y el gradiente de urgencia por fecha de vencimiento.
+- Cambiar de pestaña resetea el toggle a "Pendientes" (`setShowCompleted(false)`) para no dejar al usuario viendo, por ejemplo, tareas completadas mientras navega a Por Pedir / Resurtido sin darse cuenta.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
