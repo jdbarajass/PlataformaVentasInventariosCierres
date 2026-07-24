@@ -6,7 +6,7 @@ import { Printer, TrendingUp, Package, DollarSign, PiggyBank, ArrowUpRight, Arro
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
-import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 
 const monthNames = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -52,53 +52,70 @@ export default function HistorialMensualPage() {
   const [diasMes, setDiasMes] = useState(30)
   const [expensesByDay, setExpensesByDay] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const { userProfile } = useAuth()
   const canViewProfit = userProfile?.role === 'admin'
 
+  // Todo el fetch va envuelto en un límite de tiempo único: supabaseBrowser
+  // puede colgarse indefinidamente al refrescar la sesión tras un rato de
+  // inactividad de la pestaña (ver comentario en lib/supabase-browser.ts).
+  // Sin esto, el spinner se queda girando para siempre y solo se recupera
+  // recargando la página o volviendo a iniciar sesión — reportado por el
+  // usuario en producción.
   const fetchMonth = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
 
-    const data = await fetchMonthOrders(year, month)
-    setOrders(data)
+    const run = async () => {
+      const data = await fetchMonthOrders(year, month)
+      setOrders(data)
 
-    // Mes anterior, para la comparativa (misma fuente, solo revenue/ganancia).
-    const prevMonthDate = new Date(year, month - 2, 1)
-    const prevData = await fetchMonthOrders(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1)
-    const pRevenue = prevData.reduce((sum, o) => sum + o.total_cents, 0)
-    const pCost = prevData.reduce((sum, o) => sum + (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0), 0)
-    setPrevRevenue(pRevenue)
-    setPrevProfit(pRevenue - pCost)
+      // Mes anterior, para la comparativa (misma fuente, solo revenue/ganancia).
+      const prevMonthDate = new Date(year, month - 2, 1)
+      const prevData = await fetchMonthOrders(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1)
+      const pRevenue = prevData.reduce((sum, o) => sum + o.total_cents, 0)
+      const pCost = prevData.reduce((sum, o) => sum + (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0), 0)
+      setPrevRevenue(pRevenue)
+      setPrevProfit(pRevenue - pCost)
 
-    if (canViewProfit) {
-      const from = new Date(year, month - 1, 1).toISOString().split('T')[0]
-      const to = new Date(year, month, 1).toISOString().split('T')[0]
-      const { data: expensesData } = await supabase
-        .from('operating_expenses')
-        .select('amount_cents, date')
-        .gte('date', from)
-        .lt('date', to)
-      const expensesRows = (expensesData as { amount_cents: number; date: string }[]) || []
-      setTotalOperatingExpenses(expensesRows.reduce((sum, e) => sum + e.amount_cents, 0))
-      setExpensesByDay(
-        expensesRows.reduce<Record<string, number>>((acc, e) => {
-          acc[e.date] = (acc[e.date] || 0) + e.amount_cents
-          return acc
-        }, {})
-      )
+      if (canViewProfit) {
+        const from = new Date(year, month - 1, 1).toISOString().split('T')[0]
+        const to = new Date(year, month, 1).toISOString().split('T')[0]
+        const { data: expensesData } = await supabase
+          .from('operating_expenses')
+          .select('amount_cents, date')
+          .gte('date', from)
+          .lt('date', to)
+        const expensesRows = (expensesData as { amount_cents: number; date: string }[]) || []
+        setTotalOperatingExpenses(expensesRows.reduce((sum, e) => sum + e.amount_cents, 0))
+        setExpensesByDay(
+          expensesRows.reduce<Record<string, number>>((acc, e) => {
+            acc[e.date] = (acc[e.date] || 0) + e.amount_cents
+            return acc
+          }, {})
+        )
 
-      const { data: settingsData } = await supabase
-        .from('store_settings')
-        .select('fixed_monthly_expenses')
-        .eq('id', 1)
-        .single()
-      const fixed = (settingsData as any)?.fixed_monthly_expenses
-      setFixedMonthlyTotal(
-        fixed ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents : 0
-      )
-      setDiasMes(fixed?.dias_mes || 30)
+        const { data: settingsData } = await supabase
+          .from('store_settings')
+          .select('fixed_monthly_expenses')
+          .eq('id', 1)
+          .single()
+        const fixed = (settingsData as any)?.fixed_monthly_expenses
+        setFixedMonthlyTotal(
+          fixed ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents : 0
+        )
+        setDiasMes(fixed?.dias_mes || 30)
+      }
     }
 
-    setLoading(false)
+    try {
+      await withTimeout(run(), 12000, 'Historial Mensual')
+    } catch (error) {
+      console.error('Error loading historial mensual:', error)
+      setLoadError('No se pudo cargar el historial. Puede ser un problema temporal de la sesión — intenta de nuevo.')
+    } finally {
+      setLoading(false)
+    }
   }, [year, month, canViewProfit])
 
   useEffect(() => { fetchMonth() }, [fetchMonth])
@@ -232,6 +249,13 @@ export default function HistorialMensualPage() {
       {loading ? (
         <div className="flex h-40 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border bg-card p-8 text-center">
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <Button variant="outline" className="rounded-lg" onClick={fetchMonth}>
+            Reintentar
+          </Button>
         </div>
       ) : (
         <>

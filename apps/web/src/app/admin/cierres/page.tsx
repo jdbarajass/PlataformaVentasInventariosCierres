@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
-import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { DailyClosure, Inserts } from '@/types/database'
 
 export default function DailyClosuresPage() {
   const [closures, setClosures] = useState<DailyClosure[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -28,15 +29,25 @@ export default function DailyClosuresPage() {
     fetchClosures()
   }, [])
 
+  // Envuelto en un límite de tiempo: supabaseBrowser puede colgarse
+  // indefinidamente al refrescar la sesión tras un rato de inactividad de
+  // la pestaña (ver comentario en lib/supabase-browser.ts).
   const fetchClosures = async () => {
-    const { data } = await supabase
-      .from('daily_closures')
-      .select('*')
-      .order('date', { ascending: false })
-      .limit(30)
-
-    setClosures(data || [])
-    setIsLoading(false)
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      const { data } = await withTimeout(
+        supabase.from('daily_closures').select('*').order('date', { ascending: false }).limit(30),
+        12000,
+        'Cierres'
+      )
+      setClosures(data || [])
+    } catch (error) {
+      console.error('Error loading cierres:', error)
+      setLoadError('No se pudo cargar los cierres. Puede ser un problema temporal de la sesión — intenta de nuevo.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,6 +131,15 @@ export default function DailyClosuresPage() {
           </Button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border bg-card p-6 text-center">
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <Button variant="outline" className="rounded-lg" onClick={fetchClosures}>
+            Reintentar
+          </Button>
+        </div>
+      )}
 
       {/* Form */}
       {showForm && (

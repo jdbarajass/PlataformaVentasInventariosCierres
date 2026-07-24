@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
-import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
 
 interface SalesData {
@@ -62,9 +62,16 @@ export default function ReportsPage() {
   // Igual que en el software local: solo Admin ve costo/comisión/ganancia.
   const canViewProfit = userProfile?.role === 'admin'
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Todo el fetch va envuelto en un límite de tiempo único: supabaseBrowser
+  // puede colgarse indefinidamente al refrescar la sesión tras un rato de
+  // inactividad de la pestaña (ver comentario en lib/supabase-browser.ts).
   const fetchReports = useCallback(async () => {
     setIsLoading(true)
+    setLoadError(null)
 
+    const run = async () => {
     // Fetch orders in date range
     const { data: ordersData } = await supabase
       .from('orders')
@@ -211,8 +218,16 @@ export default function ReportsPage() {
       setMethodCounts({})
       setPeakHours([])
     }
+    }
 
-    setIsLoading(false)
+    try {
+      await withTimeout(run(), 12000, 'Reportes')
+    } catch (error) {
+      console.error('Error loading reportes:', error)
+      setLoadError('No se pudo cargar el reporte. Puede ser un problema temporal de la sesión — intenta de nuevo.')
+    } finally {
+      setIsLoading(false)
+    }
   }, [dateFrom, dateTo])
 
   useEffect(() => {
@@ -253,6 +268,15 @@ export default function ReportsPage() {
           Exportar CSV
         </Button>
       </div>
+
+      {loadError && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border bg-card p-6 text-center">
+          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <Button variant="outline" className="rounded-lg" onClick={fetchReports}>
+            Reintentar
+          </Button>
+        </div>
+      )}
 
       {/* Date Filter */}
       <Card>

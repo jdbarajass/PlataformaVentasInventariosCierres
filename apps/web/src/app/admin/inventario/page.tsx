@@ -30,7 +30,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
-import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import {
   TALLAS_DISPONIBLES,
   detectarCategoria,
@@ -86,6 +86,7 @@ export default function InventarioPage() {
   const [products, setProducts] = useState<ProductStock[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showLowStock, setShowLowStock] = useState(false)
 
@@ -562,8 +563,22 @@ export default function InventarioPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue(), fetchCategoryRollup()])
-      setLoading(false)
+      setLoadError(null)
+      try {
+        // Límite de tiempo único para toda la carga inicial: supabaseBrowser
+        // puede colgarse indefinidamente al refrescar la sesión tras un
+        // rato de inactividad de la pestaña (ver lib/supabase-browser.ts).
+        await withTimeout(
+          Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue(), fetchCategoryRollup()]),
+          15000,
+          'Inventario'
+        )
+      } catch (error) {
+        console.error('Error loading inventario:', error)
+        setLoadError('No se pudo cargar el inventario. Puede ser un problema temporal de la sesión — intenta de nuevo.')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [fetchProducts, fetchMovements, fetchInventoryValue, fetchCategoryRollup])
@@ -1744,6 +1759,13 @@ export default function InventarioPage() {
           <div className="flex items-center justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <span className="ml-3 text-muted-foreground">Cargando inventario...</span>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center gap-3 p-12 text-center">
+            <p className="text-sm text-muted-foreground">{loadError}</p>
+            <Button variant="outline" className="rounded-xl" onClick={() => window.location.reload()}>
+              Reintentar
+            </Button>
           </div>
         ) : (
           <>
