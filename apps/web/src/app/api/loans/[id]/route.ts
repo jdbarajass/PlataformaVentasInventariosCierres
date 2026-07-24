@@ -8,9 +8,11 @@ const loanUpdateSchema = z.object({
   observations: z.string().optional().nullable(),
   // El software local permite editar producto/almacén de un préstamo ya
   // creado (EditPrestamoDialog) — sección 12.3/13.3 ítem 4.3.10 de la
-  // auditoría de fidelidad.
+  // auditoría de fidelidad. También permite corregir fecha y hora al
+  // editar (no solo al crear) — ver sección 24 del doc.
   product_title: z.string().min(1).optional(),
   warehouse: z.string().min(1).optional(),
+  created_at: z.string().datetime().optional(),
 })
 
 // PUT - Cambiar estado (pendiente/devuelto/cobrado), notas, o

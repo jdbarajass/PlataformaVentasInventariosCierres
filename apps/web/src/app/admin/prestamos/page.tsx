@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { PackageOpen, Plus, Loader2, Search, Trash2, Pencil, Check, X } from 'lucide-react'
+import { PackageOpen, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +35,49 @@ const statusColors: Record<Loan['status'], string> = {
   charged: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
 }
 
+// Colombia no tiene horario de verano — UTC-5 todo el año, así que el
+// desfase es siempre fijo. Todo el formateo/cálculo de fecha usa
+// explícitamente 'America/Bogota' en vez de confiar en la zona horaria del
+// sistema operativo del navegador — el software local tuvo justo este
+// problema (la hora mostrada no siempre coincidía con la hora real de
+// Colombia porque dependía de la configuración del equipo).
+const BOGOTA_TZ = 'America/Bogota'
+
+function bogotaDateStr(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: BOGOTA_TZ }).format(d)
+}
+
+function bogotaTimeStr(d: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BOGOTA_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+  const hh = parts.find((p) => p.type === 'hour')?.value ?? '00'
+  const mm = parts.find((p) => p.type === 'minute')?.value ?? '00'
+  return `${hh}:${mm}`
+}
+
+// Combina una fecha (YYYY-MM-DD) y hora (HH:MM) locales de Bogotá en el
+// instante UTC correcto, sin depender de la zona horaria del navegador.
+function bogotaToISO(dateStr: string, timeStr: string): string {
+  return new Date(`${dateStr}T${timeStr}:00-05:00`).toISOString()
+}
+
+function diasPendientes(iso: string): number {
+  const loanDate = new Date(`${bogotaDateStr(new Date(iso))}T00:00:00Z`)
+  const today = new Date(`${bogotaDateStr(new Date())}T00:00:00Z`)
+  return Math.max(0, Math.round((today.getTime() - loanDate.getTime()) / 86400000))
+}
+
+function diasBadgeColor(dias: number, status: Loan['status']): string {
+  if (status !== 'pending') return 'bg-slate-500/10 text-slate-500 border-slate-500/20'
+  if (dias < 30) return 'bg-green-500/10 text-green-600 border-green-500/20'
+  if (dias < 60) return 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+  return 'bg-red-500/10 text-red-600 border-red-500/20'
+}
+
 export default function PrestamosPage() {
   const [loans, setLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,11 +94,17 @@ export default function PrestamosPage() {
   const [manualTitle, setManualTitle] = useState('')
   const [warehouse, setWarehouse] = useState('')
   const [observations, setObservations] = useState('')
+  // Fecha editable al crear (por defecto hoy en Bogotá); la hora siempre se
+  // toma real al momento del clic — igual que el local (comentario explícito
+  // en ui/prestamos_panel.py: "Captura la hora real en el momento exacto del
+  // clic, no la hora de apertura"), para evitar que quede una hora vieja si
+  // el formulario se deja abierto un rato antes de registrar.
+  const [createDate, setCreateDate] = useState(() => bogotaDateStr(new Date()))
   const [saving, setSaving] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ product_title: '', warehouse: '', observations: '' })
+  const [editForm, setEditForm] = useState({ product_title: '', warehouse: '', observations: '', date: '', time: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
   const { session } = useAuth()
@@ -66,12 +115,16 @@ export default function PrestamosPage() {
     [session?.access_token]
   )
 
+  // Se trae siempre todo (sin filtrar por status en el servidor) para poder
+  // calcular el banner de alerta sobre el total real de pendientes, igual
+  // que el local (_actualizar_alerta usa todos los pendientes en memoria,
+  // sin importar el filtro visual activo) — el filtro de estado se aplica
+  // solo al mostrar la lista.
   const fetchLoans = useCallback(async () => {
     if (!session?.access_token) return
     setLoading(true)
     try {
-      const params = statusFilter !== 'all' ? `?status=${statusFilter}` : ''
-      const res = await fetch(`/api/loans${params}`, { headers: authHeaders() })
+      const res = await fetch('/api/loans', { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
       setLoans(data || [])
@@ -80,7 +133,7 @@ export default function PrestamosPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, authHeaders, statusFilter])
+  }, [session?.access_token, authHeaders])
 
   useEffect(() => {
     fetchLoans()
@@ -105,8 +158,19 @@ export default function PrestamosPage() {
     }, 250)
   }, [query, session?.access_token, authHeaders])
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+  const formatDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('es-CO', {
+      timeZone: BOGOTA_TZ,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+
+  const visibleLoans = statusFilter === 'all' ? loans : loans.filter((l) => l.status === statusFilter)
+  const pendingLoans = loans.filter((l) => l.status === 'pending')
+  const urgentCount = pendingLoans.filter((l) => diasPendientes(l.created_at) >= 30).length
 
   const handleCreate = async () => {
     if ((!selectedProduct && !manualTitle.trim()) || !warehouse.trim()) {
@@ -126,6 +190,7 @@ export default function PrestamosPage() {
             : manualTitle.trim(),
           warehouse,
           observations: observations || null,
+          created_at: bogotaToISO(createDate, bogotaTimeStr(new Date())),
         }),
       })
       if (!res.ok) {
@@ -139,6 +204,7 @@ export default function PrestamosPage() {
       setWarehouse('')
       setObservations('')
       setQuery('')
+      setCreateDate(bogotaDateStr(new Date()))
       await fetchLoans()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -164,7 +230,14 @@ export default function PrestamosPage() {
 
   const startEdit = (loan: Loan) => {
     setEditingId(loan.id)
-    setEditForm({ product_title: loan.product_title, warehouse: loan.warehouse, observations: loan.observations || '' })
+    const d = new Date(loan.created_at)
+    setEditForm({
+      product_title: loan.product_title,
+      warehouse: loan.warehouse,
+      observations: loan.observations || '',
+      date: bogotaDateStr(d),
+      time: bogotaTimeStr(d),
+    })
   }
 
   const handleSaveEdit = async (loanId: string) => {
@@ -181,6 +254,7 @@ export default function PrestamosPage() {
           product_title: editForm.product_title,
           warehouse: editForm.warehouse,
           observations: editForm.observations || null,
+          created_at: bogotaToISO(editForm.date, editForm.time),
         }),
       })
       if (!res.ok) throw new Error('Error al actualizar el préstamo')
@@ -283,7 +357,18 @@ export default function PrestamosPage() {
               <Button variant="ghost" size="sm" onClick={() => setSelectedProduct(null)}>Cambiar</Button>
             </div>
           )}
-          <Input placeholder="Almacén / destino" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="rounded-lg" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">Fecha (la hora se toma real al registrar)</label>
+              <Input
+                type="date"
+                value={createDate}
+                onChange={(e) => setCreateDate(e.target.value)}
+                className="rounded-lg"
+              />
+            </div>
+            <Input placeholder="Almacén / destino" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="rounded-lg self-end" />
+          </div>
           <Input placeholder="Observaciones (opcional)" value={observations} onChange={(e) => setObservations(e.target.value)} className="rounded-lg" />
           <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -291,6 +376,16 @@ export default function PrestamosPage() {
           </Button>
         </div>
       </div>
+
+      {pendingLoans.length > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            {pendingLoans.length} préstamo{pendingLoans.length !== 1 ? 's' : ''} pendiente{pendingLoans.length !== 1 ? 's' : ''}
+            {urgentCount > 0 && ` — ${urgentCount} con más de 30 días sin resolver`}
+          </span>
+        </div>
+      )}
 
       <div className="flex gap-2">
         {(['pending', 'returned', 'charged', 'all'] as const).map((s) => (
@@ -310,14 +405,14 @@ export default function PrestamosPage() {
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : loans.length === 0 ? (
+      ) : visibleLoans.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
           <PackageOpen className="mx-auto mb-2 h-8 w-8" />
           No hay préstamos registrados
         </div>
       ) : (
         <div className="space-y-2">
-          {loans.map((loan) =>
+          {visibleLoans.map((loan) =>
             editingId === loan.id ? (
               <div key={loan.id} className="space-y-2 rounded-xl border bg-card p-4">
                 <Input
@@ -338,6 +433,26 @@ export default function PrestamosPage() {
                   className="rounded-lg"
                   placeholder="Observaciones"
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">Fecha</label>
+                    <Input
+                      type="date"
+                      value={editForm.date}
+                      onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                      className="rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">Hora</label>
+                    <Input
+                      type="time"
+                      value={editForm.time}
+                      onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                      className="rounded-lg"
+                    />
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="rounded-lg" onClick={() => handleSaveEdit(loan.id)} disabled={savingEdit}>
                     {savingEdit ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
@@ -353,11 +468,14 @@ export default function PrestamosPage() {
                 <div>
                   <p className="font-medium">{loan.product_title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {loan.warehouse} · {formatDate(loan.created_at)}
+                    {loan.warehouse} · {formatDateTime(loan.created_at)}
                     {loan.observations ? ` · ${loan.observations}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={diasBadgeColor(diasPendientes(loan.created_at), loan.status)}>
+                    {diasPendientes(loan.created_at)}d
+                  </Badge>
                   <Badge variant="outline" className={statusColors[loan.status]}>{statusLabels[loan.status]}</Badge>
                   <select
                     value={loan.status}

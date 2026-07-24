@@ -9,6 +9,10 @@ const loanSchema = z.object({
   product_title: z.string().min(1, 'El producto es obligatorio'),
   warehouse: z.string().min(1, 'El almacén es obligatorio'),
   observations: z.string().optional().nullable(),
+  // El software local permite elegir la fecha del préstamo (la hora siempre
+  // se toma real al momento de registrar, ver ui/prestamos_panel.py). Si no
+  // se envía, la base de datos usa NOW() como antes.
+  created_at: z.string().datetime().optional(),
 })
 
 // GET - Listar préstamos a otros almacenes (filtro: status)
