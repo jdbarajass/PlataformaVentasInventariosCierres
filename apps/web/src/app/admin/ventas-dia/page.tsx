@@ -543,21 +543,133 @@ function VentasDiaContent() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border bg-card p-6">
-          <h2 className="mb-3 text-lg font-semibold">Por método de pago</h2>
-          {Object.keys(revenueByMethod).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin pagos registrados este día.</p>
+      {/* Tira compacta de chips en vez de una tarjeta de dos columnas — con
+          2-3 métodos de pago la tarjeta anterior desperdiciaba la mitad del
+          ancho de la fila; esta franja delgada queda pegada a las tarjetas
+          de resumen, igual de "arriba" que pidió el usuario. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+        <span className="text-sm font-medium text-muted-foreground">Por método de pago:</span>
+        {Object.keys(revenueByMethod).length === 0 ? (
+          <span className="text-sm text-muted-foreground">Sin pagos registrados este día.</span>
+        ) : (
+          Object.entries(revenueByMethod)
+            .sort((a, b) => b[1] - a[1])
+            .map(([method, cents]) => (
+              <span key={method} className="rounded-lg border px-3 py-1 text-sm">
+                {methodLabels[method as PaymentSplit['method']] || method}: <span className="font-medium">{formatPrice(cents)}</span>
+              </span>
+            ))
+        )}
+      </div>
+
+      {/* Ventas a la izquierda (2/3) y préstamos pendientes a la derecha
+          (1/3) en paralelo — igual que Vista del Día del software local —
+          para que ambos quepan en una sola captura de pantalla en vez de
+          apilados uno debajo del otro. */}
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
+        <div className="lg:col-span-2">
+          {loading ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : sales.length === 0 ? (
+            <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
+              <Receipt className="mx-auto mb-2 h-8 w-8" />
+              No hay ventas de mostrador en esta fecha
+            </div>
           ) : (
-            <div className="space-y-2">
-              {Object.entries(revenueByMethod)
-                .sort((a, b) => b[1] - a[1])
-                .map(([method, cents]) => (
-                  <div key={method} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                    <span>{methodLabels[method as PaymentSplit['method']] || method}</span>
-                    <span className="font-medium">{formatPrice(cents)}</span>
-                  </div>
-                ))}
+            <div className="rounded-xl border bg-card">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="w-8 px-3 py-2"></th>
+                      <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
+                      {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">Costo</th>}
+                      <th className="px-3 py-2 text-right text-muted-foreground">Precio Venta</th>
+                      <th className="px-3 py-2 text-left text-muted-foreground">Método de Pago</th>
+                      {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">G. Neta</th>}
+                      <th className="px-3 py-2 text-left text-muted-foreground">Factura</th>
+                      <th className="px-3 py-2 text-center text-muted-foreground">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {saleLines.map(({ item, sale }) => {
+                      const gananciaNeta = item.total_cents - item.qty * (item.cost_cents || 0)
+                      return (
+                        <tr key={item.id} className="border-b last:border-0">
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(sale.id)}
+                              onChange={() => toggleSelect(sale.id)}
+                              className="h-4 w-4 rounded"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            {item.product_title}
+                            {item.product_talla && <Badge variant="outline" className="ml-1">{item.product_talla}</Badge>}
+                            {item.qty > 1 && <span className="ml-1 text-xs text-muted-foreground">×{item.qty}</span>}
+                          </td>
+                          {canViewProfit && (
+                            <td className="px-3 py-2 text-right text-muted-foreground">{formatPrice(item.qty * (item.cost_cents || 0))}</td>
+                          )}
+                          <td className="px-3 py-2 text-right font-medium">{formatPrice(item.total_cents)}</td>
+                          <td className="px-3 py-2">{methodSummary(sale)}</td>
+                          {canViewProfit && (
+                            <td className={`px-3 py-2 text-right ${gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatPrice(gananciaNeta)}
+                            </td>
+                          )}
+                          <td className="px-3 py-2">
+                            <p className="text-xs text-muted-foreground">{sale.order_number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost" size="icon" className="h-7 w-7"
+                                title="Editar factura completa"
+                                onClick={() => startEdit(sale)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <a
+                                href={`/api/orders/${sale.id}/invoice`} target="_blank" rel="noopener noreferrer"
+                                title="Ver recibo"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-cyan-500 hover:bg-muted"
+                              >
+                                <Receipt className="h-3.5 w-3.5" />
+                              </a>
+                              <Button
+                                variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                                title="Cancelar venta"
+                                onClick={() => handleCancelSale(sale.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {cancelledSales.length > 0 && (
+                <div className="space-y-1 border-t p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Ventas canceladas</p>
+                  {cancelledSales.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{s.order_number} — {s.customer_name || 'Cliente de mostrador'}</span>
+                      <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Cancelada</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -570,7 +682,7 @@ function VentasDiaContent() {
           {pendingLoans.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay préstamos pendientes.</p>
           ) : (
-            <div className="max-h-64 overflow-y-auto">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
@@ -595,111 +707,6 @@ function VentasDiaContent() {
           )}
         </div>
       </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : sales.length === 0 ? (
-        <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
-          <Receipt className="mx-auto mb-2 h-8 w-8" />
-          No hay ventas de mostrador en esta fecha
-        </div>
-      ) : (
-        <div className="rounded-xl border bg-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="w-8 px-3 py-2"></th>
-                  <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
-                  {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">Costo</th>}
-                  <th className="px-3 py-2 text-right text-muted-foreground">Precio Venta</th>
-                  <th className="px-3 py-2 text-left text-muted-foreground">Método de Pago</th>
-                  {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">G. Neta</th>}
-                  <th className="px-3 py-2 text-left text-muted-foreground">Factura</th>
-                  <th className="px-3 py-2 text-center text-muted-foreground">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {saleLines.map(({ item, sale }) => {
-                  const gananciaNeta = item.total_cents - item.qty * (item.cost_cents || 0)
-                  return (
-                    <tr key={item.id} className="border-b last:border-0">
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(sale.id)}
-                          onChange={() => toggleSelect(sale.id)}
-                          className="h-4 w-4 rounded"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        {item.product_title}
-                        {item.product_talla && <Badge variant="outline" className="ml-1">{item.product_talla}</Badge>}
-                        {item.qty > 1 && <span className="ml-1 text-xs text-muted-foreground">×{item.qty}</span>}
-                      </td>
-                      {canViewProfit && (
-                        <td className="px-3 py-2 text-right text-muted-foreground">{formatPrice(item.qty * (item.cost_cents || 0))}</td>
-                      )}
-                      <td className="px-3 py-2 text-right font-medium">{formatPrice(item.total_cents)}</td>
-                      <td className="px-3 py-2">{methodSummary(sale)}</td>
-                      {canViewProfit && (
-                        <td className={`px-3 py-2 text-right ${gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatPrice(gananciaNeta)}
-                        </td>
-                      )}
-                      <td className="px-3 py-2">
-                        <p className="text-xs text-muted-foreground">{sale.order_number}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost" size="icon" className="h-7 w-7"
-                            title="Editar factura completa"
-                            onClick={() => startEdit(sale)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <a
-                            href={`/api/orders/${sale.id}/invoice`} target="_blank" rel="noopener noreferrer"
-                            title="Ver recibo"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-cyan-500 hover:bg-muted"
-                          >
-                            <Receipt className="h-3.5 w-3.5" />
-                          </a>
-                          <Button
-                            variant="ghost" size="icon" className="h-7 w-7 text-red-500"
-                            title="Cancelar venta"
-                            onClick={() => handleCancelSale(sale.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {cancelledSales.length > 0 && (
-            <div className="space-y-1 border-t p-3">
-              <p className="text-xs font-medium text-muted-foreground">Ventas canceladas</p>
-              {cancelledSales.map((s) => (
-                <div key={s.id} className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{s.order_number} — {s.customer_name || 'Cliente de mostrador'}</span>
-                  <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Cancelada</Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Editar factura completa: abre TODOS los productos de esa venta (no
           solo el que se clickeó) para poder cambiar cantidades/método/

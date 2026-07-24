@@ -1227,3 +1227,14 @@ El modelo de datos ya traía `type: 'task' | 'restock'` en cada nota (`apps/web/
 - Cambiar de pestaña resetea el toggle a "Pendientes" (`setShowCompleted(false)`) para no dejar al usuario viendo, por ejemplo, tareas completadas mientras navega a Por Pedir / Resurtido sin darse cuenta.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 26. Ventas del Día: layout en paralelo para que quepa en una sola captura (2026-07-24)
+
+El usuario comparó `/admin/ventas-dia` desplegado contra "Vista del Día" del software local y señaló tres problemas de evidencia visual: (1) "Por método de pago" ocupaba media fila de ancho para mostrar 2-3 chips, desperdiciando espacio; (2) "Préstamos pendientes" tenía un `max-h-64 overflow-y-auto` que cortaba la lista a ~6 filas visibles, obligando a otro pantallazo aparte para ver los demás; (3) todo estaba apilado verticalmente (método de pago, préstamos, luego productos vendidos como bloques separados) en vez de en paralelo como el local, que muestra ventas a la izquierda y préstamos a la derecha ocupando toda la altura disponible.
+
+Cambios en `apps/web/src/app/admin/ventas-dia/page.tsx`:
+- "Por método de pago" pasó de tarjeta de media fila a una tira delgada de chips (`flex flex-wrap`) pegada justo debajo de las tarjetas de resumen (Total del día / Gastos operativos / Ganancia neta / Utilidad real) — ahora ocupa solo el alto de una línea en vez de una tarjeta completa.
+- Se quitó el `max-h-64 overflow-y-auto` de la tabla de préstamos pendientes: ahora crece con su contenido igual que la tabla de ventas, sin truncar filas.
+- El bloque de ventas (lista plana de productos + ventas canceladas) y el de préstamos pendientes ahora están en un `grid lg:grid-cols-3 items-start`: ventas ocupa `lg:col-span-2` (más ancho, tiene más columnas: Producto/Costo/Precio/Método/G.Neta/Factura/Acciones) y préstamos la columna restante — en paralelo, como en el software local, para que ambos bloques quepan en una sola captura de pantalla sin tener que hacer scroll ni tomar una segunda captura para los préstamos. En pantallas angostas, el grid colapsa a una sola columna (ventas arriba, préstamos abajo) porque `lg:grid-cols-3` solo aplica desde el breakpoint `lg`.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
