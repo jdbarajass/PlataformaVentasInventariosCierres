@@ -1165,20 +1165,12 @@ export default function InventarioPage() {
         </div>
         <div className="flex gap-2">
           {canEdit && (
-            <>
-              <Link href="/admin/inventario/cargue-pedidos">
-                <Button variant="outline" className="rounded-xl">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Cargue de Pedidos
-                </Button>
-              </Link>
-              <Link href="/admin/inventario/cambios">
-                <Button variant="outline" className="rounded-xl">
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Cambios
-                </Button>
-              </Link>
-            </>
+            <Link href="/admin/inventario/cargue-pedidos">
+              <Button variant="outline" className="rounded-xl">
+                <Upload className="mr-2 h-4 w-4" />
+                Cargue de Pedidos
+              </Button>
+            </Link>
           )}
           <Button variant="outline" className="rounded-xl" onClick={openExportDialog}>
             <Download className="mr-2 h-4 w-4" />
@@ -1409,6 +1401,15 @@ export default function InventarioPage() {
             <PackagePlus className="h-4 w-4" />
             Ingresar
           </button>
+        )}
+        {canEdit && (
+          <Link
+            href="/admin/inventario/cambios"
+            className="flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Cambios
+          </Link>
         )}
       </div>
 
