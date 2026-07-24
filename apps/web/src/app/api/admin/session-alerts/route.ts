@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { bogotaDateStr } from '@/lib/bogota-time'
 
 // GET - Recordatorios al iniciar sesión: facturas por vencer (≤7 días),
 // notas con fecha límite próxima (≤3 días) y fiados con más de 30 días
@@ -15,9 +16,11 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createAuthenticatedClient(auth.token)
+    // Ruta server-side (corre en UTC en Vercel) — se usa el día de Bogotá
+    // explícito, no `toISOString().split('T')[0]` (fecha UTC del servidor).
     const today = new Date()
-    const in7Days = new Date(today.getTime() + 7 * 86_400_000).toISOString().split('T')[0]
-    const in3Days = new Date(today.getTime() + 3 * 86_400_000).toISOString().split('T')[0]
+    const in7Days = bogotaDateStr(new Date(today.getTime() + 7 * 86_400_000))
+    const in3Days = bogotaDateStr(new Date(today.getTime() + 3 * 86_400_000))
 
     const { data: invoicesData } = await supabase
       .from('supplier_invoices')

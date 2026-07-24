@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { bogotaDateStr } from '@/lib/bogota-time'
 
 interface OrderData {
   id: string
@@ -76,20 +77,26 @@ export async function GET(request: NextRequest) {
     }> = {}
 
     typedOrders.forEach((order) => {
-      const date = new Date(order.created_at)
+      // Día de Bogotá explícito — esta ruta corre server-side (UTC en
+      // Vercel); `new Date(order.created_at).getDate()/getDay()/etc.`
+      // usaría el día UTC, no el de Colombia.
+      const dayStr = bogotaDateStr(new Date(order.created_at))
+      const [yearStr, monthStr] = dayStr.split('-')
       let periodKey: string
 
       switch (groupBy) {
-        case 'week':
-          const weekStart = new Date(date)
-          weekStart.setDate(date.getDate() - date.getDay())
+        case 'week': {
+          const dow = new Date(`${dayStr}T00:00:00Z`).getUTCDay()
+          const weekStart = new Date(`${dayStr}T00:00:00Z`)
+          weekStart.setUTCDate(weekStart.getUTCDate() - dow)
           periodKey = weekStart.toISOString().split('T')[0]
           break
+        }
         case 'month':
-          periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          periodKey = `${yearStr}-${monthStr}`
           break
         default: // day
-          periodKey = date.toISOString().split('T')[0]
+          periodKey = dayStr
       }
 
       if (!salesByPeriod[periodKey]) {

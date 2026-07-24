@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { bogotaDayRange, bogotaToISO } from '@/lib/bogota-time'
 
 interface Account {
   id: string
@@ -121,8 +122,10 @@ export default function CuentasPage() {
     try {
       const params = new URLSearchParams({ limit: '50' })
       if (movementAccountFilter) params.set('account_id', movementAccountFilter)
-      if (movementFrom) params.set('from', `${movementFrom}T00:00:00`)
-      if (movementTo) params.set('to', `${movementTo}T23:59:59`)
+      // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
+      // que Postgres interpreta en UTC y deja la ventana corrida 5 horas).
+      if (movementFrom) params.set('from', bogotaToISO(movementFrom, '00:00'))
+      if (movementTo) params.set('to', bogotaDayRange(movementTo).to)
       const res = await fetch(`/api/account-movements?${params.toString()}`, { headers: authHeaders() })
       if (!res.ok) throw new Error('Error fetching movements')
       const { data } = await res.json()

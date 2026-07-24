@@ -27,7 +27,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
-import { bogotaDateStr, bogotaTimeStr, bogotaToISO } from '@/lib/bogota-time'
+import { bogotaDateStr, bogotaDayRange, bogotaTimeStr, bogotaToISO, formatBogotaTime } from '@/lib/bogota-time'
 
 interface ProductVariant {
   id: string
@@ -255,9 +255,11 @@ export default function VentasPage() {
     if (!session?.access_token) return
     setLoadingSales(true)
     try {
-      const startOfDay = new Date()
-      startOfDay.setHours(0, 0, 0, 0)
-      const res = await fetch(`/api/pos/sales?from=${startOfDay.toISOString()}`, {
+      // Inicio del día en hora de Bogotá explícita — `setHours(0,0,0,0)`
+      // usa la medianoche de la zona horaria del dispositivo, que solo es
+      // correcta si el equipo está configurado en hora de Colombia.
+      const { from } = bogotaDayRange(bogotaDateStr(new Date()))
+      const res = await fetch(`/api/pos/sales?from=${from}`, {
         headers: authHeaders(),
       })
       if (!res.ok) return
@@ -1149,7 +1151,7 @@ export default function VentasPage() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {(sale.order_items || []).length} producto(s) ·{' '}
-                    {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                    {formatBogotaTime(sale.created_at)}
                   </p>
                   {canViewProfit && (
                     <p className="text-xs text-muted-foreground">

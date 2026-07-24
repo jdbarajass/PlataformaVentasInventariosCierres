@@ -71,9 +71,13 @@ export default function PresupuestoPage() {
     [session?.access_token]
   )
 
+  // operating_expenses.date es DATE (sin hora/zona horaria) — se construyen
+  // los límites directamente como strings, sin pasar por Date/toISOString,
+  // que sí dependen de la zona horaria del dispositivo.
   const monthRange = useCallback(() => {
-    const from = new Date(year, month - 1, 1).toISOString().split('T')[0]
-    const to = new Date(year, month, 0).toISOString().split('T')[0]
+    const lastDay = new Date(year, month, 0).getDate()
+    const from = `${year}-${String(month).padStart(2, '0')}-01`
+    const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     return { from, to }
   }, [year, month])
 

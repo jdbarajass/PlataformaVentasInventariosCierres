@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
+import { bogotaDateStr } from '@/lib/bogota-time'
 import { DailyClosure, Inserts } from '@/types/database'
 
 export default function DailyClosuresPage() {
@@ -16,7 +17,9 @@ export default function DailyClosuresPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    // "Hoy" en hora de Bogotá, no la fecha UTC de `toISOString()` — de 7pm
+    // a medianoche en Colombia, la fecha UTC ya es el día siguiente.
+    date: bogotaDateStr(new Date()),
     cash_amount: '',
     card_amount: '',
     transfer_amount: '',
@@ -75,7 +78,7 @@ export default function DailyClosuresPage() {
     if (!error) {
       setShowForm(false)
       setFormData({
-        date: new Date().toISOString().split('T')[0],
+        date: bogotaDateStr(new Date()),
         cash_amount: '',
         card_amount: '',
         transfer_amount: '',
@@ -106,7 +109,7 @@ export default function DailyClosuresPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `cierres-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `cierres-${bogotaDateStr(new Date())}.csv`
     a.click()
   }
 

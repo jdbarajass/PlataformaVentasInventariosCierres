@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
+import { BOGOTA_TZ, bogotaDateStr, formatBogotaTime } from '@/lib/bogota-time'
 import {
   TALLAS_DISPONIBLES,
   detectarCategoria,
@@ -1046,7 +1047,7 @@ export default function InventarioPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `inventario-${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `inventario-${bogotaDateStr(new Date())}.csv`
       a.click()
       URL.revokeObjectURL(url)
       setShowExportDialog(false)
@@ -1619,10 +1620,10 @@ export default function InventarioPage() {
                       return (
                         <tr key={m.id} className="border-b last:border-0">
                           <td className="px-6 py-4 text-sm">
-                            {d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            {d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: BOGOTA_TZ })}
                           </td>
                           <td className="px-6 py-4 text-sm text-muted-foreground">
-                            {d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                            {formatBogotaTime(m.created_at)}
                           </td>
                           <td className="px-6 py-4 font-medium">{m.product?.title || 'Producto eliminado'}</td>
                           <td className="px-6 py-4 text-sm">{typeLabels[m.type] || m.type}</td>

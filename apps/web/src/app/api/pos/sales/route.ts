@@ -146,7 +146,10 @@ export async function GET(request: NextRequest) {
       query = query.gte('created_at', from)
     }
     if (to) {
-      query = query.lte('created_at', to)
+      // Límite superior EXCLUSIVO — el único caller que envía `to`
+      // (Ventas del Día) manda el inicio del día siguiente en hora de
+      // Bogotá (bogotaDayRange), no el final del día pedido.
+      query = query.lt('created_at', to)
     }
 
     const { data, error } = await query

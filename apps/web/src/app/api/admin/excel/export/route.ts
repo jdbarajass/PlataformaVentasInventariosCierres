@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { sheetDefinitions } from '@/lib/excel/sheets'
+import { bogotaDateStr } from '@/lib/bogota-time'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer()
-    const filename = `YJBMOTOCOM_Respaldo_${new Date().toISOString().split('T')[0]}.xlsx`
+    const filename = `YJBMOTOCOM_Respaldo_${bogotaDateStr(new Date())}.xlsx`
 
     return new NextResponse(buffer, {
       headers: {

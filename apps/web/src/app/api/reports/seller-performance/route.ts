@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
       .eq('channel', 'pos')
       .eq('payment_status', 'paid')
       .gte('created_at', from)
-      .lte('created_at', to)
+      // Límite superior EXCLUSIVO — el caller (rendimiento-vendedores)
+      // manda el inicio del día siguiente al rango en hora de Bogotá
+      // (bogotaDayRange), no el final del día pedido.
+      .lt('created_at', to)
 
     if (error) {
       throw error

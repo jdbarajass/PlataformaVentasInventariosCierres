@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -27,13 +28,17 @@ export async function GET(request: NextRequest) {
     }
     const isAdmin = auth.user.role === 'admin'
 
+    // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
+    // que Postgres interpreta en UTC y deja la ventana corrida 5 horas —
+    // ver comentario de bogotaDayRange en lib/bogota-time.ts).
+    const { from, to } = bogotaDayRange(date)
     const supabase = createAuthenticatedClient(auth.token)
     const { data, error } = await supabase
       .from('orders')
       .select('*, order_items(*), payments(*)')
       .eq('channel', 'pos')
-      .gte('created_at', `${date}T00:00:00`)
-      .lte('created_at', `${date}T23:59:59`)
+      .gte('created_at', from)
+      .lt('created_at', to)
       .order('created_at', { ascending: true })
 
     if (error) throw error
@@ -67,7 +72,7 @@ export async function GET(request: NextRequest) {
       const commission = payments.reduce((s: number, p: any) => s + (p.commission_cents || 0), 0)
       const row: Record<string, any> = {
         orden: sale.order_number,
-        hora: new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+        hora: formatBogotaTime(sale.created_at),
         cliente: sale.customer_name || 'Cliente de mostrador',
         productos: items.map((i: any) => `${i.product_title}${i.product_talla ? ` (T:${i.product_talla})` : ''} x${i.qty}`).join(', '),
         cantidad: items.reduce((s: number, i: any) => s + i.qty, 0),

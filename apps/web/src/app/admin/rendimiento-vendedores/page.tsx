@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Trophy, Loader2, Lock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
+import { bogotaDateStr, bogotaDayRange } from '@/lib/bogota-time'
 
 interface SellerPerformance {
   seller_id: string | null
@@ -14,12 +15,14 @@ interface SellerPerformance {
 }
 
 export default function RendimientoVendedoresPage() {
+  // "Hoy"/"día 1 del mes" en hora de Bogotá, no vía `toISOString()` — de
+  // 7pm a medianoche en Colombia, la fecha UTC ya es el día siguiente.
   const [dateFrom, setDateFrom] = useState(() => {
     const date = new Date()
     date.setDate(1)
-    return date.toISOString().split('T')[0]
+    return bogotaDateStr(date)
   })
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0])
+  const [dateTo, setDateTo] = useState(() => bogotaDateStr(new Date()))
   const [data, setData] = useState<SellerPerformance[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -30,8 +33,12 @@ export default function RendimientoVendedoresPage() {
     if (!session?.access_token || !isAdmin) return
     setLoading(true)
     try {
+      // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
+      // que Postgres interpreta en UTC y deja la ventana corrida 5 horas).
+      const { from } = bogotaDayRange(dateFrom)
+      const { to } = bogotaDayRange(dateTo)
       const res = await fetch(
-        `/api/reports/seller-performance?from=${dateFrom}T00:00:00&to=${dateTo}T23:59:59`,
+        `/api/reports/seller-performance?from=${from}&to=${to}`,
         { headers: { Authorization: `Bearer ${session.access_token}` } }
       )
       if (!res.ok) return

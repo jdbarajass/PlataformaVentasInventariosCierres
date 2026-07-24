@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Wallet, Package, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { bogotaDateStr, bogotaDayRange } from '@/lib/bogota-time'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -29,9 +30,11 @@ export default function MiCuadrePage() {
   const fetchToday = useCallback(async () => {
     if (!session?.access_token) return
     try {
-      const startOfDay = new Date()
-      startOfDay.setHours(0, 0, 0, 0)
-      const res = await fetch(`/api/pos/sales?from=${startOfDay.toISOString()}`, {
+      // Inicio del día en hora de Bogotá explícita — `setHours(0,0,0,0)`
+      // usa la medianoche de la zona horaria del dispositivo, que solo es
+      // correcta si el equipo está configurado en hora de Colombia.
+      const { from } = bogotaDayRange(bogotaDateStr(new Date()))
+      const res = await fetch(`/api/pos/sales?from=${from}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       if (!res.ok) return

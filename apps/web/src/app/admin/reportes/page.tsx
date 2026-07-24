@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
+import { bogotaDateStr, bogotaDayRange, bogotaHour } from '@/lib/bogota-time'
 
 interface SalesData {
   date: string
@@ -43,12 +44,15 @@ const methodLabels: Record<string, string> = {
 }
 
 export default function ReportsPage() {
+  // "Hoy" y "hace 30 días" en hora de Bogotá, no la fecha UTC de
+  // `toISOString()` — de 7pm a medianoche en Colombia, la fecha UTC ya es
+  // el día siguiente, lo que dejaría el rango por defecto corrido un día.
   const [dateFrom, setDateFrom] = useState(() => {
     const date = new Date()
     date.setDate(date.getDate() - 30)
-    return date.toISOString().split('T')[0]
+    return bogotaDateStr(date)
   })
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0])
+  const [dateTo, setDateTo] = useState(() => bogotaDateStr(new Date()))
   const [salesData, setSalesData] = useState<SalesData[]>([])
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [totals, setTotals] = useState({ revenue: 0, orders: 0, avgOrder: 0 })
@@ -72,13 +76,18 @@ export default function ReportsPage() {
     setLoadError(null)
 
     const run = async () => {
+    // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
+    // que Postgres interpreta en UTC y deja la ventana corrida 5 horas —
+    // ver comentario de bogotaDayRange en lib/bogota-time.ts).
+    const { from: rangeFrom } = bogotaDayRange(dateFrom)
+    const { to: rangeTo } = bogotaDayRange(dateTo)
     // Fetch orders in date range
     const { data: ordersData } = await supabase
       .from('orders')
       .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(method, commission_cents)')
       .eq('payment_status', 'paid')
-      .gte('created_at', `${dateFrom}T00:00:00`)
-      .lte('created_at', `${dateTo}T23:59:59`)
+      .gte('created_at', rangeFrom)
+      .lt('created_at', rangeTo)
       .order('created_at', { ascending: true })
 
     const orders = (ordersData as unknown as OrderWithItems[]) || []
@@ -94,7 +103,10 @@ export default function ReportsPage() {
       const hourBuckets: Record<string, number> = {}
 
       orders.forEach((order) => {
-        const date = order.created_at.split('T')[0]
+        // Día de Bogotá, no el día UTC crudo de `created_at.split('T')[0]`
+        // — una venta hecha entre 7pm y medianoche en Colombia ya cae en
+        // el día UTC siguiente.
+        const date = bogotaDateStr(new Date(order.created_at))
         const dayCost = (order.order_items || []).reduce((s, item) => s + item.qty * (item.cost_cents || 0), 0)
         if (!dailySales[date]) {
           dailySales[date] = { total: 0, orders: 0, cost: 0 }
@@ -103,7 +115,10 @@ export default function ReportsPage() {
         dailySales[date].orders += 1
         dailySales[date].cost += dayCost
 
-        const hour = new Date(order.created_at).getHours()
+        // Hora explícita de Bogotá, no Date.getHours() (depende de la zona
+        // horaria del dispositivo) — mismo cuidado que Préstamos/Historial
+        // Mensual, ver docs/UNIFICACION_YJBMOTOCOM.md sección 28.
+        const hour = bogotaHour(order.created_at)
         const bucketStart = Math.floor(hour / 2) * 2
         const bucketLabel = `${bucketStart}-${bucketStart + 2}h`
         hourBuckets[bucketLabel] = (hourBuckets[bucketLabel] || 0) + 1

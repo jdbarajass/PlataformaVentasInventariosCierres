@@ -1,6 +1,7 @@
 import { getServiceSupabase } from '@/lib/supabase'
 import { Order } from '@/types/database'
 import { DashboardTabs } from '@/components/admin/dashboard-tabs'
+import { bogotaDateStr, bogotaToISO } from '@/lib/bogota-time'
 
 // Se usa el cliente de servicio (bypassa RLS) en vez del cliente anónimo:
 // esta página es un Server Component sin el JWT del usuario adjunto a la
@@ -29,10 +30,26 @@ interface TopProductItem {
 }
 
 async function getDashboardStats() {
-  const today = new Date()
-  const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString()
-  const startOfWeek = new Date(today.setDate(today.getDate() - 7)).toISOString()
-  const startOfMonth = new Date(today.setDate(1)).toISOString()
+  // Límites explícitos en hora de Bogotá. Esta página es un Server
+  // Component (corre en el runtime de Vercel, normalmente en UTC) — el
+  // código anterior usaba `new Date().setHours(0,0,0,0)` (medianoche del
+  // servidor, casi siempre UTC) y además mutaba el mismo objeto `today`
+  // tres veces seguidas (startOfWeek y luego startOfMonth encima de ese
+  // resultado ya modificado), lo que además calculaba mal "inicio del mes"
+  // los primeros 7 días de cada mes. "Ventas de hoy/semana/mes" llevaba
+  // tiempo mostrando la ventana equivocada, sobre todo en la noche
+  // (7pm-medianoche en Colombia), cuando el servidor ya piensa que es
+  // "mañana".
+  const now = new Date()
+  const todayStr = bogotaDateStr(now)
+  const startOfDay = bogotaToISO(todayStr, '00:00')
+
+  const weekAgo = new Date(now)
+  weekAgo.setUTCDate(weekAgo.getUTCDate() - 7)
+  const startOfWeek = bogotaToISO(bogotaDateStr(weekAgo), '00:00')
+
+  const [y, m] = todayStr.split('-')
+  const startOfMonth = bogotaToISO(`${y}-${m}-01`, '00:00')
 
   // Sales today
   const { data: todaySales } = await supabase
@@ -139,17 +156,16 @@ interface VentasOrderRow {
 // Ventas online + de mostrador unificadas, consistente con Reportes/Historial.
 async function getVentasStats() {
   const now = new Date()
-  const startOfDay = new Date(now)
-  startOfDay.setHours(0, 0, 0, 0)
-  const sevenDaysAgo = new Date(now)
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-  sevenDaysAgo.setHours(0, 0, 0, 0)
+  const startOfDay = bogotaToISO(bogotaDateStr(now), '00:00')
+  const sevenDaysAgoDate = new Date(now)
+  sevenDaysAgoDate.setUTCDate(sevenDaysAgoDate.getUTCDate() - 6)
+  const sevenDaysAgo = bogotaToISO(bogotaDateStr(sevenDaysAgoDate), '00:00')
 
   const { data: todayOrdersData } = await supabase
     .from('orders')
     .select('id, total_cents, created_at, order_items(qty, cost_cents), payments(method, amount_cents, commission_cents)')
     .eq('payment_status', 'paid')
-    .gte('created_at', startOfDay.toISOString())
+    .gte('created_at', startOfDay)
 
   const todayOrders = (todayOrdersData as unknown as VentasOrderRow[]) || []
 
@@ -176,11 +192,12 @@ async function getVentasStats() {
     .from('orders')
     .select('id, total_cents, created_at')
     .eq('payment_status', 'paid')
-    .gte('created_at', sevenDaysAgo.toISOString())
+    .gte('created_at', sevenDaysAgo)
 
   const weekOrders = (weekOrdersData as { total_cents: number; created_at: string }[]) || []
   const trendMap = weekOrders.reduce<Record<string, number>>((acc, o) => {
-    const day = o.created_at.split('T')[0]
+    // Día de Bogotá, no el día UTC crudo — ver comentario de getDashboardStats.
+    const day = bogotaDateStr(new Date(o.created_at))
     acc[day] = (acc[day] || 0) + o.total_cents
     return acc
   }, {})

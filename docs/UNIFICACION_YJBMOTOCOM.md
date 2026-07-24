@@ -1272,3 +1272,35 @@ Cambios:
 **⚠️ Pendiente manual**: aplicar `00027_pos_sale_created_at.sql` en el SQL Editor de Supabase antes de que la fecha elegida en Registrar Venta tenga efecto — sin la migración, la API igual funciona pero el parámetro `p_created_at` no existe en la función y Supabase devolvería un error (o, si `postgrest`/`supabase-js` ignora argumentos desconocidos según la versión, la fecha simplemente no se aplicaría). Aplicar en el mismo orden que las migraciones anteriores (00001-00026).
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`. Cambios comiteados localmente, sin push (pendiente de confirmación explícita, igual que la sección 27).
+
+**Actualización 2026-07-24**: el usuario aplicó `00027_pos_sale_created_at.sql` en Supabase — la fecha editable de Registrar Venta ya tiene efecto en producción.
+
+## 29. Auditoría completa de zona horaria: "hora"/"hoy" en todo el programa (2026-07-24)
+
+El usuario pidió confirmar si el arreglo de zona horaria (hora explícita de Bogotá) se había hecho solo en 2 secciones o si el mismo problema aparecía en más partes del programa. Se hizo una búsqueda exhaustiva de todos los patrones de fecha/hora dependientes de la zona horaria del dispositivo o del servidor, y aparecieron **dos clases de bug relacionadas pero distintas**, en muchos más lugares de los que se habían corregido hasta ahora:
+
+**Clase 1 — mostrar/agrupar por HORA del día sin zona horaria explícita** (`Date.getHours()`, `.toLocaleTimeString()` sin `timeZone`): ya corregido en Préstamos e Historial Mensual (secciones 24 y 28), pero **no** en:
+- `admin/reportes/page.tsx` — cálculo de "horas pico" (mismo bug que Historial Mensual, nunca se replicó el fix ahí).
+- `admin/inventario/page.tsx`, `admin/ventas-dia/page.tsx`, `admin/ventas/page.tsx` — columna "Hora" en movimientos/facturas/ventas del día.
+- `api/pos/sales/export/route.ts` — columna "Hora" del Excel exportado. Este era el más grave de esta clase: corre **server-side** en el runtime de Vercel (normalmente UTC), así que el Excel exportado mostraba la hora **siempre** mal por 5 horas, sin depender de ningún dispositivo — no era condicional como los demás casos de esta clase (que solo fallan si el equipo del usuario no está configurado en hora de Colombia).
+
+**Clase 2 — "hoy"/límites de rango de fecha construidos con `toISOString()` o naive `${date}T00:00:00`** (más grave y más extendida de lo esperado): `new Date().toISOString().split('T')[0]` da la fecha en **UTC**, no en Bogotá; y pasar `"${date}T00:00:00"` (sin offset) a un filtro sobre una columna `TIMESTAMPTZ` hace que Postgres lo interprete en la zona horaria de la **sesión del servidor** (UTC en Supabase por defecto) — como Bogotá es UTC-5, cualquiera de los dos patrones deja la ventana de "hoy" corrida 5 horas: entre las 7pm y la medianoche en Colombia, todavía no cae dentro de "hoy" en términos UTC. Encontrado en:
+- **`admin/page.tsx` (Dashboard) — el más grave de todos**: es un *Server Component* (corre siempre en UTC en Vercel, sin depender de ningún dispositivo). "Ventas de hoy/semana/mes" llevaba mostrando la ventana equivocada todo este tiempo, agravado por un bug adicional de mutación encadenada del mismo objeto `Date` (`today.setHours(...)` → `today.setDate(...)` → `today.setDate(1)`, cada uno sobre el resultado ya modificado del anterior) que además calculaba mal el "inicio del mes" durante los primeros 7 días de cada mes.
+- **`admin/ventas-dia/page.tsx`** — la fecha por defecto (`date` state) y el rango de la consulta de ventas (`from`/`to` enviados a `/api/pos/sales`): la página que se usa a diario para el cuadre de caja podía mostrarse vacía o incompleta en la noche.
+- **`admin/ventas/page.tsx`** y **`admin/mi-cuadre/page.tsx`** — "ventas de hoy" construido con `setHours(0,0,0,0)` (medianoche del dispositivo, no de Bogotá explícita).
+- **`api/pos/sales/export/route.ts`** — mismo rango naive para el Excel de un día específico.
+- **`admin/historial-mensual/page.tsx`** y **`admin/reportes/page.tsx`** — agrupación de ventas por día (`created_at.split('T')[0]`, el día UTC crudo del timestamp) y límites de mes/rango.
+- **`admin/rendimiento-vendedores/page.tsx`** + **`api/reports/seller-performance/route.ts`**, **`admin/cuentas/page.tsx`** + **`api/account-movements/route.ts`** — mismo patrón de rango naive.
+- **`api/admin/session-alerts/route.ts`** — umbrales "en 7 días"/"en 3 días" para facturas/notas por vencer (menor severidad, solo corre server-side en UTC).
+- Nombres de archivo con la fecha de hoy (`cierres`, `inventario`, respaldo Excel) — cosmético, corregido de paso por consistencia.
+- `api/reports/sales/route.ts` — mismo bug de agrupación, pero es una ruta que **ningún** frontend consume actualmente (código muerto); se corrigió igual por si se usa en el futuro.
+
+**Qué NO se tocó** (evaluado y descartado): `lib/alegra.ts` (aritmética de fechas consistente en UTC de punta a punta, sin mezclar con hora local — no hay bug real); `mi-cuadre`'s "Actualizado a las..." (autorreferencial, mismo instante/dispositivo, no hay comparación entre zonas horarias); construcción de límites de mes en Historial Mensual/Presupuesto que usaba `new Date(year, month-1, 1).toISOString()` (se corrigió de todas formas, ver abajo, aunque el riesgo real era bajo para dispositivos en Colombia).
+
+**Cambios**:
+- `lib/bogota-time.ts` ganó tres funciones nuevas: `bogotaHour(iso)` (hora 0-23 en Bogotá, reemplaza `Date.getHours()`), `formatBogotaTime(iso)` (formatea "HH:MM" en hora de Bogotá, reemplaza `.toLocaleTimeString()` sin `timeZone`), y `bogotaDayRange(dateStr)` (límites `{from, to}` de un día de Bogotá en UTC real, pensados para `.gte(from).lt(to)` — límite superior **exclusivo**, para no depender de la precisión de milisegundos de un `.lte()` a las 23:59:59).
+- Los endpoints que reciben un `to` de tipo "límite superior exclusivo" (`/api/pos/sales`, `/api/reports/seller-performance`, `/api/account-movements`) cambiaron de `.lte()` a `.lt()` — solo tenían un caller cada uno, así que el cambio de semántica es seguro.
+- `admin/page.tsx` (Dashboard): reescrito `getDashboardStats()`/`getVentasStats()` para calcular cada límite (hoy/semana/mes) de forma independiente con `bogotaToISO`, en vez de mutar el mismo objeto `Date` tres veces.
+- Historial Mensual e Historial Mensual/Presupuesto: los límites de mes ahora se construyen con strings directos (`${year}-${month}-01`) en vez de `Date`/`toISOString()`, evitando cualquier dependencia de zona horaria para columnas `DATE` puras (`operating_expenses.date`).
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build` en el barrido completo.

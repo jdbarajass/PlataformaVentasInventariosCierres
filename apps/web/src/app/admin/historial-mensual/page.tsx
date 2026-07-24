@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
-import { BOGOTA_TZ } from '@/lib/bogota-time'
+import { bogotaDateStr, bogotaHour, bogotaToISO } from '@/lib/bogota-time'
 
 const monthNames = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -28,9 +28,18 @@ const methodLabels: Record<string, string> = {
   addi: 'Addi', card: 'Datáfono', other: 'Otro',
 }
 
+function firstDayISO(year: number, month: number) {
+  const y = month > 12 ? year + 1 : year
+  const m = ((month - 1) % 12) + 1
+  return bogotaToISO(`${y}-${String(m).padStart(2, '0')}-01`, '00:00')
+}
+
 async function fetchMonthOrders(year: number, month: number) {
-  const from = new Date(year, month - 1, 1).toISOString()
-  const to = new Date(year, month, 1).toISOString()
+  // Límites explícitos en hora de Bogotá (no `new Date(year, month-1, 1)`
+  // + `.toISOString()`, que depende de que el dispositivo esté configurado
+  // en hora de Colombia para dar el límite correcto).
+  const from = firstDayISO(year, month)
+  const to = firstDayISO(year, month + 1)
   const { data } = await supabase
     .from('orders')
     .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(method, amount_cents, commission_cents)')
@@ -86,8 +95,12 @@ export default function HistorialMensualPage() {
       setPrevProfit(pRevenue - pCost)
 
       if (canViewProfit) {
-        const from = new Date(year, month - 1, 1).toISOString().split('T')[0]
-        const to = new Date(year, month, 1).toISOString().split('T')[0]
+        // operating_expenses.date es DATE (sin hora/zona horaria) — se
+        // construye el string directamente, sin pasar por Date/toISOString,
+        // que sí dependen de la zona horaria del dispositivo.
+        const nextMonthDate = new Date(year, month, 1)
+        const from = `${year}-${String(month).padStart(2, '0')}-01`
+        const to = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`
         const { data: expensesData } = await supabase
           .from('operating_expenses')
           .select('amount_cents, date')
@@ -168,7 +181,10 @@ export default function HistorialMensualPage() {
   // que el local (todas_fechas = ventas ∪ gastos_por_dia.keys()).
   const dailyFixedExpense = fixedMonthlyTotal / diasMes
   const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number; commission: number; units: number }>>((acc, o) => {
-    const day = o.created_at.split('T')[0]
+    // Día de Bogotá, no el día UTC crudo de `created_at.split('T')[0]` —
+    // una venta hecha entre 7pm y medianoche en Colombia ya cae en el día
+    // UTC siguiente, lo que la habría atribuido al día equivocado aquí.
+    const day = bogotaDateStr(new Date(o.created_at))
     if (!acc[day]) acc[day] = { revenue: 0, cost: 0, commission: 0, units: 0 }
     acc[day].revenue += o.total_cents
     acc[day].cost += (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0)
@@ -266,13 +282,11 @@ export default function HistorialMensualPage() {
   // Horas pico: franjas de 2h de 6am a 22pm, sumando unidades e ingresos de
   // cada orden en la franja de su hora de creación — igual que
   // _tabla_horas_pico del software local (allí agrupa por v.hora en vez de
-  // created_at, pero el resultado es equivalente). Se usa la hora explícita
-  // de Bogotá (Intl con timeZone: 'America/Bogota'), no `Date.getHours()`
-  // (que depende de la zona horaria del sistema operativo del navegador) —
-  // mismo cuidado que se tuvo con Préstamos, para que la franja horaria no
-  // varíe según la configuración del equipo desde el que se genera el reporte.
-  const bogotaHour = (iso: string) =>
-    parseInt(new Intl.DateTimeFormat('en-US', { timeZone: BOGOTA_TZ, hour: '2-digit', hour12: false }).format(new Date(iso)), 10) % 24
+  // created_at, pero el resultado es equivalente). bogotaHour() usa la hora
+  // explícita de Bogotá, no `Date.getHours()` (que depende de la zona
+  // horaria del dispositivo/servidor) — mismo cuidado que se tuvo con
+  // Préstamos, para que la franja horaria no varíe según la configuración
+  // del equipo desde el que se genera el reporte.
   const peakHourSlots: [number, number][] = [[6, 8], [8, 10], [10, 12], [12, 14], [14, 16], [16, 18], [18, 20], [20, 22]]
   const hourlyMap = orders.reduce<Record<number, { units: number; revenue: number }>>((acc, o) => {
     const h = bogotaHour(o.created_at)

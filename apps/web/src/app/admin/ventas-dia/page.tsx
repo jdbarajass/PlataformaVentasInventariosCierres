@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
+import { bogotaDateStr, bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
 
 interface SaleItem {
   id: string
@@ -82,7 +83,11 @@ function VentasDiaContent() {
   // ("Ver Vista del Día" del software local, ver docs/UNIFICACION_YJBMOTOCOM.md
   // sección 21) — sin el parámetro, se abre en el día de hoy como siempre.
   const searchParams = useSearchParams()
-  const [date, setDate] = useState(() => searchParams.get('date') || new Date().toISOString().split('T')[0])
+  // "Hoy" en hora de Bogotá, no la fecha UTC de `toISOString()` — de 7pm a
+  // medianoche en Colombia, la fecha UTC ya es el día siguiente, así que
+  // esta página (usada a diario para el cuadre de caja) mostraría el día
+  // equivocado (vacío) en la noche si se usara ese patrón.
+  const [date, setDate] = useState(() => searchParams.get('date') || bogotaDateStr(new Date()))
   const [sales, setSales] = useState<Sale[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -130,8 +135,10 @@ function VentasDiaContent() {
     if (!session?.access_token) return
     setLoading(true)
     try {
-      const from = `${date}T00:00:00`
-      const to = `${date}T23:59:59`
+      // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
+      // que Postgres interpreta en UTC y deja la ventana corrida 5 horas —
+      // ver comentario de bogotaDayRange).
+      const { from, to } = bogotaDayRange(date)
       const res = await fetch(`/api/pos/sales?from=${from}&to=${to}&limit=200`, { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
@@ -624,7 +631,7 @@ function VentasDiaContent() {
                           <td className="px-3 py-2">
                             <p className="text-xs text-muted-foreground">{sale.order_number}</p>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                              {formatBogotaTime(sale.created_at)}
                             </p>
                           </td>
                           <td className="px-3 py-2">
