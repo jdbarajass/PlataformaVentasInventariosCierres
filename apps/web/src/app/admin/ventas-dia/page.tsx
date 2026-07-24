@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  Calendar, Search, Plus, Trash2, Loader2, Receipt, ChevronDown, ChevronRight, Pencil, X, CheckCircle2, Download,
+  Calendar, Search, Plus, Trash2, Loader2, Receipt, Pencil, X, CheckCircle2, Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,7 +93,6 @@ function VentasDiaContent() {
   // docs/UNIFICACION_YJBMOTOCOM.md sección 21).
   const [pendingLoans, setPendingLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
 
   // Edit form state
@@ -248,9 +247,21 @@ function VentasDiaContent() {
     return acc
   }, {})
 
+  const methodSummary = (sale: Sale) => {
+    if (!sale.payments || sale.payments.length === 0) return '—'
+    return sale.payments.map((p) => methodLabels[p.method as PaymentSplit['method']] || p.method).join(' + ')
+  }
+
+  // Lista plana de cada producto vendido (no agrupado por factura colapsada)
+  // para poder ver/evidenciar de un vistazo todo lo vendido en el día — cada
+  // fila conserva la referencia a su factura (order_number) y "Editar" abre
+  // la factura completa (todos los productos de esa venta), no solo esa línea.
+  const saleLines = activeSales.flatMap((sale) => sale.order_items.map((item) => ({ item, sale })))
+  const cancelledSales = sales.filter((s) => s.status === 'cancelled')
+  const editingSale = sales.find((s) => s.id === editingId) || null
+
   const startEdit = (sale: Sale) => {
     setEditingId(sale.id)
-    setExpanded(sale.id)
     setEditCustomerName(sale.customer_name || '')
     setEditCustomerPhone(sale.customer_phone || '')
     setEditCart(
@@ -595,212 +606,242 @@ function VentasDiaContent() {
           No hay ventas de mostrador en esta fecha
         </div>
       ) : (
-        <div className="space-y-2">
-          {sales.map((sale) => {
-            const isExpanded = expanded === sale.id
-            const isEditing = editingId === sale.id
-            return (
-              <div key={sale.id} className="rounded-xl border bg-card">
-                <div
-                  className="flex cursor-pointer items-center justify-between p-4"
-                  onClick={() => !isEditing && setExpanded(isExpanded ? null : sale.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    {sale.status !== 'cancelled' && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(sale.id)}
-                        onChange={() => toggleSelect(sale.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-4 w-4 rounded"
-                      />
-                    )}
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <div>
-                      <p className="font-medium">{sale.order_number} — {sale.customer_name || 'Cliente de mostrador'}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {sale.status === 'cancelled' ? (
-                      <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Cancelada</Badge>
-                    ) : (
-                      <p className="font-bold">{formatPrice(sale.total_cents)}</p>
-                    )}
-                  </div>
-                </div>
-
-                {isExpanded && sale.status !== 'cancelled' && (
-                  <div className="space-y-4 border-t p-4">
-                    {!isEditing ? (
-                      <>
-                        <div className="overflow-x-auto rounded-lg border">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
-                                <th className="px-3 py-2 text-center text-muted-foreground">Cant.</th>
-                                <th className="px-3 py-2 text-right text-muted-foreground">Total</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sale.order_items.map((item) => (
-                                <tr key={item.id} className="border-b last:border-0">
-                                  <td className="px-3 py-2">{item.product_title} {item.product_talla ? `(${item.product_talla})` : ''}</td>
-                                  <td className="px-3 py-2 text-center">{item.qty}</td>
-                                  <td className="px-3 py-2 text-right">{formatPrice(item.total_cents)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {sale.payments.map((p) => (
-                            <Badge key={p.id} variant="outline">{p.method}: {formatPrice(p.amount_cents)}</Badge>
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" className="rounded-lg" onClick={() => startEdit(sale)}>
-                            <Pencil className="mr-1 h-3 w-3" /> Editar
+        <div className="rounded-xl border bg-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="w-8 px-3 py-2"></th>
+                  <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
+                  {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">Costo</th>}
+                  <th className="px-3 py-2 text-right text-muted-foreground">Precio Venta</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground">Método de Pago</th>
+                  {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">G. Neta</th>}
+                  <th className="px-3 py-2 text-left text-muted-foreground">Factura</th>
+                  <th className="px-3 py-2 text-center text-muted-foreground">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {saleLines.map(({ item, sale }) => {
+                  const gananciaNeta = item.total_cents - item.qty * (item.cost_cents || 0)
+                  return (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(sale.id)}
+                          onChange={() => toggleSelect(sale.id)}
+                          className="h-4 w-4 rounded"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        {item.product_title}
+                        {item.product_talla && <Badge variant="outline" className="ml-1">{item.product_talla}</Badge>}
+                        {item.qty > 1 && <span className="ml-1 text-xs text-muted-foreground">×{item.qty}</span>}
+                      </td>
+                      {canViewProfit && (
+                        <td className="px-3 py-2 text-right text-muted-foreground">{formatPrice(item.qty * (item.cost_cents || 0))}</td>
+                      )}
+                      <td className="px-3 py-2 text-right font-medium">{formatPrice(item.total_cents)}</td>
+                      <td className="px-3 py-2">{methodSummary(sale)}</td>
+                      {canViewProfit && (
+                        <td className={`px-3 py-2 text-right ${gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatPrice(gananciaNeta)}
+                        </td>
+                      )}
+                      <td className="px-3 py-2">
+                        <p className="text-xs text-muted-foreground">{sale.order_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(sale.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost" size="icon" className="h-7 w-7"
+                            title="Editar factura completa"
+                            onClick={() => startEdit(sale)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="rounded-lg text-red-500" onClick={() => handleCancelSale(sale.id)}>
-                            Cancelar venta
-                          </Button>
-                          <a href={`/api/orders/${sale.id}/invoice`} target="_blank" rel="noopener noreferrer" className="ml-auto text-sm text-cyan-500 hover:underline">
-                            Ver recibo
+                          <a
+                            href={`/api/orders/${sale.id}/invoice`} target="_blank" rel="noopener noreferrer"
+                            title="Ver recibo"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-cyan-500 hover:bg-muted"
+                          >
+                            <Receipt className="h-3.5 w-3.5" />
                           </a>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          <Input placeholder="Nombre del cliente" value={editCustomerName} onChange={(e) => setEditCustomerName(e.target.value)} className="rounded-lg" />
-                          <Input placeholder="Teléfono" value={editCustomerPhone} onChange={(e) => setEditCustomerPhone(e.target.value)} className="rounded-lg" />
-                        </div>
-
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input placeholder="Agregar producto..." value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="rounded-lg pl-10" />
-                          {editResults.length > 0 && (
-                            <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
-                              {editResults.map((p) =>
-                                p.variants.length === 0 ? (
-                                  <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => addToEditCart(p, null)}>
-                                    {p.title}
-                                  </button>
-                                ) : (
-                                  p.variants.map((v) => (
-                                    <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => addToEditCart(p, v)}>
-                                      {p.title} {v.talla ? `(${v.talla})` : ''}
-                                    </button>
-                                  ))
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="overflow-x-auto rounded-lg border">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
-                                <th className="px-3 py-2 text-center text-muted-foreground">Cant.</th>
-                                <th className="px-3 py-2 text-right text-muted-foreground">Precio</th>
-                                <th className="px-3 py-2"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {editCart.map((line) => (
-                                <tr key={line.key} className="border-b last:border-0">
-                                  <td className="px-3 py-2">{line.title} {line.talla ? `(${line.talla})` : ''}</td>
-                                  <td className="px-3 py-2 text-center">
-                                    <Input
-                                      type="number" min="1" value={line.qty}
-                                      onChange={(e) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, qty: parseInt(e.target.value) || 1 } : l))}
-                                      className="h-7 w-16 rounded-lg text-center"
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2 text-right">
-                                    <MoneyInput
-                                      value={String(line.price_cents / 100)}
-                                      onChange={(v) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, price_cents: (parseInt(v) || 0) * 100 } : l))}
-                                      className="h-7 w-24 rounded-lg text-right"
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditCart((prev) => prev.filter((l) => l.key !== line.key))}>
-                                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Pagos</p>
-                          {editPayments.map((p) => (
-                            <div key={p.key} className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
-                              <select
-                                value={p.method}
-                                onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, method: e.target.value as PaymentSplit['method'] } : x))}
-                                className="rounded-lg border bg-background px-2 py-1 text-xs"
-                              >
-                                {Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                              </select>
-                              <select
-                                value={p.account_id}
-                                onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, account_id: e.target.value } : x))}
-                                className="rounded-lg border bg-background px-2 py-1 text-xs"
-                              >
-                                <option value="">Sin cuenta</option>
-                                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                              </select>
-                              <MoneyInput
-                                placeholder="Monto" value={p.amount}
-                                onChange={(v) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, amount: v } : x))}
-                                className="h-8 w-28 rounded-lg text-xs"
-                              />
-                              {editPayments.length > 1 && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditPayments((prev) => prev.filter((x) => x.key !== p.key))}>
-                                  <X className="h-3 w-3 text-red-500" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                          <Button variant="outline" size="sm" className="rounded-lg" onClick={addEditPayment}>
-                            <Plus className="mr-1 h-3 w-3" /> Agregar método de pago
+                          <Button
+                            variant="ghost" size="icon" className="h-7 w-7 text-red-500"
+                            title="Cancelar venta"
+                            onClick={() => handleCancelSale(sale.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Total / Pagado</span>
-                            <span>{formatPrice(editTotal)} / {formatPrice(Math.round(editPaymentsTotal))}</span>
-                          </div>
-                          {Math.round(editPaymentsTotal) !== editTotal && (
-                            <div className={`flex justify-between text-xs font-medium ${Math.round(editPaymentsTotal) < editTotal ? 'text-red-500' : 'text-amber-500'}`}>
-                              <span>{Math.round(editPaymentsTotal) < editTotal ? 'Falta' : 'Sobra'}</span>
-                              <span>{formatPrice(Math.abs(Math.round(editPaymentsTotal) - editTotal))}</span>
-                            </div>
-                          )}
                         </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                        <div className="flex gap-2">
-                          <Button className="rounded-lg" onClick={() => saveEdit(sale.id)} disabled={saving}>
-                            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                            Guardar cambios
-                          </Button>
-                          <Button variant="outline" className="rounded-lg" onClick={cancelEdit}>Cancelar edición</Button>
-                        </div>
-                      </div>
+          {cancelledSales.length > 0 && (
+            <div className="space-y-1 border-t p-3">
+              <p className="text-xs font-medium text-muted-foreground">Ventas canceladas</p>
+              {cancelledSales.map((s) => (
+                <div key={s.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{s.order_number} — {s.customer_name || 'Cliente de mostrador'}</span>
+                  <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Cancelada</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Editar factura completa: abre TODOS los productos de esa venta (no
+          solo el que se clickeó) para poder cambiar cantidades/método/
+          cliente de la factura como tal — pedido explícito del usuario. */}
+      {editingSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Editar factura {editingSale.order_number}</h2>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input placeholder="Nombre del cliente" value={editCustomerName} onChange={(e) => setEditCustomerName(e.target.value)} className="rounded-lg" />
+                <Input placeholder="Teléfono" value={editCustomerPhone} onChange={(e) => setEditCustomerPhone(e.target.value)} className="rounded-lg" />
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Agregar producto..." value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="rounded-lg pl-10" />
+                {editResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+                    {editResults.map((p) =>
+                      p.variants.length === 0 ? (
+                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => addToEditCart(p, null)}>
+                          {p.title}
+                        </button>
+                      ) : (
+                        p.variants.map((v) => (
+                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => addToEditCart(p, v)}>
+                            {p.title} {v.talla ? `(${v.talla})` : ''}
+                          </button>
+                        ))
+                      )
                     )}
                   </div>
                 )}
               </div>
-            )
-          })}
+
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
+                      <th className="px-3 py-2 text-center text-muted-foreground">Cant.</th>
+                      <th className="px-3 py-2 text-right text-muted-foreground">Precio</th>
+                      <th className="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editCart.map((line) => (
+                      <tr key={line.key} className="border-b last:border-0">
+                        <td className="px-3 py-2">{line.title} {line.talla ? `(${line.talla})` : ''}</td>
+                        <td className="px-3 py-2 text-center">
+                          <Input
+                            type="number" min="1" value={line.qty}
+                            onChange={(e) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, qty: parseInt(e.target.value) || 1 } : l))}
+                            className="h-7 w-16 rounded-lg text-center"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <MoneyInput
+                            value={String(line.price_cents / 100)}
+                            onChange={(v) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, price_cents: (parseInt(v) || 0) * 100 } : l))}
+                            className="h-7 w-24 rounded-lg text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditCart((prev) => prev.filter((l) => l.key !== line.key))}>
+                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Pagos</p>
+                {editPayments.map((p) => (
+                  <div key={p.key} className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
+                    <select
+                      value={p.method}
+                      onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, method: e.target.value as PaymentSplit['method'] } : x))}
+                      className="rounded-lg border bg-background px-2 py-1 text-xs"
+                    >
+                      {Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                    <select
+                      value={p.account_id}
+                      onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, account_id: e.target.value } : x))}
+                      className="rounded-lg border bg-background px-2 py-1 text-xs"
+                    >
+                      <option value="">Sin cuenta</option>
+                      {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                    <MoneyInput
+                      placeholder="Monto" value={p.amount}
+                      onChange={(v) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, amount: v } : x))}
+                      className="h-8 w-28 rounded-lg text-xs"
+                    />
+                    {editPayments.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditPayments((prev) => prev.filter((x) => x.key !== p.key))}>
+                        <X className="h-3 w-3 text-red-500" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="rounded-lg" onClick={addEditPayment}>
+                  <Plus className="mr-1 h-3 w-3" /> Agregar método de pago
+                </Button>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Total / Pagado</span>
+                  <span>{formatPrice(editTotal)} / {formatPrice(Math.round(editPaymentsTotal))}</span>
+                </div>
+                {Math.round(editPaymentsTotal) !== editTotal && (
+                  <div className={`flex justify-between text-xs font-medium ${Math.round(editPaymentsTotal) < editTotal ? 'text-red-500' : 'text-amber-500'}`}>
+                    <span>{Math.round(editPaymentsTotal) < editTotal ? 'Falta' : 'Sobra'}</span>
+                    <span>{formatPrice(Math.abs(Math.round(editPaymentsTotal) - editTotal))}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button className="rounded-lg" onClick={() => saveEdit(editingSale.id)} disabled={saving}>
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                  Guardar cambios
+                </Button>
+                <Button variant="outline" className="rounded-lg" onClick={cancelEdit}>Cancelar edición</Button>
+                <a
+                  href={`/api/orders/${editingSale.id}/invoice`} target="_blank" rel="noopener noreferrer"
+                  className="ml-auto text-sm text-cyan-500 hover:underline"
+                >
+                  Ver recibo
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

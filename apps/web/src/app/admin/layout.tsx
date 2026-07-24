@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -34,6 +34,7 @@ import {
   CalendarClock,
   History,
   Percent,
+  Menu,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -82,6 +83,20 @@ export default function AdminLayout({
   const pathname = usePathname()
   const { user, userProfile, loading, signOut } = useAuth()
 
+  // Colapsar el sidebar para dar más espacio al contenido — preferencia
+  // persistida en localStorage, pedida explícitamente por el usuario.
+  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => {
+    setCollapsed(localStorage.getItem('admin_sidebar_collapsed') === 'true')
+  }, [])
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('admin_sidebar_collapsed', String(next))
+      return next
+    })
+  }
+
   // Redirigir al login si no hay usuario autenticado
   useEffect(() => {
     if (!loading && !user) {
@@ -116,35 +131,56 @@ export default function AdminLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-card">
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 border-r bg-card transition-all duration-200',
+          collapsed ? 'w-16' : 'w-64'
+        )}
+      >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center border-b px-6">
-            <Link href="/admin" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
+          <div className={cn('flex h-16 items-center border-b', collapsed ? 'justify-center px-2' : 'justify-between px-4')}>
+            <Link href="/admin" className="flex items-center gap-2 overflow-hidden">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
                 <span className="text-sm font-bold text-white">YB</span>
               </div>
-              <span className="font-bold">Admin</span>
+              {!collapsed && <span className="font-bold">Admin</span>}
             </Link>
+            {!collapsed && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={toggleCollapsed} title="Colapsar menú">
+                <Menu className="h-4 w-4" />
+              </Button>
+            )}
           </div>
+          {collapsed && (
+            <button
+              onClick={toggleCollapsed}
+              title="Expandir menú"
+              className="flex items-center justify-center border-b py-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          )}
 
           {/* User Info */}
           {user && (
-            <div className="border-b p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600">
+            <div className={cn('border-b p-4', collapsed && 'flex justify-center px-2')}>
+              <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600">
                   <span className="text-sm font-bold text-white">
                     {userProfile?.name?.charAt(0) || user.email?.charAt(0) || 'U'}
                   </span>
                 </div>
-                <div className="flex-1 truncate">
-                  <p className="truncate text-sm font-medium">
-                    {userProfile?.name || user.email?.split('@')[0]}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {userProfile?.role || 'admin'}
-                  </p>
-                </div>
+                {!collapsed && (
+                  <div className="flex-1 truncate">
+                    <p className="truncate text-sm font-medium">
+                      {userProfile?.name || user.email?.split('@')[0]}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {userProfile?.role || 'admin'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -161,15 +197,17 @@ export default function AdminLayout({
                 <Link
                   key={item.name}
                   href={item.href}
+                  title={collapsed ? item.name : undefined}
                   className={cn(
                     'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
+                    collapsed && 'justify-center px-2',
                     isActive
                       ? 'bg-cyan-500/10 text-cyan-500'
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  {!collapsed && item.name}
                 </Link>
               )
             })}
@@ -179,25 +217,33 @@ export default function AdminLayout({
           <div className="border-t p-4 space-y-2">
             <Link
               href="/"
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              title={collapsed ? 'Ver tienda' : undefined}
+              className={cn(
+                'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
+                collapsed && 'justify-center px-2'
+              )}
             >
-              <Store className="h-5 w-5" />
-              Ver tienda
+              <Store className="h-5 w-5 shrink-0" />
+              {!collapsed && 'Ver tienda'}
             </Link>
             <Button
               variant="ghost"
               onClick={signOut}
-              className="w-full justify-start gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 hover:text-red-500"
+              title={collapsed ? 'Cerrar sesion' : undefined}
+              className={cn(
+                'w-full gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 hover:text-red-500',
+                collapsed ? 'justify-center px-2' : 'justify-start'
+              )}
             >
-              <LogOut className="h-5 w-5" />
-              Cerrar sesion
+              <LogOut className="h-5 w-5 shrink-0" />
+              {!collapsed && 'Cerrar sesion'}
             </Button>
           </div>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 pl-64">
+      <main className={cn('flex-1 transition-all duration-200', collapsed ? 'pl-16' : 'pl-64')}>
         <div className="p-8">{children}</div>
       </main>
       <SessionAlerts />
