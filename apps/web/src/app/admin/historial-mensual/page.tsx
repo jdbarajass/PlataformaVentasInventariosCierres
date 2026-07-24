@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
+import { BOGOTA_TZ } from '@/lib/bogota-time'
 
 const monthNames = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -265,10 +266,16 @@ export default function HistorialMensualPage() {
   // Horas pico: franjas de 2h de 6am a 22pm, sumando unidades e ingresos de
   // cada orden en la franja de su hora de creación — igual que
   // _tabla_horas_pico del software local (allí agrupa por v.hora en vez de
-  // created_at, pero el resultado es equivalente).
+  // created_at, pero el resultado es equivalente). Se usa la hora explícita
+  // de Bogotá (Intl con timeZone: 'America/Bogota'), no `Date.getHours()`
+  // (que depende de la zona horaria del sistema operativo del navegador) —
+  // mismo cuidado que se tuvo con Préstamos, para que la franja horaria no
+  // varíe según la configuración del equipo desde el que se genera el reporte.
+  const bogotaHour = (iso: string) =>
+    parseInt(new Intl.DateTimeFormat('en-US', { timeZone: BOGOTA_TZ, hour: '2-digit', hour12: false }).format(new Date(iso)), 10) % 24
   const peakHourSlots: [number, number][] = [[6, 8], [8, 10], [10, 12], [12, 14], [14, 16], [16, 18], [18, 20], [20, 22]]
   const hourlyMap = orders.reduce<Record<number, { units: number; revenue: number }>>((acc, o) => {
-    const h = new Date(o.created_at).getHours()
+    const h = bogotaHour(o.created_at)
     if (!acc[h]) acc[h] = { units: 0, revenue: 0 }
     acc[h].units += (o.order_items || []).reduce((s, i) => s + i.qty, 0)
     acc[h].revenue += o.total_cents

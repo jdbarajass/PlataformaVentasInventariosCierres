@@ -39,6 +39,11 @@ const saleSchema = z.object({
   // Forzar la venta aunque el stock sea insuficiente (advertencia previa en
   // el cliente, igual que el software local) — el stock nunca baja de 0.
   force: z.boolean().optional().default(false),
+  // El software local permite elegir la fecha al registrar una venta (para
+  // registrar ventas de días anteriores, ej. si se fue la luz), capturando
+  // la hora real al momento del clic. Si no se envía, la base de datos usa
+  // NOW() como antes.
+  created_at: z.string().datetime().optional(),
 })
 
 // POST - Registrar una venta de mostrador (carrito, pagos combinados, descuenta
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { customer_name, customer_phone, customer_id_number, notes, items, payments, force } =
+    const { customer_name, customer_phone, customer_id_number, notes, items, payments, force, created_at } =
       validation.data
 
     const supabase = createAuthenticatedClient(auth.token)
@@ -87,6 +92,7 @@ export async function POST(request: NextRequest) {
       p_items: resolvedItems,
       p_payments: resolvedPayments,
       p_force: force,
+      p_created_at: created_at || null,
     })
 
     if (error) {

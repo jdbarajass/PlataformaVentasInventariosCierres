@@ -27,6 +27,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { bogotaDateStr, bogotaTimeStr, bogotaToISO } from '@/lib/bogota-time'
 
 interface ProductVariant {
   id: string
@@ -135,6 +136,13 @@ interface SaleSession {
   customerPhone: string
   customerIdNumber: string
   notes: string
+  // Fecha editable de la venta (por defecto hoy en Bogotá) — el software
+  // local permite elegirla para registrar ventas de días anteriores (ej. si
+  // se fue la luz y no se pudo registrar a tiempo). La hora siempre se
+  // captura real al momento de dar clic en "Vender" (ver handleSubmitSale),
+  // igual que Préstamos, para no arrastrar una hora vieja si el formulario
+  // quedó abierto un rato — ver docs/UNIFICACION_YJBMOTOCOM.md sección 24.
+  saleDate: string
   lastSaleId: string | null
 }
 
@@ -147,6 +155,7 @@ const newSession = (label: string): SaleSession => ({
   customerPhone: '',
   customerIdNumber: '',
   notes: '',
+  saleDate: bogotaDateStr(new Date()),
   lastSaleId: null,
 })
 
@@ -448,6 +457,7 @@ export default function VentasPage() {
   const setCustomerPhone = (v: string) => updateActiveSession((s) => ({ ...s, customerPhone: v }))
   const setCustomerIdNumber = (v: string) => updateActiveSession((s) => ({ ...s, customerIdNumber: v }))
   const setNotes = (v: string) => updateActiveSession((s) => ({ ...s, notes: v }))
+  const setSaleDate = (v: string) => updateActiveSession((s) => ({ ...s, saleDate: v }))
 
   // Abre el modal de pago — "Vender" en Alegra abre "Pagar factura". Si solo
   // hay un producto o el carrito está vacío se avisa antes de abrir nada.
@@ -532,6 +542,10 @@ export default function VentasPage() {
             account_id: p.account_id || null,
             amount_cents: Math.round(parseFloat(p.amount) * 100),
           })),
+          // La hora siempre se captura real al momento del clic en "Vender"
+          // (no la de apertura del formulario) — solo la fecha es editable,
+          // igual que Préstamos (ver docs/UNIFICACION_YJBMOTOCOM.md sección 28).
+          created_at: bogotaToISO(current.saleDate, bogotaTimeStr(new Date())),
           force,
         }),
       })
@@ -778,7 +792,16 @@ export default function VentasPage() {
         {/* Factura de venta */}
         <div className="space-y-4 lg:col-span-2">
           <div className="rounded-xl border bg-card p-4">
-            <h2 className="mb-3 text-base font-semibold">Factura de venta</h2>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Factura de venta</h2>
+              <Input
+                type="date"
+                value={activeSession.saleDate}
+                onChange={(e) => setSaleDate(e.target.value)}
+                title="Fecha de la venta — se puede cambiar para registrar ventas de días anteriores"
+                className="h-8 w-auto rounded-lg text-xs"
+              />
+            </div>
 
             <button
               onClick={() => setShowCustomerFields((v) => !v)}

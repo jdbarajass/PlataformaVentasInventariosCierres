@@ -1253,3 +1253,22 @@ El usuario adjuntó dos PDF reales de julio 2026 para comparar (`Reporte_Julio_2
 - **Ventana emergente**: se abre inmediatamente al hacer clic (antes de cualquier `await`) para que el bloqueador de pop-ups del navegador no la descarte, mostrando "Generando reporte…" mientras se resuelve el fetch de inventario, y un mensaje de error si algo falla en vez de quedar colgada.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 28. Confirmación de "horas pico" + fecha editable en Registrar Venta (2026-07-24)
+
+El usuario preguntó dos cosas tras revisar el reporte de la sección 27: (1) si "horas pico" — que solo existía en el software local — ya está funcionando en el desplegado; (2) si en Registrar Venta se puede elegir la fecha, porque en el local sí se podía (para registrar una venta de un día anterior, ej. si se fue la luz y no se pudo registrar a tiempo) pero en el desplegado la fecha quedaba fija en "hoy" sin ninguna forma de cambiarla — necesitaba esto para poder corregir manualmente unas ventas que tiene registradas en el local pero no en la nube.
+
+**Horas pico — confirmado y corregido un riesgo de zona horaria**: sí quedó implementado en la sección 27 (`peakHours` en `historial-mensual/page.tsx`, calculado desde `order.created_at`). Al revisarlo de nuevo se encontró que usaba `new Date(o.created_at).getHours()`, que depende de la zona horaria del sistema operativo del navegador — exactamente el mismo riesgo que ya se había corregido para Préstamos (sección 24). Se cambió a una función `bogotaHour()` explícita con `Intl.DateTimeFormat({ timeZone: 'America/Bogota' })`, para que la franja horaria no varíe según la configuración del equipo desde el que se genera el reporte.
+
+**Fecha editable en Registrar Venta**: confirmado contra `ui/venta_form.py` del software local — tiene un `campo_fecha` (`QDateEdit` con calendario, por defecto hoy pero editable a cualquier fecha), mientras que la hora siempre se captura real (`datetime.now()`) en `controllers/venta_controller.py` al momento de guardar, sin importar la fecha elegida — igual patrón que ya se usó en Préstamos. La nube no tenía nada de esto: ni el formulario tenía campo de fecha, ni la función `create_pos_sale` aceptaba una fecha (el `INSERT` de `orders` no incluía `created_at` en la lista de columnas, así que siempre usaba el `DEFAULT NOW()` de la tabla).
+
+Cambios:
+- Se extrajeron los helpers de zona horaria de Bogotá (antes duplicados solo en Préstamos) a `apps/web/src/lib/bogota-time.ts` (`bogotaDateStr`, `bogotaTimeStr`, `bogotaToISO`, `BOGOTA_TZ`), y se actualizó `prestamos/page.tsx` para importarlos en vez de definirlos localmente.
+- `SaleSession` (Registrar Venta) ahora tiene un campo `saleDate` (por defecto hoy en Bogotá), con un input de fecha visible junto al título "Factura de venta" — no escondido en el panel colapsable de cliente, porque es una corrección que se necesita ver de un vistazo. Al enviar la venta, se combina `saleDate` con la hora real capturada en ese instante (`bogotaTimeStr(new Date())`) para construir `created_at`, igual que Préstamos.
+- `saleSchema` en `apps/web/src/app/api/pos/sales/route.ts` ahora acepta `created_at` opcional, que se pasa como `p_created_at` a la función RPC.
+- Nueva migración `supabase/migrations/00027_pos_sale_created_at.sql`: agrega `p_created_at TIMESTAMPTZ DEFAULT NULL` a `create_pos_sale` (mismo patrón de parámetro nuevo con `DEFAULT` al final ya usado en `00021`/`00025` para `p_force`) y lo incluye explícitamente en el `INSERT` de `orders` (`COALESCE(p_created_at, NOW())`) — antes esa columna nunca se mencionaba en el INSERT, así que siempre tomaba el valor por defecto de la tabla.
+- Al terminar una venta con éxito, la pestaña se resetea a una `newSession()` nueva (fecha = hoy otra vez) — la fecha elegida es una corrección puntual, no una preferencia que deba persistir a la siguiente venta.
+
+**⚠️ Pendiente manual**: aplicar `00027_pos_sale_created_at.sql` en el SQL Editor de Supabase antes de que la fecha elegida en Registrar Venta tenga efecto — sin la migración, la API igual funciona pero el parámetro `p_created_at` no existe en la función y Supabase devolvería un error (o, si `postgrest`/`supabase-js` ignora argumentos desconocidos según la versión, la fecha simplemente no se aplicaría). Aplicar en el mismo orden que las migraciones anteriores (00001-00026).
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`. Cambios comiteados localmente, sin push (pendiente de confirmación explícita, igual que la sección 27).

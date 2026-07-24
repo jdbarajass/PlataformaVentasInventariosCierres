@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { BOGOTA_TZ, bogotaDateStr, bogotaTimeStr, bogotaToISO } from '@/lib/bogota-time'
 
 interface Loan {
   id: string
@@ -33,36 +34,6 @@ const statusColors: Record<Loan['status'], string> = {
   pending: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
   returned: 'bg-green-500/10 text-green-500 border-green-500/20',
   charged: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
-}
-
-// Colombia no tiene horario de verano — UTC-5 todo el año, así que el
-// desfase es siempre fijo. Todo el formateo/cálculo de fecha usa
-// explícitamente 'America/Bogota' en vez de confiar en la zona horaria del
-// sistema operativo del navegador — el software local tuvo justo este
-// problema (la hora mostrada no siempre coincidía con la hora real de
-// Colombia porque dependía de la configuración del equipo).
-const BOGOTA_TZ = 'America/Bogota'
-
-function bogotaDateStr(d: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: BOGOTA_TZ }).format(d)
-}
-
-function bogotaTimeStr(d: Date): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: BOGOTA_TZ,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(d)
-  const hh = parts.find((p) => p.type === 'hour')?.value ?? '00'
-  const mm = parts.find((p) => p.type === 'minute')?.value ?? '00'
-  return `${hh}:${mm}`
-}
-
-// Combina una fecha (YYYY-MM-DD) y hora (HH:MM) locales de Bogotá en el
-// instante UTC correcto, sin depender de la zona horaria del navegador.
-function bogotaToISO(dateStr: string, timeStr: string): string {
-  return new Date(`${dateStr}T${timeStr}:00-05:00`).toISOString()
 }
 
 function diasPendientes(iso: string): number {
