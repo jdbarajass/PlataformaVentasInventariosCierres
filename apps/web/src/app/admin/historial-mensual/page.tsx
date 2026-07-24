@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Printer, TrendingUp, Package, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Printer, TrendingUp, Package, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
@@ -18,7 +18,7 @@ interface OrderRow {
   total_cents: number
   created_at: string
   order_items: { product_id: string; product_title: string; qty: number; total_cents: number; cost_cents: number }[]
-  payments: { method: string; commission_cents: number }[]
+  payments: { method: string; amount_cents: number; commission_cents: number }[]
 }
 
 const methodLabels: Record<string, string> = {
@@ -32,7 +32,7 @@ async function fetchMonthOrders(year: number, month: number) {
   const to = new Date(year, month, 1).toISOString()
   const { data } = await supabase
     .from('orders')
-    .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(method, commission_cents)')
+    .select('id, total_cents, created_at, order_items(product_id, product_title, qty, total_cents, cost_cents), payments(method, amount_cents, commission_cents)')
     .eq('payment_status', 'paid')
     .gte('created_at', from)
     .lt('created_at', to)
@@ -49,10 +49,16 @@ export default function HistorialMensualPage() {
   const [prevProfit, setPrevProfit] = useState(0)
   const [totalOperatingExpenses, setTotalOperatingExpenses] = useState(0)
   const [fixedMonthlyTotal, setFixedMonthlyTotal] = useState(0)
+  // Desglose de gastos fijos (Arriendo/Sueldo/Servicios/Otros) — igual que
+  // Configuración > Comisiones y Gastos Fijos, necesario para la sección
+  // "Desglose de Gastos del Mes" del PDF exportado (igual que _tabla_gastos
+  // del software local, ver docs/UNIFICACION_YJBMOTOCOM.md sección 27).
+  const [fixedBreakdown, setFixedBreakdown] = useState({ arriendo: 0, sueldo: 0, servicios: 0, otros: 0 })
   const [diasMes, setDiasMes] = useState(30)
   const [expensesByDay, setExpensesByDay] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const { userProfile } = useAuth()
   const canViewProfit = userProfile?.role === 'admin'
 
@@ -104,6 +110,12 @@ export default function HistorialMensualPage() {
         setFixedMonthlyTotal(
           fixed ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents : 0
         )
+        setFixedBreakdown({
+          arriendo: fixed?.arriendo_cents || 0,
+          sueldo: fixed?.sueldo_cents || 0,
+          servicios: fixed?.servicios_cents || 0,
+          otros: fixed?.otros_gastos_cents || 0,
+        })
         setDiasMes(fixed?.dias_mes || 30)
       }
     }
@@ -154,26 +166,39 @@ export default function HistorialMensualPage() {
   // Los días que solo tuvieron gastos (sin ventas) también cuentan, igual
   // que el local (todas_fechas = ventas ∪ gastos_por_dia.keys()).
   const dailyFixedExpense = fixedMonthlyTotal / diasMes
-  const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number }>>((acc, o) => {
+  const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number; commission: number; units: number }>>((acc, o) => {
     const day = o.created_at.split('T')[0]
-    if (!acc[day]) acc[day] = { revenue: 0, cost: 0 }
+    if (!acc[day]) acc[day] = { revenue: 0, cost: 0, commission: 0, units: 0 }
     acc[day].revenue += o.total_cents
     acc[day].cost += (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0)
+    acc[day].commission += (o.payments || []).reduce((s, p) => s + (p.commission_cents || 0), 0)
+    // "Ventas" en el resumen por día son UNIDADES vendidas ese día, no
+    // número de facturas — igual que cantidad_ventas del software local
+    // (suma v.cantidad, y cada "venta" ahí es un renglón de producto, no
+    // una transacción completa), consistente con "Unidades vendidas" del
+    // total del mes.
+    acc[day].units += (o.order_items || []).reduce((s, i) => s + i.qty, 0)
     return acc
   }, {})
   for (const day of Object.keys(expensesByDay)) {
-    if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cost: 0 }
+    if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cost: 0, commission: 0, units: 0 }
   }
   const dailyArray = Object.entries(dailyMap)
     .map(([day, d]) => {
       const gastosDia = expensesByDay[day] || 0
-      const utilidadRealDia = canViewProfit ? d.revenue - d.cost - dailyFixedExpense - gastosDia : d.revenue - d.cost
-      return { day, ...d, gastosDia, utilidadRealDia }
+      // Ganancia neta del día (ingresos - costo - comisión) — distinta de
+      // utilidadRealDia, que además prorratea el gasto fijo mensual y resta
+      // los gastos operativos puntuales de ese día (igual que ResumenDiario
+      // del software local: ganancia_neta vs. utilidad_real).
+      const gananciaNeta = d.revenue - d.cost - d.commission
+      const utilidadRealDia = canViewProfit ? gananciaNeta - dailyFixedExpense - gastosDia : d.revenue - d.cost
+      return { day, ...d, gastosDia, gananciaNeta, utilidadRealDia }
     })
     .sort((a, b) => a.day.localeCompare(b.day))
   const maxDaily = Math.max(...dailyArray.map((d) => d.revenue), 1)
   const positiveDays = dailyArray.filter((d) => d.utilidadRealDia >= 0).length
   const negativeDays = dailyArray.length - positiveDays
+  const diaMasRentable = dailyArray.length > 0 ? dailyArray.reduce((a, b) => (b.gananciaNeta > a.gananciaNeta ? b : a)) : null
 
   const productMap = orders.reduce<Record<string, { title: string; qty: number; revenue: number; cost: number }>>((acc, o) => {
     (o.order_items || []).forEach((item) => {
@@ -190,38 +215,330 @@ export default function HistorialMensualPage() {
     .sort((a, b) => b.profit - a.profit)
     .slice(0, 10)
 
-  const handlePrint = () => {
+  // Categoría inferida de la primera palabra del nombre (quitando "-T:talla"
+  // si viniera) — igual que _categoria del software local y que
+  // inferCategoria del módulo Inventario.
+  const inferCategoria = (title: string) => {
+    const limpio = title.replace(/\s*-T:\S*/gi, '').trim()
+    return limpio ? limpio.split(/\s+/)[0].toUpperCase() : 'OTRO'
+  }
+
+  // Método de pago dominante por transacción: si la orden tiene más de un
+  // método (pago combinado) cuenta como "Combinado" en bloque — igual que
+  // v.metodo_pago = "Combinado" del software local (no se reparte por
+  // componente, ver models/venta.py) — a diferencia del desglose granular
+  // de "Por método de pago" en Ventas del Día, que sí separa cada componente.
+  const dominantMethod = (o: OrderRow) => {
+    const methods = new Set((o.payments || []).map((p) => p.method))
+    if (methods.size === 0) return 'Sin método'
+    if (methods.size > 1) return 'Combinado'
+    return methodLabels[[...methods][0]] || [...methods][0]
+  }
+  const revenueByMethod = orders.reduce<Record<string, number>>((acc, o) => {
+    const m = dominantMethod(o)
+    acc[m] = (acc[m] || 0) + o.total_cents
+    return acc
+  }, {})
+  const unitsByMethod = orders.reduce<Record<string, number>>((acc, o) => {
+    const m = dominantMethod(o)
+    const qty = (o.order_items || []).reduce((s, i) => s + i.qty, 0)
+    acc[m] = (acc[m] || 0) + qty
+    return acc
+  }, {})
+  const unitsByCategory = orders.reduce<Record<string, number>>((acc, o) => {
+    (o.order_items || []).forEach((item) => {
+      const cat = inferCategoria(item.product_title)
+      acc[cat] = (acc[cat] || 0) + item.qty
+    })
+    return acc
+  }, {})
+  const commissionCountByMethod = orders.reduce<Record<string, number>>((acc, o) => {
+    (o.payments || []).forEach((p) => {
+      if (p.commission_cents > 0) acc[p.method] = (acc[p.method] || 0) + 1
+    })
+    return acc
+  }, {})
+  const metodoMasUsado = Object.entries(unitsByMethod).sort((a, b) => b[1] - a[1])[0] || null
+  const categoriaTop = Object.entries(unitsByCategory).sort((a, b) => b[1] - a[1])[0] || null
+  const ticketPromedio = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+  // Horas pico: franjas de 2h de 6am a 22pm, sumando unidades e ingresos de
+  // cada orden en la franja de su hora de creación — igual que
+  // _tabla_horas_pico del software local (allí agrupa por v.hora en vez de
+  // created_at, pero el resultado es equivalente).
+  const peakHourSlots: [number, number][] = [[6, 8], [8, 10], [10, 12], [12, 14], [14, 16], [16, 18], [18, 20], [20, 22]]
+  const hourlyMap = orders.reduce<Record<number, { units: number; revenue: number }>>((acc, o) => {
+    const h = new Date(o.created_at).getHours()
+    if (!acc[h]) acc[h] = { units: 0, revenue: 0 }
+    acc[h].units += (o.order_items || []).reduce((s, i) => s + i.qty, 0)
+    acc[h].revenue += o.total_cents
+    return acc
+  }, {})
+  const peakHours = peakHourSlots.map(([hIni, hFin]) => {
+    let units = 0
+    let revenue = 0
+    for (let h = hIni; h < hFin; h++) {
+      units += hourlyMap[h]?.units || 0
+      revenue += hourlyMap[h]?.revenue || 0
+    }
+    return { label: `${String(hIni).padStart(2, '0')}:00 – ${String(hFin).padStart(2, '0')}:00`, units, revenue }
+  })
+  const totalPeakUnits = peakHours.reduce((s, h) => s + h.units, 0) || 1
+
+  const handlePrint = async () => {
+    // La ventana se abre de inmediato (dentro del mismo gesto de clic) para
+    // que el bloqueador de pop-ups del navegador no la descarte — el
+    // contenido final se escribe después, cuando termine el fetch async.
     const win = window.open('', '_blank')
     if (!win) return
-    const rows = dailyArray.map((d) => `<tr><td>${d.day}</td><td style="text-align:right">${formatPrice(d.revenue)}</td></tr>`).join('')
-    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-      <title>Historial ${monthNames[month - 1]} ${year} - YJBMOTOCOM</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 40px; color: #1a1a1a; }
-        h1 { color: #e11d48; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-        .totals { margin-top: 24px; }
-        .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
-      </style></head><body>
-      <button onclick="window.print()" style="margin-bottom:20px;padding:10px 24px;background:#e11d48;color:white;border:none;border-radius:8px;cursor:pointer;">Imprimir / Guardar como PDF</button>
-      <h1>Historial Mensual — ${monthNames[month - 1]} ${year}</h1>
-      <div class="totals">
-        <div><span>Ingresos totales</span><strong>${formatPrice(totalRevenue)}</strong></div>
-        <div><span>Órdenes</span><strong>${totalOrders}</strong></div>
-        <div><span>Unidades vendidas</span><strong>${totalUnits}</strong></div>
-        ${canViewProfit ? `
-        <div><span>Costo total</span><strong>${formatPrice(totalCost)}</strong></div>
-        <div><span>Comisiones acumuladas</span><strong>${formatPrice(totalCommission)}</strong></div>
-        <div><span>Ganancia neta</span><strong>${formatPrice(grossProfit)}</strong></div>
-        <div><span>Utilidad real del mes</span><strong>${formatPrice(utilidadReal)}</strong></div>
-        <div><span>Días positivos / negativos</span><strong>${positiveDays} / ${negativeDays}</strong></div>
-        ` : ''}
-      </div>
-      <h3>Ventas por día</h3>
-      <table><thead><tr><th>Fecha</th><th style="text-align:right">Ventas</th></tr></thead><tbody>${rows}</tbody></table>
-      </body></html>`)
-    win.document.close()
+    win.document.write('<p style="font-family:Arial,sans-serif;padding:40px;color:#6B7280;">Generando reporte…</p>')
+
+    setExporting(true)
+    try {
+      // Inventario General (Stock Actual): se trae solo al exportar (no en
+      // cada carga de la página) — mismo query que fetchCategoryRollup del
+      // módulo Inventario (products + product_variants, agrupado por
+      // categoría explícita o inferida del nombre).
+      let categoryGroups: { categoria: string; refs: number; uds: number; valor: number }[] = []
+      if (canViewProfit) {
+        const [{ data: allProducts }, { data: allVariants }] = await withTimeout(
+          Promise.all([
+            supabase.from('products').select('id, title, cost_cents, stock_qty, categories(name)'),
+            supabase.from('product_variants').select('product_id, cost_cents, stock_qty'),
+          ]),
+          12000,
+          'Inventario del reporte'
+        )
+        const variantsByProduct = new Map<string, { stock_qty: number; cost_cents: number }[]>()
+        for (const v of (allVariants || []) as any[]) {
+          const list = variantsByProduct.get(v.product_id) || []
+          list.push(v)
+          variantsByProduct.set(v.product_id, list)
+        }
+        const grupos = new Map<string, { refs: number; uds: number; valor: number }>()
+        for (const p of (allProducts || []) as any[]) {
+          const categoria = p.categories?.name?.trim() ? p.categories.name.trim().toUpperCase() : inferCategoria(p.title)
+          const variants = variantsByProduct.get(p.id)
+          const tieneVariantes = !!variants && variants.length > 0
+          const uds = tieneVariantes ? variants!.reduce((s, v) => s + v.stock_qty, 0) : p.stock_qty
+          const valor = tieneVariantes ? variants!.reduce((s, v) => s + v.stock_qty * v.cost_cents, 0) : p.stock_qty * p.cost_cents
+          const g = grupos.get(categoria) || { refs: 0, uds: 0, valor: 0 }
+          g.refs += tieneVariantes ? variants!.length : 1
+          g.uds += uds
+          g.valor += valor
+          grupos.set(categoria, g)
+        }
+        categoryGroups = Array.from(grupos.entries()).map(([categoria, d]) => ({ categoria, ...d })).sort((a, b) => b.uds - a.uds)
+      }
+
+      const totalRefs = categoryGroups.reduce((s, g) => s + g.refs, 0)
+      const totalUds = categoryGroups.reduce((s, g) => s + g.uds, 0)
+      const totalValor = categoryGroups.reduce((s, g) => s + g.valor, 0)
+      const totalGastosFijos = fixedBreakdown.arriendo + fixedBreakdown.sueldo + fixedBreakdown.servicios + fixedBreakdown.otros
+      const totalEgresos = totalGastosFijos + totalOperatingExpenses
+
+      const kpiHtml = `
+        <table class="kpi">
+          <thead><tr><th>VENTAS DEL MES</th><th>INGRESOS TOTALES</th><th>GANANCIA NETA</th>${canViewProfit ? '<th class="util-head">UTILIDAD REAL</th>' : ''}</tr></thead>
+          <tbody>
+            <tr class="kpi-val">
+              <td class="blue">${totalUnits}</td><td>${formatPrice(totalRevenue)}</td>
+              <td class="${grossProfit >= 0 ? 'green' : 'red'}">${formatPrice(grossProfit)}</td>
+              ${canViewProfit ? `<td rowspan="2" class="util-cell ${utilidadReal >= 0 ? 'util-pos' : 'util-neg'}"><div class="util-label">UTILIDAD REAL</div><div class="util-amount">${formatPrice(utilidadReal)}</div><div class="util-margin">Margen: ${grossProfit ? ((utilidadReal / totalRevenue) * 100).toFixed(1) : '0.0'}%</div></td>` : ''}
+            </tr>
+            <tr class="kpi-sub">
+              <td>Días trabajados: ${dailyArray.length}</td>
+              <td>Costos: ${formatPrice(totalCost)}</td>
+              <td>Margen: ${totalRevenue ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0.0'}%</td>
+            </tr>
+          </tbody>
+        </table>`
+
+      const gastosHtml = canViewProfit ? `
+        <h3>Desglose de Gastos del Mes</h3>
+        <table class="tbl">
+          <thead><tr><th>CONCEPTO</th><th class="r">MONTO</th></tr></thead>
+          <tbody>
+            <tr><td>Arriendo</td><td class="r">${formatPrice(fixedBreakdown.arriendo)}</td></tr>
+            <tr><td>Sueldo</td><td class="r">${formatPrice(fixedBreakdown.sueldo)}</td></tr>
+            <tr><td>Servicios públicos</td><td class="r">${formatPrice(fixedBreakdown.servicios)}</td></tr>
+            <tr><td>Otros gastos fijos</td><td class="r">${formatPrice(fixedBreakdown.otros)}</td></tr>
+            <tr class="strong"><td>Total gastos fijos</td><td class="r red">${formatPrice(totalGastosFijos)}</td></tr>
+            <tr><td><i>Gastos operativos del mes</i></td><td class="r amber">${formatPrice(totalOperatingExpenses)}</td></tr>
+            <tr class="total-row"><td>TOTAL EGRESOS DEL MES</td><td class="r">${formatPrice(totalEgresos)}</td></tr>
+          </tbody>
+        </table>` : ''
+
+      const estadisticasHtml = canViewProfit ? `
+        <h3>Estadísticas del Mes</h3>
+        <table class="kpi kpi-purple">
+          <thead><tr><th>MÉTODO MÁS USADO</th><th>TICKET PROMEDIO</th><th>CATEGORÍA TOP</th><th>DÍA MÁS RENTABLE</th></tr></thead>
+          <tbody>
+            <tr class="kpi-val purple">
+              <td>${metodoMasUsado ? metodoMasUsado[0] : '—'}</td>
+              <td>${formatPrice(ticketPromedio)}</td>
+              <td>${categoriaTop ? categoriaTop[0] : '—'}</td>
+              <td>${diaMasRentable ? diaMasRentable.day.split('-').reverse().slice(0, 2).join('/') : '—'}</td>
+            </tr>
+            <tr class="kpi-sub">
+              <td>${metodoMasUsado ? metodoMasUsado[1] : 0} uds.</td>
+              <td>Por transacción</td>
+              <td>${categoriaTop ? categoriaTop[1] : 0} uds.</td>
+              <td>${diaMasRentable ? `G.Neta: ${formatPrice(diaMasRentable.gananciaNeta)}` : '—'}</td>
+            </tr>
+          </tbody>
+        </table>` : ''
+
+      const topProductosHtml = `
+        <h3>Top 10 Productos del Mes</h3>
+        ${topProducts.length === 0 ? '<p class="muted center">Sin ventas registradas en este período</p>' : `
+        <table class="tbl">
+          <thead><tr><th>#</th><th>PRODUCTO</th><th class="c">CANT.</th><th class="r">INGRESOS</th><th class="r">% PART.</th></tr></thead>
+          <tbody>
+            ${topProducts.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${p.title}</td><td class="c">${p.qty}</td><td class="r green">${formatPrice(p.revenue)}</td><td class="r blue">${totalRevenue ? ((p.revenue / totalRevenue) * 100).toFixed(2) : '0.00'}%</td></tr>`).join('')}
+          </tbody>
+        </table>`}`
+
+      const comisionesHtml = canViewProfit ? `
+        <h3>Comisiones por Método de Pago</h3>
+        ${Object.keys(commissionByMethod).length === 0 ? '<p class="muted center">Sin comisiones registradas en este período</p>' : `
+        <table class="tbl">
+          <thead><tr><th>MÉTODO</th><th class="c">VENTAS CON COMISIÓN</th><th class="r">TOTAL COMISIÓN</th></tr></thead>
+          <tbody>
+            ${Object.entries(commissionByMethod).sort((a, b) => b[1] - a[1]).map(([m, cents]) => `<tr><td>${methodLabels[m] || m}</td><td class="c">${commissionCountByMethod[m] || 0}</td><td class="r red">${formatPrice(cents)}</td></tr>`).join('')}
+            <tr class="strong"><td>TOTAL</td><td class="c">${Object.values(commissionCountByMethod).reduce((s, n) => s + n, 0)}</td><td class="r red">${formatPrice(totalCommission)}</td></tr>
+          </tbody>
+        </table>`}` : ''
+
+      const horasPicoHtml = `
+        <h3>Horas Pico de Ventas</h3>
+        <table class="tbl">
+          <thead><tr><th>FRANJA HORARIA</th><th class="c">UNIDADES VENDIDAS</th><th class="r">INGRESOS</th><th class="r">% DEL MES</th></tr></thead>
+          <tbody>
+            ${peakHours.map((h) => `<tr><td>${h.label}</td><td class="c">${h.units || '—'}</td><td class="r">${h.units ? formatPrice(h.revenue) : '—'}</td><td class="r">${h.units ? ((h.units / totalPeakUnits) * 100).toFixed(1) + '%' : '—'}</td></tr>`).join('')}
+          </tbody>
+        </table>`
+
+      const resumenDiaHtml = `
+        <h3>Resumen por Día</h3>
+        <table class="tbl">
+          <thead><tr><th>FECHA</th><th class="c">VENTAS</th><th class="r">INGRESOS</th>${canViewProfit ? '<th class="r">G. NETA</th><th class="r">GASTOS OP.</th><th class="r">UTILIDAD</th><th class="c">ESTADO</th>' : ''}</tr></thead>
+          <tbody>
+            ${dailyArray.map((d) => `<tr>
+              <td>${d.day.split('-').reverse().join('/')}</td>
+              <td class="c">${d.units}</td>
+              <td class="r">${formatPrice(d.revenue)}</td>
+              ${canViewProfit ? `
+              <td class="r">${formatPrice(d.gananciaNeta)}</td>
+              <td class="r">${d.gastosDia > 0 ? formatPrice(d.gastosDia) : '—'}</td>
+              <td class="r ${d.utilidadRealDia >= 0 ? 'green' : 'red'}">${formatPrice(d.utilidadRealDia)}</td>
+              <td class="c ${d.utilidadRealDia >= 0 ? 'green' : 'red'}">${d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}</td>` : ''}
+            </tr>`).join('')}
+          </tbody>
+        </table>`
+
+      const barraDias = dailyArray.map((d) => `
+        <div class="bar-col">
+          <div class="bar" style="height:${maxDaily ? (d.revenue / maxDaily) * 140 : 0}px"></div>
+          <span class="bar-label">${d.day.slice(8, 10)}</span>
+        </div>`).join('')
+
+      const ultimos7 = dailyArray.slice(-7)
+      const maxAbs7 = Math.max(...ultimos7.map((d) => Math.abs(d.gananciaNeta)), 1)
+      const barraTendencia = ultimos7.map((d) => `
+        <div class="bar-col">
+          <div class="bar ${d.gananciaNeta >= 0 ? 'bar-green' : 'bar-red'}" style="height:${Math.max((Math.abs(d.gananciaNeta) / maxAbs7) * 100, 3)}px"></div>
+          <span class="bar-label">${d.day.slice(8, 10)}/${d.day.slice(5, 7)}</span>
+        </div>`).join('')
+
+      const maxMetodo = Math.max(...Object.values(revenueByMethod), 1)
+      const barraMetodos = Object.entries(revenueByMethod).sort((a, b) => b[1] - a[1]).map(([m, cents]) => `
+        <div class="hbar-row">
+          <span class="hbar-label">${m}</span>
+          <div class="hbar-track"><div class="hbar-fill" style="width:${(cents / maxMetodo) * 100}%"></div></div>
+          <span class="hbar-value">${formatPrice(cents)}</span>
+        </div>`).join('')
+
+      const inventarioHtml = canViewProfit && categoryGroups.length > 0 ? `
+        <h3>Inventario General (Stock Actual)</h3>
+        <table class="tbl">
+          <thead><tr><th>CATEGORÍA</th><th class="c">REFERENCIAS</th><th class="c">UNIDADES EN STOCK</th><th class="r">VALOR EN STOCK</th></tr></thead>
+          <tbody>
+            ${categoryGroups.map((g) => `<tr><td>${g.categoria}</td><td class="c">${g.refs}</td><td class="c green">${g.uds}</td><td class="r blue">${formatPrice(g.valor)}</td></tr>`).join('')}
+            <tr class="strong"><td>TOTAL</td><td class="c">${totalRefs}</td><td class="c">${totalUds}</td><td class="r">${formatPrice(totalValor)}</td></tr>
+          </tbody>
+        </table>` : ''
+
+      win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+        <title>Reporte ${monthNames[month - 1]} ${year} - YJBMOTOCOM</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, Helvetica, sans-serif; padding: 32px; color: #1a1a1a; }
+          h1 { color: #1E293B; margin-bottom: 2px; }
+          .subtitulo { color: #2563EB; font-size: 15px; margin-top: 0; margin-bottom: 12px; }
+          hr.hdr { border: none; border-top: 3px solid #2563EB; margin-bottom: 18px; }
+          h3 { color: #1E293B; font-size: 13px; margin: 22px 0 8px; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          table.tbl th, table.tbl td { padding: 6px 8px; border: 1px solid #E2E8F0; text-align: left; }
+          table.tbl thead th { background: #1E293B; color: #fff; font-size: 10.5px; }
+          table.tbl tbody tr:nth-child(even) { background: #F8FAFC; }
+          .c { text-align: center; } .r { text-align: right; }
+          .green { color: #16A34A; } .red { color: #DC2626; } .blue { color: #2563EB; } .amber { color: #D97706; }
+          .muted { color: #6B7280; } .center { text-align: center; }
+          .strong td { font-weight: bold; background: #F1F5F9; }
+          .total-row td { font-weight: bold; background: #FEE2E2; color: #DC2626; font-size: 13px; }
+          table.kpi { table-layout: fixed; margin-bottom: 4px; }
+          table.kpi thead th { background: #1E293B; color: #fff; font-size: 10px; padding: 6px; text-align: center; }
+          table.kpi.kpi-purple thead th { background: #7C3AED; }
+          .kpi-val td { font-size: 20px; font-weight: bold; text-align: center; padding: 8px; border: 1px solid #E2E8F0; }
+          .kpi-val.purple td { font-size: 15px; color: #7C3AED; background: #EDE9FE; }
+          .kpi-sub td { font-size: 10px; color: #6B7280; text-align: center; padding: 4px; border: 1px solid #E2E8F0; }
+          .util-head { background: #1E293B !important; }
+          .util-cell { text-align: center; vertical-align: middle; }
+          .util-pos { background: #DCFCE7; } .util-neg { background: #FEE2E2; }
+          .util-label { font-size: 9px; font-weight: bold; color: #6B7280; }
+          .util-amount { font-size: 18px; font-weight: bold; margin: 4px 0; }
+          .util-pos .util-amount { color: #16A34A; } .util-neg .util-amount { color: #DC2626; }
+          .util-margin { font-size: 9px; color: #6B7280; }
+          .bars-row { display: flex; align-items: flex-end; gap: 4px; height: 170px; border-bottom: 1px solid #E2E8F0; padding: 8px 4px 0; overflow-x: auto; }
+          .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 18px; flex: 1; height: 100%; }
+          .bar { width: 70%; background: #2563EB; border-radius: 2px 2px 0 0; align-self: center; }
+          .bar-green { background: #16A34A; } .bar-red { background: #DC2626; align-self: flex-start; }
+          .bar-label { font-size: 8px; color: #6B7280; margin-top: 4px; }
+          .hbar-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+          .hbar-label { width: 140px; font-size: 10.5px; text-align: right; color: #374151; flex-shrink: 0; }
+          .hbar-track { flex: 1; background: #F1F5F9; border-radius: 3px; height: 16px; }
+          .hbar-fill { height: 100%; background: #2563EB; border-radius: 3px; }
+          .hbar-value { width: 90px; font-size: 10px; color: #2563EB; flex-shrink: 0; }
+          .print-btn { margin-bottom: 20px; padding: 10px 24px; background: #2563EB; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+          .footer { margin-top: 28px; border-top: 1px solid #E2E8F0; padding-top: 8px; text-align: center; font-size: 9px; color: #9CA3AF; }
+          @media print { .print-btn { display: none; } }
+        </style></head><body>
+        <button class="print-btn" onclick="window.print()">Imprimir / Guardar como PDF</button>
+        <h1>YJBMOTOCOM</h1>
+        <p class="subtitulo">Reporte Mensual — ${monthNames[month - 1]} ${year}</p>
+        <hr class="hdr" />
+        ${kpiHtml}
+        ${gastosHtml}
+        ${estadisticasHtml}
+        ${topProductosHtml}
+        ${comisionesHtml}
+        ${horasPicoHtml}
+        ${resumenDiaHtml}
+        ${dailyArray.length > 0 ? `<h3>Ingresos Diarios</h3><div class="bars-row">${barraDias}</div>` : ''}
+        ${ultimos7.length > 0 ? `<h3>Tendencia de Ganancia Neta (Últimos 7 días)</h3><div class="bars-row">${barraTendencia}</div>` : ''}
+        ${Object.keys(revenueByMethod).length > 0 ? `<h3>Ingresos por Método de Pago</h3>${barraMetodos}` : ''}
+        ${inventarioHtml}
+        <div class="footer">Generado el ${new Date().toLocaleDateString('es-CO')} • YJBMOTOCOM — Sistema de Control de Rentabilidad</div>
+        </body></html>`)
+      win.document.close()
+    } catch (error) {
+      console.error('Error generando el reporte mensual:', error)
+      win.document.write('<p style="font-family:Arial,sans-serif;padding:40px;color:#DC2626;">No se pudo generar el reporte. Cierra esta pestaña e intenta de nuevo.</p>')
+      win.document.close()
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -239,8 +556,9 @@ export default function HistorialMensualPage() {
             {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           {canViewProfit && (
-            <Button variant="outline" className="rounded-lg" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" /> Exportar / Imprimir
+            <Button variant="outline" className="rounded-lg" onClick={handlePrint} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+              Exportar / Imprimir
             </Button>
           )}
         </div>
