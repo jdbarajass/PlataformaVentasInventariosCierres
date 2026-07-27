@@ -43,6 +43,11 @@ interface ProductStock {
   id: string
   sku: string | null
   barcode: string | null
+  // Códigos de barras de cada talla/variante — el buscador de Detalle debe
+  // poder encontrar un producto por el código de barras de cualquiera de
+  // sus tallas, no solo por el del producto base (que suele ser null
+  // cuando el producto tiene variantes, ya que ahí el código vive por talla).
+  variantBarcodes: string[]
   title: string
   stock_qty: number
   low_stock_threshold: number
@@ -163,10 +168,16 @@ export default function InventarioPage() {
       // suman por variante. Antes esta tabla mostraba directamente
       // products.stock_qty, por lo que un producto con variantes con stock
       // real aparecía como "0" aunque alguna talla sí tuviera unidades.
-      const { data: allVariants } = await supabase.from('product_variants').select('product_id, stock_qty')
+      const { data: allVariants } = await supabase.from('product_variants').select('product_id, stock_qty, barcode')
       const stockPorProducto = new Map<string, number>()
-      for (const v of (allVariants || []) as { product_id: string; stock_qty: number }[]) {
+      const barcodesPorProducto = new Map<string, string[]>()
+      for (const v of (allVariants || []) as { product_id: string; stock_qty: number; barcode: string | null }[]) {
         stockPorProducto.set(v.product_id, (stockPorProducto.get(v.product_id) || 0) + v.stock_qty)
+        if (v.barcode) {
+          const list = barcodesPorProducto.get(v.product_id) || []
+          list.push(v.barcode)
+          barcodesPorProducto.set(v.product_id, list)
+        }
       }
 
       setProducts(
@@ -174,6 +185,7 @@ export default function InventarioPage() {
           id: p.id,
           sku: p.sku,
           barcode: p.barcode ?? null,
+          variantBarcodes: barcodesPorProducto.get(p.id) || [],
           title: p.title,
           stock_qty: stockPorProducto.has(p.id) ? stockPorProducto.get(p.id)! : p.stock_qty,
           low_stock_threshold: p.low_stock_threshold,
@@ -939,9 +951,12 @@ export default function InventarioPage() {
   }
 
   const filteredProducts = products.filter((product) => {
+    const q = searchQuery.toLowerCase().trim()
     const matchesSearch =
-      product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+      product.title.toLowerCase().includes(q) ||
+      (product.sku?.toLowerCase().includes(q) ?? false) ||
+      (product.barcode?.toLowerCase().includes(q) ?? false) ||
+      product.variantBarcodes.some((b) => b.toLowerCase().includes(q))
     const matchesLowStock = !showLowStock || product.stock_qty <= product.low_stock_threshold
     return matchesSearch && matchesLowStock
   })
@@ -1752,7 +1767,7 @@ export default function InventarioPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre o SKU..."
+            placeholder="Buscar por nombre, SKU o código de barras..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="rounded-xl pl-10"

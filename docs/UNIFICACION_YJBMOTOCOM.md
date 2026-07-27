@@ -1366,3 +1366,13 @@ El usuario reportó, con captura, que "IMPERMEABLE SILICONADO NEGRO GRIS" en la 
 **Cambio**: `fetchProducts` (`apps/web/src/app/admin/inventario/page.tsx`) ahora trae también `product_variants(product_id, stock_qty)` y, si el producto tiene variantes, usa la suma de sus `stock_qty` en vez del `stock_qty` del producto base — mismo patrón ya usado en `fetchCategoryRollup`. Esto corrige de paso, sin cambios adicionales, el filtro y el conteo de "stock bajo" y el badge "Sin stock"/"Bajo" de la tabla principal, que leen del mismo estado `products`.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 34. Bug: no se podía buscar un producto por el código de barras de una talla (2026-07-27)
+
+El usuario reportó que buscar por el código de barras de la talla M de "CHAQUETA CORTAVIENTO REFLECTIVO GRIS/NEGRO" (`1303001023`) en Detalle de Inventario no encontraba nada.
+
+**Diagnóstico**: el buscador de esa tabla (`filteredProducts`) solo comparaba contra `product.title` y `product.sku` — nunca contra ningún código de barras. Además, cuando un producto tiene variantes por talla, `products.barcode` queda en `null` (el código de barras real vive en `product_variants.barcode`, uno por talla) — confirmado contra producción: la CHAQUETA tiene `barcode: null` a nivel de producto, con 5 variantes cada una con su propio código (`1303001023` es exactamente el de la talla M).
+
+**Cambio**: `fetchProducts` ahora también trae `product_variants(product_id, stock_qty, barcode)` (aprovechando la misma consulta agregada en la sección 33) y guarda la lista de códigos de barras de las variantes de cada producto (`variantBarcodes`). `filteredProducts` ahora compara la búsqueda contra `product.barcode` **y** contra cualquiera de `product.variantBarcodes` — así que buscar el código de una talla específica encuentra el producto correcto sin importar que el código no esté en el producto base. Placeholder del buscador actualizado a "Buscar por nombre, SKU o código de barras...".
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
