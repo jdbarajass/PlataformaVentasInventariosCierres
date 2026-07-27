@@ -1314,3 +1314,25 @@ El usuario reportó (con capturas de la interfaz y de la pestaña Network de Dev
 **Cambio**: se quitó la validación de `active` en `resolveSale()` (`lib/pos-sale.ts`), dejando solo la validación de que el producto exista. Se confirmó que `resolveSale` únicamente la usan las dos rutas de POS (mostrador) — nunca el checkout de la tienda online — así que este cambio no afecta la validación de productos inactivos de cara al cliente público.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 31. Auditoría end-to-end del flujo de venta: crear → pagos combinados → stock → Ventas del Día/Historial → cancelar/editar (2026-07-27)
+
+El usuario pidió recorrer todas las aristas del flujo de venta para confirmar que todo funciona bien de punta a punta: registrar con varios medios de pago (incluido combinado), que descuente el inventario correcto, que quede en Ventas del Día y en el Historial, y que cancelar/anular una venta deshaga *todo* — que el inventario "sume la cantidad que restó" y vuelva a la normalidad.
+
+**Recorrido verificado (correcto, sin cambios)**:
+- `create_pos_sale` (RPC): inserta la orden, por cada ítem valida y descuenta stock con bloqueo de fila (`FOR UPDATE`), inserta `order_items` y su `inventory_movement`; por cada pago inserta el `payment` y, si tiene cuenta asociada, acredita el saldo y registra el `account_movement` — todo en una sola transacción atómica.
+- Pagos combinados: `resolveSale()` exige que la suma de los pagos coincida EXACTO con el total (ya sea un solo método o varios) antes de llamar al RPC — no hay forma de guardar una venta con pagos que no cuadren.
+- Ventas del Día: trae las órdenes del día (sin filtrar por estado, para poder mostrar las canceladas aparte) y separa `activeSales` (`status !== 'cancelled'`) de `cancelledSales` — los totales de la página solo cuentan las activas.
+- Historial Mensual y Dashboard: filtran `payment_status = 'paid'` — al cancelar una venta, `cancel_pos_sale` cambia `payment_status` a `'refunded'`, así que la venta cancelada queda excluida automáticamente de ambos sin necesitar ningún filtro adicional.
+- `cancel_pos_sale`: por cada ítem restaura el stock y registra un `inventory_movement` tipo `'return'`; por cada pago con cuenta asociada, revierte el crédito con un `account_movement` tipo `'sale_reversal'` — simétrico a la creación.
+
+**Bug real encontrado y corregido**: al forzar una venta con stock insuficiente (el diálogo "Stock insuficiente, ¿continuar de todas formas?"), el descuento real de stock queda en `GREATEST(0, stock_qty - qty)` — nunca baja de 0, igual que el software local (`MAX(0, cantidad - qty)`). Pero tanto el registro en `inventory_movements` como la reversión al cancelar/editar usaban el `qty` **pedido** en la venta, no el descuento **real** aplicado:
+
+- Ejemplo: stock = 2, se fuerza una venta de 5 unidades → el stock real baja a 0 (se descontaron 2, no 5), pero `inventory_movements` registraba "-5" (el registro de auditoría ya quedaba mal), y si luego se cancelaba esa venta, el stock quedaba en `0 + 5 = 5` — 3 unidades más de las que había originalmente. Lo mismo aplicaba al editar la factura (`edit_pos_sale`), que primero revierte los ítems viejos con el mismo problema.
+- Se revisó el historial real de movimientos en producción (`inventory_movements` tipo `sale`/`return` con `reference_type='order'`): solo hay 2 registros hasta ahora y ninguno tiene este problema — el volumen de ventas de mostrador reales todavía es bajo, así que no hizo falta ningún script de corrección retroactiva de inventario.
+
+**Cambio**: migración `supabase/migrations/00028_pos_sale_stock_reversal_fix.sql` — agrega `order_items.stock_deducted` (cuánto se descontó REALMENTE del inventario al crear/editar esa línea; `NULL` para ítems fuera de catálogo que nunca tocan stock, y también `NULL` para filas históricas anteriores a la migración, donde se sigue usando `qty` como respaldo por no tener mejor información). `create_pos_sale`/`edit_pos_sale` ahora calculan `LEAST(qty, stock_actual)` y lo guardan ahí además de usarlo para el registro correcto en `inventory_movements`; `cancel_pos_sale` y el paso de reversión de `edit_pos_sale` restauran `COALESCE(stock_deducted, qty)` en vez de `qty` a secas — así el inventario queda exacto sin importar si la venta original se forzó con stock insuficiente o no.
+
+**⚠️ Pendiente manual**: aplicar `00028_pos_sale_stock_reversal_fix.sql` en el SQL Editor de Supabase (mismo procedimiento que las migraciones anteriores).
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.

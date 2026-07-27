@@ -262,6 +262,12 @@ export interface Database {
           cost_cents: number
           discount_cents: number
           created_at: string
+          // Unidades REALMENTE descontadas del stock al crear/editar esta
+          // línea (puede ser menor que `qty` si se forzó la venta con stock
+          // insuficiente, ver migración 00028). NULL para ítems fuera de
+          // catálogo (nunca tocan stock) y para filas históricas anteriores
+          // a la migración — ahí se sigue usando `qty` como respaldo.
+          stock_deducted: number | null
         }
         Insert: {
           id?: string
@@ -278,6 +284,7 @@ export interface Database {
           cost_cents?: number
           discount_cents?: number
           created_at?: string
+          stock_deducted?: number | null
         }
         Update: {
           order_id?: string
@@ -292,6 +299,7 @@ export interface Database {
           product_talla?: string | null
           cost_cents?: number
           discount_cents?: number
+          stock_deducted?: number | null
         }
         Relationships: [
           {
