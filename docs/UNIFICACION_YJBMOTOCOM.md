@@ -1338,3 +1338,21 @@ El usuario pidió recorrer todas las aristas del flujo de venta para confirmar q
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
 
 **Actualización 2026-07-27**: el usuario aplicó `00028_pos_sale_stock_reversal_fix.sql` en Supabase — la reversión exacta de stock ya tiene efecto en producción.
+
+## 32. Importación del backup del 27/07/2026 — delta desde la migración histórica (2026-07-27)
+
+El usuario exportó un nuevo backup completo del software local (`YJBMOTOCOM_Historial_27_07_2026.xlsx`, 18 hojas) y pidió subir esa información a Supabase para que quedara "al día y corroborada".
+
+**Verificación previa (antes de tocar nada)**: se confirmó con el usuario que, desde la migración histórica del 22/07 (sección 19), toda la operación real se siguió registrando únicamente en el software local — la única orden en Supabase que no viene de esa migración (`YJBM-20260725-0306`) es una venta de prueba de $85.000 ya cancelada (usada para probar el fix de "producto inactivo" de esta misma sesión). Esto permitió tratar la importación como un "delta" simple, sin riesgo de chocar con actividad real hecha directamente en la nube.
+
+**Diff hoja por hoja** entre el Excel del 22/07 (aún presente sin trackear en la raíz del repo) y el del 27/07: 10 líneas de venta nuevas (facturas 68-76), 13 préstamos nuevos + 5 con cambio de estado, 1 factura de proveedor nueva + 3 con cambio de estado (pendiente→pagada), 18 movimientos de cuenta nuevos (ID 197-214) y 7 movimientos de inventario nuevos — el resto de hojas (Notas, Gastos, Configuración, Usuarios, Presupuesto, Cierres Cuentas, Fiado, Abonos, Abonos Fiado, Facturas Items) sin cambios. Log Auditoría excluido, misma decisión que la sección 19.
+
+**Script**: `migrate-delta-27-07.js` (scratchpad de la sesión, no versionado — datos reales del negocio), mismo patrón que `migrate-historial.js`: dry-run por defecto, `--write` para aplicar. Ventas/Préstamos/Facturas nuevas se insertaron como registros históricos con su fecha/hora original, sin pasar por las funciones RPC en vivo; Inventario/Cuentas se trataron como "foto del presente" (se sobreescribió `stock_qty`/`cost_cents` por `barcode` y `balance_cents` por nombre de cuenta); Mov. Cuentas/Mov. Inventario se insertaron como bitácora pura. Numeración continuada: `HIST-000068` a `HIST-000076`.
+
+**Bug encontrado en el dry-run antes de escribir**: el script leía la columna "Cantidad nueva" de la hoja Mov. Inventario en vez de "Cambio" (el delta real con signo) — habría insertado movimientos de inventario con la cantidad equivocada (ej. `cambio=0` en vez de `-1`). Corregido antes de correr `--write`.
+
+**Resultado verificado contra Supabase** (consultas directas, no solo el reporte del script): 714 órdenes (+9), 780 ítems de venta (+10), 760 pagos (+10, incluye el pago combinado Efectivo+QR de HIST-000074), 171 préstamos (+13, 5 actualizados), 42 facturas de proveedor (+1, 3 actualizadas con `paid_at`/`account_id` cuando la hoja traía cuenta de pago), los 6 saldos de cuentas exactos al Excel, y el stock de varios productos verificado por muestreo (ej. "PIJAMA SIN MALETERO 85-75": `stock_qty=1`, `cost_cents=4.500.000`, igual al Excel).
+
+**Nota — duplicado cosmético en el registro de movimientos de inventario**: `inventory_movements` quedó con 211 filas (195 + 16), no 202 como se esperaba al mirar solo la hoja Mov. Inventario (+7) — los otros 9 vienen de las nuevas órdenes de Ventas (cada ítem con producto real matcheado genera su propio movimiento tipo `sale`). Para varios de los mismos productos/fechas, esto significa que el historial de "Movimientos" en Inventario mostrará **dos** filas para la misma venta física (una desde la orden, otra desde la bitácora del local) — no se intentó deduplicar por el riesgo de borrar la fila equivocada dado que algunos ítems (ej. "MONTADO") comparten código de barras con el producto base. Esto es solo cosmético: no afecta `stock_qty` ni `balance_cents` (ambos son la "foto" final, verificados exactos contra el Excel), solo duplica una línea de auditoría visual en la pestaña Movimientos para ~7-9 productos de esta tanda.
+
+No se tocó ningún archivo del repo (solo datos en Supabase) salvo esta entrada de documentación.
