@@ -156,13 +156,26 @@ export default function InventarioPage() {
 
       const result = await res.json()
       const data = result.data || result.products || []
+
+      // Si el producto tiene tallas/variantes, el stock real vive en
+      // product_variants (products.stock_qty se queda en 0 sin uso) —
+      // mismo cuidado que fetchInventoryValue/fetchCategoryRollup, que ya
+      // suman por variante. Antes esta tabla mostraba directamente
+      // products.stock_qty, por lo que un producto con variantes con stock
+      // real aparecía como "0" aunque alguna talla sí tuviera unidades.
+      const { data: allVariants } = await supabase.from('product_variants').select('product_id, stock_qty')
+      const stockPorProducto = new Map<string, number>()
+      for (const v of (allVariants || []) as { product_id: string; stock_qty: number }[]) {
+        stockPorProducto.set(v.product_id, (stockPorProducto.get(v.product_id) || 0) + v.stock_qty)
+      }
+
       setProducts(
         data.map((p: any) => ({
           id: p.id,
           sku: p.sku,
           barcode: p.barcode ?? null,
           title: p.title,
-          stock_qty: p.stock_qty,
+          stock_qty: stockPorProducto.has(p.id) ? stockPorProducto.get(p.id)! : p.stock_qty,
           low_stock_threshold: p.low_stock_threshold,
           price_cents: p.price_cents,
           cost_cents: p.cost_cents || 0,

@@ -1356,3 +1356,13 @@ El usuario exportó un nuevo backup completo del software local (`YJBMOTOCOM_His
 **Nota — duplicado cosmético en el registro de movimientos de inventario**: `inventory_movements` quedó con 211 filas (195 + 16), no 202 como se esperaba al mirar solo la hoja Mov. Inventario (+7) — los otros 9 vienen de las nuevas órdenes de Ventas (cada ítem con producto real matcheado genera su propio movimiento tipo `sale`). Para varios de los mismos productos/fechas, esto significa que el historial de "Movimientos" en Inventario mostrará **dos** filas para la misma venta física (una desde la orden, otra desde la bitácora del local) — no se intentó deduplicar por el riesgo de borrar la fila equivocada dado que algunos ítems (ej. "MONTADO") comparten código de barras con el producto base. Esto es solo cosmético: no afecta `stock_qty` ni `balance_cents` (ambos son la "foto" final, verificados exactos contra el Excel), solo duplica una línea de auditoría visual en la pestaña Movimientos para ~7-9 productos de esta tanda.
 
 No se tocó ningún archivo del repo (solo datos en Supabase) salvo esta entrada de documentación.
+
+## 33. Bug: Stock del producto en Detalle no sumaba las variantes/tallas (2026-07-27)
+
+El usuario reportó, con captura, que "IMPERMEABLE SILICONADO NEGRO GRIS" en la pestaña Detalle de Inventario mostraba `0 / mín 5` en la columna Stock, pero al desplegar sus tallas, la variante XL sí tenía 1 unidad — la columna debería sumar el stock de todas las tallas, no mostrar 0.
+
+**Diagnóstico**: cuando un producto tiene variantes por talla, el stock real vive en `product_variants.stock_qty` — el `products.stock_qty` del producto base se queda sin usar (en 0). Este cuidado ya estaba resuelto correctamente en `fetchInventoryValue` y `fetchCategoryRollup` (ambas suman por variante si el producto las tiene), pero `fetchProducts` — la función que llena la tabla principal de la pestaña Detalle — nunca se corrigió y seguía usando `products.stock_qty` tal cual, sin sumar variantes.
+
+**Cambio**: `fetchProducts` (`apps/web/src/app/admin/inventario/page.tsx`) ahora trae también `product_variants(product_id, stock_qty)` y, si el producto tiene variantes, usa la suma de sus `stock_qty` en vez del `stock_qty` del producto base — mismo patrón ya usado en `fetchCategoryRollup`. Esto corrige de paso, sin cambios adicionales, el filtro y el conteo de "stock bajo" y el badge "Sin stock"/"Bajo" de la tabla principal, que leen del mismo estado `products`.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
