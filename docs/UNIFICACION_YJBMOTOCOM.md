@@ -1409,3 +1409,19 @@ El usuario preguntó por qué algunos productos (ej. "PORTA CELULAR MANUBRIO 40-
 - El panel expandido de un producto sin tallas ahora muestra su código de barras (o "Sin código de barras" + un botón "Generar código de barras" que guarda directo, sin necesidad de abrir el editor) — resuelve la queja de visibilidad: antes no había ningún lugar donde ver ese código sin entrar al modo edición.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 37. Sondeo completo de códigos de barras faltantes + asignación (2026-07-27)
+
+El usuario pidió un sondeo completo de todo el catálogo y asignar de una vez, con la lógica de categoría, el código de barras a todo lo que le faltara — mencionó explícitamente "CAR-PLAY FEARLESS M11" y "MALETA PORTA CASCO TIPO TELA" como ejemplos que seguía viendo sin código, y la sensación de que eran "un montón".
+
+**Sondeo completo** (194 productos, todas sus variantes): solo los mismos **4 productos** de la sección 36 (los de demo: `Casco Integral Pro Racing`, `Guantes Touring Premium`, `Chaqueta Moto Adventure`, `Candado Alarma Premium`) no tenían código de barras en ningún lado — ni un solo producto con tallas tiene alguna variante sin código. Es decir, no había "un montón" adicional.
+
+**Qué pasaba con CAR-PLAY y MALETA PORTA CASCO TIPO TELA**: al revisarlos directamente contra la base de datos, **sí tienen** código de barras (`1801003010` y `1006005010` respectivamente) — el problema no era de datos sino de la interfaz: el cambio de la sección 36 (mostrar el código en el panel expandido de un producto sin tallas) todavía no se había subido a producción cuando el usuario lo revisó, así que el sitio en vivo seguía sin mostrar el código ahí, tuviera valor o no. Al hacer push de esa sección, este síntoma desaparece por sí solo.
+
+**Asignación**: se generó y guardó directamente en Supabase (mismo algoritmo que `generarCodigoBarrasAuto`/`detectarCategoria`, reimplementado idéntico en un script de una sola corrida, sin librerías nuevas) un código para los 4 productos restantes:
+- Casco Integral Pro Racing → `1106013010` (categoría 11=Casco)
+- Guantes Touring Premium → `1504002010` (categoría 15=Guante)
+- Chaqueta Moto Adventure → `1301008010` (categoría 13=Chaqueta)
+- Candado Alarma Premium → `1006012010` (categoría 10=Accesorios — "candado" no es una palabra clave reconocida, cae al valor por defecto)
+
+**Verificación de integralidad**: se confirmó, revisando los 760 códigos de barras existentes en `products` + `product_variants` juntos, que no quedó ningún duplicado tras la asignación, y que ya no queda ningún producto simple (sin tallas) sin código de barras. No se tocó ninguna otra tabla ni columna — el `updated_at` de estos productos ya se había actualizado antes por el snapshot de Inventario de la sección 32 (migración del 27/07), sin relación con este cambio.
