@@ -965,6 +965,36 @@ export default function InventarioPage() {
     (p) => p.stock_qty <= p.low_stock_threshold
   ).length
 
+  // Todos los códigos de barras ya usados en el catálogo (producto base +
+  // variantes) — para que "Generar automático" nunca repita uno existente,
+  // igual que ya hace la pestaña Ingresar con generarCodigoBarrasAuto.
+  const codigosExistentesGlobal = products.flatMap((p) => [p.barcode, ...p.variantBarcodes]).filter((c): c is string => !!c)
+
+  const handleGenerarBarcodeProducto = async (product: ProductStock) => {
+    if (!session?.access_token) return
+    const nuevoCodigo = generarCodigoBarrasAuto(product.title, 'N/A', codigosExistentesGlobal)
+    try {
+      const getRes = await fetch(`/api/products/${product.id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!getRes.ok) throw new Error('No se pudo cargar el producto')
+      const current = await getRes.json()
+      const res = await fetch(`/api/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ ...current, barcode: nuevoCodigo }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al generar el código de barras')
+      }
+      toast({ title: 'Código de barras generado', description: nuevoCodigo })
+      await fetchProducts()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo generar el código de barras', variant: 'destructive' })
+    }
+  }
+
   const outOfStockCount = products.filter((p) => p.stock_qty === 0).length
 
   const totalStock = products.reduce((sum, p) => sum + p.stock_qty, 0)
@@ -1916,12 +1946,29 @@ export default function InventarioPage() {
                                   className="h-7 w-16 rounded-lg text-xs"
                                 />
                               </div>
-                              <Input
-                                placeholder="Código de barras"
-                                value={editProductForm.barcode}
-                                onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })}
-                                className="h-7 rounded-lg text-xs"
-                              />
+                              <div className="flex gap-1">
+                                <Input
+                                  placeholder="Código de barras"
+                                  value={editProductForm.barcode}
+                                  onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })}
+                                  className="h-7 rounded-lg text-xs"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7 shrink-0 rounded-lg"
+                                  title="Generar código de barras automático"
+                                  onClick={() =>
+                                    setEditProductForm({
+                                      ...editProductForm,
+                                      barcode: generarCodigoBarrasAuto(editProductForm.title || product.title, 'N/A', codigosExistentesGlobal),
+                                    })
+                                  }
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                </Button>
+                              </div>
                               <div className="flex justify-end gap-1">
                                 <Button
                                   variant="ghost"
@@ -2062,9 +2109,32 @@ export default function InventarioPage() {
                               {loadingVariants && variants.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">Cargando variantes...</p>
                               ) : variants.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                  Este producto no tiene tallas/variantes registradas — sigue usando el stock general de arriba.
-                                </p>
+                                <div className="space-y-2">
+                                  <p className="text-sm text-muted-foreground">
+                                    Este producto no tiene tallas/variantes registradas — sigue usando el stock general de arriba.
+                                  </p>
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className="text-muted-foreground">Código de barras:</span>
+                                    {product.barcode ? (
+                                      <code className="rounded bg-muted px-2 py-1 text-xs">{product.barcode}</code>
+                                    ) : (
+                                      <>
+                                        <span className="text-muted-foreground">Sin código de barras</span>
+                                        {canEdit && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 rounded-lg text-xs"
+                                            onClick={() => handleGenerarBarcodeProducto(product)}
+                                          >
+                                            <RefreshCw className="mr-1 h-3 w-3" />
+                                            Generar código de barras
+                                          </Button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
                               ) : (
                                 <div className="overflow-x-auto rounded-lg border bg-card">
                                   <table className="w-full text-sm">

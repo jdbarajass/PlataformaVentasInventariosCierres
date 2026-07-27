@@ -3,6 +3,7 @@ import { z } from 'zod'
 export const productSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres').max(200, 'El título no puede exceder 200 caracteres'),
   sku: z.string().optional().nullable(),
+  barcode: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   price_cents: z.number().min(0, 'El precio debe ser mayor o igual a 0'),
   cost_cents: z.number().min(0, 'El costo debe ser mayor o igual a 0').default(0),

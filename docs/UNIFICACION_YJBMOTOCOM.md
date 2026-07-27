@@ -1394,3 +1394,18 @@ El usuario, tras el fix de la sección 34, pidió confirmar que escanear un cód
 **Verificado con datos reales de producción** (sin pasar por HTTP, replicando la lógica de la ruta directamente contra Supabase): escanear `1003002010` (PIJAMA, sin variantes) ahora resuelve por el fallback a `products.barcode`; buscar `1303001023` (talla M de la chaqueta) ahora resuelve "CHAQUETA CORTAVIENTO REFLECTIVO GRIS/NEGRO" por el nuevo filtro de variantes.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 36. Generar código de barras para productos sin uno + bug real: el PUT de productos nunca guardaba `barcode` (2026-07-27)
+
+El usuario preguntó por qué algunos productos (ej. "PORTA CELULAR MANUBRIO 40-35") no tienen código de barras y si se podía generar uno siguiendo la misma lógica de categoría que ya usan los demás, sin que choque con otros códigos. También notó que, para un producto sin tallas, el código de barras no se veía en ningún lado del panel expandido — solo aparecía si abrías el editor con el lápiz.
+
+**Diagnóstico de "por qué le falta"**: confirmado contra producción — son exactamente 4 productos (`Casco Integral Pro Racing`, `Guantes Touring Premium`, `Chaqueta Moto Adventure`, `Candado Alarma Premium`, con SKU `CASCO-001`/`GUANTE-001`/`CHAQ-001`/`ACC-001`), los 4 productos **de demo** que ya existían antes de la migración real del historial (sección 19) — nunca pasaron por el software local, así que nunca recibieron un código con la lógica de categoría. Los 190 productos reales migrados sí la tienen. "PORTA CELULAR MANUBRIO 40-35" resultó ser otro caso del mismo tipo.
+
+**Bug real encontrado al implementar el botón de generar**: `productSchema` (`lib/validations/product.ts`), usado por `PUT /api/products/[id]`, **nunca tuvo `barcode` como campo** — `productSchema.parse(body)` lo descartaba en silencio en cada actualización. Esto significa que el campo "Código de barras" del editor inline de producto en Detalle (construido en la sección 20) llevaba desde entonces sin guardar nada — la interfaz no mostraba error, pero el valor nunca se persistía. Confirmado revisando el schema y la ruta directamente: no había ninguna otra referencia a `barcode` en `/api/products/route.ts` ni en `/api/products/[id]/route.ts`. El `POST` de creación no se veía afectado (inserta `...body` directo, sin validar con este schema).
+
+**Cambios**:
+- `productSchema` ahora incluye `barcode: z.string().optional().nullable()` — corrige de raíz que el editor inline de producto (y cualquier otro consumidor de esta ruta) pueda guardar el código de barras.
+- `apps/web/src/app/admin/inventario/page.tsx`: botón "Generar" (ícono de refrescar) junto al campo de código de barras del editor de producto, que llama a `generarCodigoBarrasAuto` (la misma función ya usada en "Ingresar") contra la lista completa de códigos ya usados en el catálogo (`codigosExistentesGlobal`, construida a partir de `product.barcode` + `product.variantBarcodes` de todos los productos ya cargados) — nunca repite un código existente.
+- El panel expandido de un producto sin tallas ahora muestra su código de barras (o "Sin código de barras" + un botón "Generar código de barras" que guarda directo, sin necesidad de abrir el editor) — resuelve la queja de visibilidad: antes no había ningún lugar donde ver ese código sin entrar al modo edición.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
