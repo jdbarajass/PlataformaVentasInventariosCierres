@@ -31,19 +31,39 @@ export async function GET(request: NextRequest) {
         throw variantError
       }
 
-      if (!variant || !(variant as any).product) {
+      if (variant && (variant as any).product) {
+        const product = (variant as any).product
+        const { data: variants } = await supabase
+          .from('product_variants')
+          .select('*')
+          .eq('product_id', product.id)
+          .eq('active', true)
+
+        return NextResponse.json({
+          data: [{ ...product, variants: variants || [], matched_variant_id: (variant as any).id }],
+        })
+      }
+
+      // Sin coincidencia en variantes: el producto puede no tener tallas,
+      // caso en el que su propio código de barras vive en `products.barcode`
+      // directamente (~71 productos migrados sin talla, ver sección 20) —
+      // antes el escaneo de estos productos no encontraba nada.
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*, variants:product_variants(*)')
+        .eq('barcode', barcode)
+        .maybeSingle()
+
+      if (productError) {
+        throw productError
+      }
+
+      if (!product) {
         return NextResponse.json({ data: [] })
       }
 
-      const product = (variant as any).product
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('*')
-        .eq('product_id', product.id)
-        .eq('active', true)
-
       return NextResponse.json({
-        data: [{ ...product, variants: variants || [], matched_variant_id: (variant as any).id }],
+        data: [{ ...product, variants: ((product as any).variants || []).filter((v: any) => v.active) }],
       })
     }
 
@@ -55,7 +75,17 @@ export async function GET(request: NextRequest) {
     let query = supabase.from('products').select('*, variants:product_variants(*)')
 
     if (q) {
-      query = query.or(`title.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%`)
+      // El código de barras de un producto CON tallas vive por variante
+      // (products.barcode queda null) — sin esto, escribir/pegar el código
+      // de una talla en el buscador no encontraba el producto (mismo bug
+      // que ya se corrigió en el buscador de Detalle de Inventario).
+      const { data: variantesConBarcode } = await supabase
+        .from('product_variants')
+        .select('product_id')
+        .ilike('barcode', `%${q}%`)
+      const idsPorBarcode = Array.from(new Set((variantesConBarcode || []).map((v: any) => v.product_id)))
+      const filtroIds = idsPorBarcode.length > 0 ? `,id.in.(${idsPorBarcode.join(',')})` : ''
+      query = query.or(`title.ilike.%${q}%,sku.ilike.%${q}%,barcode.ilike.%${q}%${filtroIds}`)
     }
     if (categoryId) {
       query = query.eq('category_id', categoryId)

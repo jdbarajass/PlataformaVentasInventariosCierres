@@ -1376,3 +1376,21 @@ El usuario reportó que buscar por el código de barras de la talla M de "CHAQUE
 **Cambio**: `fetchProducts` ahora también trae `product_variants(product_id, stock_qty, barcode)` (aprovechando la misma consulta agregada en la sección 33) y guarda la lista de códigos de barras de las variantes de cada producto (`variantBarcodes`). `filteredProducts` ahora compara la búsqueda contra `product.barcode` **y** contra cualquiera de `product.variantBarcodes` — así que buscar el código de una talla específica encuentra el producto correcto sin importar que el código no esté en el producto base. Placeholder del buscador actualizado a "Buscar por nombre, SKU o código de barras...".
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 35. Escaneo de código de barras: confirmado en Registrar Venta + bug real corregido en la API compartida (2026-07-27)
+
+El usuario, tras el fix de la sección 34, pidió confirmar que escanear un código de barras con el lector también funciona en Registrar Venta (y en cualquier otro lugar donde haga falta), ya que ahí la idea es escanear directo y que busque el producto.
+
+**Lo que ya existía**: Registrar Venta (`admin/ventas/page.tsx`) ya tenía un flujo de escaneo dedicado — `handleBarcodeEnter` detecta la tecla Enter que manda el lector USB al terminar de leer, y llama a `/api/pos/search?barcode=...` (búsqueda exacta), igual que el software local. Este flujo nunca se había construido desde cero para este pedido; ya estaba ahí.
+
+**Bug real encontrado al verificarlo**: `/api/pos/search?barcode=` solo buscaba en `product_variants.barcode` — funciona para productos con tallas (el código vive por variante), pero para los ~71 productos migrados **sin tallas** (sección 20), el código de barras vive directamente en `products.barcode`, y esa ruta nunca lo consultaba. Escanear el código de uno de esos 71 productos en Registrar Venta no encontraba nada. Confirmado contra producción con "PIJAMA SIN MALETERO 85-75" (código `1003002010`, sin variantes): la ruta original devolvía `data: []`.
+
+**Otros consumidores de `/api/pos/search`** revisados (Calculadora, Inventario › Cambios, Préstamos, edición de factura en Ventas del Día): ninguno tiene un lector dedicado por Enter como Registrar Venta, pero todos comparten la búsqueda de texto (`?q=`), que tenía el mismo problema de fondo que ya se corrigió en Inventario (sección 34): el filtro solo comparaba contra `products.barcode`, nunca contra el código de las variantes.
+
+**Cambios en `apps/web/src/app/api/pos/search/route.ts`**:
+- El camino `?barcode=` (escaneo exacto) ahora, si no encuentra la variante, busca también en `products.barcode` directamente — cubre tanto productos con tallas como sin tallas.
+- El camino `?q=` (búsqueda de texto, la que usan Calculadora/Préstamos/Cambios/Ventas del Día) ahora también resuelve productos por código de barras de sus variantes (`product_variants.barcode ilike`), agregando sus `product_id` al filtro `OR` — así que escribir o pegar el código de una talla específica encuentra el producto en cualquiera de esas pantallas, no solo en Registrar Venta.
+
+**Verificado con datos reales de producción** (sin pasar por HTTP, replicando la lógica de la ruta directamente contra Supabase): escanear `1003002010` (PIJAMA, sin variantes) ahora resuelve por el fallback a `products.barcode`; buscar `1303001023` (talla M de la chaqueta) ahora resuelve "CHAQUETA CORTAVIENTO REFLECTIVO GRIS/NEGRO" por el nuevo filtro de variantes.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
