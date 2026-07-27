@@ -1336,3 +1336,5 @@ El usuario pidió recorrer todas las aristas del flujo de venta para confirmar q
 **⚠️ Pendiente manual**: aplicar `00028_pos_sale_stock_reversal_fix.sql` en el SQL Editor de Supabase (mismo procedimiento que las migraciones anteriores).
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+**Actualización 2026-07-27**: el usuario aplicó `00028_pos_sale_stock_reversal_fix.sql` en Supabase — la reversión exacta de stock ya tiene efecto en producción.
