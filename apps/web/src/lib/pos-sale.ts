@@ -38,7 +38,7 @@ export async function resolveSale(
   const productIds = Array.from(new Set(items.map((i) => i.product_id).filter(Boolean))) as string[]
   const { data: products, error: productsError } =
     productIds.length > 0
-      ? await supabase.from('products').select('id, title, sku, images, cost_cents, active').in('id', productIds)
+      ? await supabase.from('products').select('id, title, sku, images, cost_cents').in('id', productIds)
       : { data: [], error: null }
 
   if (productsError) throw productsError
@@ -65,8 +65,15 @@ export async function resolveSale(
       continue
     }
     const product = productsById.get(item.product_id)
-    if (!product || !product.active) {
-      throw new Error(`Producto no encontrado o inactivo: ${item.product_id}`)
+    if (!product) {
+      // `active` solo controla si el producto se muestra en la tienda
+      // online, no si se puede vender por mostrador — el POS ya es una
+      // operación interna protegida por requireAuth (igual que se corrigió
+      // en /api/pos/search, ver docs/UNIFICACION_YJBMOTOCOM.md sección 21).
+      // Antes esta función sí bloqueaba productos inactivos, así que un
+      // producto podía aparecer en el buscador de Registrar Venta pero
+      // fallar al confirmar la venta.
+      throw new Error(`Producto no encontrado: ${item.product_id}`)
     }
     if (item.variant_id && !variantsById.has(item.variant_id)) {
       throw new Error(`Variante no encontrada: ${item.variant_id}`)

@@ -1304,3 +1304,13 @@ El usuario pidió confirmar si el arreglo de zona horaria (hora explícita de Bo
 - Historial Mensual e Historial Mensual/Presupuesto: los límites de mes ahora se construyen con strings directos (`${year}-${month}-01`) en vez de `Date`/`toISOString()`, evitando cualquier dependencia de zona horaria para columnas `DATE` puras (`operating_expenses.date`).
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build` en el barrido completo.
+
+## 30. Bug: "Producto no encontrado o inactivo" al confirmar una venta en Registrar Venta (2026-07-27)
+
+El usuario reportó (con capturas de la interfaz y de la pestaña Network de DevTools) que un producto sí aparecía en el buscador de Registrar Venta, se podía agregar al carrito y armar el pago, pero al darle "Confirmar venta" fallaba con `Producto no encontrado o inactivo: <uuid>`.
+
+**Diagnóstico**: es una reaparición del mismo bug de la sección 21 (`active` solo debe controlar si un producto se muestra en la tienda online, no si se puede vender por mostrador), pero en un lugar distinto que no se tocó en esa corrección. `/api/pos/search` (usado para buscar/agregar productos al carrito) ya no filtraba por `active` desde la sección 21 — por eso el producto aparecía normal en la grilla. Pero `resolveSale()` en `lib/pos-sale.ts` (compartida por `POST /api/pos/sales` y `PUT /api/pos/sales/[id]`, se ejecuta al confirmar la venta) seguía validando `if (!product || !product.active) throw ...` — nunca se había corregido ahí. Resultado: cualquiera de los 190 productos migrados con `active=false` (sección 20, a propósito, para no publicarlos en la tienda online) se podía agregar al carrito pero jamás se podía vender, con un mensaje de error que además decía "inactivo" sin dar más contexto en la interfaz (el usuario solo veía el UUID, tuvo que abrir DevTools para copiarlo). Confirmado contra producción: el producto del reporte (`CANDADO DE ALARMA METALICO 70-60`) tiene `active: false` y `stock_qty: 18` — stock real, pero bloqueado solo por esa bandera.
+
+**Cambio**: se quitó la validación de `active` en `resolveSale()` (`lib/pos-sale.ts`), dejando solo la validación de que el producto exista. Se confirmó que `resolveSale` únicamente la usan las dos rutas de POS (mostrador) — nunca el checkout de la tienda online — así que este cambio no afecta la validación de productos inactivos de cara al cliente público.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
