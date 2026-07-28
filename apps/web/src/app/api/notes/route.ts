@@ -4,7 +4,10 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
 const noteSchema = z.object({
-  type: z.enum(['task', 'restock']).default('task'),
+  // 'admin_task' — "Pendientes Generales Admin": solo el admin puede
+  // crearlas/verlas, RLS lo exige a nivel de base de datos (ver migración
+  // 00029), esto es solo la forma del payload.
+  type: z.enum(['task', 'restock', 'admin_task']).default('task'),
   text: z.string().min(1, 'El texto es obligatorio'),
   due_date: z.string().optional().nullable(),
 })

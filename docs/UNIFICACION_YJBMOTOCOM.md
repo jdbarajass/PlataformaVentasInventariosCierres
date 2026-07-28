@@ -1425,3 +1425,18 @@ El usuario pidió un sondeo completo de todo el catálogo y asignar de una vez, 
 - Candado Alarma Premium → `1006012010` (categoría 10=Accesorios — "candado" no es una palabra clave reconocida, cae al valor por defecto)
 
 **Verificación de integralidad**: se confirmó, revisando los 760 códigos de barras existentes en `products` + `product_variants` juntos, que no quedó ningún duplicado tras la asignación, y que ya no queda ningún producto simple (sin tallas) sin código de barras. No se tocó ninguna otra tabla ni columna — el `updated_at` de estos productos ya se había actualizado antes por el snapshot de Inventario de la sección 32 (migración del 27/07), sin relación con este cambio.
+
+## 38. Notas y Pendientes: tercera pestaña "Pendientes Generales Admin", exclusiva de admin (2026-07-28)
+
+El usuario pidió una tercera pestaña en Notas y Pendientes (junto a "Por Pedir / Resurtido" y "Tareas Operativas"), con el mismo checklist, pero **solo visible para admin** — el vendedor no debe verla ni tocarla, para notas administrativas que no le competen (ej. contratos, arriendo, temas que solo le interesan al dueño del negocio).
+
+**Decisión de diseño**: no bastaba con ocultar la pestaña en la interfaz — si solo fuera un filtro visual, un vendedor con las herramientas del navegador podría seguir pidiendo `/api/notes` directamente y ver estas notas igual, porque la política RLS de `notes` (`"Admins and sellers can manage notes" FOR ALL`) le daba acceso total a cualquier fila sin distinguir tipo. Se reforzó a nivel de base de datos, no solo en el cliente.
+
+**Cambios**:
+- Migración `supabase/migrations/00029_admin_only_notes.sql`: se amplía el `CHECK` de `notes.type` para aceptar `'admin_task'` (nunca se restringe, mismo patrón que `00020_nu_qr_payment_methods.sql`), y se reemplaza la única política RLS por dos: una para admin (acceso total) y otra para vendedor que excluye explícitamente `type = 'admin_task'` — un vendedor autenticado simplemente no puede ver, crear, editar ni borrar esas filas, sin importar por dónde intente acceder.
+- `api/notes/route.ts`: el schema de creación ahora acepta `'admin_task'` como tipo válido (la propia RLS es la que impide que alguien sin rol admin logre crear una).
+- `admin/notas/page.tsx`: tercera pestaña "Pendientes Generales Admin" (ícono de escudo), renderizada condicionalmente solo cuando `userProfile.role === 'admin'` — mismo checklist, urgencia por fecha límite y contador que ya tienen las otras dos pestañas, sin duplicar ninguna lógica.
+
+**⚠️ Pendiente manual**: aplicar `00029_admin_only_notes.sql` en el SQL Editor de Supabase antes de que la nueva pestaña funcione — sin la migración, `notes.type = 'admin_task'` sería rechazado por el CHECK actual.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.

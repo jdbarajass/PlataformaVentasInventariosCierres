@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { StickyNote, PackageSearch, ListChecks, Plus, Loader2, Trash2, Check, Pencil, X } from 'lucide-react'
+import { StickyNote, PackageSearch, ListChecks, ShieldAlert, Plus, Loader2, Trash2, Check, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
@@ -10,7 +10,11 @@ import { cn } from '@/lib/utils'
 
 interface Note {
   id: string
-  type: 'task' | 'restock'
+  // 'admin_task' — "Pendientes Generales Admin": pestaña adicional pedida
+  // por el usuario, exclusiva para admin (ni la ve ni la puede tocar un
+  // vendedor — reforzado por RLS en la base de datos, no solo oculta en
+  // la interfaz, ver migración 00029).
+  type: 'task' | 'restock' | 'admin_task'
   text: string
   completed: boolean
   due_date: string | null
@@ -21,7 +25,8 @@ export default function NotasPage() {
   const [loading, setLoading] = useState(true)
   // Igual que el software local: "Por Pedir / Resurtido" y "Tareas
   // Operativas" son dos pestañas separadas, no una sola lista mezclada.
-  const [activeTab, setActiveTab] = useState<'restock' | 'task'>('restock')
+  // "Pendientes Generales Admin" es una tercera pestaña exclusiva de admin.
+  const [activeTab, setActiveTab] = useState<'restock' | 'task' | 'admin_task'>('restock')
   const [showCompleted, setShowCompleted] = useState(false)
 
   const [text, setText] = useState('')
@@ -33,8 +38,9 @@ export default function NotasPage() {
   const [editDueDate, setEditDueDate] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const { session } = useAuth()
+  const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const isAdmin = userProfile?.role === 'admin'
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -182,6 +188,10 @@ export default function NotasPage() {
           [
             { key: 'restock' as const, label: 'Por Pedir / Resurtido', icon: PackageSearch },
             { key: 'task' as const, label: 'Tareas Operativas', icon: ListChecks },
+            // Exclusiva de admin — ni la pestaña se muestra a un vendedor
+            // ni, aunque se forzara la petición, RLS le dejaría ver estas
+            // filas (migración 00029).
+            ...(isAdmin ? [{ key: 'admin_task' as const, label: 'Pendientes Generales Admin', icon: ShieldAlert }] : []),
           ]
         ).map(({ key, label, icon: Icon }) => (
           <button
@@ -205,11 +215,17 @@ export default function NotasPage() {
 
       <div className="rounded-xl border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">
-          {activeTab === 'restock' ? 'Nuevo pendiente por pedir' : 'Nueva tarea'}
+          {activeTab === 'restock' ? 'Nuevo pendiente por pedir' : activeTab === 'admin_task' ? 'Nuevo pendiente general admin' : 'Nueva tarea'}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder={activeTab === 'restock' ? 'Ej: Cascos XTR-M70 talla M x 5...' : 'Ej: Revisar cuentas de Addi del mes...'}
+            placeholder={
+              activeTab === 'restock'
+                ? 'Ej: Cascos XTR-M70 talla M x 5...'
+                : activeTab === 'admin_task'
+                ? 'Ej: Revisar contrato de arriendo antes de fin de mes...'
+                : 'Ej: Revisar cuentas de Addi del mes...'
+            }
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="min-w-[240px] flex-1 rounded-lg"
