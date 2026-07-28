@@ -245,6 +245,10 @@ export default function HistorialMensualPage() {
 
   const productMap = orders.reduce<Record<string, { title: string; qty: number; revenue: number; cost: number }>>((acc, o) => {
     (o.order_items || []).forEach((item) => {
+      // Items sin product_id (productos historicos que ya no existen en el
+      // catalogo) no se agrupan aqui: al no tener un id real, todos caerian
+      // en la misma clave y se sumarian entre si bajo un titulo cualquiera.
+      if (!item.product_id) return
       if (!acc[item.product_id]) acc[item.product_id] = { title: item.product_title, qty: 0, revenue: 0, cost: 0 }
       acc[item.product_id].qty += item.qty
       acc[item.product_id].revenue += item.total_cents

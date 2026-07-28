@@ -1531,3 +1531,15 @@ Continuación directa de la sección 42: se importó el pequeño delta que queda
 - Actualizados los 3 préstamos de `pending` a `returned` por `id`.
 
 **Verificado contra Supabase tras escribir** (no solo el log del script): la orden, el item, el pago, el saldo de Efectivo (exacto), el `inventory_movement` con su `reference_id` apuntando a la orden nueva, y los 3 préstamos con `status: returned`. Las 6 cuentas quedaron idénticas al Excel. `stock_qty` no se tocó en ningún punto.
+
+## 44. Bug real: "Top 10 Productos" y "Rentabilidad por producto" de Historial Mensual mezclaban productos distintos bajo un solo nombre (2026-07-28)
+
+El usuario vio en Historial Mensual un producto "MECANISMO DE CASCO" con 15 unidades y $1.535.000, pero ese producto no existe en Inventario, y preguntó de dónde salían esas cifras.
+
+**Causa**: `productMap` en `historial-mensual/page.tsx` agrupaba las ventas por `item.product_id`. Los `order_items` huérfanos de la migración histórica (sección 42 — productos descontinuados que ya no están en el catálogo actual) tienen `product_id = null`, y en JavaScript `acc[null]` usa la misma clave `"null"` para todos ellos, así que se sumaban entre sí y se mostraban bajo el título del primero que apareciera en la iteración. Verificado contra Supabase: julio tiene exactamente 15 `order_items` con `product_id IS NULL`, sumando 15 unidades y $1.535.000 — coincide al peso con lo que mostraba la pantalla — y el primero de esos 15 (por orden cronológico) es justo "MECANISMO DE CASCO". Los otros 14 (Visor de casco, Sudadera impermeable, Canilleras, Guantes Fox, etc.) quedaban invisibles, sumados ahí sin mostrarse.
+
+Reportes (`reportes/page.tsx`) ya tenía el filtro correcto (`if (item.product_id) { ... }`, línea ~133) y no sufre este bug — solo Historial Mensual carecía de él.
+
+**Cambio** (`apps/web/src/app/admin/historial-mensual/page.tsx`): se agregó `if (!item.product_id) return` al inicio del `forEach` de `productMap`, igual que ya hace Reportes — los ítems sin producto vinculado se excluyen de "Top 10 Productos" y "Rentabilidad por producto" (ambas tablas comparten el mismo `productMap`) en vez de mezclarse entre sí. No afecta Ganancia Neta/Utilidad Real del mes, que se calculan sobre `orders`/`dailyArray`, no sobre `productMap`.
+
+**Verificado**: recalculando el Top 10 de julio sin los huérfanos, el resultado son 10 productos reales del catálogo (CASCO LS2 STREAM 808, INTERCOMUNICADOR Y10, CASCO SHATF MULTIPROPOSITO MX360, etc.), cada uno con su propia cifra. `tsc --noEmit` limpio.
