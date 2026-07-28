@@ -200,6 +200,19 @@ export default function HistorialMensualPage() {
   for (const day of Object.keys(expensesByDay)) {
     if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cost: 0, commission: 0, units: 0 }
   }
+  // Días sin NINGUNA actividad (ni ventas ni gastos) no quedaban en
+  // `dailyMap` en absoluto — simplemente desaparecían de la lista, en vez
+  // de mostrarse como "no hubo venta ese día" (que puede ser porque no se
+  // abrió, o porque el día estuvo difícil y no se vendió nada). Se rellena
+  // cada día del mes hasta hoy (en hora de Bogotá) — nunca días futuros,
+  // que obviamente aún no han pasado.
+  const todayBogota = bogotaDateStr(new Date())
+  const diasEnElMes = new Date(year, month, 0).getDate()
+  for (let dia = 1; dia <= diasEnElMes; dia++) {
+    const dayStr = `${year}-${String(month).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+    if (dayStr > todayBogota) break
+    if (!dailyMap[dayStr]) dailyMap[dayStr] = { revenue: 0, cost: 0, commission: 0, units: 0 }
+  }
   const dailyArray = Object.entries(dailyMap)
     .map(([day, d]) => {
       const gastosDia = expensesByDay[day] || 0
@@ -209,13 +222,21 @@ export default function HistorialMensualPage() {
       // del software local: ganancia_neta vs. utilidad_real).
       const gananciaNeta = d.revenue - d.cost - d.commission
       const utilidadRealDia = canViewProfit ? gananciaNeta - dailyFixedExpense - gastosDia : d.revenue - d.cost
-      return { day, ...d, gastosDia, gananciaNeta, utilidadRealDia }
+      // "Sin venta": no se vendió NADA ese día (pudo no abrirse, o el día
+      // estuvo difícil) — distinto de un día con ventas que dio pérdida.
+      const sinVenta = d.units === 0
+      return { day, ...d, gastosDia, gananciaNeta, utilidadRealDia, sinVenta }
     })
     .sort((a, b) => a.day.localeCompare(b.day))
   const maxDaily = Math.max(...dailyArray.map((d) => d.revenue), 1)
-  const positiveDays = dailyArray.filter((d) => d.utilidadRealDia >= 0).length
-  const negativeDays = dailyArray.length - positiveDays
-  const diaMasRentable = dailyArray.length > 0 ? dailyArray.reduce((a, b) => (b.gananciaNeta > a.gananciaNeta ? b : a)) : null
+  // "Días trabajados"/positivos/negativos se cuentan solo sobre días con
+  // ventas reales — los días sin venta van aparte, no se mezclan con
+  // "negativo" (que implica que sí se vendió pero hubo pérdida).
+  const diasConVenta = dailyArray.filter((d) => !d.sinVenta)
+  const positiveDays = diasConVenta.filter((d) => d.utilidadRealDia >= 0).length
+  const negativeDays = diasConVenta.filter((d) => d.utilidadRealDia < 0).length
+  const noSalesDays = dailyArray.length - diasConVenta.length
+  const diaMasRentable = diasConVenta.length > 0 ? diasConVenta.reduce((a, b) => (b.gananciaNeta > a.gananciaNeta ? b : a)) : null
   // Solo para la lista "Ventas por día" en pantalla: el día más reciente
   // primero, para no tener que hacer scroll hasta el final del mes para
   // ver hoy — el orden ascendente de `dailyArray` se deja intacto porque
@@ -373,7 +394,7 @@ export default function HistorialMensualPage() {
               ${canViewProfit ? `<td rowspan="2" class="util-cell ${utilidadReal >= 0 ? 'util-pos' : 'util-neg'}"><div class="util-label">UTILIDAD REAL</div><div class="util-amount">${formatPrice(utilidadReal)}</div><div class="util-margin">Margen: ${grossProfit ? ((utilidadReal / totalRevenue) * 100).toFixed(1) : '0.0'}%</div></td>` : ''}
             </tr>
             <tr class="kpi-sub">
-              <td>Días trabajados: ${dailyArray.length}</td>
+              <td>Días trabajados: ${diasConVenta.length}</td>
               <td>Costos: ${formatPrice(totalCost)}</td>
               <td>Margen: ${totalRevenue ? ((grossProfit / totalRevenue) * 100).toFixed(1) : '0.0'}%</td>
             </tr>
@@ -458,7 +479,7 @@ export default function HistorialMensualPage() {
               <td class="r">${formatPrice(d.gananciaNeta)}</td>
               <td class="r">${d.gastosDia > 0 ? formatPrice(d.gastosDia) : '—'}</td>
               <td class="r ${d.utilidadRealDia >= 0 ? 'green' : 'red'}">${formatPrice(d.utilidadRealDia)}</td>
-              <td class="c ${d.utilidadRealDia >= 0 ? 'green' : 'red'}">${d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}</td>` : ''}
+              <td class="c ${d.sinVenta ? 'red' : (d.utilidadRealDia >= 0 ? 'green' : 'red')}">${d.sinVenta ? 'Sin venta' : (d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo')}</td>` : ''}
             </tr>`).join('')}
           </tbody>
         </table>`
@@ -645,7 +666,7 @@ export default function HistorialMensualPage() {
           </div>
 
           {canViewProfit && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div className="rounded-xl border bg-card p-4">
                 <p className="text-sm text-muted-foreground">Costo total</p>
                 <p className="text-xl font-bold">{formatPrice(totalCost)}</p>
@@ -677,6 +698,11 @@ export default function HistorialMensualPage() {
                 <p className="text-sm text-muted-foreground">Días positivos / negativos</p>
                 <p className="text-xl font-bold">{positiveDays} / {negativeDays}</p>
               </div>
+              <div className="rounded-xl border bg-card p-4">
+                <p className="text-sm text-muted-foreground">Días sin venta</p>
+                <p className={`text-xl font-bold ${noSalesDays > 0 ? 'text-red-500' : ''}`}>{noSalesDays}</p>
+                <p className="text-xs text-muted-foreground">No se vendió nada ese día</p>
+              </div>
             </div>
           )}
 
@@ -700,8 +726,17 @@ export default function HistorialMensualPage() {
                       <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.revenue / maxDaily) * 100}%` }} /></div>
                       <span className="w-28 text-right text-sm font-medium">{formatPrice(d.revenue)}</span>
                       {canViewProfit && (
-                        <Badge variant="outline" className={d.utilidadRealDia >= 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}>
-                          {d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}
+                        <Badge
+                          variant="outline"
+                          className={
+                            d.sinVenta
+                              ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                              : d.utilidadRealDia >= 0
+                              ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                              : 'bg-red-500/10 text-red-500 border-red-500/20'
+                          }
+                        >
+                          {d.sinVenta ? 'Sin venta' : d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}
                         </Badge>
                       )}
                     </Link>

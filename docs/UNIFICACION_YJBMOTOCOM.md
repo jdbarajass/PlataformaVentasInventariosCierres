@@ -1452,3 +1452,23 @@ El usuario notó que la lista "Ventas por día" de Historial Mensual estaba orde
 **Cambio**: se dejó `dailyArray` intacto (sigue ascendente, para no romper el PDF) y se agregó `dailyArrayDesc = [...dailyArray].reverse()`, usado únicamente por la lista "Ventas por día" en pantalla (`apps/web/src/app/admin/historial-mensual/page.tsx`). El reporte PDF exportable no cambia de comportamiento.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 40. Historial Mensual: marcar en rojo los días sin ninguna venta (2026-07-28)
+
+El usuario notó que un día sin ventas (porque no se abrió, o porque el día estuvo difícil) simplemente no aparecía en "Ventas por día" — pidió mostrarlo en rojo como "no hubo venta" y agregar un apartado con el conteo de esos días, revisando además dónde más repercutía este mismo problema.
+
+**Diagnóstico**: `dailyMap` solo se poblaba a partir de los días con órdenes reales, más los días con algún gasto operativo registrado (para que también contaran en el resumen) — un día sin ventas Y sin gastos quedaba completamente ausente de `dailyArray`, no solo "sin badge". No es lo mismo que "Negativo" (que implica que sí hubo ventas, pero con pérdida) — el usuario pidió una tercera categoría separada.
+
+**Cambio** (`apps/web/src/app/admin/historial-mensual/page.tsx`): se rellena `dailyMap` con cada día del mes desde el 1 hasta hoy (en hora de Bogotá — nunca días futuros, que obviamente aún no han pasado), y cada día calcula `sinVenta = unidades vendidas === 0`. Repercusiones que se revisaron y ajustaron para no dañar nada:
+- **"Días trabajados"** (KPI del PDF): antes contaba `dailyArray.length`, que ahora incluiría también los días sin venta recién agregados — se cambió a contar solo los días con venta real (`diasConVenta.length`), igual que el software local (`dias_con_ventas` cuenta días con actividad, no días de calendario).
+- **"Días positivos / negativos"**: se recalculan excluyendo los días sin venta (antes un día sin venta ni gasto ni existía; un día sin venta pero con gasto se contaba como "Negativo", mezclado con los días que sí vendieron y perdieron plata).
+- **"Día más rentable"**: se calcula solo entre días con venta real, para que un día sin ninguna venta (ganancia neta = 0) no gane por accidente si todos los días reales del mes dieron pérdida.
+- **Nueva tarjeta "Días sin venta"** junto a "Días positivos / negativos" (grid ajustado a 5 columnas), en rojo si el conteo es mayor a 0.
+- El badge de la lista "Ventas por día" y la columna "ESTADO" del reporte PDF exportable ahora muestran "Sin venta" (rojo) en vez de "Negativo" para esos días.
+- Efecto colateral positivo (sin cambios de código adicionales): la gráfica "Tendencia de Ganancia Neta (Últimos 7 días)" del PDF, que toma `dailyArray.slice(-7)`, antes podía saltarse silenciosamente un día sin actividad y mostrar menos de 7 días reales o días no consecutivos — ahora siempre muestra exactamente los últimos 7 días de calendario, incluidos los de "sin venta".
+
+**Dónde más repercutía (revisado, no modificado por ahora)**: Reportes (`admin/reportes/page.tsx`) tiene el mismo patrón de "Resumen diario" con Positivo/Negativo por día, con el mismo hueco de fondo (días sin órdenes no aparecen). No se replicó el fix ahí en esta misma pasada porque esa página corta todo el cálculo por completo cuando el rango no tiene ninguna orden (`if (orders.length > 0) {...} else { todo vacío }`) — extenderlo ahí exige reestructurar ese flujo (top productos, métodos de pago, horas pico dependen de la misma rama), un cambio más amplio que el usuario no pidió explícitamente. Queda identificado como pendiente a decisión del usuario.
+
+**Verificado con datos reales de producción** (sin pasar por HTTP): para julio 2026 hasta hoy (28/07), se identificaron 6 días sin ninguna venta (10, 12, 19, 23, 27 y 28 de julio).
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
