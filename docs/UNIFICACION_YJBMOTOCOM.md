@@ -1488,3 +1488,28 @@ El usuario pidió extender a Reportes el mismo fix de la sección 40 (el hueco q
 **Verificado con datos reales de producción**: para el rango por defecto (últimos 30 días, 28/06 al 28/07), se detectan 25 días con venta real y 6 días sin venta — coincide con los mismos días encontrados en Historial Mensual para julio.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 42. Bug real de datos: `cost_cents = 0` en 769 de 780 líneas de venta migradas — Ganancia Neta/Utilidad Real desfasadas en Historial Mensual y Reportes (2026-07-28)
+
+El usuario mostró dos capturas (software local vs. nube) del Historial Mensual de julio 2026 con el mismo ingreso ($13.195.500) pero Ganancia Neta y Utilidad Real muy distintas ($4.2M local vs $12.6M nube; -$1.3M local vs +$7.1M nube), y pidió analizar a fondo si era un bug del software desplegado, un error de cálculo, o un problema del local.
+
+**Diagnóstico**: la fórmula de Ganancia Neta/Utilidad Real en la nube es correcta y usa exactamente el mismo criterio que el local (`ingreso - costo`). El problema es de datos, no de fórmula: la migración histórica original (sección 19, 22/07) insertó **769 de 780 `order_items` (98.6%) con `cost_cents = 0`**, porque el script de migración de esa vez no traía el costo desde el Excel para las líneas de `Ventas`. Consulta directa a Supabase confirmó: `order_items` con `cost_cents = 0`: 769; de esos, **412 (53%) además sin `product_id`** (nunca quedaron enlazados a un producto del catálogo).
+
+Para julio, esto se verificó numéricamente contra producción antes de tocar nada: ingreso $13.195.500, costo (con el bug) $583.000 → Ganancia Neta $12.612.500 — coincide exactamente con lo que mostraba la nube en la captura del usuario.
+
+**Fuente de verdad usada para reparar**: el usuario reexportó un Excel fresco del software local (`YJBMOTOCOM_Historial_27_07_2026 (1).xlsx`, 780 filas en Ventas) y aclaró una instrucción importante para este arreglo: **las cantidades de inventario actuales en la nube son las correctas** (las ha venido actualizando directo ahí), no las del Excel — este arreglo es exclusivamente sobre `cost_cents` (y, cuando aplicara, el enlace a producto), nunca sobre `stock_qty`.
+
+**Script de reparación** (`fix-cost-and-links.js`, guardado en el scratchpad de la sesión, no en el repo — mismo criterio que otros scripts de un solo uso sobre datos reales):
+- Empareja cada `order_item` con `cost_cents = 0` contra una fila de la hoja `Ventas` del Excel nuevo, por clave compuesta: fecha Bogotá + hora exacta (nivel 1) o solo fecha (nivel 2, respaldo) + título de producto exacto + talla normalizada + cantidad + precio unitario — cada fila del Excel se marca `used` para no reutilizarla en un segundo match.
+- Actualiza `cost_cents` con el costo real del Excel. Si el `order_item` no tenía `product_id`, intenta reenlazarlo (por código de barras de la fila del Excel primero, si no por título exacto contra el catálogo actual) — sin tocar `stock_qty` en ningún punto del script.
+- Dry-run: **769/769 emparejados, 0 sin emparejar** — el arreglo de costo es 100% preciso. Reenlace de producto: solo 14/412 (ver limitación abajo).
+- Ejecutado con `--write` tras validar con el usuario.
+
+**Verificación post-escritura contra Supabase** (no solo el log del script):
+- Julio: ingreso $13.195.500, costo corregido $8.993.265 → **Ganancia Neta $4.202.235** — coincide casi al peso con el software local.
+- `order_items` con `cost_cents = 0` restantes: 62 (bajó de 769) — estos son legítimos: el Excel también trae costo 0 para esas líneas (ej. artículos sin costo registrado en el local), no es un resto del bug.
+- `order_items` sin `product_id`: 399 (bajó de 412; 14 se reenlazaron con éxito vía código de barras/título exacto).
+
+**Limitación conocida, explicada al usuario y aceptada**: de los 412 `order_items` huérfanos originales, solo 14 se pudieron reenlazar a un producto real del catálogo. Se investigó por qué: **0 de los 398 restantes tiene un título que exista tal cual (ni siquiera ignorando mayúsculas) en el catálogo actual de 194 productos** — ejemplos: "GUANTES FOX NEGRO TALLA XL", "PARRILLA HUNK 125", "MECANISMO DE CASCO". Son casi con certeza productos que se agotaron y nunca se reabastecieron/catalogaron formalmente, o que luego se renombraron — la migración original solo creó filas de `products` a partir de lo que seguía en la hoja Inventario en ese momento. Reenlazarlos requeriría *fuzzy matching* (riesgo real de enlaces incorrectos) o crear productos placeholder en el catálogo real solo para ventas históricas puntuales — se decidió NO hacerlo. Estos 399 items quedan con costo correcto pero sin producto vinculado, igual que la convención ya existente de "producto fuera de catálogo" — afecta solo el detalle de "Top Productos"/rentabilidad por producto en Reportes, **no** afecta Ganancia Neta ni Utilidad Real (que ya suman correctamente sin importar si el item tiene `product_id`).
+
+**Pendiente, explícitamente fuera de este arreglo** (no se tocó en esta sesión): el pequeño delta adicional que trae el Excel del 27/07 sobre el ya importado en la sección 32 (1 venta nueva factura 77 "PASAMONTAÑAS LYCRADO", +1 Mov. Cuentas, +1 Mov. Inventario) — pendiente de importar siguiendo el mismo proceso de la sección 32, con la salvedad explícita de **no** sobreescribir `stock_qty`/saldos de Inventario/Cuentas esta vez.
