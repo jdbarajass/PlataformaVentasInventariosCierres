@@ -1472,3 +1472,19 @@ El usuario notó que un día sin ventas (porque no se abrió, o porque el día e
 **Verificado con datos reales de producción** (sin pasar por HTTP): para julio 2026 hasta hoy (28/07), se identificaron 6 días sin ninguna venta (10, 12, 19, 23, 27 y 28 de julio).
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+## 41. Reportes: mismo fix de "días sin venta" que Historial Mensual (2026-07-28)
+
+El usuario pidió extender a Reportes el mismo fix de la sección 40 (el hueco que se dejó pendiente explícitamente), y confirmar que los días sin venta "entren a las estadísticas" — no solo se vean, sino que cuenten en los cálculos.
+
+**Por qué era más delicado que en Historial Mensual**: `fetchReports` cortaba todo el procesamiento con `if (orders.length > 0) { ... } else { limpiar todo a vacío }` — top productos, método más usado, horas pico, comisión por método y el resumen diario dependían de esa misma rama. Había que quitar ese corte sin romper ninguno de esos cálculos.
+
+**Cambio** (`apps/web/src/app/admin/reportes/page.tsx`):
+- Se quitó el `if (orders.length > 0) / else`: todo el bloque corre siempre. No hacía falta el `else` porque cada cálculo ya era seguro sobre un array vacío (`Object.entries({})`, `.reduce(..., 0)`, `avgOrder` ya se guardaba con `? :`) — el único motivo real para el corte era evitar procesar cuando no había nada, no una necesidad de corrección.
+- Se agregó el mismo relleno día por día que en Historial Mensual, ahora sobre el rango `dateFrom`–`dateTo` elegido por el usuario (recortado a hoy en hora de Bogotá si `dateTo` cae en el futuro) — cada día sin ninguna orden queda en `dailySales` con ceros en vez de desaparecer.
+- `dailyProfit` ahora incluye `sinVenta` (sin ninguna orden ese día). "Día más rentable" se calcula excluyendo esos días (mismo cuidado que `diaMasRentable` en Historial Mensual). Nueva tarjeta "Días sin venta" en el grid de KPIs de admin (ajustado a `lg:grid-cols-6`). La tabla "Resumen diario" muestra "Sin venta" (rojo) en vez de "Negativo" para esos días.
+- Repercusión positiva sin cambios de código: "Ventas Diarias" (gráfica) y el CSV exportado ahora también muestran los días sin venta explícitamente, en vez de saltárselos.
+
+**Verificado con datos reales de producción**: para el rango por defecto (últimos 30 días, 28/06 al 28/07), se detectan 25 días con venta real y 6 días sin venta — coincide con los mismos días encontrados en Historial Mensual para julio.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.

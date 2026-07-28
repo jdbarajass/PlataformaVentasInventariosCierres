@@ -57,7 +57,7 @@ export default function ReportsPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [totals, setTotals] = useState({ revenue: 0, orders: 0, avgOrder: 0 })
   const [profitTotals, setProfitTotals] = useState({ cost: 0, commission: 0, grossProfit: 0, expenses: 0, netProfit: 0 })
-  const [dailyProfit, setDailyProfit] = useState<{ date: string; total: number; cost: number; profit: number }[]>([])
+  const [dailyProfit, setDailyProfit] = useState<{ date: string; total: number; cost: number; profit: number; sinVenta: boolean }[]>([])
   const [commissionByMethod, setCommissionByMethod] = useState<Record<string, number>>({})
   const [methodCounts, setMethodCounts] = useState<Record<string, number>>({})
   const [peakHours, setPeakHours] = useState<{ label: string; count: number }[]>([])
@@ -92,7 +92,7 @@ export default function ReportsPage() {
 
     const orders = (ordersData as unknown as OrderWithItems[]) || []
 
-    if (orders.length > 0) {
+    {
       // Calculate daily sales (con costo, para Estado Positivo/Negativo y
       // día más rentable — igual que el resumen diario del local)
       const dailySales: Record<string, { total: number; orders: number; cost: number }> = {}
@@ -141,12 +141,37 @@ export default function ReportsPage() {
         }
       })
 
+      // Días sin NINGUNA orden en el rango no quedaban en `dailySales` en
+      // absoluto — simplemente desaparecían de "Ventas Diarias"/"Resumen
+      // diario" en vez de mostrarse como "no hubo venta ese día" (mismo
+      // hueco ya corregido en Historial Mensual, sección 40). Se rellena
+      // cada día del rango elegido hasta hoy (en hora de Bogotá — nunca
+      // días futuros, que obviamente aún no han pasado).
+      const todayBogota = bogotaDateStr(new Date())
+      const finalDateTo = dateTo > todayBogota ? todayBogota : dateTo
+      if (dateFrom <= finalDateTo) {
+        const [fy, fm, fd] = dateFrom.split('-').map(Number)
+        const [ty, tm, td] = finalDateTo.split('-').map(Number)
+        const cursor = new Date(Date.UTC(fy, fm - 1, fd))
+        const end = new Date(Date.UTC(ty, tm - 1, td))
+        while (cursor <= end) {
+          const dayStr = cursor.toISOString().split('T')[0]
+          if (!dailySales[dayStr]) dailySales[dayStr] = { total: 0, orders: 0, cost: 0 }
+          cursor.setUTCDate(cursor.getUTCDate() + 1)
+        }
+      }
+
       // Convert to arrays
       const salesArray = Object.entries(dailySales)
         .map(([date, data]) => ({ date, ...data }))
         .sort((a, b) => a.date.localeCompare(b.date))
 
-      setDailyProfit(salesArray.map((d) => ({ date: d.date, total: d.total, cost: d.cost, profit: d.total - d.cost })))
+      setDailyProfit(
+        // "Sin venta": no hubo ninguna orden ese día (pudo no abrirse, o el
+        // día estuvo difícil) — distinto de un día con ventas que dio
+        // pérdida, que sigue siendo "Negativo".
+        salesArray.map((d) => ({ date: d.date, total: d.total, cost: d.cost, profit: d.total - d.cost, sinVenta: d.orders === 0 }))
+      )
       setMethodCounts(methodCountsAcc)
       setPeakHours(
         Object.entries(hourBuckets)
@@ -223,15 +248,6 @@ export default function ReportsPage() {
         expenses: totalExpenses,
         netProfit: grossProfit - totalExpenses,
       })
-    } else {
-      setSalesData([])
-      setTopProducts([])
-      setTotals({ revenue: 0, orders: 0, avgOrder: 0 })
-      setProfitTotals({ cost: 0, commission: 0, grossProfit: 0, expenses: 0, netProfit: 0 })
-      setDailyProfit([])
-      setCommissionByMethod({})
-      setMethodCounts({})
-      setPeakHours([])
     }
     }
 
@@ -264,9 +280,14 @@ export default function ReportsPage() {
   const maxSales = Math.max(...salesData.map((d) => d.total), 1)
   const maxPeakHour = Math.max(...peakHours.map((h) => h.count), 1)
   const mostUsedMethod = Object.entries(methodCounts).sort((a, b) => b[1] - a[1])[0]
-  const mostProfitableDay = dailyProfit.length > 0
-    ? [...dailyProfit].sort((a, b) => b.profit - a.profit)[0]
+  // Excluye días sin venta — que un día sin ninguna orden (ganancia = 0)
+  // no gane por accidente si todos los días con venta real del periodo
+  // dieron pérdida.
+  const diasConVenta = dailyProfit.filter((d) => !d.sinVenta)
+  const mostProfitableDay = diasConVenta.length > 0
+    ? [...diasConVenta].sort((a, b) => b.profit - a.profit)[0]
     : null
+  const noSalesDaysCount = dailyProfit.filter((d) => d.sinVenta).length
 
   return (
     <div className="space-y-6">
@@ -364,7 +385,7 @@ export default function ReportsPage() {
 
       {/* Costo, comisión y ganancia — igual que en el software local, solo Admin las ve */}
       {canViewProfit && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Costo Total</CardTitle>
@@ -412,6 +433,16 @@ export default function ReportsPage() {
                 {mostProfitableDay ? new Date(mostProfitableDay.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }) : '—'}
               </div>
               {mostProfitableDay && <p className="text-xs text-muted-foreground">Ganancia: {formatPrice(mostProfitableDay.profit)}</p>}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Días sin venta</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${noSalesDaysCount > 0 ? 'text-red-500' : ''}`}>{noSalesDaysCount}</div>
+              <p className="text-xs text-muted-foreground">No se vendió nada ese día</p>
             </CardContent>
           </Card>
         </div>
@@ -557,8 +588,16 @@ export default function ReportsPage() {
                       <td className="py-2 pr-4 text-right">{formatPrice(d.total)}</td>
                       <td className={`py-2 pr-4 text-right ${d.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(d.profit)}</td>
                       <td className="py-2 text-right">
-                        <span className={`rounded-full border px-2 py-0.5 text-xs ${d.profit >= 0 ? 'border-green-500/20 bg-green-500/10 text-green-500' : 'border-red-500/20 bg-red-500/10 text-red-500'}`}>
-                          {d.profit >= 0 ? 'Positivo' : 'Negativo'}
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs ${
+                            d.sinVenta
+                              ? 'border-red-500/20 bg-red-500/10 text-red-500'
+                              : d.profit >= 0
+                              ? 'border-green-500/20 bg-green-500/10 text-green-500'
+                              : 'border-red-500/20 bg-red-500/10 text-red-500'
+                          }`}
+                        >
+                          {d.sinVenta ? 'Sin venta' : d.profit >= 0 ? 'Positivo' : 'Negativo'}
                         </span>
                       </td>
                     </tr>
