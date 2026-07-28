@@ -216,6 +216,11 @@ export default function HistorialMensualPage() {
   const positiveDays = dailyArray.filter((d) => d.utilidadRealDia >= 0).length
   const negativeDays = dailyArray.length - positiveDays
   const diaMasRentable = dailyArray.length > 0 ? dailyArray.reduce((a, b) => (b.gananciaNeta > a.gananciaNeta ? b : a)) : null
+  // Solo para la lista "Ventas por día" en pantalla: el día más reciente
+  // primero, para no tener que hacer scroll hasta el final del mes para
+  // ver hoy — el orden ascendente de `dailyArray` se deja intacto porque
+  // el reporte PDF (gráficas, "últimos 7 días") depende de esa dirección.
+  const dailyArrayDesc = [...dailyArray].reverse()
 
   const productMap = orders.reduce<Record<string, { title: string; qty: number; revenue: number; cost: number }>>((acc, o) => {
     (o.order_items || []).forEach((item) => {
@@ -681,11 +686,11 @@ export default function HistorialMensualPage() {
                 <h2 className="text-lg font-semibold">Ventas por día</h2>
                 <p className="text-xs text-muted-foreground">Haz clic en un día para ver el detalle</p>
               </div>
-              {dailyArray.length === 0 ? (
+              {dailyArrayDesc.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay ventas este mes.</p>
               ) : (
                 <div className="space-y-2">
-                  {dailyArray.map((d) => (
+                  {dailyArrayDesc.map((d) => (
                     <Link
                       key={d.day}
                       href={`/admin/ventas-dia?date=${d.day}`}

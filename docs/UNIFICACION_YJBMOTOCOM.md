@@ -1440,3 +1440,15 @@ El usuario pidió una tercera pestaña en Notas y Pendientes (junto a "Por Pedir
 **⚠️ Pendiente manual**: aplicar `00029_admin_only_notes.sql` en el SQL Editor de Supabase antes de que la nueva pestaña funcione — sin la migración, `notes.type = 'admin_task'` sería rechazado por el CHECK actual.
 
 Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
+
+**Actualización 2026-07-28**: el usuario aplicó `00029_admin_only_notes.sql` en Supabase — la pestaña "Pendientes Generales Admin" ya tiene efecto en producción.
+
+## 39. Historial Mensual: "Ventas por día" ordenado del más reciente al más antiguo (2026-07-28)
+
+El usuario notó que la lista "Ventas por día" de Historial Mensual estaba ordenada del primer día del mes al último, así que para ver el día actual (normalmente el último del mes en curso) había que hacer scroll hasta abajo — pidió invertir el orden para que el día más reciente aparezca primero.
+
+**Cuidado al implementarlo**: `dailyArray` (ordenado ascendente por fecha) no solo alimenta esa lista en pantalla — también lo usa el reporte PDF exportable (sección 27): la gráfica de "Ingresos Diarios" espera leerse de izquierda a derecha en orden cronológico, y "Tendencia de Ganancia Neta (Últimos 7 días)" usa `dailyArray.slice(-7)` para tomar los 7 más recientes, algo que dejaría de funcionar (tomaría los 7 más *antiguos*) si `dailyArray` se invertía globalmente.
+
+**Cambio**: se dejó `dailyArray` intacto (sigue ascendente, para no romper el PDF) y se agregó `dailyArrayDesc = [...dailyArray].reverse()`, usado únicamente por la lista "Ventas por día" en pantalla (`apps/web/src/app/admin/historial-mensual/page.tsx`). El reporte PDF exportable no cambia de comportamiento.
+
+Verificado `tsc`/`eslint`/`vitest`/`npm run build`.
