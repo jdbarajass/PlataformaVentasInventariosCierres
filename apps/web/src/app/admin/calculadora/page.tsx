@@ -36,7 +36,11 @@ export default function CalculadoraPage() {
   const [mode, setMode] = useState<MarginMode>('real')
   const [costo, setCosto] = useState('')
   const [precio, setPrecio] = useState('')
-  const [margenDeseado, setMargenDeseado] = useState('')
+  // Con un % ya seleccionado por defecto (igual que el software local,
+  // ui/calculadora_panel.py: `self._chips_g.set_valor(35)`), escribir el
+  // costo ya deja ver un precio sugerido de una vez — antes había que
+  // escribir el % a mano en un campo vacío antes de ver cualquier sugerencia.
+  const [margenDeseado, setMargenDeseado] = useState('35')
   const [dctoCliente, setDctoCliente] = useState('')
   const [method, setMethod] = useState('cash')
   const { userProfile, session } = useAuth()
@@ -112,6 +116,25 @@ export default function CalculadoraPage() {
     }
     return costoNum * (1 + margenDeseadoNum / 100)
   }, [costoNum, margenDeseadoNum, mode])
+
+  // Comparación cruzada margen real ↔ sobre costo (igual que
+  // `_recalcular()` del software local): el mismo % en el otro criterio
+  // siempre parece distinto porque se calcula sobre un número diferente
+  // (precio de venta vs. costo) — mostrar los dos evita confusiones sobre
+  // cuánto se está ganando en realidad.
+  const gananciaSugerida = precioSugerido - costoNum
+  const equivalenteOtroModo = useMemo(() => {
+    if (precioSugerido <= 0 || costoNum <= 0) return null
+    if (mode === 'real') {
+      const pctSobreCosto = (gananciaSugerida / costoNum) * 100
+      const precioTradicional = Math.round(costoNum * (1 + margenDeseadoNum / 100))
+      return { pct: pctSobreCosto, label: 'sobre costo', precioAlternativo: precioTradicional }
+    }
+    if (margenDeseadoNum >= 100) return null
+    const precioMargenReal = Math.round(costoNum / (1 - margenDeseadoNum / 100))
+    const pctMargenReal = (gananciaSugerida / precioSugerido) * 100
+    return { pct: pctMargenReal, label: 'margen real', precioAlternativo: precioMargenReal }
+  }, [precioSugerido, costoNum, gananciaSugerida, mode, margenDeseadoNum])
 
   // Descuento al cliente sobre el precio sugerido (chips 5/10/15/20%).
   const dctoClienteNum = parseFloat(dctoCliente) || 0
@@ -275,20 +298,48 @@ export default function CalculadoraPage() {
             </div>
             <div>
               <label className="text-sm text-muted-foreground">
-                Margen deseado (%) {mode === 'real' ? '— sobre el precio de venta' : '— sobre el costo'}
+                % Ganancia deseada {mode === 'real' ? '— sobre el precio de venta' : '— sobre el costo'}
               </label>
-              <Input type="number" min="0" value={margenDeseado} onChange={(e) => setMargenDeseado(e.target.value)} className="rounded-lg" />
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {GANANCIAS.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setMargenDeseado(String(g))}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${margenDeseado === String(g) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                  >
+                    {g}%
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">% manual:</span>
+                <Input
+                  type="number"
+                  min="1"
+                  value={margenDeseado}
+                  onChange={(e) => setMargenDeseado(e.target.value)}
+                  className="h-8 w-24 rounded-lg text-sm"
+                />
+              </div>
             </div>
 
-            <div className="mt-4 rounded-lg border p-4">
-              <div className="flex justify-between text-base font-bold">
-                <span>Precio sugerido</span>
-                <span>{formatPrice(precioSugerido)}</span>
+            <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+              <div className="flex justify-between text-lg font-bold text-green-700 dark:text-green-400">
+                <span>Precio de venta</span>
+                <span>{precioSugerido > 0 ? formatPrice(precioSugerido) : '—'}</span>
               </div>
               {precioSugerido > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Ganancia: {formatPrice(precioSugerido - costoNum)}
-                </p>
+                <>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Ganancia: {formatPrice(gananciaSugerida)} · {margenDeseadoNum}% {mode === 'real' ? 'margen real' : 'sobre costo'}
+                  </p>
+                  {equivalenteOtroModo && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Equivale a {equivalenteOtroModo.pct.toFixed(1)}% {equivalenteOtroModo.label} · Con el {mode === 'real' ? 'método tradicional' : 'margen real'} ({margenDeseadoNum}%): {formatPrice(equivalenteOtroModo.precioAlternativo)}
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -375,8 +426,11 @@ export default function CalculadoraPage() {
                   </thead>
                   <tbody>
                     {tablaCascos.map((row) => (
-                      <tr key={row.pct} className="border-t">
-                        <td className="px-3 py-1">{row.pct}%</td>
+                      <tr
+                        key={row.pct}
+                        className={`border-t ${row.pct >= 45 ? 'text-green-600' : row.pct >= 35 ? 'text-cyan-600' : ''}`}
+                      >
+                        <td className="px-3 py-1 font-medium">{row.pct}%</td>
                         <td className="px-3 py-1 text-right">{formatPrice(row.pv)}</td>
                         <td className="px-3 py-1 text-right">{formatPrice(row.ganancia)}</td>
                       </tr>
@@ -387,6 +441,23 @@ export default function CalculadoraPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Fórmulas y por qué usar margen real — mismo contenido explicativo
+          que ui/calculadora_panel.py del software local, que la nube no
+          tenía (Fase 5/hallazgo reportado por una vendedora, 2026-07-29). */}
+      <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-6">
+        <h2 className="mb-2 text-base font-semibold text-blue-700 dark:text-blue-400">
+          📐 Fórmulas y por qué usar margen real
+        </h2>
+        <p className="text-sm text-blue-900 dark:text-blue-300">
+          <strong>% Margen real</strong> (sobre el precio de venta): Precio = Costo ÷ (1 − %margen / 100) → %margen = Ganancia ÷ Precio
+          <br />
+          <strong>% Sobre costo</strong> (markup tradicional): Precio = Costo × (1 + %costo / 100) → %costo = Ganancia ÷ Costo
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          El margen sobre costo siempre parece más alto que el margen real porque se calcula sobre un número más pequeño (el costo) en vez del precio que realmente se cobra. Por ejemplo, un 50% &quot;sobre costo&quot; equivale a solo 33,3% de margen real — la misma ganancia en pesos, pero un porcentaje que engaña sobre qué tan rentable es la venta. El margen real (ganancia ÷ precio de venta) es el que coincide con cómo se mide la rentabilidad en el resto del sistema (Dashboard, Historial Mensual, Reportes), por eso es el más confiable para decidir si un precio deja la ganancia que el negocio realmente necesita.
+        </p>
       </div>
     </div>
   )

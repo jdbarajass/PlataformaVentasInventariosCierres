@@ -1754,3 +1754,22 @@ El usuario (una vendedora real usando el panel) reportó dos problemas concretos
 **Corrección**: el botón de talla ya no se deshabilita cuando está en 0 — se marca visualmente en ámbar con la etiqueta "agotada" y un tooltip explicando que se puede forzar la venta al confirmar, pero sigue siendo seleccionable. Se ajustó también `max_stock` en el carrito (`(variant ? variant.stock_qty : product.stock_qty) || 999`): con stock real en 0, ya no había ningún tope real que respetar para la cantidad, así que se usa un margen amplio en vez de bloquear el selector de cantidad en 0 — la validación real de negocio sigue siendo el popup de "Stock insuficiente" del backend, no este límite de UI.
 
 Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
+
+## 54. Calculadora: paridad con `ui/calculadora_panel.py` del software local (2026-07-29)
+
+El usuario pidió revisar a fondo la lógica y la interfaz de la Calculadora del software local (`C:\Users\JJBarajas\Pictures\VENTAS_YJBMOTOCOM\ui\calculadora_panel.py`, 807 líneas, leído completo) contra la de la nube, después de notar que en el local, apenas se escribe el costo unitario, aparece de inmediato un precio de venta sugerido con un margen ya aplicado — sin tener que escribir ningún porcentaje a mano primero.
+
+**Causa confirmada**: el panel "Costo + Margen deseado → Precio sugerido" de `admin/calculadora/page.tsx` usaba un `<Input type="number">` vacío (`useState('')`) para el margen deseado — nada se calculaba hasta escribir un % a mano. El local, en cambio, usa una fila de chips de porcentaje (`_GANANCIAS = [25,30,35,40,45,50,55,60,65]`) con un valor **ya seleccionado por defecto** (`self._chips_g.set_valor(35)`) — por eso ahí se ve un precio sugerido apenas se escribe el costo, sin ninguna acción adicional.
+
+**Comparación completa realizada** (para no dejar nada más por fuera): el resto de la Calculadora de la nube ya replicaba fielmente al local — mismo toggle "% Margen real"/"% Sobre costo" con las mismas fórmulas exactas (`Precio = Costo ÷ (1 − %margen/100)` y `Precio = Costo × (1 + %costo/100)`), misma Calculadora de Cascos (factura de proveedor + IVA + descuento proveedor + tabla de 9 escenarios), misma Calculadora Rápida (costo+precio→ganancia instantánea), mismos chips de descuento al cliente/proveedor. La nube además tiene un panel de comisión por método de pago que el local no tiene (mejora deliberada de una fase anterior, se mantiene). Diferencias reales encontradas y corregidas:
+
+1. **% Ganancia deseada sin default ni chips** (la causa raíz reportada) — corregido: ahora son chips iguales a `_GANANCIAS` con "35%" preseleccionado (mismo valor por defecto que el local), más un campo de "% manual" para casos fuera de la lista — mismo patrón que ya usan los chips de descuento en la misma página.
+2. **Faltaba la comparación cruzada margen real ↔ sobre costo** que el local sí muestra siempre (`_recalcular()`: "Equivale a X% sobre costo • Con el método tradicional (Z%): $Y" en modo margen, o el espejo en modo costo) — la nube solo mostraba "Ganancia", sin esa referencia. Agregada.
+3. **Faltaba el panel explicativo "📐 Fórmulas y por qué usar margen real"** (la caja azul del local que explica ambas fórmulas y por qué el margen real es más confiable que el markup tradicional para medir rentabilidad) — la nube no tenía ningún equivalente. Agregado al final de la página, mismo texto que el local.
+4. Mejora menor de paso: la tabla de la Calculadora de Cascos ahora colorea las filas igual que el local (verde ≥45%, celeste ≥35%) — antes todas las filas se veían iguales.
+
+**Sin tocar, ya evaluado y descartado**: el toggle explícito "Desde Inventario"/"Manual" del local no se replicó — la nube ya logra el mismo resultado por rol (el buscador de inventario solo aparece para admin; el vendedor ya está forzado a entrada manual, decisión ya documentada en la Fase 4.4 para no revelar costos reales del catálogo). Agregar el toggle sería puramente cosmético, no corrige ningún hueco funcional.
+
+**Limitación de esta verificación**: no se pudo probar visualmente en un navegador real (la página exige sesión de admin/vendedor, sin credenciales disponibles en este entorno) — se verificó que la ruta carga sin errores y redirige correctamente sin sesión, más `tsc`/`eslint`/`build`/`vitest` limpios. El usuario debe confirmar visualmente tras el despliegue.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
