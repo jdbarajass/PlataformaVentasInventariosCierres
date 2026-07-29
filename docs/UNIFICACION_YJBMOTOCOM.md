@@ -1662,3 +1662,37 @@ A diferencia de las Fases 1-3, esta pasada no encontró bugs nuevos — se revis
 - **Cargue de pedidos de proveedor (PDF)** (`api/admin/inventory-import/parse` + `confirm`): admin-only, productos nuevos siempre se crean `active: false` (nunca se publican solos), cada movimiento de stock queda registrado en `inventory_movements` con su nota de origen. Mismo beneficio automático del trigger de la migración 00030.
 
 No se modificó ningún archivo en esta fase.
+
+**Actualización 2026-07-29**: el usuario pidió hacer push de todo lo acumulado (7 commits, hasta `1f812cf`) — hecho. Ahora en producción. Se pidió armar la propuesta de la Fase 5 (mejoras y roadmap).
+
+## 51. Fase 5 — Propuesta de mejoras y roadmap (2026-07-29)
+
+Roadmap agrupado por tipo de impacto, con lo que ya se identificó como pendiente a lo largo de las Fases 1-4 más propuestas nuevas según el contexto del negocio (tienda real de accesorios para motociclistas, familia manejando el día a día, recién unificada con el software local). Ningún ítem de esta sección se implementó todavía — es la propuesta a priorizar con el usuario.
+
+### A. Cerrar huecos ya identificados (bajo esfuerzo, ya diagnosticados)
+
+1. **Métodos de pago manuales no descuentan stock** — transferencia/Nequi/Daviplata nunca disparan ningún descuento de inventario (a diferencia de tarjeta/MercadoPago, que sí lo hacen vía webhook); el admin cambia `status` pero nunca `payment_status`, y no hay ningún flujo que llame a `decrementStockAtomic`/`decrementVariantStockAtomic` para esos pagos. Hoy el inventario de esas ventas se ajusta a mano. Propuesta: un botón "Marcar como pagado" en `/admin/ordenes` que dispare el mismo descuento de stock (por variante si aplica) que ya usan los webhooks.
+2. **`sendRestockNotifications` solo se dispara desde "Ingresar" en Inventario** — cargue de pedidos por PDF, importación de Excel y "Cambios" también suben stock pero no avisan a nadie suscrito. Propuesta: mover el disparo a un solo punto (el trigger de sincronización de la migración 00030, vía otro trigger sobre `product_variants`/`products`) en vez de repetirlo en cada ruta de escritura.
+3. **Alerta de stock bajo es por producto total, no por talla** — un producto con 8 tallas puede tener el total por encima del umbral aunque cada talla individual esté casi agotada; el widget del Dashboard no lo detecta. Propuesta: sumar un chequeo por variante (`product_variants.stock_qty <= low_stock_threshold`) al widget y a un futuro reporte de reabastecimiento.
+4. **`audit_logs` no cubre ~8 módulos** (Registrar Venta, Facturas, Fiado, Préstamos, Notas, Presupuesto, Cuentas) — la UI de Auditoría y la tabla ya existen y funcionan, solo falta el `insert` en cada ruta de escritura de esos módulos. Candidato natural para un barrido dedicado.
+5. **Cierres vs. Mi Cuadre** — pregunta abierta desde la Fase 3B: `/admin/cierres` (registro manual de caja) no tiene equivalente en el software local y se solapa conceptualmente con Mi Cuadre (resumen automático del día). Vale la pena decidir si Cierres se conserva, se fusiona con Mi Cuadre, o se redefine su propósito (¿arqueo físico de caja al final del día, distinto del resumen de ventas?).
+6. **"Comparar productos" es una función huérfana** — el contexto (`compare-context.tsx`) y la página (`/comparar`) existen y funcionan, pero no hay ningún botón "Agregar a comparar" en ninguna tarjeta o página de producto que lo dispare. O se conecta (agregar el botón, como ya existe para Favoritos) o se retira del código.
+7. **Reseñas: no hay forma de editar la propia reseña** — la política RLS lo permite y el backend ya está listo (incluido el trigger que la revalida), pero `review-section.tsx` solo tiene formulario de creación.
+8. **Migrar de `@supabase/auth-helpers-nextjs` a `@supabase/ssr`** — paquete deprecado, causante del bug de spinner colgado de la sección 17 (ya mitigado con timeout, pero el problema de fondo sigue ahí). Es la librería recomendada actual de Supabase para Next.js App Router.
+
+### B. Operación diaria del negocio (impacto directo, mediano esfuerzo)
+
+9. **Notificaciones de pedido por WhatsApp**, no solo email — en Colombia es el canal que la mayoría de clientes revisa primero; hoy todo el flujo de confirmación/envío es por correo (Resend). Se podría integrar la API de WhatsApp Business (o un proveedor como Twilio) para el mismo punto donde hoy se llama a `sendOrderConfirmation`/`sendOrderShipped`.
+10. **Recordatorio automático de vencimientos consolidado** — hoy existen alertas de sesión para facturas/notas/fiados vencidos (sección 13.3), pero solo se ven si un admin inicia sesión ese día. Un resumen diario por email a primera hora evitaría que un vencimiento pase inadvertido en un día que nadie entra al panel.
+11. **Backup / exportación automática recurrente** (no solo manual desde Exportar/Importar) — un job programado (ej. semanal) que genere y envíe el mismo Excel de respaldo que ya existe como botón manual.
+
+### C. Crecimiento y conversión (más esfuerzo, impacto en ventas)
+
+12. **Recuperación de carrito abandonado** — el carrito ya persiste en `localStorage`; capturar el email en el primer paso del checkout (antes de completarlo) y enviar un recordatorio a las horas si no se completó la compra es una mejora clásica de conversión para una tienda con tráfico real.
+13. **Cupón automático de bienvenida / primera compra** — con el bug de `used_count` ya corregido (Fase 3), ahora sí se puede confiar en un cupón de un solo uso real para captar clientes nuevos.
+14. **Pedir reseña después de una compra entregada** — un email automático unos días después de `status = 'delivered'` pidiendo calificar el producto, aprovechando que `verified_purchase` ahora sí funciona de verdad (Fase 3).
+15. **Programa de puntos/fidelización simple** — dado que ya existe `customer_credits` (fiado) y el modelo de cuentas de cliente, un sistema de puntos por compra no partiría de cero.
+
+### D. Calidad del catálogo (tarea del usuario, no de código)
+
+16. Completar **descripciones y fotos** de los productos migrados que aún no las tienen — ya mencionado por el usuario como el siguiente paso de su lado. El panel de Inventario/Productos ya soporta editarlas producto por producto; si el volumen es alto, se podría considerar una vista dedicada de "productos incompletos" (sin foto o sin descripción) para no tener que ir buscándolos uno por uno entre los ~194 del catálogo — mejora chica de UX si hace falta.
