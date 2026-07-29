@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { requireAuth } from '@/lib/auth-helpers'
+import { requireAuth, getAuthenticatedUser } from '@/lib/auth-helpers'
 import { z } from 'zod'
 
 // Validación de rango 0-100% en comisiones y de montos no-negativos en
@@ -20,7 +20,7 @@ const fixedExpensesSchema = z
   })
   .optional()
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = getServiceSupabase()
 
@@ -34,7 +34,21 @@ export async function GET() {
       throw error
     }
 
-    return NextResponse.json({ data })
+    // Esta ruta es pública a propósito (el checkout de un invitado la
+    // llama sin sesión para leer shipping_config/payment_methods), pero
+    // pos_commission_rates y fixed_monthly_expenses son datos internos del
+    // negocio (comisiones reales, arriendo, sueldo, servicios) — solo se
+    // devuelven si quien pide está autenticado como admin/seller.
+    const auth = await getAuthenticatedUser(request)
+    const isStaff = auth.success && ['admin', 'seller'].includes(auth.user.role)
+
+    const responseData: Record<string, any> = { ...(data as any) }
+    if (!isStaff) {
+      delete responseData.pos_commission_rates
+      delete responseData.fixed_monthly_expenses
+    }
+
+    return NextResponse.json({ data: responseData })
   } catch (error) {
     console.error('Error fetching settings:', error)
     return NextResponse.json(

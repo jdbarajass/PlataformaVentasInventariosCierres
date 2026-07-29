@@ -1631,3 +1631,21 @@ Auditoría de seguridad transversal: se revisó que todas las 28 tablas tuvieran
 Verificado `vitest run` (62/62 tests — sin cambios de código de aplicación, solo SQL, así que no aplica `tsc`/`eslint`/`build` para este commit).
 
 **⚠️ Pendiente manual, URGENTE**: aplicar `00034_prevent_role_self_escalation.sql` en el SQL Editor de Supabase cuanto antes — mientras no se aplique, la vulnerabilidad de escalación de privilegios sigue activa en producción.
+
+## 49. Fase 3 (continuación): políticas RLS públicas sin uso real + fuga de datos internos en /api/settings (2026-07-29)
+
+Revisando cada política `WITH CHECK (true)`/`USING (true)` de todas las tablas (mismo patrón de la vulnerabilidad crítica de la sección 48), se encontraron 3 políticas públicas que ningún flujo real de la app usa, y una fuga real de datos internos del negocio.
+
+**Políticas RLS huérfanas** (confirmado con `grep`: ningún `.from(tabla).insert/select(...)` del lado del cliente las usa; todo pasa por `getServiceSupabase()` o las RPC atómicas, que bypasean RLS igual):
+- `"Anyone can view active coupons"` (`coupons`) — permitía listar TODOS los cupones activos (código, descuento, compra mínima) sin conocer ninguno de antemano, vía la API REST directa de Supabase — rompe el modelo de distribución selectiva de un cupón.
+- `"Anyone can create orders"` / `"Anyone can create order items"` (`orders`/`order_items`, huérfanas desde la migración 00006 cuando la creación de orden pasó a la RPC atómica) — permitían crear órdenes basura directo por API, o peor: insertar un `order_item` referenciando el `order_id` de la orden de OTRO cliente, sin ninguna verificación de dueño, contaminando su factura.
+
+Corrección: migración `00035_remove_unused_public_rls_policies.sql` — se eliminan las 3 políticas. No afecta ningún flujo real (verificado que nada del código las necesitaba).
+
+**Fuga de datos internos**: `GET /api/settings` no tenía ningún `requireAuth` (a propósito, el checkout de un invitado la llama sin sesión para leer `shipping_config`/`payment_methods`), pero devolvía la fila completa de `store_settings` con `select('*')` — incluyendo `pos_commission_rates` (comisiones reales configuradas por método de pago) y `fixed_monthly_expenses` (arriendo, sueldo, servicios, otros gastos fijos del negocio). Cualquier persona en internet podía ver esos datos internos con una sola petición sin autenticación.
+
+**Corrección**: `api/settings/route.ts` ahora verifica (sin exigir, con `getAuthenticatedUser`, no `requireAuth` — la ruta sigue siendo pública) si quien llama es admin/seller, y solo en ese caso incluye `pos_commission_rates`/`fixed_monthly_expenses` en la respuesta; para cualquier otro caso (incluido sin sesión) esos dos campos se omiten. Efecto colateral encontrado al aplicar el fix: `admin/configuracion-pos/page.tsx` (la única página que sí necesita esos campos) llamaba a esta misma ruta **sin** el header `Authorization` — se corrigió para que lo mande, igual que ya hacían sus propios `PUT`.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).
+
+**⚠️ Pendiente manual**: aplicar `00035_remove_unused_public_rls_policies.sql` en el SQL Editor de Supabase (después de `00034`).

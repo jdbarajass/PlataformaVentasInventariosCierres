@@ -36,9 +36,15 @@ export default function ConfiguracionPosPage() {
   const isAdmin = userProfile?.role === 'admin'
 
   const fetchSettings = useCallback(async () => {
+    if (!session?.access_token) return
     setLoading(true)
     try {
-      const res = await fetch('/api/settings')
+      // Con token: sin él, la API oculta pos_commission_rates/
+      // fixed_monthly_expenses por ser datos internos del negocio (ver
+      // docs/UNIFICACION_YJBMOTOCOM.md, hallazgo de la Fase 3).
+      const res = await fetch('/api/settings', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
       if (!res.ok) return
       const { data } = await res.json()
       const rawRates = data?.pos_commission_rates || {}
@@ -51,7 +57,7 @@ export default function ConfiguracionPosPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [session?.access_token])
 
   useEffect(() => { fetchSettings() }, [fetchSettings])
 
