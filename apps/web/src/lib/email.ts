@@ -6,7 +6,11 @@ import OrderShippedEmail from '@/emails/order-shipped'
 import NewOrderAdminEmail from '@/emails/new-order-admin'
 import LowStockAlertEmail from '@/emails/low-stock-alert'
 import RestockNotificationEmail from '@/emails/restock-notification'
+import DailyDigestEmail from '@/emails/daily-digest'
+import ReviewRequestEmail from '@/emails/review-request'
+import AbandonedCartEmail from '@/emails/abandoned-cart'
 import { getServiceSupabase } from './supabase'
+import { bogotaDateStr } from './bogota-time'
 
 let _resend: Resend | null = null
 function getResend() {
@@ -374,5 +378,177 @@ export async function sendRestockNotifications(productId: string, variantId?: st
   } catch (error) {
     console.error('Error in sendRestockNotifications:', error)
     return 0
+  }
+}
+
+/**
+ * Envía al admin el resumen diario de vencimientos (facturas por vencer,
+ * notas con fecha límite próxima, fiados con más de 30 días pendientes) —
+ * mismo contenido que las alertas de sesión (api/admin/session-alerts),
+ * pero por email cada mañana, para que un vencimiento no pase inadvertido
+ * un día que nadie entra al panel (mejora de la Fase 5, propuesta B.10).
+ * Llamado desde api/cron/daily-digest.
+ */
+export async function sendDailyDigest(): Promise<boolean> {
+  try {
+    const supabase = getServiceSupabase()
+    const today = new Date()
+    const todayStr = bogotaDateStr(today)
+    const in7Days = bogotaDateStr(new Date(today.getTime() + 7 * 86_400_000))
+    const in3Days = bogotaDateStr(new Date(today.getTime() + 3 * 86_400_000))
+
+    const { data: invoicesData } = await supabase
+      .from('supplier_invoices')
+      .select('description, due_date')
+      .eq('status', 'pending')
+      .not('due_date', 'is', null)
+      .lte('due_date', in7Days)
+      .order('due_date', { ascending: true })
+      .limit(8)
+
+    const { data: notesData } = await supabase
+      .from('notes')
+      .select('text, due_date')
+      .eq('completed', false)
+      .not('due_date', 'is', null)
+      .lte('due_date', in3Days)
+      .order('due_date', { ascending: true })
+      .limit(6)
+
+    const { data: creditsData } = await supabase
+      .from('customer_credits')
+      .select('customer_name, created_at')
+      .eq('status', 'pending')
+
+    const invoices = ((invoicesData || []) as { description: string; due_date: string }[]).map((f) => ({
+      description: f.description,
+      days: Math.round((new Date(f.due_date).getTime() - today.getTime()) / 86_400_000),
+    }))
+
+    const notes = ((notesData || []) as { text: string; due_date: string }[]).map((n) => ({
+      text: n.text,
+      dueDate: n.due_date,
+    }))
+
+    const oldCredits = ((creditsData || []) as { customer_name: string; created_at: string }[])
+      .map((c) => ({
+        customerName: c.customer_name,
+        daysOld: Math.floor((today.getTime() - new Date(c.created_at).getTime()) / 86_400_000),
+      }))
+      .filter((c) => c.daysOld > 30)
+      .sort((a, b) => b.daysOld - a.daysOld)
+      .slice(0, 6)
+
+    const total = invoices.length + notes.length + oldCredits.length
+    if (total === 0) {
+      console.log('[Daily Digest] Nada pendiente hoy, no se envía email')
+      return true
+    }
+
+    const emailHtml = await render(DailyDigestEmail({ invoices, notes, oldCredits }))
+
+    const { error } = await getResend().emails.send({
+      from: fromEmail,
+      to: adminEmail,
+      subject: `Resumen del día ${todayStr} — ${total} pendiente${total !== 1 ? 's' : ''}`,
+      html: emailHtml,
+    })
+
+    if (error) {
+      console.error('Error sending daily digest:', error)
+      return false
+    }
+
+    console.log(`[Daily Digest] Enviado — ${total} pendientes`)
+    return true
+  } catch (error) {
+    console.error('Error in sendDailyDigest:', error)
+    return false
+  }
+}
+
+/**
+ * Envía un email pidiendo reseña unos días después de que una orden queda
+ * 'delivered' — aprovecha que verified_purchase ahora sí funciona de
+ * verdad (migración 00034) para que la insignia "Compra verificada" tenga
+ * sentido (mejora de la Fase 5, propuesta C.14). Llamado desde
+ * api/cron/review-requests.
+ */
+export async function sendReviewRequestEmail(orderId: string): Promise<boolean> {
+  try {
+    const supabase = getServiceSupabase()
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('customer_name, customer_email, order_items(product_title, products(slug))')
+      .eq('id', orderId)
+      .single()
+
+    if (error || !order) {
+      console.error('Order not found for review request:', orderId)
+      return false
+    }
+
+    const o = order as any
+    const items = ((o.order_items || []) as any[])
+      .filter((item) => item.products?.slug)
+      .map((item) => ({ title: item.product_title, slug: item.products.slug }))
+
+    if (items.length === 0) {
+      // Ningún item de la orden tiene producto vinculado al catálogo
+      // (ej. venta manual fuera de inventario) — no hay a dónde enlazar.
+      return false
+    }
+
+    const emailHtml = await render(
+      ReviewRequestEmail({ customerName: o.customer_name || 'Cliente', items })
+    )
+
+    const { error: sendError } = await getResend().emails.send({
+      from: fromEmail,
+      to: o.customer_email,
+      subject: '¿Qué te pareció tu compra? — YJBMOTOCOM',
+      html: emailHtml,
+    })
+
+    if (sendError) {
+      console.error('Error sending review request:', sendError)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in sendReviewRequestEmail:', error)
+    return false
+  }
+}
+
+/**
+ * Envía el recordatorio de carrito abandonado (mejora de la Fase 5,
+ * propuesta C.12). Llamado desde api/cron/abandoned-carts.
+ */
+export async function sendAbandonedCartReminder(
+  email: string,
+  items: { title: string; qty: number; price_cents: number }[],
+  subtotalCents: number
+): Promise<boolean> {
+  try {
+    const emailHtml = await render(AbandonedCartEmail({ items, subtotalCents }))
+
+    const { error } = await getResend().emails.send({
+      from: fromEmail,
+      to: email,
+      subject: 'Dejaste algo en tu carrito — YJBMOTOCOM',
+      html: emailHtml,
+    })
+
+    if (error) {
+      console.error('Error sending abandoned cart reminder:', error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in sendAbandonedCartReminder:', error)
+    return false
   }
 }

@@ -47,6 +47,19 @@ export async function PUT(
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Marca cuándo quedó 'delivered' (una sola vez) — lo usa el cron de
+    // api/cron/review-requests para pedir reseña unos días después, sin
+    // depender de updated_at (que cambia con cualquier otra edición).
+    if (status === 'delivered') {
+      const { data: order } = await supabase.from('orders').select('metadata').eq('id', params.id).single()
+      const currentMetadata = (order?.metadata as Record<string, any>) || {}
+      if (!currentMetadata.delivered_at) {
+        await (supabase.from('orders') as any)
+          .update({ metadata: { ...currentMetadata, delivered_at: new Date().toISOString() } })
+          .eq('id', params.id)
+      }
+    }
   }
 
   // Confirmar pago manual (transferencia/Nequi/Daviplata): esos métodos

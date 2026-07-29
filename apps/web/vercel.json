@@ -11,6 +11,13 @@
       "maxDuration": 10
     }
   },
+  "crons": [
+    { "path": "/api/cron/restock-notifications", "schedule": "0 * * * *" },
+    { "path": "/api/cron/abandoned-carts", "schedule": "0 * * * *" },
+    { "path": "/api/cron/daily-digest", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/review-requests", "schedule": "0 13 * * *" },
+    { "path": "/api/cron/backup-export", "schedule": "0 12 * * 0" }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

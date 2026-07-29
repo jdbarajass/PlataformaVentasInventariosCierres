@@ -199,6 +199,19 @@ export async function POST(request: NextRequest) {
       throw new Error(orderError?.message ?? 'No se pudo crear la orden')
     }
 
+    // Si este email tenía un carrito abandonado registrado (checkout/
+    // page.tsx, api/cart/track), se marca recuperado — no debe mandarle un
+    // recordatorio de algo que sí terminó comprando. Best-effort: nunca
+    // debe bloquear ni fallar la creación de la orden.
+    try {
+      await (serviceSupabase.from('abandoned_carts') as any)
+        .update({ recovered_at: new Date().toISOString() })
+        .eq('email', customer.email.toLowerCase())
+        .is('recovered_at', null)
+    } catch {
+      // no-op
+    }
+
     // Handle payment based on method
     if (payment_method === 'card') {
       // Validate Stripe configuration

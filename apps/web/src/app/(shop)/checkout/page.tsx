@@ -91,6 +91,26 @@ export default function CheckoutPage() {
   const discountCents = appliedCoupon?.discount_cents || 0
   const finalTotal = Math.max(0, totalPrice - discountCents + shippingCost)
 
+  // Recuperación de carrito abandonado (mejora de la Fase 5, propuesta
+  // C.12): al salir del campo de email con un valor válido y el carrito
+  // con items, se registra en el servidor — si el cliente nunca completa
+  // la compra, un cron le manda un recordatorio más tarde. No bloquea ni
+  // afecta el checkout si falla (fire-and-forget).
+  const handleEmailBlur = () => {
+    const email = formData.email.trim()
+    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email) || state.items.length === 0) return
+
+    fetch('/api/cart/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        items: state.items.map((item) => ({ title: item.title, qty: item.qty, price_cents: item.price_cents })),
+        subtotal_cents: totalPrice,
+      }),
+    }).catch(() => {})
+  }
+
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return
     setCouponLoading(true)
@@ -227,6 +247,7 @@ export default function CheckoutPage() {
                       required
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onBlur={handleEmailBlur}
                       placeholder="tu@email.com"
                       className={fieldErrors.email ? 'border-red-500' : ''}
                     />
