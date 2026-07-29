@@ -112,8 +112,13 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // updateData se arma dinámicamente como Record<string, any> — el
+    // parser de tipos de @supabase/postgrest-js ya no lo acepta como
+    // update parcial válido (misma limitación de tipos ya documentada en
+    // otras rutas de este proyecto).
     const { data, error } = await supabase
       .from('store_settings')
+      // @ts-ignore - Supabase type inference issue
       .update(updateData)
       .eq('id', 1)
       .select()

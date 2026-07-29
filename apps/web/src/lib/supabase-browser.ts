@@ -1,13 +1,13 @@
 'use client'
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/database'
 
 /**
  * Single shared Supabase client for all client components.
  *
- * Do not call createClientComponentClient() (or createClient()) again
- * anywhere else in client-side code — every extra instance creates its own
+ * Do not call createBrowserClient() (or createClient()) again anywhere
+ * else in client-side code — every extra instance creates its own
  * GoTrueClient managing the same auth token storage key. With two or more
  * alive at once (e.g. one in AuthProvider, another in WishlistProvider,
  * both mounted globally), they race on session refresh and abort each
@@ -15,12 +15,17 @@ import type { Database } from '@/types/database'
  * aborted without reason"), which left /admin's loading spinner stuck
  * forever on hard reload.
  *
- * createClientComponentClient() (not the plain createClient() from
- * lib/supabase.ts) is required here because it syncs the session via
- * cookies, which is what middleware.ts / createMiddlewareClient and the
- * server-side auth helpers read to protect routes.
+ * createBrowserClient() (no la plain createClient() de lib/supabase.ts) es
+ * necesario aquí porque sincroniza la sesión vía cookies, que es lo que
+ * middleware.ts / createServerClient y los helpers de servidor leen para
+ * proteger rutas. Migrado de @supabase/auth-helpers-nextjs (deprecado) a
+ * @supabase/ssr, el paquete recomendado actual — mismo propósito, misma
+ * sincronización por cookies (Fase 5, propuesta A.8).
  */
-export const supabaseBrowser = createClientComponentClient<Database>()
+export const supabaseBrowser = createBrowserClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 /**
  * Corre una operación contra supabaseBrowser con un límite de tiempo.

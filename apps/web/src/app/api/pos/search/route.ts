@@ -48,9 +48,15 @@ export async function GET(request: NextRequest) {
       // caso en el que su propio código de barras vive en `products.barcode`
       // directamente (~71 productos migrados sin talla, ver sección 20) —
       // antes el escaneo de estos productos no encontraba nada.
+      // El select con relación embebida aliaseada ("variants:product_variants(*)")
+      // hace que el parser de tipos de @supabase/postgrest-js no reconozca
+      // "barcode" como columna válida de products para el .eq() siguiente
+      // — mismo tipo de limitación ya documentada en otras rutas de este
+      // proyecto (ver docs/UNIFICACION_YJBMOTOCOM.md, limitaciones de tipos).
       const { data: product, error: productError } = await supabase
         .from('products')
         .select('*, variants:product_variants(*)')
+        // @ts-ignore - Supabase type inference issue
         .eq('barcode', barcode)
         .maybeSingle()
 

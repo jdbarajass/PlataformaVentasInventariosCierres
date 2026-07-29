@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Session } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
@@ -14,10 +14,34 @@ type AuthResult =
  * to check `session` exists but not the user's role — meaning any logged-in
  * customer could call them. This consolidates the check that
  * `/api/alegra/inventario` already did correctly so the other routes match.
+ *
+ * Migrado de @supabase/auth-helpers-nextjs (deprecado) a @supabase/ssr
+ * (Fase 5, propuesta A.8) — patrón oficial para Route Handlers: setAll
+ * puede fallar si el Route Handler ya envió headers, se ignora a propósito
+ * (la sesión ya quedó leída de todas formas; solo afecta si hacía falta
+ * refrescar el token, que se completa en la próxima petición).
  */
 export async function requireAlegraAdmin(): Promise<AuthResult> {
   const cookieStore = cookies()
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+          } catch {
+            // Route Handler ya envió la respuesta — no se puede modificar
+            // cookies en este punto, se ignora (ver comentario arriba).
+          }
+        },
+      },
+    }
+  )
 
   const {
     data: { session },
