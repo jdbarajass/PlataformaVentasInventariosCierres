@@ -1649,3 +1649,16 @@ Corrección: migración `00035_remove_unused_public_rls_policies.sql` — se eli
 Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).
 
 **⚠️ Pendiente manual**: aplicar `00035_remove_unused_public_rls_policies.sql` en el SQL Editor de Supabase (después de `00034`).
+
+**Actualización 2026-07-29**: el usuario aplicó `00034` y `00035` en Supabase y pidió continuar con la Fase 4 (integraciones y datos: webhooks de pago, Alegra, exportar/importar, integridad post-migración).
+
+## 50. Fase 4 — integraciones y datos: sin hallazgos nuevos (2026-07-29)
+
+A diferencia de las Fases 1-3, esta pasada no encontró bugs nuevos — se revisó a fondo cada pieza y todas resultaron sólidas:
+
+- **Webhooks de pago (Stripe/MercadoPago)**: ya revisados a fondo en la Fase 2 (firma, monto real cobrado, idempotencia, estados) — sin cambios adicionales.
+- **Alegra** (`lib/alegra.ts`, `lib/alegra-auth.ts`, las 4 rutas `api/alegra/*`): confirmado que las 4 rutas usan consistentemente `requireAlegraAdmin()` (rol admin real, no solo sesión) — coincide con lo ya documentado en la sección 18. Es una integración de solo lectura (consulta ventas/inventario de Alegra para comparar contra el cierre de caja), no escribe nada en Supabase, así que no hay riesgo de integridad de datos ahí. Credenciales (`ALEGRA_USER`/`ALEGRA_TOKEN`) solo se usan server-side.
+- **Exportar/Importar Excel** (`api/admin/excel/import`): valida columnas numéricas sospechosas ANTES de escribir nada (columnas desplazadas/corrompidas, mismo criterio que el software local), nunca toca `products`/`orders`/`users`/`store_settings` (solo tablas internas del módulo: cuentas, fiado, notas, presupuesto, facturas, préstamos, inventario vía `product_variants`), y filtra gastos con monto negativo. La hoja "Inventario" sí escribe en `product_variants` — se confirmó que esto se beneficia automáticamente del trigger de sincronización de stock de la migración 00030 (`products.stock_qty` queda correcto sin necesitar ningún cambio en este importador).
+- **Cargue de pedidos de proveedor (PDF)** (`api/admin/inventory-import/parse` + `confirm`): admin-only, productos nuevos siempre se crean `active: false` (nunca se publican solos), cada movimiento de stock queda registrado en `inventory_movements` con su nota de origen. Mismo beneficio automático del trigger de la migración 00030.
+
+No se modificó ningún archivo en esta fase.
