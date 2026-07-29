@@ -1568,3 +1568,21 @@ El usuario pidió una revisión integral del proyecto por fases (comprensión pr
 **⚠️ Pendiente manual**: aplicar `00030_online_variant_stock_sync.sql` en el SQL Editor de Supabase.
 
 Verificado `tsc --noEmit`, `eslint` (sin errores en los archivos tocados), `npm run build` (101 páginas, sin errores) y la suite completa `vitest run` (62/62 tests, incluidos los de webhooks de pago).
+
+**Actualización 2026-07-29**: el usuario aplicó `00030_online_variant_stock_sync.sql` en Supabase y pidió continuar con la Fase 2 (tienda online: checkout, carrito, pagos, cupones, reseñas, favoritos, cuenta).
+
+## 46. Fase 2: cupones sin límite real de uso + "Compra verificada" que nunca se activaba (2026-07-29)
+
+Auditoría de cupones, reseñas, favoritos y "Mi Cuenta". Dos hallazgos reales, corregidos a pedido explícito del usuario:
+
+**1) `coupons.used_count` nunca se incrementaba en ningún lugar del código** — se leía en `api/coupons/validate/route.ts`, en `api/orders/route.ts` (comparación `used_count < max_uses`) y en el panel `admin/cupones/page.tsx` (columna "usados/máximo"), pero ningún flujo lo escribía, y no había trigger de base de datos que lo hiciera (confirmado en la definición de la tabla, migración 00001 — solo el trigger genérico de `updated_at`). Consecuencia: un cupón con "Máx usos: 1" podía usarse un número ilimitado de veces, y el contador del panel admin quedaba congelado en 0 para siempre, dando una falsa sensación de control. Tampoco existía columna `coupon_id` en `orders` — no había forma de rastrear qué orden usó qué cupón.
+
+**Corrección** (migración `00031_coupon_usage_and_verified_reviews.sql`): se agregó `orders.coupon_id` (FK a `coupons`), y `create_order_with_items` (RPC de orden online) ahora recibe un `p_coupon_id` opcional — dentro de la misma transacción, bloquea la fila del cupón (`FOR UPDATE`), revalida `max_uses` (cierra la ventana de carrera de dos checkouts concurrentes usando el mismo cupón de un solo uso, ya que la validación de la API corre sin bloqueo), incrementa `used_count` y guarda `coupon_id` en la orden. `api/orders/route.ts` pasa el `coupon_id` resuelto al RPC y traduce el nuevo error ("límite de uso"/"no encontrado") a un 400 legible en vez de caer al 500 genérico. Decisión deliberada: el conteo se hace al crear la orden (no al confirmarse el pago), porque los métodos de pago manuales (transferencia/Nequi/Daviplata) nunca tienen un evento de "pago confirmado" en el código (gap pre-existente, documentado en la sección 45) — contar solo en el webhook dejaría esos métodos sin control real del límite. No se decrementa `used_count` si la orden se cancela/reembolsa después (se trata como cupón ya consumido, mismo criterio que la mayoría de plataformas de e-commerce).
+
+**2) `product_reviews.verified_purchase` ("Compra verificada") nunca se activaba** — el campo existe y se muestra como insignia verde en `review-section.tsx`, pero el INSERT del formulario de reseña no lo establecía y no había ningún trigger que lo calculara contra el historial de compras — quedaba en `false` (su default) para siempre, incluso para clientes que sí compraron el producto. La política RLS de INSERT tampoco lo validaba (solo exige `auth.uid() = user_id`), así que un cliente hipotéticamente podía intentar mandarlo en `true` directamente sin haber comprado nada.
+
+**Corrección** (misma migración): trigger `BEFORE INSERT` (`set_review_verified_purchase`) que sobrescribe `NEW.verified_purchase` calculándolo server-side — `true` si existe un `order_item` de ese producto en una orden `payment_status='paid'` del mismo `user_id` (o del mismo email, para compras hechas antes de crear cuenta), ignorando cualquier valor que mande el cliente. Incluye backfill de las reseñas ya existentes. No se tocó `review-section.tsx` — el insert ya no necesita mandar el campo, el trigger lo resuelve solo.
+
+**⚠️ Pendiente manual**: aplicar `00031_coupon_usage_and_verified_reviews.sql` en el SQL Editor de Supabase.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).

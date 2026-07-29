@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
 
     // Recompute coupon discount server-side (ignoring any client-supplied discount)
     let discount_cents = 0
+    let coupon_id: string | null = null
     if (coupon_code) {
       const { data: coupon } = await serviceSupabase
         .from('coupons')
@@ -138,6 +139,11 @@ export async function POST(request: NextRequest) {
           c.discount_type === 'percentage'
             ? Math.round(subtotal_cents * (c.discount_value / 100))
             : c.discount_value
+        // El used_count real (con bloqueo de fila para evitar que dos
+        // checkouts concurrentes usen de más un cupón de un solo uso) se
+        // incrementa dentro de create_order_with_items (migración 00031),
+        // no aquí — esta validación puede correr dos veces en paralelo.
+        coupon_id = c.id
       }
     }
 
@@ -179,10 +185,17 @@ export async function POST(request: NextRequest) {
           cost_cents: item.cost_cents,
           total_cents: item.total_cents,
         })),
+        p_coupon_id: coupon_id,
       }
     )
 
     if (orderError || !order) {
+      // El cupón se revalida con bloqueo de fila dentro de la función (no
+      // solo aquí, sin bloqueo) — si dos checkouts concurrentes lo usaron
+      // a la vez, el segundo puede fallar justo en este punto.
+      if (orderError?.message?.includes('límite de uso') || orderError?.message?.includes('Cupón no encontrado')) {
+        return NextResponse.json({ error: orderError.message }, { status: 400 })
+      }
       throw new Error(orderError?.message ?? 'No se pudo crear la orden')
     }
 
