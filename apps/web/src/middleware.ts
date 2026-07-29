@@ -47,8 +47,16 @@ export async function middleware(req: NextRequest) {
     // Here we only check authentication.
   }
 
-  // Protect /mi-cuenta, /favoritos, /checkout, /orden/* if unauthenticated
-  const protectedUserRoutes = ['/mi-cuenta', '/favoritos', '/checkout', '/orden']
+  // Solo /mi-cuenta exige sesión real. /favoritos, /checkout y /orden se
+  // sacaron de esta lista (bug encontrado en la Fase 5, sección 52 del
+  // doc): las tres soportan visitantes sin cuenta a nivel de página —
+  // /favoritos usa localStorage para invitados (wishlist-context.tsx),
+  // /checkout nunca exige user_id (customerSchema, checkout de invitado),
+  // y /orden/[id]/confirmacion se abre justo después de pagar sin sesión
+  // (ej. redirect de Stripe/MercadoPago, o pago manual) — bloquearlas
+  // aquí mandaba a cualquier cliente sin cuenta a la pantalla de login en
+  // vez de dejarlo pagar o ver la confirmación de su propia compra.
+  const protectedUserRoutes = ['/mi-cuenta']
   const isProtectedUserRoute = protectedUserRoutes.some((route) =>
     pathname.startsWith(route)
   )
