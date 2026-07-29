@@ -1696,3 +1696,46 @@ Roadmap agrupado por tipo de impacto, con lo que ya se identificó como pendient
 ### D. Calidad del catálogo (tarea del usuario, no de código)
 
 16. Completar **descripciones y fotos** de los productos migrados que aún no las tienen — ya mencionado por el usuario como el siguiente paso de su lado. El panel de Inventario/Productos ya soporta editarlas producto por producto; si el volumen es alto, se podría considerar una vista dedicada de "productos incompletos" (sin foto o sin descripción) para no tener que ir buscándolos uno por uno entre los ~194 del catálogo — mejora chica de UX si hace falta.
+
+**Actualización 2026-07-29**: el usuario pidió implementar la propuesta completa. Se hizo en 4 commits (`dfed877`, `fdf73fa`, y el de la migración de auth-helpers `85f15c2`, más este doc), cubriendo los 12 ítems del bloque A + 4 del B/C que no dependían de una cuenta externa (WhatsApp) ni de una decisión de negocio (puntos de fidelización, cupón de bienvenida automático — este último se deja manual por decisión del usuario: ya se puede crear un cupón de un solo uso real desde `/admin/cupones` sin código nuevo, tras el fix de la Fase 2).
+
+## 52. Implementación de la Fase 5 (2026-07-29)
+
+**A.1 — Pagos manuales descuentan stock**: nuevo botón "Marcar como pagado" en `/admin/ordenes` (visible si `payment_status !== 'paid'`) que replica exactamente lo que ya hacían los webhooks de Stripe/MercadoPago (descuento por variante + `inventory_movements` + email de confirmación), pero disparado a mano. Se extrajo `lib/order-fulfillment.ts` (`decrementStockForOrder`) para no duplicar la lógica de descuento en un tercer lugar. Idempotente: si la orden ya estaba pagada, no vuelve a descontar.
+
+**A.2 — Restock notifications centralizadas**: antes solo `/api/inventory/adjust` ("Ingresar") disparaba el aviso; cargue de PDF, importación de Excel y "Cambios" nunca avisaban a nadie. Migración `00036`: dos triggers (`product_variants` y `products`, este último excluyendo productos con variantes para no duplicar) detectan la transición 0→positivo y encolan en `restock_notification_queue` sin importar por qué ruta se escribió el stock. Un cron (`api/cron/restock-notifications`) procesa la cola y es quien de verdad llama a Resend (Postgres no puede).
+
+**A.3 — Alerta de stock bajo por talla**: el Dashboard (`admin/page.tsx`) ahora también revisa `product_variants` con su propio `low_stock_threshold`, además de los productos sin tallas (excluidos explícitamente de la revisión por total, que ya no es una señal útil desde que ese total sea la suma de tallas).
+
+**A.4 — Cobertura de `audit_logs`**: nuevo helper `lib/audit.ts` (`logAudit`, nunca lanza — un fallo de auditoría no debe tumbar la operación real). Agregado a los 13 archivos de rutas que faltaban: `pos/sales` (crear/editar/cancelar), `supplier-invoices` (crear/editar/eliminar), `customer-credits` (crear/editar incluido `force_paid`/eliminar), `loans` (crear/editar/eliminar), `notes` (crear/editar/eliminar), `monthly-budgets` (guardar), `operating-expenses` (crear/eliminar), `accounts` (crear/editar), `account-movements` (ajuste manual/transferencia), `account-closures` (crear).
+
+**A.5 — Cierres ↔ Mi Cuadre**: en vez de fusionar o decidir cuál sobra, `/admin/cierres` ahora muestra, al elegir la fecha del formulario, el "Total esperado según Ventas de mostrador" de ese día (mismo cálculo que Mi Cuadre) con desglose por método — para reconciliar el conteo manual, no reemplazarlo.
+
+**A.6 — "Comparar" conectado**: nuevo `components/products/compare-button.tsx` (mismo patrón que `wishlist-button.tsx`), agregado a `product-card.tsx` (tarjetas, variante ícono) y a la página de producto (variante completa). El contexto/página `/comparar` ya existían y funcionaban — solo faltaba el botón que los alimentara.
+
+**A.7 — Edición de reseña propia**: `review-section.tsx` ahora carga también la reseña propia aunque esté pendiente de aprobación (antes el filtro `approved=true` la escondía incluso de su propio autor), muestra una insignia "Pendiente de aprobación", y agrega un botón de editar que reutiliza el mismo formulario en modo edición. El trigger de la migración 00034 ya protegía `approved`/`verified_purchase` de que el propio autor los manipule.
+
+**B.9 — Resumen diario de vencimientos**: `sendDailyDigest()` (mismo contenido que las alertas de sesión existentes) + `emails/daily-digest.tsx` + cron diario (`api/cron/daily-digest`).
+
+**B.10 — Backup automático recurrente**: `api/cron/backup-export` reutiliza `sheetDefinitions` (la misma fuente que el botón manual de Exportar/Importar) y envía el `.xlsx` como adjunto por email, semanal.
+
+**C.13 — Email pidiendo reseña**: `orders.metadata.delivered_at` se estampa la primera vez que una orden pasa a `status='delivered'` (en `PUT /api/orders/[id]`); un cron diario (`api/cron/review-requests`) busca órdenes entregadas hace ≥3 días sin `review_requested` y manda `emails/review-request.tsx` con enlaces a cada producto comprado.
+
+**C.14 — Carrito abandonado**: nueva tabla `abandoned_carts` (migración `00037`, sin políticas RLS para anon/authenticated — solo service_role la toca). `checkout/page.tsx` registra email+carrito al perder foco el campo de email (`onBlur`, fire-and-forget, nunca bloquea el checkout si falla); `api/orders/route.ts` marca `recovered_at` si ese email sí completó una compra; un cron (`api/cron/abandoned-carts`) recuerda por email los que llevan ≥2 horas sin recuperar y nunca se les recordó.
+
+**Infraestructura de cron compartida**: `lib/cron-auth.ts` verifica que la petición traiga `Authorization: Bearer $CRON_SECRET` (Vercel lo adjunta automáticamente a las peticiones de cron cuando esa variable de entorno existe) — sin esto, `/api/cron/*` serían rutas GET públicas sin protección. 5 entradas nuevas en `vercel.json` (`crons`). **Nota importante**: Vercel Hobby limita los cron jobs a una ejecución diaria — si el proyecto está en ese plan, `restock-notifications` y `abandoned-carts` (programados cada hora) quedarán en 1 vez/día hasta subir de plan; no rompe nada, solo tarda más en avisar.
+
+**A.8 — Migración de `@supabase/auth-helpers-nextjs` a `@supabase/ssr`**: el paquete deprecado que ya había causado el bug del spinner colgado (sección 17). Solo 3 archivos importaban el paquete de verdad (`lib/supabase-browser.ts`, `middleware.ts`, `lib/alegra-auth.ts`) — los demás solo lo mencionaban en comentarios. `@supabase/ssr` exige `@supabase/supabase-js >=2.111.0` (el paquete viejo solo pedía `>=2.19.0`), lo que forzó un salto de versión del cliente base y expuso 2 chequeos de tipos más estrictos de `@supabase/postgrest-js` en rutas sin relación con el login (`api/pos/search`, `api/settings`) — corregidos con el mismo patrón de `@ts-ignore` ya usado en el resto del proyecto para esta limitación de tipos conocida (documentada desde antes de esta sesión).
+
+**Verificación de este ítem** (el de mayor riesgo, toca el login de todo el sitio): además de `tsc`/`eslint`/`build`/`vitest` limpios, se levantó el servidor de desarrollo real y se probó por HTTP: `/admin` y `/checkout` sin sesión redirigen correctamente a `/iniciar-sesion?redirect=...` vía middleware; `/api/settings` público sigue ocultando `pos_commission_rates`/`fixed_monthly_expenses` (fix de la Fase 3, confirmado que sigue vigente). **No se pudo probar el envío real de credenciales** (eso requiere un navegador de verdad, no `curl`) — el usuario debe probar el login (cliente, vendedor y admin) antes de confiar del todo en este cambio.
+
+**Hallazgo aparte, descubierto al leer `middleware.ts` para esta migración (no se tocó, es comportamiento preexistente)**: `/checkout` está en la lista de rutas protegidas (`protectedUserRoutes`) — un cliente sin sesión iniciada que intente pagar es redirigido a `/iniciar-sesion`. Esto parece contradecir el resto del diseño (checkout de invitado: `customerSchema` no exige cuenta, `orders.user_id` es opcional, hay lógica de "Vincular carrito abandonado" pensada para compradores sin cuenta). Queda como pregunta abierta para el usuario: ¿es intencional exigir cuenta antes de pagar, o es un bug que bloquea las compras de invitado?
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests) en cada bloque de commits.
+
+**⚠️ Pendientes manuales**:
+- Aplicar `00036_restock_notification_queue.sql` y `00037_abandoned_carts.sql` en el SQL Editor de Supabase.
+- Configurar la variable de entorno `CRON_SECRET` en Vercel (valor aleatorio largo) para que `/api/cron/*` quede protegido.
+- Confirmar que los 5 cron jobs quedaron registrados en el dashboard de Vercel tras el próximo deploy (Project → Settings → Cron Jobs).
+- Probar el login real (cliente/vendedor/admin) tras el deploy, por el cambio de la migración A.8.
+- Decidir sobre el hallazgo de `/checkout` protegido (arriba).
