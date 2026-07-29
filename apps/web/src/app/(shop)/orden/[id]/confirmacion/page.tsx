@@ -236,6 +236,9 @@ export default async function OrderConfirmationPage({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{item.product_title}</p>
+                  {item.product_talla && (
+                    <p className="text-sm text-muted-foreground">Talla: {item.product_talla}</p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     Cantidad: {item.qty}
                   </p>

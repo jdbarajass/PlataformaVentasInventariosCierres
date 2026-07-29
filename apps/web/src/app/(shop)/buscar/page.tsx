@@ -40,7 +40,7 @@ function BuscarContent() {
     setSearchedQuery(trimmed)
     const { data } = await supabase
       .from('products')
-      .select('*')
+      .select('*, product_variants(id, talla, stock_qty, active)')
       .eq('active', true)
       .or(`title.ilike.%${trimmed}%,description.ilike.%${trimmed}%`)
       .order('featured', { ascending: false })

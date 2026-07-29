@@ -13,6 +13,7 @@ interface OrderItem {
   id: string
   product_title: string
   product_image: string | null
+  product_talla?: string | null
   qty: number
   price_cents: number
   total_cents: number
@@ -89,6 +90,7 @@ export default function OrderConfirmationEmail({
             </Column>
             <Column style={itemDetailsCol}>
               <Text style={itemTitle}>{item.product_title}</Text>
+              {item.product_talla && <Text style={itemQty}>Talla: {item.product_talla}</Text>}
               <Text style={itemQty}>Cantidad: {item.qty}</Text>
             </Column>
             <Column style={itemPriceCol}>

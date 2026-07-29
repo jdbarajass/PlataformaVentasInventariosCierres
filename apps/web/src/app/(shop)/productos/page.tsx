@@ -65,7 +65,7 @@ export default async function ProductosPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('products')
-    .select('*', { count: 'exact' })
+    .select('*, product_variants(id, talla, stock_qty, active)', { count: 'exact' })
     .eq('active', true)
 
   if (categoryIds && categoryIds.length > 0) query = query.in('category_id', categoryIds)

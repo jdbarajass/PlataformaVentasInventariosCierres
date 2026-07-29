@@ -97,7 +97,7 @@ export default function CategoryPage() {
         // Obtener productos de la categoría
         const { data: productsData } = await supabase
           .from('products')
-          .select('*')
+          .select('*, product_variants(id, talla, stock_qty, active)')
           .eq('category_id', typedCategory.id)
           .eq('active', true)
           .order('created_at', { ascending: false })

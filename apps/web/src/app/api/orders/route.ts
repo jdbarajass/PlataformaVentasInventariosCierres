@@ -32,9 +32,13 @@ export async function POST(request: NextRequest) {
     // product from the database and recompute everything server-side.
     const productIds = Array.from(new Set(items.map((item) => item.id)))
 
+    // Trae también las variantes (tallas) de cada producto: un producto con
+    // variantes exige elegir una talla — su stock real vive por variante,
+    // no en `products.stock_qty` (ver migración 00030 y
+    // docs/UNIFICACION_YJBMOTOCOM.md, hallazgo de la auditoría por fases).
     const { data: productsData, error: productsError } = await serviceSupabase
       .from('products')
-      .select('id, title, price_cents, stock_qty, active, images')
+      .select('id, title, price_cents, stock_qty, cost_cents, active, images, product_variants(id, talla, stock_qty, cost_cents, active)')
       .in('id', productIds)
 
     if (productsError) {
@@ -44,7 +48,17 @@ export async function POST(request: NextRequest) {
     const productsById = new Map((productsData as any[]).map((p) => [p.id, p]))
 
     let subtotal_cents = 0
-    const orderItemsInput: { product_id: string; product_title: string; product_image: string | null; qty: number; price_cents: number; total_cents: number }[] = []
+    const orderItemsInput: {
+      product_id: string
+      product_title: string
+      product_image: string | null
+      variant_id: string | null
+      product_talla: string | null
+      qty: number
+      price_cents: number
+      cost_cents: number
+      total_cents: number
+    }[] = []
 
     for (const item of items) {
       const product = productsById.get(item.id)
@@ -53,8 +67,27 @@ export async function POST(request: NextRequest) {
       if (!product || !product.active) {
         return NextResponse.json({ error: `Producto no disponible: ${item.id}` }, { status: 400 })
       }
-      if (product.stock_qty < qty) {
-        return NextResponse.json({ error: `Stock insuficiente para "${product.title}"` }, { status: 400 })
+
+      const activeVariants = ((product.product_variants || []) as any[]).filter((v) => v.active)
+      let variant: any = null
+
+      if (activeVariants.length > 0) {
+        // Producto con tallas: la talla es obligatoria, no se puede vender
+        // "genérico" (no habría forma de saber cuál despachar).
+        if (!item.variant_id) {
+          return NextResponse.json({ error: `Debes elegir una talla para "${product.title}"` }, { status: 400 })
+        }
+        variant = activeVariants.find((v) => v.id === item.variant_id)
+        if (!variant) {
+          return NextResponse.json({ error: `Talla no disponible para "${product.title}"` }, { status: 400 })
+        }
+        if (variant.stock_qty < qty) {
+          return NextResponse.json({ error: `Stock insuficiente para "${product.title}" (talla ${variant.talla})` }, { status: 400 })
+        }
+      } else {
+        if (product.stock_qty < qty) {
+          return NextResponse.json({ error: `Stock insuficiente para "${product.title}"` }, { status: 400 })
+        }
       }
 
       const itemTotal = product.price_cents * qty
@@ -64,8 +97,11 @@ export async function POST(request: NextRequest) {
         product_id: product.id,
         product_title: product.title,
         product_image: product.images?.[0] ?? null,
+        variant_id: variant?.id ?? null,
+        product_talla: variant?.talla ?? null,
         qty,
         price_cents: product.price_cents,
+        cost_cents: (variant ? variant.cost_cents : product.cost_cents) ?? 0,
         total_cents: itemTotal,
       })
     }
@@ -136,8 +172,11 @@ export async function POST(request: NextRequest) {
           product_id: item.product_id,
           product_title: item.product_title,
           product_image: item.product_image,
+          variant_id: item.variant_id,
+          product_talla: item.product_talla,
           qty: item.qty,
           price_cents: item.price_cents,
+          cost_cents: item.cost_cents,
           total_cents: item.total_cents,
         })),
       }

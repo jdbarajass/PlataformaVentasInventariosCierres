@@ -9,7 +9,7 @@ import {
   mapMercadoPagoStatus,
 } from '@/lib/mercadopago-helpers'
 import { markWebhookProcessed } from '@/lib/webhook-idempotency'
-import { decrementStockAtomic } from '@/lib/inventory'
+import { decrementStockAtomic, decrementVariantStockAtomic } from '@/lib/inventory'
 
 /**
  * MercadoPago Webhook Handler
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       // Reduce stock for each order item
       const { data: orderItemsData, error: itemsError } = await serviceSupabase
         .from('order_items')
-        .select('product_id, qty')
+        .select('product_id, variant_id, qty')
         .eq('order_id', orderId)
 
       if (itemsError) {
@@ -180,20 +180,24 @@ export async function POST(request: NextRequest) {
         if (!item.product_id) continue
 
         try {
-          // Atomic decrement (single UPDATE, row-locked) — avoids the
-          // read-then-write race that a separate SELECT+UPDATE would have.
-          const updated = await decrementStockAtomic(serviceSupabase, item.product_id, item.qty)
+          // Descuento atómico. Si el item tiene variant_id (producto con
+          // tallas) descuenta la variante exacta — el trigger de la
+          // migración 00030 deja products.stock_qty sincronizado solo.
+          const updated = item.variant_id
+            ? await decrementVariantStockAtomic(serviceSupabase, item.variant_id, item.qty)
+            : await decrementStockAtomic(serviceSupabase, item.product_id, item.qty)
 
           if (!updated) {
-            console.error(`[MP Webhook] Product ${item.product_id} not found for stock decrement`)
+            console.error(`[MP Webhook] ${item.variant_id ? 'Variant' : 'Product'} ${item.variant_id || item.product_id} not found for stock decrement`)
             continue
           }
 
-          console.log(`[MP Webhook] Reduced stock for "${updated.title}" -> ${updated.stock_qty}`)
+          console.log(`[MP Webhook] Reduced stock -> ${updated.stock_qty}`)
 
           // Record inventory movement
           await (serviceSupabase.from('inventory_movements') as any).insert({
             product_id: item.product_id,
+            variant_id: item.variant_id || null,
             qty: -item.qty,
             type: 'sale',
             reference_id: orderId,

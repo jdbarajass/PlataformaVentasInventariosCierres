@@ -27,7 +27,7 @@ export default async function OfertasPage() {
 
   const { data: products, error } = await supabase
     .from('products')
-    .select('*, categories(name, slug)')
+    .select('*, categories(name, slug), product_variants(id, talla, stock_qty, active)')
     .eq('active', true)
     .not('compare_at_price_cents', 'is', null)
     .gt('compare_at_price_cents', 0)

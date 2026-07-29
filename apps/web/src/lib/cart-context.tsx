@@ -4,6 +4,13 @@ import { createContext, useContext, useReducer, useEffect, ReactNode } from 'rea
 
 export interface CartItem {
   id: string
+  // Identificador único de la línea del carrito: igual a `id` para
+  // productos sin tallas, o `id:variant_id` para productos con tallas — así
+  // dos tallas distintas del mismo producto son líneas separadas en vez de
+  // sumarse entre sí.
+  line_id: string
+  variant_id?: string | null
+  talla?: string | null
   title: string
   price_cents: number
   image: string
@@ -19,7 +26,7 @@ interface CartState {
 type CartAction =
   | { type: 'ADD_ITEM'; payload: CartItem }
   | { type: 'REMOVE_ITEM'; payload: string }
-  | { type: 'UPDATE_QTY'; payload: { id: string; qty: number } }
+  | { type: 'UPDATE_QTY'; payload: { line_id: string; qty: number } }
   | { type: 'CLEAR_CART' }
   | { type: 'TOGGLE_CART' }
   | { type: 'SET_CART_OPEN'; payload: boolean }
@@ -28,9 +35,9 @@ type CartAction =
 const CartContext = createContext<{
   state: CartState
   dispatch: React.Dispatch<CartAction>
-  addItem: (item: Omit<CartItem, 'qty'>) => void
-  removeItem: (id: string) => void
-  updateQty: (id: string, qty: number) => void
+  addItem: (item: Omit<CartItem, 'qty' | 'line_id'>) => void
+  removeItem: (line_id: string) => void
+  updateQty: (line_id: string, qty: number) => void
   clearCart: () => void
   toggleCart: () => void
   setCartOpen: (open: boolean) => void
@@ -41,7 +48,7 @@ const CartContext = createContext<{
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const existingIndex = state.items.findIndex(item => item.id === action.payload.id)
+      const existingIndex = state.items.findIndex(item => item.line_id === action.payload.line_id)
       if (existingIndex >= 0) {
         const newItems = [...state.items]
         const newQty = Math.min(
@@ -54,15 +61,15 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, items: [...state.items, action.payload] }
     }
     case 'REMOVE_ITEM':
-      return { ...state, items: state.items.filter(item => item.id !== action.payload) }
+      return { ...state, items: state.items.filter(item => item.line_id !== action.payload) }
     case 'UPDATE_QTY': {
       if (action.payload.qty <= 0) {
-        return { ...state, items: state.items.filter(item => item.id !== action.payload.id) }
+        return { ...state, items: state.items.filter(item => item.line_id !== action.payload.line_id) }
       }
       return {
         ...state,
         items: state.items.map(item =>
-          item.id === action.payload.id
+          item.line_id === action.payload.line_id
             ? { ...item, qty: Math.min(action.payload.qty, item.stock_qty) }
             : item
         ),
@@ -100,16 +107,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('yb-motocom-cart', JSON.stringify(state.items))
   }, [state.items])
 
-  const addItem = (item: Omit<CartItem, 'qty'>) => {
-    dispatch({ type: 'ADD_ITEM', payload: { ...item, qty: 1 } })
+  const addItem = (item: Omit<CartItem, 'qty' | 'line_id'>) => {
+    const line_id = item.variant_id ? `${item.id}:${item.variant_id}` : item.id
+    dispatch({ type: 'ADD_ITEM', payload: { ...item, line_id, qty: 1 } })
   }
 
-  const removeItem = (id: string) => {
-    dispatch({ type: 'REMOVE_ITEM', payload: id })
+  const removeItem = (line_id: string) => {
+    dispatch({ type: 'REMOVE_ITEM', payload: line_id })
   }
 
-  const updateQty = (id: string, qty: number) => {
-    dispatch({ type: 'UPDATE_QTY', payload: { id, qty } })
+  const updateQty = (line_id: string, qty: number) => {
+    dispatch({ type: 'UPDATE_QTY', payload: { line_id, qty } })
   }
 
   const clearCart = () => {

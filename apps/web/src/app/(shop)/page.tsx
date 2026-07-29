@@ -54,12 +54,12 @@ const newsletterBenefits = [
 async function getFeaturedProducts(): Promise<Product[]> {
   const { data } = await supabase
     .from('products')
-    .select('*')
+    .select('*, product_variants(id, talla, stock_qty, active)')
     .eq('active', true)
     .eq('featured', true)
     .limit(8)
     .order('created_at', { ascending: false })
-  return (data as Product[]) || []
+  return (data as unknown as Product[]) || []
 }
 
 /* ═══════════════════════════════════════════════════════════════════ */

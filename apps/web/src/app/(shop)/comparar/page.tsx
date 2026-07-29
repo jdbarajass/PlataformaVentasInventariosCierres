@@ -25,8 +25,11 @@ export default function CompararPage() {
   const { addItem } = useCart()
   const { toast } = useToast()
 
+  const hasVariants = (product: (typeof items)[0]) =>
+    ((product as any).product_variants || []).some((v: any) => v.active)
+
   const handleAddToCart = (product: (typeof items)[0]) => {
-    if (product.stock_qty <= 0) return
+    if (product.stock_qty <= 0 || hasVariants(product)) return
     addItem({
       id: product.id,
       title: product.title,
@@ -205,11 +208,11 @@ export default function CompararPage() {
                   <div className="flex flex-col gap-2">
                     <Button
                       onClick={() => handleAddToCart(product)}
-                      disabled={product.stock_qty <= 0}
+                      disabled={product.stock_qty <= 0 || hasVariants(product)}
                       className="w-full gap-2"
                     >
                       <ShoppingCart className="h-4 w-4" />
-                      {product.stock_qty <= 0 ? 'Agotado' : 'Agregar al carrito'}
+                      {product.stock_qty <= 0 ? 'Agotado' : hasVariants(product) ? 'Elige talla en el detalle' : 'Agregar al carrito'}
                     </Button>
                     <Button asChild variant="ghost" size="sm" className="w-full">
                       <Link href={`/producto/${product.slug}`}>Ver detalle</Link>

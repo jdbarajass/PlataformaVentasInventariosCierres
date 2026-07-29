@@ -54,7 +54,7 @@ export function CartDrawer() {
               <ul className="space-y-4">
                 {state.items.map((item) => (
                   <li
-                    key={item.id}
+                    key={item.line_id}
                     className="flex gap-4 rounded-xl border bg-card p-4"
                   >
                     {/* Image */}
@@ -70,12 +70,17 @@ export function CartDrawer() {
                     {/* Details */}
                     <div className="flex flex-1 flex-col">
                       <div className="flex items-start justify-between">
-                        <h3 className="font-medium line-clamp-2">{item.title}</h3>
+                        <div>
+                          <h3 className="font-medium line-clamp-2">{item.title}</h3>
+                          {item.talla && (
+                            <p className="text-xs text-muted-foreground">Talla: {item.talla}</p>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.line_id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -88,7 +93,7 @@ export function CartDrawer() {
                             variant="outline"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => updateQty(item.id, item.qty - 1)}
+                            onClick={() => updateQty(item.line_id, item.qty - 1)}
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
@@ -99,7 +104,7 @@ export function CartDrawer() {
                             variant="outline"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => updateQty(item.id, item.qty + 1)}
+                            onClick={() => updateQty(item.line_id, item.qty + 1)}
                             disabled={item.qty >= item.stock_qty}
                           >
                             <Plus className="h-3 w-3" />

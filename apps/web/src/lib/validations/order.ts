@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const orderItemSchema = z.object({
   id: z.string().min(1, 'ID de producto requerido'),
+  variant_id: z.string().uuid().optional().nullable(),
   qty: z.number().int('La cantidad debe ser un numero entero').positive('La cantidad debe ser mayor a 0'),
 })
 

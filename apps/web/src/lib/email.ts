@@ -35,6 +35,7 @@ interface OrderWithItems {
     id: string
     product_title: string
     product_image: string | null
+    product_talla?: string | null
     qty: number
     price_cents: number
     total_cents: number

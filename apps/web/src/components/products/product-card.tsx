@@ -7,18 +7,22 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCart } from '@/lib/cart-context'
 import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/lib/utils'
-import { Product } from '@/types/database'
+import { Product, ProductVariant } from '@/types/database'
 import { useToast } from '@/components/ui/use-toast'
 import { WishlistButton } from '@/components/products/wishlist-button'
 
 interface ProductCardProps {
-  product: Product
+  product: Product & { product_variants?: ProductVariant[] }
 }
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart()
   const { toast }   = useToast()
 
+  // Un producto con tallas no se puede agregar al carrito "genérico" desde
+  // la tarjeta — no hay dónde elegir la talla aquí, así que el botón rápido
+  // redirige a la página del producto en vez de agregar una talla al azar.
+  const hasVariants  = (product.product_variants || []).some((v) => v.active)
   const stockStatus  = getStockStatus(product.stock_qty, product.low_stock_threshold)
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isOnSale     = !!(product.compare_at_price_cents && product.compare_at_price_cents > product.price_cents)
@@ -29,7 +33,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (isOutOfStock) return
+    if (isOutOfStock || hasVariants) return
     addItem({
       id:          product.id,
       title:       product.title,
@@ -125,17 +129,33 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Add to cart — slides up */}
         <div className="absolute bottom-0 left-0 right-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0 z-30">
           <div className="px-3 pb-3 pt-6">
-            <button
-              className={[
-                'btn-racing w-full text-xs py-2.5 inline-flex items-center justify-center gap-2',
-                isOutOfStock ? 'opacity-50 cursor-not-allowed' : '',
-              ].join(' ')}
-              onClick={handleAddToCart}
-              disabled={isOutOfStock}
-            >
-              <ShoppingCart className="h-3.5 w-3.5" />
-              {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
-            </button>
+            {hasVariants ? (
+              // Producto con tallas: no hay dónde elegir la talla en la
+              // tarjeta, así que este botón lleva a la página del producto
+              // (donde sí está el selector) en vez de agregar una al azar.
+              <Link
+                href={`/producto/${product.slug}`}
+                className={[
+                  'btn-racing w-full text-xs py-2.5 inline-flex items-center justify-center gap-2',
+                  isOutOfStock ? 'opacity-50 cursor-not-allowed pointer-events-none' : '',
+                ].join(' ')}
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                {isOutOfStock ? 'Agotado' : 'Elegir talla'}
+              </Link>
+            ) : (
+              <button
+                className={[
+                  'btn-racing w-full text-xs py-2.5 inline-flex items-center justify-center gap-2',
+                  isOutOfStock ? 'opacity-50 cursor-not-allowed' : '',
+                ].join(' ')}
+                onClick={handleAddToCart}
+                disabled={isOutOfStock}
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
+              </button>
+            )}
           </div>
         </div>
       </div>

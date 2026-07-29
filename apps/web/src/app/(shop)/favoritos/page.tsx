@@ -22,7 +22,7 @@ export default function FavoritosPage() {
 
       const { data } = await supabase
         .from('products')
-        .select('*')
+        .select('*, product_variants(id, talla, stock_qty, active)')
         .in('id', items)
         .eq('active', true)
 

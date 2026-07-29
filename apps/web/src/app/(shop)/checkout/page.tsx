@@ -341,7 +341,7 @@ export default function CheckoutPage() {
                 {/* Items */}
                 <ul className="divide-y">
                   {state.items.map((item) => (
-                    <li key={item.id} className="flex gap-3 py-3">
+                    <li key={item.line_id} className="flex gap-3 py-3">
                       <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
                         <Image
                           src={item.image}
@@ -357,6 +357,9 @@ export default function CheckoutPage() {
                         <p className="text-sm font-medium line-clamp-2">
                           {item.title}
                         </p>
+                        {item.talla && (
+                          <p className="text-xs text-muted-foreground">Talla: {item.talla}</p>
+                        )}
                         <p className="text-sm text-muted-foreground">
                           {formatPrice(item.price_cents * item.qty)}
                         </p>

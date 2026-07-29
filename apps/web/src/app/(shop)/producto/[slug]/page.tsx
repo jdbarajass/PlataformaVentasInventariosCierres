@@ -9,13 +9,14 @@ import { ProductImageGallery } from '@/components/products/product-image-gallery
 import { AddToCartButton } from './add-to-cart-button'
 import { ReviewSection } from '@/components/reviews/review-section'
 import { RestockSubscribe } from '@/components/products/restock-subscribe'
-import { Product } from '@/types/database'
+import { Product, ProductVariant } from '@/types/database'
 import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
 
 export const dynamic = 'force-dynamic'
 
 interface ProductWithCategory extends Product {
   categories: { name: string; slug: string } | null
+  product_variants: ProductVariant[]
 }
 
 async function getProduct(slug: string): Promise<ProductWithCategory | null> {
@@ -23,7 +24,7 @@ async function getProduct(slug: string): Promise<ProductWithCategory | null> {
     const supabase = getServiceSupabase()
     const { data: product, error } = await supabase
       .from('products')
-      .select('*, categories(name, slug)')
+      .select('*, categories(name, slug), product_variants(*)')
       .eq('slug', slug)
       .eq('active', true)
       .single()
