@@ -39,9 +39,14 @@ export default function RegistroPage() {
 
     setLoading(true)
 
+    // Minúsculas: si queda mezclado con mayúsculas, un pedido guardado con
+    // otra capitalización del mismo email (ej. checkout de invitado) puede
+    // no coincidir luego al buscar "Mis Pedidos" contra public.users.email.
+    const normalizedEmail = formData.email.trim().toLowerCase()
+
     try {
       const { data, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: normalizedEmail,
         password: formData.password,
         options: {
           data: {
@@ -66,7 +71,7 @@ export default function RegistroPage() {
         // @ts-ignore - ver docs/UNIFICACION_YJBMOTOCOM.md, limitaciones de tipos
         const { error: profileError } = await supabase.from('users').insert({
           id: data.user.id,
-          email: formData.email,
+          email: normalizedEmail,
           name: formData.name,
           phone: formData.phone,
           role: 'viewer',

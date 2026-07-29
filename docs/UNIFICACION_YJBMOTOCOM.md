@@ -1586,3 +1586,11 @@ Auditoría de cupones, reseñas, favoritos y "Mi Cuenta". Dos hallazgos reales, 
 **⚠️ Pendiente manual**: aplicar `00031_coupon_usage_and_verified_reviews.sql` en el SQL Editor de Supabase.
 
 Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).
+
+**Continuación Fase 2**: se revisaron a fondo los webhooks de Stripe y MercadoPago (verificación de firma, verificación de monto contra lo realmente cobrado, idempotencia, manejo de `rejected`/`in_process`/`refunded`) — sin hallazgos, ambos bien construidos. `api/restock/subscribe` funciona correctamente mostrando/aceptando la suscripción según `products.stock_qty` (ya corregido de raíz por el trigger de la migración 00030), con una limitación de diseño anotada para la Fase 5: es a nivel de producto completo, no de talla — si un producto tiene una talla agotada pero otras con stock, el cliente no puede pedir que le avisen de esa talla puntual.
+
+**Corrección adicional**: "Mis Pedidos" (`(shop)/mi-cuenta/page.tsx`) y las políticas RLS de `orders`/`order_items`/`payments` comparaban el email del cliente con `=` (sensible a mayúsculas) — ni el registro ni el checkout normalizaban el email, así que un pedido de invitado con distinta capitalización del mismo email quedaba invisible en el historial del cliente sin haberse perdido realmente. Migración `00032_case_insensitive_order_email_match.sql`: las 3 políticas RLS ahora comparan `lower(customer_email) = lower(...)` — corrige también los pedidos ya existentes, sin necesitar migrar datos. Además, `(shop)/mi-cuenta/page.tsx` ahora filtra por `user_id` O email (`ilike`, con `_`/`%` escapados porque son comodines válidos en un email real) en vez de solo email exacto; y `(shop)/registro/page.tsx` + `lib/validations/order.ts` (`customerSchema`) normalizan el email a minúsculas al guardarlo, para que los datos nuevos no dependan solo de la comparación insensible a mayúsculas.
+
+**⚠️ Pendiente manual**: aplicar `00032_case_insensitive_order_email_match.sql` en el SQL Editor de Supabase.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).

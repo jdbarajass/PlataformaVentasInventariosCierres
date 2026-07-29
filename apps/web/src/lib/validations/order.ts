@@ -7,7 +7,10 @@ export const orderItemSchema = z.object({
 })
 
 export const customerSchema = z.object({
-  email: z.string().trim().email('Email invalido'),
+  // Minúsculas: evita que un pedido de invitado con distinta capitalización
+  // del mismo email quede invisible luego en "Mis Pedidos" (comparación
+  // contra public.users.email).
+  email: z.string().trim().toLowerCase().email('Email invalido'),
   name: z.string().trim().min(2, 'El nombre debe tener al menos 2 caracteres').max(120, 'El nombre es demasiado largo'),
   phone: z.string().trim().min(7, 'Telefono invalido').max(20, 'Telefono invalido'),
   address: z.string().trim().min(5, 'La direccion debe tener al menos 5 caracteres').max(300, 'La direccion es demasiado larga'),

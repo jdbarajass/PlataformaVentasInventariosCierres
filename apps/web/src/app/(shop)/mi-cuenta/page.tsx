@@ -114,11 +114,16 @@ export default function MiCuentaPage() {
         setEditPhone(session.user.user_metadata?.phone || '')
       }
 
-      // Load orders
+      // Load orders — por user_id O por email (case-insensitive: ni el
+      // registro ni el checkout normalizan mayúsculas, así que un pedido
+      // como invitado con distinta capitalización del mismo email no debe
+      // quedar invisible aquí). `_`/`%` se escapan porque ilike los trata
+      // como comodines y sí pueden aparecer en un email real.
+      const escapedEmail = (session.user.email || '').replace(/[\\%_]/g, (c) => `\\${c}`)
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*, order_items(*)')
-        .eq('customer_email', session.user.email as string)
+        .or(`user_id.eq.${session.user.id},customer_email.ilike.${escapedEmail}`)
         .order('created_at', { ascending: false })
 
       if (ordersData) {
