@@ -292,10 +292,11 @@ export async function sendLowStockAlert(): Promise<boolean> {
 }
 
 /**
- * Sends restock notification emails to all subscribers of a product
+ * Sends restock notification emails to all subscribers of a product (o de
+ * una talla puntual, si `variantId` viene informado — ver migración 00033)
  * and marks them as notified. Called from inventory adjust API.
  */
-export async function sendRestockNotifications(productId: string): Promise<number> {
+export async function sendRestockNotifications(productId: string, variantId?: string | null): Promise<number> {
   try {
     const supabase = getServiceSupabase()
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
@@ -312,23 +313,36 @@ export async function sendRestockNotifications(productId: string): Promise<numbe
       return 0
     }
 
-    // Get pending subscribers
-    const { data: subscribers, error: subError } = await (supabase
-      .from('restock_subscriptions') as any)
+    let talla: string | null = null
+    if (variantId) {
+      const { data: variant } = await supabase
+        .from('product_variants')
+        .select('talla')
+        .eq('id', variantId)
+        .single()
+      talla = (variant as any)?.talla ?? null
+    }
+
+    // Get pending subscribers — de esta talla puntual, o del producto
+    // completo si no tiene tallas (variant_id NULL en ambos casos).
+    let subQuery = (supabase.from('restock_subscriptions') as any)
       .select('id, email')
       .eq('product_id', productId)
       .eq('notified', false)
+    subQuery = variantId ? subQuery.eq('variant_id', variantId) : subQuery.is('variant_id', null)
+    const { data: subscribers, error: subError } = await subQuery
 
     if (subError || !subscribers || subscribers.length === 0) return 0
 
     const productImage = Array.isArray(product.images) ? product.images[0] : null
+    const displayTitle = talla ? `${product.title} (talla ${talla})` : product.title
 
     let sent = 0
     for (const sub of subscribers) {
       try {
         const emailHtml = await render(
           RestockNotificationEmail({
-            productTitle: product.title,
+            productTitle: displayTitle,
             productSlug: product.slug,
             productImage,
             productPrice: product.price_cents,
@@ -339,7 +353,7 @@ export async function sendRestockNotifications(productId: string): Promise<numbe
         const { error: sendError } = await getResend().emails.send({
           from: fromEmail,
           to: sub.email,
-          subject: `¡${product.title} ya está disponible! — YJBMOTOCOM`,
+          subject: `¡${displayTitle} ya está disponible! — YJBMOTOCOM`,
           html: emailHtml,
         })
 

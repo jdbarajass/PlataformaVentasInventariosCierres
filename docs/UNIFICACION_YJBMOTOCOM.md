@@ -1594,3 +1594,22 @@ Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest ru
 **⚠️ Pendiente manual**: aplicar `00032_case_insensitive_order_email_match.sql` en el SQL Editor de Supabase.
 
 Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).
+
+**Actualización 2026-07-29**: el usuario aplicó `00031` y `00032` en Supabase y pidió corregir la mejora anotada para la Fase 5 (avísame cuando vuelva por talla) antes de seguir con la Fase 3.
+
+## 47. "Avísame cuando vuelva" ahora es por talla, no por producto completo (2026-07-29)
+
+Antes: `restock_subscriptions` solo tenía `product_id`+`email` (`UNIQUE(product_id, email)`), y el botón "Notificarme" en la página de producto solo aparecía si `product.stock_qty <= 0` — como ese campo ya refleja el total sumado de todas las tallas desde la migración 00030, un producto con una talla agotada pero otras disponibles se veía "en stock" y el cliente no tenía forma de pedir aviso de esa talla puntual.
+
+**Cambios**:
+- Migración `00033_restock_subscriptions_per_variant.sql`: agrega `restock_subscriptions.variant_id`. Reemplaza el `UNIQUE(product_id, email)` por dos índices únicos parciales — uno para "todo el producto" (`variant_id IS NULL`, el caso sin tallas) y otro por talla puntual (`product_id, variant_id, email`) — así un mismo email puede suscribirse a varias tallas distintas del mismo producto sin duplicarse dentro de la misma talla.
+- `api/restock/subscribe/route.ts`: si el producto tiene variantes activas, exige `variant_id` y valida el stock de esa talla puntual (no el total); si no tiene tallas, mantiene el comportamiento original. El insert ya no usa `.upsert()` (los índices parciales no son un target válido para `ON CONFLICT` vía el cliente de Supabase) — inserta directo e ignora el código `23505` (ya suscrito), mismo patrón que ya usa `review-section.tsx`.
+- `api/inventory/adjust/route.ts` + `lib/email.ts` (`sendRestockNotifications`): cuando el ajuste de stock fue sobre una variante, solo notifica a los suscritos a *esa* talla (no a todos los del producto); el asunto y cuerpo del correo mencionan la talla.
+- `components/products/restock-subscribe.tsx`: si el producto tiene tallas agotadas, muestra un selector para elegir a cuál se le avisa (obligatorio antes de poder enviar el formulario).
+- `(shop)/producto/[slug]/page.tsx`: el bloque de "Notificarme" ahora se muestra si HAY alguna talla agotada (no solo cuando el total llega a 0), pasando la lista de tallas agotadas al componente.
+
+**Fuera de alcance, anotado**: `sendRestockNotifications` solo se dispara desde `api/inventory/adjust` (usado por "Ingresar" en Inventario). Otros caminos que también suben stock — cargue de pedidos por PDF, importación de Excel, "Cambios" — no llaman a esta función, así que restockear por esas vías no dispara ningún aviso, con o sin talla. Es un hueco preexistente más amplio que lo pedido en esta ronda; queda identificado para una fase futura si se decide unificarlo.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).
+
+**⚠️ Pendiente manual**: aplicar `00033_restock_subscriptions_per_variant.sql` en el SQL Editor de Supabase.

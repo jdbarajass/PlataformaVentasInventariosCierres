@@ -138,8 +138,10 @@ export async function POST(request: NextRequest) {
     })
 
     // 4. If stock went from 0 to positive, notify subscribers (non-blocking)
+    // — de la talla puntual si el ajuste fue sobre una variante, o del
+    // producto completo si no tiene tallas.
     if (currentStock === 0 && newStock > 0) {
-      sendRestockNotifications(product_id).catch((err) =>
+      sendRestockNotifications(product_id, variant?.id ?? null).catch((err) =>
         console.error('[Restock] Error sending notifications:', err)
       )
     }

@@ -200,9 +200,22 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
           {/* Add to Cart / Restock Subscribe */}
           <AddToCartButton product={product} />
-          {product.stock_qty <= 0 && (
-            <RestockSubscribe productId={product.id} productTitle={product.title} />
-          )}
+          {(() => {
+            const activeVariants = (product.product_variants || []).filter((v) => v.active)
+            const outOfStockVariants = activeVariants.filter((v) => v.stock_qty === 0)
+            // Sin tallas: se muestra si el producto completo está agotado.
+            // Con tallas: se muestra si ALGUNA talla está agotada, aunque
+            // otras sigan disponibles (el total ya no sirve como señal).
+            const shouldShow = activeVariants.length > 0 ? outOfStockVariants.length > 0 : product.stock_qty <= 0
+            if (!shouldShow) return null
+            return (
+              <RestockSubscribe
+                productId={product.id}
+                productTitle={product.title}
+                outOfStockVariants={outOfStockVariants.map((v) => ({ id: v.id, talla: v.talla }))}
+              />
+            )
+          })()}
 
           {/* Details */}
           <div className="space-y-4 border-t pt-6">

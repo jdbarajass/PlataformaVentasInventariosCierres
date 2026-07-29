@@ -5,27 +5,42 @@ import { Bell, BellOff, Loader2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+interface OutOfStockVariant {
+  id: string
+  talla: string | null
+}
+
 interface RestockSubscribeProps {
   productId: string
   productTitle: string
+  // Tallas agotadas del producto (si tiene variantes) — si se pasan, el
+  // cliente debe elegir a cuál quiere que se le avise, en vez de suscribirse
+  // al producto completo (que puede tener otras tallas ya disponibles).
+  outOfStockVariants?: OutOfStockVariant[]
 }
 
-export function RestockSubscribe({ productId, productTitle }: RestockSubscribeProps) {
+export function RestockSubscribe({ productId, productTitle, outOfStockVariants = [] }: RestockSubscribeProps) {
+  const hasVariants = outOfStockVariants.length > 0
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    hasVariants && outOfStockVariants.length === 1 ? outOfStockVariants[0].id : null
+  )
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [showForm, setShowForm] = useState(false)
 
+  const needsVariantSelection = hasVariants && !selectedVariantId
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) return
+    if (!email.trim() || needsVariantSelection) return
 
     setStatus('loading')
     try {
       const res = await fetch('/api/restock/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, email }),
+        body: JSON.stringify({ product_id: productId, variant_id: selectedVariantId, email }),
       })
 
       const data = await res.json()
@@ -62,7 +77,7 @@ export function RestockSubscribe({ productId, productTitle }: RestockSubscribePr
           <div className="flex items-center gap-3">
             <BellOff className="h-5 w-5 shrink-0 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Agotado — avísame cuando vuelva a estar disponible
+              {hasVariants ? 'Alguna talla agotada' : 'Agotado'} — avísame cuando vuelva a estar disponible
             </p>
           </div>
           <Button
@@ -83,6 +98,30 @@ export function RestockSubscribe({ productId, productTitle }: RestockSubscribePr
               Notificarme cuando {productTitle} esté disponible
             </p>
           </div>
+
+          {hasVariants && (
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                ¿De qué talla te avisamos?
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {outOfStockVariants.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setSelectedVariantId(v.id)}
+                    className={[
+                      'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                      v.id === selectedVariantId ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary' : 'hover:border-primary/50',
+                    ].join(' ')}
+                  >
+                    {v.talla}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Input
               type="email"
@@ -93,7 +132,7 @@ export function RestockSubscribe({ productId, productTitle }: RestockSubscribePr
               disabled={status === 'loading'}
               className="flex-1"
             />
-            <Button type="submit" disabled={status === 'loading'} size="sm">
+            <Button type="submit" disabled={status === 'loading' || needsVariantSelection} size="sm">
               {status === 'loading' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
