@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
-import { sendRestockNotifications } from '@/lib/email'
 import { z } from 'zod'
 
 const adjustmentSchema = z.object({
@@ -137,14 +136,11 @@ export async function POST(request: NextRequest) {
       new_data: { stock_qty: newStock },
     })
 
-    // 4. If stock went from 0 to positive, notify subscribers (non-blocking)
-    // — de la talla puntual si el ajuste fue sobre una variante, o del
-    // producto completo si no tiene tallas.
-    if (currentStock === 0 && newStock > 0) {
-      sendRestockNotifications(product_id, variant?.id ?? null).catch((err) =>
-        console.error('[Restock] Error sending notifications:', err)
-      )
-    }
+    // La notificación de reabasto ya no se dispara aquí — un trigger de
+    // base de datos (migración 00036) detecta la transición 0 → positivo
+    // en products/product_variants sin importar por qué ruta se escribió
+    // el stock, y encola el aviso en restock_notification_queue. Un cron
+    // (api/cron/restock-notifications) es quien envía el email de verdad.
 
     return NextResponse.json({
       success: true,

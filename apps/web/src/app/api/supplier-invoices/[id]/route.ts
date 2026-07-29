@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const invoiceUpdateSchema = z.object({
@@ -73,6 +74,15 @@ export async function PUT(
       throw error
     }
 
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'supplier_invoice_updated',
+      tableName: 'supplier_invoices',
+      recordId: params.id,
+      newData: validatedData,
+    })
+
     return NextResponse.json(invoice)
   } catch (error) {
     console.error('Error updating supplier invoice:', error)
@@ -113,6 +123,14 @@ export async function DELETE(
       }
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'supplier_invoice_deleted',
+      tableName: 'supplier_invoices',
+      recordId: params.id,
+    })
 
     return NextResponse.json({ message: 'Factura eliminada exitosamente', id: params.id })
   } catch (error) {

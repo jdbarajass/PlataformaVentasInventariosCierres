@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const transferSchema = z.object({
@@ -53,6 +54,15 @@ export async function POST(request: NextRequest) {
       }
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'account_transfer',
+      tableName: 'account_movements',
+      recordId: referenceId as any,
+      newData: { from_account_id, to_account_id, amount_cents, description },
+    })
 
     return NextResponse.json({ reference_id: referenceId }, { status: 201 })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const loanSchema = z.object({
@@ -76,6 +77,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'loan_created',
+      tableName: 'loans',
+      recordId: (loan as any)?.id,
+      newData: validatedData,
+    })
 
     return NextResponse.json(loan, { status: 201 })
   } catch (error) {

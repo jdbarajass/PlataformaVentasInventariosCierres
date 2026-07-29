@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const budgetSchema = z.object({
@@ -72,6 +73,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'monthly_budget_saved',
+      tableName: 'monthly_budgets',
+      recordId: (budget as any)?.id,
+      newData: validatedData,
+    })
 
     return NextResponse.json(budget, { status: 201 })
   } catch (error) {

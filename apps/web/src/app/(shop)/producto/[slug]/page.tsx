@@ -9,6 +9,7 @@ import { ProductImageGallery } from '@/components/products/product-image-gallery
 import { AddToCartButton } from './add-to-cart-button'
 import { ReviewSection } from '@/components/reviews/review-section'
 import { RestockSubscribe } from '@/components/products/restock-subscribe'
+import { CompareButton } from '@/components/products/compare-button'
 import { Product, ProductVariant } from '@/types/database'
 import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
 
@@ -198,8 +199,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
             </div>
           )}
 
-          {/* Add to Cart / Restock Subscribe */}
+          {/* Add to Cart / Comparar / Restock Subscribe */}
           <AddToCartButton product={product} />
+          <CompareButton product={product} variant="full" className="w-full sm:w-auto" />
           {(() => {
             const activeVariants = (product.product_variants || []).filter((v) => v.active)
             const outOfStockVariants = activeVariants.filter((v) => v.stock_qty === 0)

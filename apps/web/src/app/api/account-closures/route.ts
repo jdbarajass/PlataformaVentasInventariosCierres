@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const closureSchema = z.object({
@@ -98,6 +99,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'account_closure_created',
+      tableName: 'account_closures',
+      recordId: (closure as any)?.id,
+      newData: { year, month },
+    })
 
     return NextResponse.json({ data: closure }, { status: 201 })
   } catch (error) {

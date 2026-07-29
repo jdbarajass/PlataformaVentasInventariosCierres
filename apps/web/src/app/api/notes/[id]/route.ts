@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const noteUpdateSchema = z.object({
@@ -36,6 +37,15 @@ export async function PUT(
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'note_updated',
+      tableName: 'notes',
+      recordId: params.id,
+      newData: validatedData,
+    })
 
     return NextResponse.json(note)
   } catch (error) {
@@ -76,6 +86,14 @@ export async function DELETE(
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'note_deleted',
+      tableName: 'notes',
+      recordId: params.id,
+    })
 
     return NextResponse.json({ message: 'Nota eliminada exitosamente', id: params.id })
   } catch (error) {

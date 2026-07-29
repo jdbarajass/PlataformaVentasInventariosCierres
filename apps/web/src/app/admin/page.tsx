@@ -91,12 +91,37 @@ async function getDashboardStats() {
   // de texto y fallaba en silencio (data quedaba null, sin lanzar error
   // visible), así que el widget siempre había estado vacío. Se trae todo
   // y se compara en el servidor.
+  //
+  // Productos con tallas se excluyen de este chequeo por producto completo
+  // (su stock_qty es la suma de todas las variantes, migración 00030 — un
+  // producto con 8 tallas puede sumar más que el umbral aunque cada talla
+  // individual esté casi agotada) y se revisan aparte, por variante, más
+  // abajo (mejora de la Fase 5, propuesta A.3).
   const { data: allProductsStock } = await supabase
     .from('products')
-    .select('id, title, stock_qty, low_stock_threshold')
+    .select('id, title, stock_qty, low_stock_threshold, product_variants(id)')
 
-  const typedLowStock = ((allProductsStock as LowStockProduct[]) || [])
+  const productsWithoutVariants = ((allProductsStock as any[]) || []).filter(
+    (p) => !p.product_variants || p.product_variants.length === 0
+  )
+  const lowStockNoVariant = (productsWithoutVariants as LowStockProduct[])
     .filter((p) => p.stock_qty <= p.low_stock_threshold)
+
+  const { data: variantStock } = await supabase
+    .from('product_variants')
+    .select('id, talla, stock_qty, low_stock_threshold, product:products(title)')
+    .eq('active', true)
+
+  const lowStockVariants = ((variantStock as any[]) || [])
+    .filter((v) => v.stock_qty <= v.low_stock_threshold)
+    .map((v) => ({
+      id: v.id,
+      title: `${v.product?.title || 'Producto'} (talla ${v.talla})`,
+      stock_qty: v.stock_qty,
+      low_stock_threshold: v.low_stock_threshold,
+    }))
+
+  const typedLowStock = [...lowStockNoVariant, ...lowStockVariants]
     .sort((a, b) => a.stock_qty - b.stock_qty)
     .slice(0, 5)
 

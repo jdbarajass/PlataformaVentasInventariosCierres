@@ -111,6 +111,37 @@ export default function OrdersPage() {
     }
   }
 
+  // Pagos manuales (transferencia/Nequi/Daviplata) nunca pasan por un
+  // webhook de pasarela — hasta este botón, nada descontaba el stock de
+  // esas ventas y el admin tenía que ajustar el inventario a mano.
+  const handleMarkPaid = async () => {
+    if (!selectedOrder) return
+    setUpdating(true)
+    try {
+      const res = await fetch(`/api/orders/${selectedOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ mark_paid: true }),
+      })
+
+      if (res.ok) {
+        toast({ title: 'Pago confirmado', description: 'Se descontó el stock y se envió la confirmación al cliente.' })
+        setShowModal(false)
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        toast({ title: 'Error', description: data.error, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Error al confirmar el pago', variant: 'destructive' })
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   const filteredOrders = orders.filter((order) =>
     order.order_number.toLowerCase().includes(search.toLowerCase()) ||
     order.customer_email.toLowerCase().includes(search.toLowerCase()) ||
@@ -271,6 +302,19 @@ export default function OrdersPage() {
                 <h3 className="mb-2 font-semibold">Total</h3>
                 <p className="text-lg font-bold text-primary">{formatPrice(selectedOrder.total_cents)}</p>
               </div>
+
+              {/* Confirmar pago manual */}
+              {selectedOrder.payment_status !== 'paid' && selectedOrder.payment_status !== 'refunded' && (
+                <div className="rounded-xl border border-dashed p-4">
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Pago pendiente — si ya recibiste la transferencia/Nequi/Daviplata de esta orden, confírmalo aquí para descontar el stock y avisarle al cliente.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleMarkPaid} disabled={updating} className="gap-2">
+                    {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Marcar como pagado
+                  </Button>
+                </div>
+              )}
 
               {/* Status Change */}
               <div>

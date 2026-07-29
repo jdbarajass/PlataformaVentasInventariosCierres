@@ -8,8 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
-import { bogotaDateStr } from '@/lib/bogota-time'
+import { bogotaDateStr, bogotaDayRange } from '@/lib/bogota-time'
+import { useAuth } from '@/lib/auth-context'
 import { DailyClosure, Inserts } from '@/types/database'
+
+const methodLabels: Record<string, string> = {
+  cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
+  nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
+  addi: 'Addi', card: 'Datáfono', other: 'Otro',
+}
 
 export default function DailyClosuresPage() {
   const [closures, setClosures] = useState<DailyClosure[]>([])
@@ -28,9 +35,48 @@ export default function DailyClosuresPage() {
     notes: '',
   })
 
+  // Total esperado según Ventas de mostrador de ese día (Mi Cuadre) — para
+  // reconciliar el conteo manual contra lo que el sistema ya calculó, en
+  // vez de que Cierres y Mi Cuadre queden como dos números sin relación
+  // (mejora de la Fase 5, propuesta A.5).
+  const { session } = useAuth()
+  const [expectedTotal, setExpectedTotal] = useState<number | null>(null)
+  const [expectedByMethod, setExpectedByMethod] = useState<Record<string, number>>({})
+  const [loadingExpected, setLoadingExpected] = useState(false)
+
   useEffect(() => {
     fetchClosures()
   }, [])
+
+  useEffect(() => {
+    const fetchExpected = async () => {
+      if (!showForm || !session?.access_token) return
+      setLoadingExpected(true)
+      try {
+        const { from, to } = bogotaDayRange(formData.date)
+        const res = await fetch(`/api/pos/sales?from=${from}&to=${to}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (!res.ok) return
+        const { data } = await res.json()
+        const sales = (data || []).filter((s: any) => s.status !== 'cancelled')
+        const total = sales.reduce((sum: number, s: any) => sum + s.total_cents, 0)
+        const byMethod: Record<string, number> = {}
+        sales.forEach((s: any) => {
+          ;(s.payments || []).forEach((p: any) => {
+            byMethod[p.method] = (byMethod[p.method] || 0) + p.amount_cents
+          })
+        })
+        setExpectedTotal(total)
+        setExpectedByMethod(byMethod)
+      } catch (error) {
+        console.error('Error fetching expected total:', error)
+      } finally {
+        setLoadingExpected(false)
+      }
+    }
+    fetchExpected()
+  }, [showForm, formData.date, session?.access_token])
 
   // Envuelto en un límite de tiempo: supabaseBrowser puede colgarse
   // indefinidamente al refrescar la sesión tras un rato de inactividad de
@@ -151,6 +197,28 @@ export default function DailyClosuresPage() {
             <CardTitle>Registrar Cierre del Dia</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Total esperado según Ventas de mostrador (Mi Cuadre) de ese
+                día — para reconciliar el conteo manual, no reemplazarlo. */}
+            <div className="mb-4 rounded-xl border border-dashed bg-muted/30 p-4">
+              <p className="text-sm font-medium">Total esperado según Ventas de mostrador</p>
+              {loadingExpected ? (
+                <p className="mt-1 text-sm text-muted-foreground">Calculando...</p>
+              ) : expectedTotal !== null ? (
+                <>
+                  <p className="mt-1 text-xl font-bold text-primary">{formatPrice(expectedTotal)}</p>
+                  {Object.keys(expectedByMethod).length > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {Object.entries(expectedByMethod)
+                        .map(([m, cents]) => `${methodLabels[m] || m}: ${formatPrice(cents)}`)
+                        .join(' · ')}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">Sin ventas de mostrador registradas ese día.</p>
+              )}
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>

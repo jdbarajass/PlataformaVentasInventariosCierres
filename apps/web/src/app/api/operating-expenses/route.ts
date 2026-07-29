@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const expenseSchema = z.object({
@@ -91,6 +92,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'operating_expense_created',
+      tableName: 'operating_expenses',
+      recordId: (expense as any)?.id,
+      newData: { description, amount_cents, category },
+    })
 
     return NextResponse.json({ data: expense }, { status: 201 })
   } catch (error) {

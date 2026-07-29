@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { resolveSale } from '@/lib/pos-sale'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const saleItemSchema = z
@@ -124,6 +125,15 @@ export async function PUT(
       throw error
     }
 
+    await logAudit(serviceSupabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'pos_sale_edited',
+      tableName: 'orders',
+      recordId: params.id,
+      newData: orderPayload,
+    })
+
     return NextResponse.json({ data: order })
   } catch (error) {
     console.error('Error editing POS sale:', error)
@@ -162,6 +172,14 @@ export async function DELETE(
       }
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'pos_sale_cancelled',
+      tableName: 'orders',
+      recordId: params.id,
+    })
 
     return NextResponse.json({ message: 'Venta cancelada exitosamente', id: params.id })
   } catch (error) {

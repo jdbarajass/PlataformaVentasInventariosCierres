@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
-import { sendOrderShipped } from '@/lib/email'
+import { sendOrderShipped, sendOrderConfirmation } from '@/lib/email'
+import { decrementStockForOrder } from '@/lib/order-fulfillment'
 
 // GET - Admin: get single order details
 export async function GET(
@@ -35,7 +36,7 @@ export async function PUT(
 
   const supabase = getServiceSupabase()
   const body = await request.json()
-  const { status, tracking_number, tracking_url } = body
+  const { status, tracking_number, tracking_url, mark_paid } = body
 
   // Update order status
   if (status) {
@@ -45,6 +46,55 @@ export async function PUT(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+  }
+
+  // Confirmar pago manual (transferencia/Nequi/Daviplata): esos métodos
+  // nunca pasan por un webhook de pasarela, así que hasta ahora nunca
+  // descontaban stock — el admin tenía que ajustar el inventario a mano.
+  // Este botón replica exactamente lo que ya hacen los webhooks de Stripe/
+  // MercadoPago (descuento por variante + movimiento + email), pero
+  // disparado a mano por un admin en vez de por una notificación externa.
+  if (mark_paid) {
+    const { data: orderRow, error: orderLookupError } = await supabase
+      .from('orders')
+      .select('payment_status, order_number')
+      .eq('id', params.id)
+      .single()
+
+    if (orderLookupError || !orderRow) {
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
+    }
+
+    // Idempotente: si ya estaba pagada (ej. doble clic, o ya la confirmó un
+    // webhook), no se vuelve a descontar stock.
+    if ((orderRow as any).payment_status !== 'paid') {
+      const { error: updateError } = await (supabase.from('orders') as any)
+        .update({ status: 'confirmed', payment_status: 'paid' })
+        .eq('id', params.id)
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 })
+      }
+
+      try {
+        await decrementStockForOrder(supabase, params.id, `Pago manual confirmado - Orden ${(orderRow as any).order_number}`)
+      } catch (stockError) {
+        console.error('Error decrementing stock for manual payment:', stockError)
+      }
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: 'payment_completed_manual',
+        table_name: 'orders',
+        record_id: params.id,
+        new_data: { payment_status: 'paid' },
+      })
+
+      try {
+        await sendOrderConfirmation(params.id)
+      } catch (emailError) {
+        console.error('Error sending confirmation email:', emailError)
+      }
     }
   }
 

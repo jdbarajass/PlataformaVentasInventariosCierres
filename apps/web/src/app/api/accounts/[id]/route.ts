@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 // Nunca se acepta balance_cents aquí: el saldo solo cambia a través de
@@ -41,6 +42,15 @@ export async function PUT(
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'account_updated',
+      tableName: 'accounts',
+      recordId: params.id,
+      newData: validatedData,
+    })
 
     return NextResponse.json(account)
   } catch (error) {

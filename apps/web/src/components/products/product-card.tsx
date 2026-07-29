@@ -10,6 +10,7 @@ import { formatPrice, getStockStatus, getStockLabel, getProductImage } from '@/l
 import { Product, ProductVariant } from '@/types/database'
 import { useToast } from '@/components/ui/use-toast'
 import { WishlistButton } from '@/components/products/wishlist-button'
+import { CompareButton } from '@/components/products/compare-button'
 
 interface ProductCardProps {
   product: Product & { product_variants?: ProductVariant[] }
@@ -108,9 +109,10 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* ── Hover actions (z-30, above overlay link) ── */}
-        {/* Wishlist */}
-        <div className="absolute bottom-3 left-3 z-30 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+        {/* Wishlist + Comparar */}
+        <div className="absolute bottom-3 left-3 z-30 flex translate-y-2 gap-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
           <WishlistButton productId={product.id} productTitle={product.title} />
+          <CompareButton product={product} />
         </div>
 
         {/* Quick view */}

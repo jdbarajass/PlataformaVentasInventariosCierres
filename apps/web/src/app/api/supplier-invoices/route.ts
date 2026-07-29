@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const invoiceSchema = z.object({
@@ -77,6 +78,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'supplier_invoice_created',
+      tableName: 'supplier_invoices',
+      recordId: (invoice as any)?.id,
+      newData: validatedData,
+    })
 
     return NextResponse.json(invoice, { status: 201 })
   } catch (error) {

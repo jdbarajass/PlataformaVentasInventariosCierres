@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const creditSchema = z.object({
@@ -93,6 +94,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'customer_credit_created',
+      tableName: 'customer_credits',
+      recordId: (credit as any)?.id,
+      newData: creditData,
+    })
 
     if (initial_payment_cents && initial_payment_cents > 0) {
       const serviceSupabase = getServiceSupabase()

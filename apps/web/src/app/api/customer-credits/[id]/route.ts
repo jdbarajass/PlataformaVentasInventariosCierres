@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const creditUpdateSchema = z.object({
@@ -115,6 +116,15 @@ export async function PUT(
       throw error
     }
 
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: force_paid ? 'customer_credit_force_paid' : 'customer_credit_updated',
+      tableName: 'customer_credits',
+      recordId: params.id,
+      newData: updatePayload,
+    })
+
     return NextResponse.json(credit)
   } catch (error) {
     console.error('Error updating customer credit:', error)
@@ -155,6 +165,14 @@ export async function DELETE(
       }
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'customer_credit_deleted',
+      tableName: 'customer_credits',
+      recordId: params.id,
+    })
 
     return NextResponse.json({ message: 'Fiado eliminado exitosamente', id: params.id })
   } catch (error) {

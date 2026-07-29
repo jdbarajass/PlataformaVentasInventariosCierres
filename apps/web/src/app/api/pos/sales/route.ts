@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { resolveSale } from '@/lib/pos-sale'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const saleItemSchema = z
@@ -101,6 +102,15 @@ export async function POST(request: NextRequest) {
       }
       throw error
     }
+
+    await logAudit(serviceSupabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'pos_sale_created',
+      tableName: 'orders',
+      recordId: (order as any)?.id,
+      newData: { total_cents, items: resolvedItems.length },
+    })
 
     return NextResponse.json({ data: order }, { status: 201 })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const loanUpdateSchema = z.object({
@@ -44,6 +45,15 @@ export async function PUT(
       throw error
     }
 
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'loan_updated',
+      tableName: 'loans',
+      recordId: params.id,
+      newData: validatedData,
+    })
+
     return NextResponse.json(loan)
   } catch (error) {
     console.error('Error updating loan:', error)
@@ -83,6 +93,14 @@ export async function DELETE(
     if (error) {
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'loan_deleted',
+      tableName: 'loans',
+      recordId: params.id,
+    })
 
     return NextResponse.json({ message: 'Préstamo eliminado exitosamente', id: params.id })
   } catch (error) {

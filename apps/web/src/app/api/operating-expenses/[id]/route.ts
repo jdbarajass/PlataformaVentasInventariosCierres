@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { logAudit } from '@/lib/audit'
 
 // DELETE - Eliminar un gasto operativo, revirtiendo el débito a su cuenta (si tenía)
 export async function DELETE(
@@ -24,6 +25,14 @@ export async function DELETE(
       }
       throw error
     }
+
+    await logAudit(supabase, {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'operating_expense_deleted',
+      tableName: 'operating_expenses',
+      recordId: params.id,
+    })
 
     return NextResponse.json({ message: 'Gasto eliminado exitosamente', id: params.id })
   } catch (error) {
