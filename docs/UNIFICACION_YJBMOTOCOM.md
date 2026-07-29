@@ -1613,3 +1613,21 @@ Antes: `restock_subscriptions` solo tenía `product_id`+`email` (`UNIQUE(product
 Verificado `tsc --noEmit`, `eslint`, `npm run build` (101 páginas) y `vitest run` (62/62 tests).
 
 **⚠️ Pendiente manual**: aplicar `00033_restock_subscriptions_per_variant.sql` en el SQL Editor de Supabase.
+
+**Actualización 2026-07-29**: el usuario aplicó `00033` en Supabase y pidió seguir con la Fase 3 (seguridad transversal).
+
+## 48. Fase 3 — CRÍTICO: cualquier cliente registrado podía volverse admin (2026-07-29)
+
+Auditoría de seguridad transversal: se revisó que todas las 28 tablas tuvieran RLS habilitado (confirmado, coincide exacto con las tablas creadas), se cruzaron todos los `fetch()` de cada página admin contra sus headers de `Authorization` (sin hallazgos nuevos — el barrido de la sección 18, que encontró `ordenes`/`cupones`/`resenas` rotas, sigue vigente y no hay páginas nuevas con el mismo patrón), y se revisaron los roles exigidos por cada `requireAuth()` de la API contra lo documentado en fases anteriores (sin inconsistencias).
+
+**Hallazgo crítico**: la política RLS `"Users can update own profile"` sobre `public.users` (migración 00004) valida `USING (auth.uid() = id)` — protege QUÉ FILA se puede editar, pero no QUÉ COLUMNAS. Como `get_user_role()` (usado en absolutamente todas las políticas RLS y en `requireAuth()` de cada ruta de la API) lee el rol directo de `public.users.role`, **cualquier cliente autenticado (rol `viewer` de un registro normal) podía convertirse en admin** con una sola llamada autenticada directa a la API REST de Supabase (`PATCH /rest/v1/users?id=eq.<su-propio-id>` con body `{"role":"admin"}`, usando su propio JWT válido, sin pasar por esta aplicación en absoluto ni requerir ningún exploit sofisticado — solo tener una cuenta normal en la tienda). Con eso, todo `requireAuth(['admin'])` de cada ruta y toda política RLS basada en `get_user_role()` lo habrían tratado como administrador real: pedidos, usuarios, cuentas/dinero, inventario, todo el panel.
+
+**Hallazgo relacionado, misma causa**: `"Users can update own reviews"` (`product_reviews`) tampoco restringe columnas — un cliente podía editar su propia reseña por API directa para poner `approved = true` (auto-aprobarse, saltando la moderación del admin) o `verified_purchase = true` sin haber comprado nada — el trigger de `verified_purchase` de la sección 46/migración 00031 solo corría en el INSERT, nunca en el UPDATE.
+
+**Corrección** (migración `00034_prevent_role_self_escalation.sql`):
+- Trigger `BEFORE UPDATE` en `users` que revierte `NEW.role` al valor anterior si quien ejecuta el UPDATE no es ya administrador, sin importar qué venga en el payload. Cuidado importante: `getServiceSupabase()` (usado por las rutas admin del backend, ya protegidas por `requireAuth(['admin'])` antes de llegar aquí) conecta sin JWT de usuario, así que `auth.uid()` es `NULL` en ese contexto — el trigger trata `auth.uid() IS NULL` como confiable, lo cual es seguro porque RLS ya impide que cualquier OTRA conexión sin `auth.uid()` real llegue a este UPDATE (`USING auth.uid() = id` nunca es cierto si `auth.uid()` es NULL). No afecta el flujo legítimo (mi-cuenta solo actualiza `name`/`phone`) ni la edición de rol de un admin real desde `/admin/usuarios`.
+- Mismo trigger de `verified_purchase` (migración 00031) ampliado a `BEFORE INSERT OR UPDATE`: en INSERT sigue calculando `verified_purchase` real y fuerza `approved = false`; en UPDATE, si quien edita es admin (o backend vía service role) no toca nada — deja pasar la aprobación/rechazo legítima desde `/admin/resenas`; si quien edita es el propio autor, recalcula `verified_purchase` de verdad y **restaura `approved` al valor que ya tenía** (no se puede auto-aprobar ni auto-rechazar).
+
+Verificado `vitest run` (62/62 tests — sin cambios de código de aplicación, solo SQL, así que no aplica `tsc`/`eslint`/`build` para este commit).
+
+**⚠️ Pendiente manual, URGENTE**: aplicar `00034_prevent_role_self_escalation.sql` en el SQL Editor de Supabase cuanto antes — mientras no se aplique, la vulnerabilidad de escalación de privilegios sigue activa en producción.
