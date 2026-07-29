@@ -344,7 +344,12 @@ export default function VentasPage() {
               price_cents: product.price_cents,
               cost_cents: variant ? variant.cost_cents : product.cost_cents,
               discount_cents: 0,
-              max_stock: variant ? variant.stock_qty : product.stock_qty,
+              // Si ya está en 0, no hay un tope real de inventario que
+              // respetar — se deja un margen amplio para poder forzar la
+              // cantidad que el vendedor necesite; el backend sigue
+              // exigiendo confirmar "Stock insuficiente ¿continuar?" al
+              // registrar la venta (create_pos_sale con p_force).
+              max_stock: (variant ? variant.stock_qty : product.stock_qty) || 999,
             },
           ]
       return { ...s, cart }
@@ -389,7 +394,13 @@ export default function VentasPage() {
       toast({ title: 'Error', description: 'Ingresa un nombre y un precio mayor a cero', variant: 'destructive' })
       return
     }
-    const cost = canViewProfit ? Math.round((parseFloat(manualCost) || 0) * 100) : 0
+    // El costo de un ítem fuera de catálogo no revela ningún margen del
+    // catálogo real (el vendedor es quien acaba de fijar ese costo, ej. un
+    // producto que consiguió en otro local para revender) — a diferencia
+    // del costo de un producto SÍ catalogado, este campo no se oculta por
+    // rol. Antes se forzaba a 0 para cualquiera que no fuera admin,
+    // perdiendo el costo real que la vendedora sí necesitaba registrar.
+    const cost = Math.round((parseFloat(manualCost) || 0) * 100)
     updateActiveSession((s) => ({
       ...s,
       cart: [
@@ -696,9 +707,7 @@ export default function VentasPage() {
                     className="rounded-lg"
                   />
                   <MoneyInput placeholder="Precio de venta" value={manualPrice} onChange={setManualPrice} className="rounded-lg" />
-                  {canViewProfit && (
-                    <MoneyInput placeholder="Costo (opcional)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
-                  )}
+                  <MoneyInput placeholder="Costo (opcional)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="rounded-lg" onClick={addManualItem}>
@@ -731,11 +740,17 @@ export default function VentasPage() {
                     key={v.id}
                     size="sm"
                     variant="outline"
-                    className="rounded-lg"
-                    disabled={v.stock_qty === 0}
+                    className={v.stock_qty === 0 ? 'rounded-lg border-amber-500/40 text-amber-600' : 'rounded-lg'}
+                    // No se deshabilita aunque esté en 0: bloquear aquí le
+                    // quitaba al vendedor la opción de forzar la venta (ej.
+                    // "CASCO SHAFT 560 NEGRO MATE" sin unidades) — el
+                    // backend igual exige confirmar "Stock insuficiente
+                    // ¿continuar?" al registrar, igual que ya pasa con
+                    // productos sin tallas.
+                    title={v.stock_qty === 0 ? 'Sin stock — se puede forzar la venta al confirmar' : undefined}
                     onClick={() => handlePickVariant(pickingVariantsFor, v)}
                   >
-                    {v.talla || 'Única'} ({v.stock_qty})
+                    {v.talla || 'Única'} ({v.stock_qty === 0 ? 'agotada' : v.stock_qty})
                   </Button>
                 ))}
               </div>
