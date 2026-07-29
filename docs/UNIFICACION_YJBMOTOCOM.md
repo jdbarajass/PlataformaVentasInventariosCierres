@@ -1734,8 +1734,9 @@ Roadmap agrupado por tipo de impacto, con lo que ya se identificó como pendient
 Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests) en cada bloque de commits.
 
 **⚠️ Pendientes manuales**:
-- Aplicar `00036_restock_notification_queue.sql` y `00037_abandoned_carts.sql` en el SQL Editor de Supabase.
-- Configurar la variable de entorno `CRON_SECRET` en Vercel (valor aleatorio largo) para que `/api/cron/*` quede protegido.
+- ~~Aplicar `00036`/`00037` en Supabase~~ — hecho por el usuario el 2026-07-29.
+- **Configurar `CRON_SECRET` en Vercel — pendiente** (el usuario tuvo problemas al intentarlo, queda para retomar en una sesión futura; recordárselo). Sin esto, `/api/cron/*` queda sin protección real contra llamadas externas (aunque no expone datos sensibles directamente, sí permitiría a cualquiera disparar el envío de emails o el procesamiento de las colas a voluntad).
 - Confirmar que los 5 cron jobs quedaron registrados en el dashboard de Vercel tras el próximo deploy (Project → Settings → Cron Jobs).
 - Probar el login real (cliente/vendedor/admin) tras el deploy, por el cambio de la migración A.8.
-- Decidir sobre el hallazgo de `/checkout` protegido (arriba).
+
+**Actualización 2026-07-29**: el hallazgo de `/checkout` protegido se corrigió (commit `388d011`) — `middleware.ts` ya solo exige sesión real en `/mi-cuenta`; `/favoritos`, `/checkout` y `/orden/*` quedan accesibles para invitados, verificado con servidor de desarrollo real (200 sin sesión en los tres, 307 sin cambios en `/mi-cuenta` y `/admin`).
