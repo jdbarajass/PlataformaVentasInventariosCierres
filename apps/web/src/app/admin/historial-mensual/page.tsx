@@ -730,18 +730,27 @@ export default function HistorialMensualPage() {
                       <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.revenue / maxDaily) * 100}%` }} /></div>
                       <span className="w-28 text-right text-sm font-medium">{formatPrice(d.revenue)}</span>
                       {canViewProfit && (
-                        <Badge
-                          variant="outline"
-                          className={
-                            d.sinVenta
-                              ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                              : d.utilidadRealDia >= 0
-                              ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                              : 'bg-red-500/10 text-red-500 border-red-500/20'
-                          }
-                        >
-                          {d.sinVenta ? 'Sin venta' : d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}
-                        </Badge>
+                        <div className="flex w-40 items-center justify-end gap-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              d.sinVenta
+                                ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                : d.utilidadRealDia >= 0
+                                ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                                : 'bg-red-500/10 text-red-500 border-red-500/20'
+                            }
+                          >
+                            {d.sinVenta ? 'Sin venta' : d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}
+                          </Badge>
+                          {!d.sinVenta && (
+                            <span className={`text-xs font-medium ${d.utilidadRealDia >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {d.utilidadRealDia >= 0
+                                ? `+${formatPrice(Math.round(d.utilidadRealDia))}`
+                                : `Faltan ${formatPrice(Math.round(Math.abs(d.utilidadRealDia)))}`}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </Link>
                   ))}

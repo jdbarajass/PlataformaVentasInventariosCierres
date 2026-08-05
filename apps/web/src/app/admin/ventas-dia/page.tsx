@@ -48,12 +48,17 @@ interface Sale {
 }
 interface CartLine {
   key: string
-  product_id: string
+  // null = ítem fuera de catálogo (ver product_title/cost_cents en SaleItem)
+  // — se edita libremente; si tiene product_id, el título y el costo reales
+  // siempre los resuelve el servidor desde el catálogo (resolveSale en
+  // lib/pos-sale.ts), así que editarlos aquí no tendría ningún efecto.
+  product_id: string | null
   variant_id: string | null
   title: string
   talla: string | null
   qty: number
   price_cents: number
+  cost_cents: number
   discount_cents: number
 }
 interface PaymentSplit {
@@ -280,6 +285,7 @@ function VentasDiaContent() {
         talla: item.product_talla,
         qty: item.qty,
         price_cents: item.price_cents,
+        cost_cents: item.cost_cents,
         discount_cents: item.discount_cents,
       }))
     )
@@ -311,7 +317,7 @@ function VentasDiaContent() {
       return [...prev, {
         key, product_id: product.id, variant_id: variant?.id || null,
         title: product.title, talla: variant?.talla || null,
-        qty: 1, price_cents: product.price_cents, discount_cents: 0,
+        qty: 1, price_cents: product.price_cents, cost_cents: 0, discount_cents: 0,
       }]
     })
     setEditQuery('')
@@ -330,6 +336,10 @@ function VentasDiaContent() {
   const saveEdit = async (saleId: string, force = false) => {
     if (editCart.length === 0) {
       toast({ title: 'Error', description: 'La venta debe tener al menos un producto', variant: 'destructive' })
+      return
+    }
+    if (editCart.some((l) => !l.product_id && !l.title.trim())) {
+      toast({ title: 'Error', description: 'Los ítems fuera de catálogo necesitan un nombre', variant: 'destructive' })
       return
     }
     const validPayments = editPayments.filter((p) => parseFloat(p.amount) > 0)
@@ -355,10 +365,16 @@ function VentasDiaContent() {
         body: JSON.stringify({
           customer_name: editCustomerName || null,
           customer_phone: editCustomerPhone || null,
-          items: editCart.map((l) => ({
-            product_id: l.product_id, variant_id: l.variant_id, qty: l.qty,
-            price_cents: l.price_cents, discount_cents: l.discount_cents,
-          })),
+          // Ítem fuera de catálogo (product_id null): manda manual_title/
+          // manual_cost_cents, que es lo que resolveSale exige en ese caso
+          // (antes esto no se mandaba nunca y guardar una factura con un
+          // ítem manual fallaba con "Los ítems fuera de catálogo requieren
+          // un nombre", sin importar qué se hubiera editado).
+          items: editCart.map((l) =>
+            l.product_id
+              ? { product_id: l.product_id, variant_id: l.variant_id, qty: l.qty, price_cents: l.price_cents, discount_cents: l.discount_cents }
+              : { product_id: null, variant_id: null, manual_title: l.title.trim(), manual_cost_cents: l.cost_cents, qty: l.qty, price_cents: l.price_cents, discount_cents: l.discount_cents }
+          ),
           payments: validPayments.map((p) => ({
             method: p.method, method_detail: p.method_detail || null,
             account_id: p.account_id || null, amount_cents: Math.round(parseFloat(p.amount) * 100),
@@ -763,13 +779,26 @@ function VentasDiaContent() {
                       <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
                       <th className="px-3 py-2 text-center text-muted-foreground">Cant.</th>
                       <th className="px-3 py-2 text-right text-muted-foreground">Precio</th>
+                      {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">Costo</th>}
                       <th className="px-3 py-2"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {editCart.map((line) => (
                       <tr key={line.key} className="border-b last:border-0">
-                        <td className="px-3 py-2">{line.title} {line.talla ? `(${line.talla})` : ''}</td>
+                        <td className="px-3 py-2">
+                          {line.product_id ? (
+                            <>{line.title} {line.talla ? `(${line.talla})` : ''}</>
+                          ) : (
+                            <Input
+                              placeholder="Nombre del producto"
+                              value={line.title}
+                              onChange={(e) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, title: e.target.value } : l))}
+                              className="h-7 min-w-[10rem] rounded-lg text-xs"
+                              title="Fuera de catálogo — nombre editable"
+                            />
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-center">
                           <Input
                             type="number" min="1" value={line.qty}
@@ -784,6 +813,19 @@ function VentasDiaContent() {
                             className="h-7 w-24 rounded-lg text-right"
                           />
                         </td>
+                        {canViewProfit && (
+                          <td className="px-3 py-2 text-right">
+                            {line.product_id ? (
+                              <span className="text-xs text-muted-foreground">{formatPrice(line.cost_cents)}</span>
+                            ) : (
+                              <MoneyInput
+                                value={String(line.cost_cents / 100)}
+                                onChange={(v) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, cost_cents: (parseInt(v) || 0) * 100 } : l))}
+                                className="h-7 w-24 rounded-lg text-right"
+                              />
+                            )}
+                          </td>
+                        )}
                         <td className="px-3 py-2">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditCart((prev) => prev.filter((l) => l.key !== line.key))}>
                             <Trash2 className="h-3.5 w-3.5 text-red-500" />
