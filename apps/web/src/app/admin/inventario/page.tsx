@@ -122,6 +122,7 @@ export default function InventarioPage() {
   const [editProductForm, setEditProductForm] = useState({
     title: '',
     costo: '',
+    precio: '',
     stock: '',
     umbral: '',
     barcode: '',
@@ -952,6 +953,7 @@ export default function InventarioPage() {
     setEditProductForm({
       title: product.title,
       costo: (product.cost_cents / 100).toString(),
+      precio: (product.price_cents / 100).toString(),
       stock: product.stock_qty.toString(),
       umbral: product.low_stock_threshold.toString(),
       barcode: product.barcode || '',
@@ -984,7 +986,7 @@ export default function InventarioPage() {
           title,
           sku: current.sku,
           description: current.description,
-          price_cents: current.price_cents,
+          price_cents: Math.round((parseFloat(editProductForm.precio) || 0) * 100),
           cost_cents: Math.round((parseFloat(editProductForm.costo) || 0) * 100),
           compare_at_price_cents: current.compare_at_price_cents,
           category_id: current.category_id,
@@ -2113,11 +2115,19 @@ export default function InventarioPage() {
                               />
                               <div className="flex gap-1">
                                 <MoneyInput
+                                  placeholder="Precio de venta"
+                                  value={editProductForm.precio}
+                                  onChange={(v) => setEditProductForm({ ...editProductForm, precio: v })}
+                                  className="h-7 rounded-lg text-xs"
+                                />
+                                <MoneyInput
                                   placeholder="Costo"
                                   value={editProductForm.costo}
                                   onChange={(v) => setEditProductForm({ ...editProductForm, costo: v })}
                                   className="h-7 rounded-lg text-xs"
                                 />
+                              </div>
+                              <div className="flex gap-1">
                                 <Input
                                   type="number"
                                   placeholder="Cant."

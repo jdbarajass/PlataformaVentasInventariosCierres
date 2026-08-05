@@ -105,6 +105,7 @@ export interface Database {
           tags: string[]
           active: boolean
           featured: boolean
+          barcode: string | null
           created_at: string
           updated_at: string
         }
@@ -126,6 +127,7 @@ export interface Database {
           tags?: string[]
           active?: boolean
           featured?: boolean
+          barcode?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -146,6 +148,7 @@ export interface Database {
           tags?: string[]
           active?: boolean
           featured?: boolean
+          barcode?: string | null
           updated_at?: string
         }
         Relationships: [

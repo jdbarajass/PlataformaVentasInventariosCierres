@@ -1851,3 +1851,15 @@ El usuario, creando "IMPERMEABLE SILICONADO NEGRO AZUL" con 5 tallas, reportó d
 **Datos**: terminado de crear "IMPERMEABLE SILICONADO NEGRO AZUL" con sus 5 tallas (S `1601014012`, M `1601014013`, L `1601014014` ya existente con 1 unidad, XL `1601014015`, 2XL `1601014016`), todas en 0 excepto L en 1, tal como pidió el usuario.
 
 Verificado en navegador real (Playwright): creado un producto de prueba con 4 de las 5 tallas (una desmarcada a propósito) desde "Ingresar" — se creó el producto y exactamente esas 4 variantes, con códigos de la misma familia (`1006013012`..`015`, solo cambia el último dígito) y la talla desmarcada correctamente ausente; producto de prueba eliminado después. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
+
+## 59. Precio de venta editable desde Inventario + búsqueda por código de barras en Productos (2026-08-05)
+
+El usuario, ya con "IMPERMEABLE SILICONADO NEGRO AZUL" creado, notó dos huecos al seguir trabajando con él: (1) el panel rápido "Editar producto" de Inventario solo dejaba tocar costo/cantidad/mínimo/código — para cambiar el **precio de venta** había que ir a la sección Productos aparte; y (2) en Productos, buscar por el código de barras de una talla (`1601014014`) no encontraba nada, solo funcionaba escribiendo el nombre completo.
+
+**A. Precio de venta en el panel rápido de Inventario**: nuevo campo `precio` en `editProductForm` (`admin/inventario/page.tsx`), poblado en `startEditProduct` desde `product.price_cents` y enviado en `handleSaveProductEdit` (antes el PUT reenviaba `current.price_cents` sin cambios — el formulario nunca lo tocaba). Puesto junto a Costo en la misma fila, con Cantidad/Mínimo debajo.
+
+**B. Búsqueda por código de barras en Productos** (`admin/productos/page.tsx`): igual que en Inventario, el producto base suele tener `barcode=null` cuando tiene tallas (el código real vive por variante) — `fetchProducts` ahora también trae `product_variants(product_id, barcode)` en paralelo y arma un mapa por producto; `filteredProducts` busca por nombre, SKU, código del producto base, o código de cualquiera de sus tallas. Placeholder del buscador actualizado para reflejarlo.
+
+**Bug de tipos encontrado al implementar B**: `types/database.ts` no tenía `barcode` en `products` (Row/Insert/Update) — columna real desde hace tiempo (confirmado en uso constante durante esta sesión), simplemente nunca se agregó al tipo generado a mano. Corregido en los tres, y ajustado un objeto de producto mock en `(shop)/categoria/[slug]/page.tsx` que ahora lo exige.
+
+Verificado en navegador real (Playwright): en Inventario, editar precio de "IMPERMEABLE SILICONADO NEGRO AZUL" a $55.000 → `PUT /api/products` 200, precio actualizado y visible; en Productos, buscar `1601014014` encuentra el producto correctamente. Precio de prueba restaurado a su valor anterior ($60.000) después de la verificación. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).

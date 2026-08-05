@@ -47,6 +47,11 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  // Códigos de barras de cada talla/variante, por producto — el producto
+  // base suele quedar con barcode=null cuando tiene tallas (el código real
+  // vive por variante), así que buscar solo por product.barcode no
+  // encontraba nada al escanear/escribir el código de una talla específica.
+  const [variantBarcodesByProduct, setVariantBarcodesByProduct] = useState<Map<string, string[]>>(new Map())
 
   useEffect(() => {
     fetchProducts()
@@ -61,11 +66,23 @@ export default function ProductsPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      const response = await fetch('/api/products?limit=250&include_inactive=true', {
-        headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
-      })
+      const [response, { data: allVariants }] = await Promise.all([
+        fetch('/api/products?limit=250&include_inactive=true', {
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        }),
+        supabase.from('product_variants').select('product_id, barcode'),
+      ])
       const data = await response.json()
       setProducts(data.products || [])
+
+      const map = new Map<string, string[]>()
+      for (const v of (allVariants || []) as { product_id: string; barcode: string | null }[]) {
+        if (!v.barcode) continue
+        const list = map.get(v.product_id) || []
+        list.push(v.barcode)
+        map.set(v.product_id, list)
+      }
+      setVariantBarcodesByProduct(map)
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
@@ -73,10 +90,15 @@ export default function ProductsPage() {
     }
   }
 
-  const filteredProducts = products.filter((product) =>
-    product.title.toLowerCase().includes(search.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredProducts = products.filter((product) => {
+    const q = search.toLowerCase().trim()
+    if (!q) return true
+    if (product.title.toLowerCase().includes(q)) return true
+    if (product.sku?.toLowerCase().includes(q)) return true
+    if (product.barcode?.toLowerCase().includes(q)) return true
+    const variantCodes = variantBarcodesByProduct.get(product.id) || []
+    return variantCodes.some((c) => c.toLowerCase().includes(q))
+  })
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`¿Estás seguro de eliminar el producto "${title}"?`)) {
@@ -140,7 +162,7 @@ export default function ProductsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre o SKU..."
+              placeholder="Buscar por nombre, SKU o código de barras..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
