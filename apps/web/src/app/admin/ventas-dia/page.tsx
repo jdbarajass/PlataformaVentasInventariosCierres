@@ -661,10 +661,17 @@ function VentasDiaContent() {
                               </Button>
                               <a
                                 href={`/api/orders/${sale.id}/invoice`} target="_blank" rel="noopener noreferrer"
-                                title="Ver recibo"
+                                title="Ver recibo (térmico 80mm)"
                                 className="flex h-7 w-7 items-center justify-center rounded-lg text-cyan-500 hover:bg-muted"
                               >
                                 <Receipt className="h-3.5 w-3.5" />
+                              </a>
+                              <a
+                                href={`/api/orders/${sale.id}/invoice?formato=clasico`} target="_blank" rel="noopener noreferrer"
+                                title="Ver recibo clásico (tamaño carta)"
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                              >
+                                <Receipt className="h-3 w-3" />
                               </a>
                               <Button
                                 variant="ghost" size="icon" className="h-7 w-7 text-red-500"
@@ -894,6 +901,13 @@ function VentasDiaContent() {
                   className="ml-auto text-sm text-cyan-500 hover:underline"
                 >
                   Ver recibo
+                </a>
+                <a
+                  href={`/api/orders/${editingSale.id}/invoice?formato=clasico`} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:underline"
+                  title="Recibo clásico tamaño carta"
+                >
+                  (clásico)
                 </a>
               </div>
             </div>

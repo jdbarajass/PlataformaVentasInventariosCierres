@@ -981,14 +981,25 @@ export default function VentasPage() {
           )}
 
           {activeSession.lastSaleId && (
-            <a
-              href={`/api/orders/${activeSession.lastSaleId}/invoice`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium text-cyan-500 hover:bg-cyan-500/10"
-            >
-              <Receipt className="h-4 w-4" /> Ver recibo de la última venta
-            </a>
+            <div className="flex items-center justify-center gap-3 rounded-xl border p-3">
+              <a
+                href={`/api/orders/${activeSession.lastSaleId}/invoice`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm font-medium text-cyan-500 hover:underline"
+              >
+                <Receipt className="h-4 w-4" /> Ver recibo de la última venta
+              </a>
+              <a
+                href={`/api/orders/${activeSession.lastSaleId}/invoice?formato=clasico`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:underline"
+                title="Recibo clásico tamaño carta (en vez del térmico 80mm)"
+              >
+                (clásico)
+              </a>
+            </div>
           )}
         </div>
       </div>
@@ -1217,6 +1228,15 @@ export default function VentasPage() {
                         className="text-sm text-cyan-500 hover:underline"
                       >
                         Recibo
+                      </a>
+                      <a
+                        href={`/api/orders/${sale.id}/invoice?formato=clasico`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground hover:underline"
+                        title="Recibo clásico tamaño carta"
+                      >
+                        (clásico)
                       </a>
                       <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleCancelSale(sale.id)}>
                         Cancelar

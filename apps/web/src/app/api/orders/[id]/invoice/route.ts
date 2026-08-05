@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { generarReciboTermicoHTML } from '@/lib/recibo-termico'
 
 // GET - Generate invoice HTML for an order (printable as PDF)
 export async function GET(
@@ -17,12 +18,28 @@ export async function GET(
 
   const { data: orderData, error } = await supabase
     .from('orders')
-    .select('*, order_items(*), payments(*)')
+    .select('*, order_items(*), payments(*), seller:users!orders_seller_id_fkey(name)')
     .eq('id', params.id)
     .single()
 
   if (error || !orderData) {
     return new NextResponse('Orden no encontrada', { status: 404 })
+  }
+
+  // Recibo térmico 80mm (adaptado de services/recibo_generator.py del
+  // software local, ver docs/UNIFICACION_YJBMOTOCOM.md sección 61) — es el
+  // formato prioritario/por defecto, ya probado en la impresora del local;
+  // el clásico (HTML tamaño carta) queda disponible con ?formato=clasico.
+  const formato = request.nextUrl.searchParams.get('formato') === 'clasico' ? 'clasico' : 'termico'
+  if (formato === 'termico') {
+    const o = orderData as any
+    const html = generarReciboTermicoHTML(
+      o,
+      (o.order_items || []) as any[],
+      (o.payments || []) as any[],
+      o.seller?.name || null
+    )
+    return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
   }
 
   // El select combina '*' con dos relaciones embebidas (order_items, payments)
