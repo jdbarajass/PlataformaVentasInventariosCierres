@@ -730,7 +730,7 @@ export default function HistorialMensualPage() {
                       <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.revenue / maxDaily) * 100}%` }} /></div>
                       <span className="w-28 text-right text-sm font-medium">{formatPrice(d.revenue)}</span>
                       {canViewProfit && (
-                        <div className="flex w-40 items-center justify-end gap-2">
+                        <div className="flex w-48 shrink-0 flex-col items-end justify-center gap-0.5">
                           <Badge
                             variant="outline"
                             className={
@@ -744,10 +744,14 @@ export default function HistorialMensualPage() {
                             {d.sinVenta ? 'Sin venta' : d.utilidadRealDia >= 0 ? 'Positivo' : 'Negativo'}
                           </Badge>
                           {!d.sinVenta && (
-                            <span className={`text-xs font-medium ${d.utilidadRealDia >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            <span className={`whitespace-nowrap text-xs font-medium ${d.utilidadRealDia >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {/* utilidadRealDia prorratea un gasto fijo mensual entre los días del
+                                  mes (ver línea ~224), así que casi nunca cae en centavos exactos —
+                                  se redondea al peso (no al centavo) antes de formatear, si no
+                                  formatPrice muestra decimales aunque el resto de la página no. */}
                               {d.utilidadRealDia >= 0
-                                ? `+${formatPrice(Math.round(d.utilidadRealDia))}`
-                                : `Faltan ${formatPrice(Math.round(Math.abs(d.utilidadRealDia)))}`}
+                                ? `+${formatPrice(Math.round(d.utilidadRealDia / 100) * 100)}`
+                                : `Faltan ${formatPrice(Math.round(Math.abs(d.utilidadRealDia) / 100) * 100)}`}
                             </span>
                           )}
                         </div>

@@ -1889,3 +1889,15 @@ El usuario pidió llevar a la nube el recibo que genera el software local (`C:\U
 **Selector de formato**: `GET /api/orders/[id]/invoice?formato=termico|clasico` — sin el parámetro, o con cualquier valor que no sea `clasico`, responde el térmico (nuevo, prioritario). Se agregó un enlace "(clásico)" pequeño junto a cada "Ver recibo"/"Recibo" ya existente (Registrar Venta ×2, Ventas del Día ×2) para poder abrir el formato tamaño carta cuando se necesite. El recibo clásico existente no se tocó — se comprobó que sigue funcionando igual con `?formato=clasico`.
 
 Verificado en navegador real (Playwright), con una orden real: el recibo térmico se ve completo y correcto (escudo, cabecera, tabla, totales, garantía/legal); el clásico sigue funcionando sin cambios con `?formato=clasico`. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
+
+## 62. Fix de alineación y decimales en el monto de "Ventas por día" (Historial Mensual, 2026-08-05)
+
+El usuario reportó, con captura, que el `+$X`/`Faltan $X` agregado en la sección 60 se veía descuadrado: en días "Positivo" quedaba en la misma línea que el badge, pero en "Negativo" ("Faltan $X" es más largo que "+$X") el texto no cabía y se partía en dos líneas dentro de su propio recuadro, dejando cada fila con una altura distinta y todo desalineado. Además mostraba decimales (`$ 36.333,33`) que no aparecen en el resto de la página.
+
+**Causa del descuadre**: el contenedor tenía ancho fijo (`w-40`) sin `whitespace-nowrap`, así que el texto más largo ("Faltan $131.333") no cabía y el navegador lo partía en dos líneas él solo, en vez de mantenerlo en una.
+
+**Causa de los decimales**: `utilidadRealDia` prorratea un gasto fijo mensual entre los días del mes (`gananciaNeta - dailyFixedExpense - gastosDia`), y esa división casi nunca da un número exacto de centavos — el `Math.round()` que se había agregado redondeaba los *centavos*, no los *pesos*, así que seguían quedando fracciones de peso al dividir entre 100 para mostrar.
+
+**Corrección**: contenedor pasado a columna (`flex-col items-end`, badge arriba y monto debajo, ambos alineados a la derecha) para que **todas** las filas queden con la misma estructura de 2 líneas sin importar el largo del texto, más `whitespace-nowrap` en el monto; y el redondeo ahora se hace sobre el valor en pesos (`Math.round(valor / 100) * 100`) antes de formatear, no sobre los centavos.
+
+Verificado en navegador real (Playwright): las 5 filas de "Ventas por día" quedan con la misma altura/alineación, y los montos muestran pesos enteros sin decimales. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
