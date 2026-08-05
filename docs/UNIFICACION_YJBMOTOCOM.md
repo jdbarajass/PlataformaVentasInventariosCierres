@@ -1795,3 +1795,23 @@ El usuario adjuntó un nuevo export del software local y pidió actualizar la nu
 **C. Reconciliación de inventario**: tras aplicar las ventas (que ya descuentan stock), se comparó `products`/`product_variants.stock_qty` contra la hoja "Inventario" del Excel (foto real al 04/08) por código de barras — 756 de 757 filas emparejaron (la única sin emparejar, "206 ref. con stock", es una fila de resumen del local, no un producto real, se dejó intacta). 725 ya coincidían exactas; 31 productos tenían diferencias pequeñas (±1 a ±3 unidades, típicas de daños/devoluciones/ajustes manuales no registrados como venta) — ajustadas con un `inventory_movements` tipo `adjustment` (nota "Reconciliación contra inventario local 04/08/2026") + actualización de stock por cada una. Re-verificado tras aplicar: 0 diferencias restantes.
 
 Verificado `tsc --noEmit`, `eslint`, `npm run build` y `vitest run` (62/62 tests) tras los cambios de código de la parte A.
+
+## 56. Botón "Limpiar" con confirmación en Calculadora y Registrar Venta (2026-08-05)
+
+El usuario pidió un botón que vacíe los campos de un formulario de un clic, con un diálogo de confirmación antes de borrar (para no perder por accidente algo que se llevaba calculando/armando).
+
+**Calculadora**: la página tiene 4 paneles independientes con su propio estado — se agregó un botón "Limpiar" a cada uno (no uno solo para toda la página, porque los paneles se usan por separado y un reset global borraría trabajo en un panel que no se estaba tocando):
+- "Costo + Precio → Margen y comisión": limpia costo, precio, método de pago y el buscador de inventario.
+- "Costo + Margen deseado → Precio sugerido": limpia costo, vuelve el % de margen deseado a 35 (el valor por defecto, sección 54) y el modo a "% Margen real".
+- "Calculadora Rápida": limpia costo y precio.
+- "Calculadora de Cascos": limpia precio de factura, vuelve el % descuento proveedor a 5 y el checkbox de IVA a marcado.
+
+Nota: el campo "Costo" del primer y segundo panel comparten el mismo estado (`costo`/`setCosto`, ya existente — el buscador de inventario llena ambos a la vez), así que limpiar cualquiera de los dos paneles también vacía el costo del otro; es el mismo comportamiento que ya tenían al escribir, no una inconsistencia nueva.
+
+**Registrar Venta**: un botón "Limpiar" junto a la fecha en el panel "Factura de venta", que vacía la pestaña de venta activa completa (carrito, cliente, notas, pagos, fecha) y el formulario de "Producto fuera de catálogo" — sin afectar otras pestañas de venta abiertas en paralelo.
+
+Todos usan `confirm()` nativo del navegador (mismo patrón ya usado en `closeSessionTab` para cerrar una pestaña con productos sin registrar) — no se construyó un modal a medida para esto, ya existía el precedente.
+
+Verificado en navegador real (Playwright): en ambas páginas, llenar campos → clic en "Limpiar" → aparece el diálogo de confirmación con el mensaje correcto → al aceptar, los campos/carrito quedan vacíos.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).

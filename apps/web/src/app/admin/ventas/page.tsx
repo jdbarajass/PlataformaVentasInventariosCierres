@@ -20,6 +20,7 @@ import {
   MoreHorizontal,
   Layers,
   ArrowLeft,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -474,6 +475,27 @@ export default function VentasPage() {
   const setNotes = (v: string) => updateActiveSession((s) => ({ ...s, notes: v }))
   const setSaleDate = (v: string) => updateActiveSession((s) => ({ ...s, saleDate: v }))
 
+  // Vacía la pestaña activa (carrito, cliente, pagos, ítem manual) — pide
+  // confirmación para no perder por accidente una venta a medio armar.
+  const limpiarVenta = () => {
+    if (!confirm('¿Limpiar esta venta? Se borrará el carrito, el cliente y el método de pago de esta pestaña.')) return
+    updateActiveSession((s) => ({
+      ...s,
+      cart: [],
+      payments: [emptyPayment()],
+      customerName: '',
+      customerPhone: '',
+      customerIdNumber: '',
+      notes: '',
+      saleDate: bogotaDateStr(new Date()),
+    }))
+    setManualTitle('')
+    setManualPrice('')
+    setManualCost('')
+    setShowManualForm(false)
+    setShowCustomerFields(false)
+  }
+
   // Abre el modal de pago — "Vender" en Alegra abre "Pagar factura". Si solo
   // hay un producto o el carrito está vacío se avisa antes de abrir nada.
   const openPaymentModal = () => {
@@ -813,13 +835,18 @@ export default function VentasPage() {
           <div className="rounded-xl border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold">Factura de venta</h2>
-              <Input
-                type="date"
-                value={activeSession.saleDate}
-                onChange={(e) => setSaleDate(e.target.value)}
-                title="Fecha de la venta — se puede cambiar para registrar ventas de días anteriores"
-                className="h-8 w-auto rounded-lg text-xs"
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={activeSession.saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  title="Fecha de la venta — se puede cambiar para registrar ventas de días anteriores"
+                  className="h-8 w-auto rounded-lg text-xs"
+                />
+                <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg text-xs font-normal" onClick={limpiarVenta}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+                </Button>
+              </div>
             </div>
 
             <button

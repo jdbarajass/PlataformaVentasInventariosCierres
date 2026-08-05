@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Calculator, Search } from 'lucide-react'
+import { Calculator, Search, RotateCcw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
@@ -173,6 +173,35 @@ export default function CalculadoraPage() {
     setResults([])
   }
 
+  // Botones "Limpiar" por panel — cada uno pide confirmación antes de
+  // borrar, para no perder por accidente lo que se lleva calculado.
+  const limpiarCostoPrecio = () => {
+    if (!confirm('¿Limpiar este panel? Se borrarán el costo, precio y método de pago ingresados.')) return
+    setCosto('')
+    setPrecio('')
+    setMethod('cash')
+    setQuery('')
+    setResults([])
+  }
+  const limpiarMargenDeseado = () => {
+    if (!confirm('¿Limpiar este panel? Se borrarán el costo, margen deseado y descuento ingresados.')) return
+    setCosto('')
+    setMargenDeseado('35')
+    setDctoCliente('')
+    setMode('real')
+  }
+  const limpiarRapida = () => {
+    if (!confirm('¿Limpiar la Calculadora Rápida?')) return
+    setRapCosto('')
+    setRapPrecio('')
+  }
+  const limpiarCascos = () => {
+    if (!confirm('¿Limpiar la Calculadora de Cascos?')) return
+    setPrecioFactura('')
+    setDctoProveedor('5')
+    setIncluyeIva(true)
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -183,8 +212,11 @@ export default function CalculadoraPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Costo + Precio -> margen/ganancia/comisión */}
         <div className="rounded-xl border bg-card p-6">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Calculator className="h-5 w-5" /> Costo + Precio → Margen y comisión
+          <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
+            <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Precio → Margen y comisión</span>
+            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal" onClick={limpiarCostoPrecio}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+            </Button>
           </h2>
           <div className="space-y-3">
             {isAdmin && (
@@ -250,7 +282,12 @@ export default function CalculadoraPage() {
           </div>
 
           <div className="mt-6 border-t pt-4">
-            <h3 className="mb-1 text-sm font-semibold">Calculadora Rápida</h3>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Calculadora Rápida</h3>
+              <Button type="button" variant="outline" size="sm" className="h-7 rounded-lg px-2 text-xs font-normal" onClick={limpiarRapida}>
+                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+              </Button>
+            </div>
             <p className="mb-3 text-xs text-muted-foreground">Costo + precio → ganancia instantánea</p>
             <div className="flex gap-2">
               <MoneyInput placeholder="Costo" value={rapCosto} onChange={setRapCosto} className="rounded-lg" />
@@ -268,8 +305,11 @@ export default function CalculadoraPage() {
 
         {/* Costo + Margen deseado -> precio sugerido */}
         <div className="rounded-xl border bg-card p-6">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Calculator className="h-5 w-5" /> Costo + Margen deseado → Precio sugerido
+          <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
+            <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Margen deseado → Precio sugerido</span>
+            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal" onClick={limpiarMargenDeseado}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+            </Button>
           </h2>
           <div className="space-y-3">
             <div className="flex gap-2">
@@ -370,8 +410,11 @@ export default function CalculadoraPage() {
 
       {/* Calculadora de Cascos (Factura proveedor) */}
       <div className="rounded-xl border bg-card p-6">
-        <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
-          <Calculator className="h-5 w-5" /> Calculadora de Cascos (Factura proveedor)
+        <h2 className="mb-1 flex items-center justify-between gap-2 text-lg font-semibold">
+          <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Calculadora de Cascos (Factura proveedor)</span>
+          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal" onClick={limpiarCascos}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+          </Button>
         </h2>
         <p className="mb-4 text-xs text-muted-foreground">
           Ingresa el precio que aparece en la factura del proveedor (columna PRECIO, con IVA) para calcular el costo real.
