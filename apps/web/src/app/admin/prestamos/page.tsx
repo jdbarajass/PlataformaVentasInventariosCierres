@@ -281,13 +281,19 @@ export default function PrestamosPage() {
                 onChange={(e) => setQuery(e.target.value)}
                 className="rounded-lg pl-10"
               />
-              <button
+              <Button
                 type="button"
-                onClick={() => setManualMode(true)}
-                className="mt-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                variant="outline"
+                size="sm"
+                className="mt-2 rounded-lg"
+                onClick={() => {
+                  if (confirm('¿Seguro que quieres prestar algo que no tienes en el local (no está en el catálogo/inventario)?')) {
+                    setManualMode(true)
+                  }
+                }}
               >
-                ¿No está en el catálogo? Escribe el nombre a mano
-              </button>
+                Prestar producto fuera de catálogo
+              </Button>
               {results.length > 0 && (
                 <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
                   {results.map((product) =>

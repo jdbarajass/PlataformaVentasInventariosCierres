@@ -1901,3 +1901,11 @@ El usuario reportó, con captura, que el `+$X`/`Faltan $X` agregado en la secci�
 **Corrección**: contenedor pasado a columna (`flex-col items-end`, badge arriba y monto debajo, ambos alineados a la derecha) para que **todas** las filas queden con la misma estructura de 2 líneas sin importar el largo del texto, más `whitespace-nowrap` en el monto; y el redondeo ahora se hace sobre el valor en pesos (`Math.round(valor / 100) * 100`) antes de formatear, no sobre los centavos.
 
 Verificado en navegador real (Playwright): las 5 filas de "Ventas por día" quedan con la misma altura/alineación, y los montos muestran pesos enteros sin decimales. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
+
+## 63. Préstamos: botón visible + confirmación para prestar algo fuera de catálogo (2026-08-05)
+
+El usuario preguntó si en Préstamos solo se podía prestar algo que ya estuviera en el inventario — casos reales suyos: prestar algo sin escribir la referencia completa ("impermeable" en vez de "impermeable siliconado talla L rojo con negro"), o prestar algo que ni siquiera es mercancía del catálogo. La función **ya existía** en el código (`manualMode`, con el mismo comentario de intención: "el local no exige que el producto prestado exista en inventario... no solo mercancía") pero estaba escondida como un texto pequeño y gris ("¿No está en el catálogo? Escribe el nombre a mano") debajo del buscador — poco visible, y sin ninguna confirmación.
+
+**Corrección**: el texto se reemplazó por un botón visible "Prestar producto fuera de catálogo" (mismo estilo que el botón equivalente de Registrar Venta), que al hacer clic pide confirmación (`confirm()`: "¿Seguro que quieres prestar algo que no tienes en el local (no está en el catálogo/inventario)?") antes de habilitar el campo de texto libre — pedido explícito del usuario. Al aceptar, se abre el mismo campo `Nombre del producto (fuera de catálogo)` que ya existía, sin cambios en la lógica de guardado (ya soportaba préstamos sin `product_id`, solo con el nombre escrito a mano).
+
+Verificado en navegador real (Playwright): clic en el botón → aparece el popup con el mensaje exacto → al aceptar, se muestra el campo de texto libre con foco automático. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
