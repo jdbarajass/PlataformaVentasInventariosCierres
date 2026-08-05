@@ -37,7 +37,14 @@ import {
   detectarCategoria,
   generarCodigoBarrasAuto,
   generarSiguienteSerial,
+  derivarCodigoBarrasHermano,
+  tallaADigito,
 } from '@/lib/inventario-barcode'
+
+// Tallas estándar preseleccionadas al crear un producto nuevo con tallas
+// desde "Ingresar" — cubre el caso más común (ropa/cascos/guantes); el
+// usuario puede desmarcar las que no aplican para ese producto puntual.
+const TALLAS_ESTANDAR = ['S', 'M', 'L', 'XL', '2XL']
 
 interface ProductStock {
   id: string
@@ -437,6 +444,11 @@ export default function InventarioPage() {
 
   const [ingresarNombre, setIngresarNombre] = useState('')
   const [ingresarTalla, setIngresarTalla] = useState('N/A')
+  // Crear varias tallas del mismo producto de una vez (ver docs/
+  // UNIFICACION_YJBMOTOCOM.md sección 58) — preseleccionadas las 5
+  // estándar, el usuario desmarca las que no apliquen a este producto.
+  const [ingresarTieneTallas, setIngresarTieneTallas] = useState(false)
+  const [ingresarTallasSeleccionadas, setIngresarTallasSeleccionadas] = useState<string[]>(TALLAS_ESTANDAR)
   const [ingresarCosto, setIngresarCosto] = useState('')
   const [ingresarCantidad, setIngresarCantidad] = useState('1')
   const [ingresarManual, setIngresarManual] = useState(false)
@@ -444,8 +456,14 @@ export default function InventarioPage() {
   const [ingresarBarcodeManual, setIngresarBarcodeManual] = useState('')
   const [savingIngresar, setSavingIngresar] = useState(false)
 
-  const codigosExistentes = itemsInventario.map((i) => i.barcode)
-  const skusExistentes = itemsInventario.map((i) => i.sku)
+  // itemsInventario solo trae, por producto, las filas de sus VARIANTES
+  // (talla/sku/barcode de cada una) — el sku/barcode del producto BASE se
+  // pierde ahí cuando tiene tallas (ver fetchIngresarData). Se completa acá
+  // con `products` (que sí siempre trae el sku/barcode del producto base,
+  // tenga o no variantes) para que la sugerencia de serial/código no repita
+  // uno ya usado por un producto que ya tiene tallas.
+  const codigosExistentes = [...products.map((p) => p.barcode), ...itemsInventario.map((i) => i.barcode)]
+  const skusExistentes = [...products.map((p) => p.sku), ...itemsInventario.map((i) => i.sku)]
   const serialSugerido = String(generarSiguienteSerial(skusExistentes))
   const barcodeSugerido = ingresarNombre.trim()
     ? generarCodigoBarrasAuto(ingresarNombre, ingresarTalla, codigosExistentes)
@@ -463,6 +481,8 @@ export default function InventarioPage() {
   const limpiarFormularioIngresar = () => {
     setIngresarNombre('')
     setIngresarTalla('N/A')
+    setIngresarTieneTallas(false)
+    setIngresarTallasSeleccionadas(TALLAS_ESTANDAR)
     setIngresarCosto('')
     setIngresarCantidad('1')
     setIngresarManual(false)
@@ -478,14 +498,97 @@ export default function InventarioPage() {
       toast({ title: 'Error', description: 'Ingresa el nombre del producto', variant: 'destructive' })
       return
     }
-    if (cantidad <= 0) {
+    if (ingresarTieneTallas && ingresarTallasSeleccionadas.length === 0) {
+      toast({ title: 'Error', description: 'Selecciona al menos una talla', variant: 'destructive' })
+      return
+    }
+    if (!ingresarTieneTallas && cantidad <= 0) {
       toast({ title: 'Error', description: 'La cantidad debe ser mayor a 0', variant: 'destructive' })
       return
     }
     const costCents = Math.round((parseFloat(ingresarCosto) || 0) * 100)
+    const serial = ingresarManual ? ingresarSerialManual.trim() : serialSugerido
+
+    // --- Modo multi-talla: crea el producto (si no existe) y todas las
+    // tallas seleccionadas de una sola vez, todas con el mismo código de
+    // barras "de familia" (solo cambia el dígito de talla) — ver docs/
+    // UNIFICACION_YJBMOTOCOM.md sección 58.
+    if (ingresarTieneTallas) {
+      try {
+        setSavingIngresar(true)
+        const productoBase = itemsInventario.find((i) => i.title.trim().toLowerCase() === nombre.toLowerCase())
+        let productId = productoBase?.productId
+
+        if (!productId) {
+          const slug =
+            nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') +
+            '-' + Math.random().toString(36).slice(2, 7)
+          const res = await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              title: nombre, slug, price_cents: Math.round(costCents * 1.3) || 0, cost_cents: costCents,
+              stock_qty: 0, active: false, images: [], sku: serial, barcode: null,
+            }),
+          })
+          if (!res.ok) {
+            const error = await res.json()
+            throw new Error(error.error || 'Error al crear el producto')
+          }
+          const created = await res.json()
+          productId = created.id
+        }
+
+        // Código base de familia (9 primeros dígitos): se toma de una talla
+        // que ya exista para este producto si hay alguna, o se genera una
+        // vez con la primera talla nueva del envío — el resto de tallas de
+        // esta misma tanda reutilizan ese mismo código base.
+        let codigoBase9: string | null =
+          itemsInventario.find((i) => i.productId === productId && i.barcode && /^\d{10}$/.test(i.barcode))
+            ?.barcode?.slice(0, 9) || null
+
+        let creadas = 0
+        let saltadas = 0
+        for (const talla of ingresarTallasSeleccionadas) {
+          const yaExiste = itemsInventario.some((i) => i.productId === productId && i.talla === talla)
+          if (yaExiste) { saltadas++; continue }
+
+          let barcodeTalla: string
+          if (codigoBase9) {
+            barcodeTalla = `${codigoBase9}${tallaADigito(talla)}`
+          } else {
+            barcodeTalla = generarCodigoBarrasAuto(nombre, talla, codigosExistentes)
+            codigoBase9 = barcodeTalla.slice(0, 9)
+          }
+
+          const res = await fetch(`/api/products/${productId}/variants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ talla, barcode: barcodeTalla, stock_qty: cantidad, cost_cents: costCents }),
+          })
+          if (!res.ok) {
+            const error = await res.json()
+            throw new Error(error.error || `Error al crear la talla ${talla}`)
+          }
+          creadas++
+        }
+
+        toast({
+          title: 'Producto ingresado',
+          description: `"${nombre}": ${creadas} talla(s) creada(s)${saltadas ? `, ${saltadas} ya existían y se omitieron` : ''}`,
+        })
+        limpiarFormularioIngresar()
+        await Promise.all([fetchProducts(), fetchInventoryValue(), fetchCategoryRollup(), fetchIngresarData()])
+      } catch (error: any) {
+        toast({ title: 'Error', description: error.message || 'No se pudo ingresar el producto', variant: 'destructive' })
+      } finally {
+        setSavingIngresar(false)
+      }
+      return
+    }
+
     const talla = ingresarTalla === 'N/A' ? null : ingresarTalla
     const barcode = (ingresarManual ? ingresarBarcodeManual.trim() : barcodeSugerido) || null
-    const serial = ingresarManual ? ingresarSerialManual.trim() : serialSugerido
 
     try {
       setSavingIngresar(true)
@@ -1001,6 +1104,19 @@ export default function InventarioPage() {
   // variantes) — para que "Generar automático" nunca repita uno existente,
   // igual que ya hace la pestaña Ingresar con generarCodigoBarrasAuto.
   const codigosExistentesGlobal = products.flatMap((p) => [p.barcode, ...p.variantBarcodes]).filter((c): c is string => !!c)
+
+  // Sugiere el código de barras de una talla nueva: si el producto ya tiene
+  // alguna variante con código válido, deriva de esa (misma familia,
+  // solo cambia el dígito de talla — ver derivarCodigoBarrasHermano); si no
+  // tiene ninguna todavía, genera uno nuevo desde cero. Evita que agregar
+  // una talla desde "Agregar talla" quede sin código o con uno de otra
+  // familia por escribirlo a mano (ver docs/UNIFICACION_YJBMOTOCOM.md 58).
+  const sugerirBarcodeVariante = (nombreProducto: string, talla: string, variantesExistentes: { barcode: string | null }[]): string => {
+    if (!talla.trim()) return ''
+    const hermano = variantesExistentes.find((v) => v.barcode && /^\d{10}$/.test(v.barcode))
+    const derivado = hermano?.barcode ? derivarCodigoBarrasHermano(hermano.barcode, talla) : null
+    return derivado || generarCodigoBarrasAuto(nombreProducto, talla, codigosExistentesGlobal)
+  }
 
   const handleGenerarBarcodeProducto = async (product: ProductStock) => {
     if (!session?.access_token) return
@@ -1524,7 +1640,39 @@ export default function InventarioPage() {
               </datalist>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={ingresarTieneTallas}
+                onChange={(e) => setIngresarTieneTallas(e.target.checked)}
+              />
+              Este producto tiene tallas
+            </label>
+
+            {ingresarTieneTallas ? (
+              <div>
+                <label className="mb-1 block text-sm font-medium">Tallas a crear</label>
+                <div className="flex flex-wrap gap-3 rounded-xl border p-3">
+                  {TALLAS_ESTANDAR.map((t) => (
+                    <label key={t} className="flex items-center gap-1.5 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={ingresarTallasSeleccionadas.includes(t)}
+                        onChange={(e) =>
+                          setIngresarTallasSeleccionadas((prev) =>
+                            e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)
+                          )
+                        }
+                      />
+                      {t}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se crea una variante por cada talla marcada, con código de barras automático (misma familia, solo cambia el dígito de talla). Desmarca las que no apliquen.
+                </p>
+              </div>
+            ) : (
               <div>
                 <label className="mb-1 block text-sm font-medium">Talla</label>
                 <select
@@ -1539,16 +1687,19 @@ export default function InventarioPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Cantidad a ingresar</label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={ingresarCantidad}
-                  onChange={(e) => setIngresarCantidad(e.target.value)}
-                  className="rounded-xl"
-                />
-              </div>
+            )}
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                {ingresarTieneTallas ? 'Cantidad por talla' : 'Cantidad a ingresar'}
+              </label>
+              <Input
+                type="number"
+                min={ingresarTieneTallas ? '0' : '1'}
+                value={ingresarCantidad}
+                onChange={(e) => setIngresarCantidad(e.target.value)}
+                className="rounded-xl"
+              />
             </div>
 
             <div>
@@ -1561,6 +1712,8 @@ export default function InventarioPage() {
               />
             </div>
 
+            {ingresarTieneTallas ? null : (
+            <>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -1592,6 +1745,8 @@ export default function InventarioPage() {
                 />
               </div>
             </div>
+            </>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="rounded-xl" onClick={limpiarFormularioIngresar}>
@@ -2361,11 +2516,20 @@ export default function InventarioPage() {
                                 <Input
                                   placeholder="Talla (ej. M, L, 42)"
                                   value={newVariant.talla}
-                                  onChange={(e) => setNewVariant({ ...newVariant, talla: e.target.value })}
+                                  onChange={(e) => {
+                                    const talla = e.target.value
+                                    setNewVariant((prev) => ({
+                                      ...prev,
+                                      talla,
+                                      // Solo autocompleta si el campo de código está vacío —
+                                      // si el usuario ya escribió uno a mano, no se lo pisa.
+                                      barcode: prev.barcode ? prev.barcode : sugerirBarcodeVariante(product.title, talla, variants),
+                                    }))
+                                  }}
                                   className="h-8 w-32 rounded-lg text-xs"
                                 />
                                 <Input
-                                  placeholder="Código de barras"
+                                  placeholder="Código de barras (auto)"
                                   value={newVariant.barcode}
                                   onChange={(e) => setNewVariant({ ...newVariant, barcode: e.target.value })}
                                   className="h-8 w-40 rounded-lg text-xs"

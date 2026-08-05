@@ -51,8 +51,19 @@ export function detectarCategoria(nombre: string): string {
   return '10'
 }
 
-function tallaADigito(talla: string): string {
+export function tallaADigito(talla: string): string {
   return TALLA_DIGITO[talla.toLowerCase().trim()] ?? '0'
+}
+
+// Deriva el código de barras de una talla nueva a partir de un código
+// "hermano" ya existente del MISMO producto (misma categoría+subtipo+
+// modelo+variante — los primeros 9 dígitos — solo cambia el último dígito
+// de talla). Usado al agregar una talla a un producto que ya tiene al
+// menos una variante con código válido, para no generar un modelo nuevo
+// por error (ver docs/UNIFICACION_YJBMOTOCOM.md sección 58).
+export function derivarCodigoBarrasHermano(codigoHermano: string, talla: string): string | null {
+  if (!codigoHermano || !/^\d{10}$/.test(codigoHermano)) return null
+  return `${codigoHermano.slice(0, 9)}${tallaADigito(talla)}`
 }
 
 function codigosValidos(codigos: (string | null | undefined)[]): string[] {
