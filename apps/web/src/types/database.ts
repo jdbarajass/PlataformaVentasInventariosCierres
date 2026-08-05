@@ -334,7 +334,7 @@ export interface Database {
           provider_session_id: string | null
           amount_cents: number
           currency: string
-          method: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | null
+          method: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | 'nu' | 'qr' | 'sistecredito' | null
           status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded'
           metadata: Json
           method_detail: string | null
@@ -351,7 +351,7 @@ export interface Database {
           provider_session_id?: string | null
           amount_cents: number
           currency?: string
-          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | null
+          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | 'nu' | 'qr' | 'sistecredito' | null
           status?: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded'
           metadata?: Json
           method_detail?: string | null
@@ -367,7 +367,7 @@ export interface Database {
           provider_session_id?: string | null
           amount_cents?: number
           currency?: string
-          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | null
+          method?: 'card' | 'transfer' | 'wallet' | 'cash' | 'nequi' | 'daviplata' | 'other' | 'addi' | 'nu' | 'qr' | 'sistecredito' | null
           status?: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded'
           metadata?: Json
           method_detail?: string | null

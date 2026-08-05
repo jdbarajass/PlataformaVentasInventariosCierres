@@ -9,7 +9,7 @@ import { verifyCronRequest } from '@/lib/cron-auth'
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
   nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
-  addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  addi: 'Addi', card: 'Datáfono', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
 // GET - Genera el mismo respaldo de las 18 hojas que ya existe como botón

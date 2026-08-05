@@ -7,7 +7,7 @@ import { bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
   nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
-  addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  addi: 'Addi', card: 'Datáfono', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
 // GET - Exporta a Excel las ventas de mostrador de una fecha (Ventas del

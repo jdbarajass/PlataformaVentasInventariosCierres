@@ -70,7 +70,7 @@ interface CartLine {
   max_stock: number
 }
 
-type Method = 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'other'
+type Method = 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'sistecredito' | 'other'
 
 interface PaymentSplit {
   key: string
@@ -97,6 +97,7 @@ const methodLabels: Record<Method, string> = {
   qr: 'QR/Bancolombia',
   daviplata: 'Daviplata',
   addi: 'Addi',
+  sistecredito: 'SisteCrédito',
   other: 'Otro',
 }
 
@@ -108,6 +109,7 @@ const methodIcons: Record<Method, React.ComponentType<{ className?: string }>> =
   qr: QrCode,
   daviplata: Smartphone,
   addi: Wallet,
+  sistecredito: Wallet,
   other: MoreHorizontal,
 }
 

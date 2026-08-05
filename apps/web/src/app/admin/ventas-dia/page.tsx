@@ -58,7 +58,7 @@ interface CartLine {
 }
 interface PaymentSplit {
   key: string
-  method: 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'other'
+  method: 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'sistecredito' | 'other'
   method_detail: string
   account_id: string
   amount: string
@@ -75,7 +75,7 @@ interface Loan { id: string; product_title: string; warehouse: string; status: s
 
 const methodLabels: Record<PaymentSplit['method'], string> = {
   cash: 'Efectivo', card: 'Datáfono', nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia',
-  daviplata: 'Daviplata', addi: 'Addi', other: 'Otro',
+  daviplata: 'Daviplata', addi: 'Addi', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
 function VentasDiaContent() {

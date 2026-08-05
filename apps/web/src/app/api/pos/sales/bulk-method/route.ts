@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 const bulkMethodSchema = z.object({
   orderIds: z.array(z.string().uuid()).min(2, 'Selecciona al menos 2 ventas'),
-  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi']),
+  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi', 'sistecredito']),
   methodDetail: z.string().optional().nullable(),
 })
 

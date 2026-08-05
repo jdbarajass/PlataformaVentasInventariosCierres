@@ -24,7 +24,7 @@ const saleItemSchema = z
   })
 
 const salePaymentSchema = z.object({
-  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi']),
+  method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi', 'sistecredito']),
   method_detail: z.string().optional().nullable(),
   account_id: z.string().uuid().optional().nullable(),
   amount_cents: z.number().int().positive(),

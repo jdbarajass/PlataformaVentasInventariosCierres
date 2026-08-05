@@ -21,7 +21,7 @@ export interface SalePaymentInput {
 }
 
 const defaultCommissionRates: Record<string, number> = {
-  cash: 0, transfer: 0, wallet: 0, nequi: 0, daviplata: 0, addi: 0, card: 0, other: 0, nu: 0, qr: 0,
+  cash: 0, transfer: 0, wallet: 0, nequi: 0, daviplata: 0, addi: 0, card: 0, other: 0, nu: 0, qr: 0, sistecredito: 0,
 }
 
 /**

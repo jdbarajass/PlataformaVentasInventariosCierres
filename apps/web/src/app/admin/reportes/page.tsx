@@ -40,7 +40,7 @@ interface OrderWithItems {
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
   nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
-  addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  addi: 'Addi', card: 'Datáfono', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
 export default function ReportsPage() {

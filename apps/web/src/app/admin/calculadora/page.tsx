@@ -12,7 +12,7 @@ type MarginMode = 'real' | 'sobre_costo'
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
   nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia', daviplata: 'Daviplata',
-  addi: 'Addi', card: 'Datáfono', other: 'Otro',
+  addi: 'Addi', card: 'Datáfono', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
 const GANANCIAS = [25, 30, 35, 40, 45, 50, 55, 60, 65]
