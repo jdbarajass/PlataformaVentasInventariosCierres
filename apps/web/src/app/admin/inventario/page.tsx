@@ -48,6 +48,11 @@ interface ProductStock {
   // sus tallas, no solo por el del producto base (que suele ser null
   // cuando el producto tiene variantes, ya que ahí el código vive por talla).
   variantBarcodes: string[]
+  // Cuántas tallas/variantes tiene (cuenta TODAS, tengan o no código de
+  // barras — variantBarcodes solo trae las que sí tienen). Se usa para
+  // bloquear el ajuste rápido de stock a nivel de producto cuando en
+  // realidad hay que elegir una talla primero (ver handleAdjust).
+  variantCount: number
   title: string
   stock_qty: number
   low_stock_threshold: number
@@ -171,8 +176,10 @@ export default function InventarioPage() {
       const { data: allVariants } = await supabase.from('product_variants').select('product_id, stock_qty, barcode')
       const stockPorProducto = new Map<string, number>()
       const barcodesPorProducto = new Map<string, string[]>()
+      const conteoVariantesPorProducto = new Map<string, number>()
       for (const v of (allVariants || []) as { product_id: string; stock_qty: number; barcode: string | null }[]) {
         stockPorProducto.set(v.product_id, (stockPorProducto.get(v.product_id) || 0) + v.stock_qty)
+        conteoVariantesPorProducto.set(v.product_id, (conteoVariantesPorProducto.get(v.product_id) || 0) + 1)
         if (v.barcode) {
           const list = barcodesPorProducto.get(v.product_id) || []
           list.push(v.barcode)
@@ -186,6 +193,7 @@ export default function InventarioPage() {
           sku: p.sku,
           barcode: p.barcode ?? null,
           variantBarcodes: barcodesPorProducto.get(p.id) || [],
+          variantCount: conteoVariantesPorProducto.get(p.id) || 0,
           title: p.title,
           stock_qty: stockPorProducto.has(p.id) ? stockPorProducto.get(p.id)! : p.stock_qty,
           low_stock_threshold: p.low_stock_threshold,
@@ -609,8 +617,32 @@ export default function InventarioPage() {
     load()
   }, [fetchProducts, fetchMovements, fetchInventoryValue, fetchCategoryRollup])
 
+  // Un producto con tallas no tiene stock propio: vive por variante
+  // (ver comentario de fetchProducts). Ajustar aquí a nivel de producto
+  // no sube ninguna talla real y deja products.stock_qty desincronizado
+  // de la suma de variantes — así que se bloquea con un aviso en vez de
+  // dejar que el ajuste "desaparezca" silenciosamente.
+  const requireTallaSelection = (product: ProductStock): boolean => {
+    if (product.variantCount === 0) return false
+    toast({
+      title: 'Selecciona la talla primero',
+      description: `"${product.title}" tiene tallas — abre "Tallas" abajo y ajusta el stock de la talla exacta, no del producto general.`,
+      variant: 'destructive',
+    })
+    setExpandedProduct(product.id)
+    if (!variantsByProduct[product.id]) {
+      fetchVariants(product.id)
+    }
+    return true
+  }
+
   const handleAdjust = async () => {
     if (!session?.access_token || !adjustingProduct || !adjustmentQty) return
+    const productoActual = products.find((p) => p.id === adjustingProduct)
+    if (productoActual && requireTallaSelection(productoActual)) {
+      setAdjustingProduct(null)
+      return
+    }
 
     const qty = parseInt(adjustmentQty)
     if (isNaN(qty) || qty <= 0) {
@@ -2056,6 +2088,7 @@ export default function InventarioPage() {
                                 className="h-8 w-8 rounded-lg"
                                 title="Entrada de stock"
                                 onClick={() => {
+                                  if (requireTallaSelection(product)) return
                                   setAdjustingProduct(product.id)
                                   setAdjustmentType('in')
                                 }}
@@ -2068,6 +2101,7 @@ export default function InventarioPage() {
                                 className="h-8 w-8 rounded-lg"
                                 title="Salida de stock"
                                 onClick={() => {
+                                  if (requireTallaSelection(product)) return
                                   setAdjustingProduct(product.id)
                                   setAdjustmentType('out')
                                 }}
@@ -2080,6 +2114,7 @@ export default function InventarioPage() {
                                 className="h-8 w-8 rounded-lg"
                                 title="Ajuste de stock"
                                 onClick={() => {
+                                  if (requireTallaSelection(product)) return
                                   setAdjustingProduct(product.id)
                                   setAdjustmentType('adjustment')
                                 }}
