@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import Link from 'next/link'
 import {
   Package,
@@ -144,6 +144,12 @@ export default function InventarioPage() {
   const [variantsByProduct, setVariantsByProduct] = useState<Record<string, ProductVariant[]>>({})
   const [loadingVariants, setLoadingVariants] = useState(false)
   const [newVariant, setNewVariant] = useState({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+  // Último código sugerido automáticamente para "Agregar talla" — permite
+  // recalcular la sugerencia en cada tecla de "Talla" (ver bug de la talla
+  // XS quedando con dígito de "N/A": antes solo se sugería con la PRIMERA
+  // tecla y ya no se volvía a tocar) sin pisar un código que el usuario
+  // haya escrito/editado a mano.
+  const newVariantBarcodeAutoRef = useRef('')
   const [savingVariant, setSavingVariant] = useState(false)
   const [adjustingVariant, setAdjustingVariant] = useState<string | null>(null)
   const [variantAdjType, setVariantAdjType] = useState<'in' | 'out' | 'adjustment'>('in')
@@ -828,6 +834,7 @@ export default function InventarioPage() {
     }
     setExpandedProduct(productId)
     setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+    newVariantBarcodeAutoRef.current = ''
     if (!variantsByProduct[productId]) {
       fetchVariants(productId)
     }
@@ -867,6 +874,7 @@ export default function InventarioPage() {
 
       toast({ title: 'Variante creada', description: 'Se agregó la talla al producto' })
       setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+      newVariantBarcodeAutoRef.current = ''
       await Promise.all([fetchVariants(productId), fetchInventoryValue()])
     } catch (error: any) {
       toast({
@@ -2531,13 +2539,23 @@ export default function InventarioPage() {
                                   value={newVariant.talla}
                                   onChange={(e) => {
                                     const talla = e.target.value
-                                    setNewVariant((prev) => ({
-                                      ...prev,
-                                      talla,
-                                      // Solo autocompleta si el campo de código está vacío —
-                                      // si el usuario ya escribió uno a mano, no se lo pisa.
-                                      barcode: prev.barcode ? prev.barcode : sugerirBarcodeVariante(product.title, talla, variants),
-                                    }))
+                                    // Se recalcula en CADA tecla (no solo en la primera) — antes,
+                                    // como el código dejaba de tocarse en cuanto el campo tenía
+                                    // algo, tallas de más de una letra (ej. "XS") quedaban con el
+                                    // dígito calculado a partir de la primera letra sola ("X", que
+                                    // no es ninguna talla válida y cae al dígito de "N/A"). Solo se
+                                    // respeta el código si el usuario lo editó a mano (su valor ya
+                                    // no coincide con la última sugerencia automática).
+                                    const sugerido = sugerirBarcodeVariante(product.title, talla, variants)
+                                    setNewVariant((prev) => {
+                                      const tocoAMano = prev.barcode !== '' && prev.barcode !== newVariantBarcodeAutoRef.current
+                                      return {
+                                        ...prev,
+                                        talla,
+                                        barcode: tocoAMano ? prev.barcode : sugerido,
+                                      }
+                                    })
+                                    newVariantBarcodeAutoRef.current = sugerido
                                   }}
                                   className="h-8 w-32 rounded-lg text-xs"
                                 />

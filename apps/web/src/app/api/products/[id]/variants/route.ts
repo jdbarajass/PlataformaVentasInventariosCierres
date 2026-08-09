@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { productVariantSchema } from '@/lib/validations/product'
+import { variantConflictMessage } from '@/lib/variant-conflict-message'
 
 // GET - Listar variantes (tallas/código de barras) de un producto
 export async function GET(
@@ -76,10 +77,7 @@ export async function POST(
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json(
-          { error: 'Ya existe una variante con esa talla o ese código de barras' },
-          { status: 409 }
-        )
+        return NextResponse.json({ error: variantConflictMessage(error) }, { status: 409 })
       }
       throw error
     }
