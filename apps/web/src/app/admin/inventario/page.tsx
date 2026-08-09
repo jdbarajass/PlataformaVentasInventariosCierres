@@ -879,20 +879,23 @@ export default function InventarioPage() {
     }
   }
 
-  const handleDeleteVariant = async (productId: string, variantId: string) => {
+  const handleDeleteVariant = async (productId: string, variantId: string, talla: string | null) => {
     if (!session?.access_token) return
+    if (!confirm(`¿Eliminar la talla "${talla || 'sin nombre'}"? Esta acción no se puede deshacer.`)) {
+      return
+    }
     try {
       const res = await fetch(`/api/product-variants/${variantId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
-      if (!res.ok) throw new Error('Error al eliminar la variante')
-      toast({ title: 'Variante desactivada' })
+      if (!res.ok) throw new Error('Error al eliminar la talla')
+      toast({ title: 'Talla eliminada' })
       await Promise.all([fetchVariants(productId), fetchInventoryValue()])
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'No se pudo desactivar la variante',
+        description: error.message || 'No se pudo eliminar la talla',
         variant: 'destructive',
       })
     }
@@ -2505,8 +2508,8 @@ export default function InventarioPage() {
                                                     variant="outline"
                                                     size="icon"
                                                     className="h-7 w-7 rounded-lg"
-                                                    title="Desactivar variante"
-                                                    onClick={() => handleDeleteVariant(product.id, variant.id)}
+                                                    title="Eliminar talla"
+                                                    onClick={() => handleDeleteVariant(product.id, variant.id, variant.talla)}
                                                   >
                                                     <Trash2 className="h-3 w-3 text-red-500" />
                                                   </Button>

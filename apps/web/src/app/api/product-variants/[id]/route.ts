@@ -57,10 +57,20 @@ export async function PUT(
   }
 }
 
-// DELETE - Desactivar una variante (soft delete, preserva el historial de ventas/movimientos).
-// Si tenía stock, registra un movimiento 'deleted' — igual que el software
-// local (database/inventario_repo.py: eliminar_producto), que deja rastro en
-// el historial de movimientos en vez de simplemente hacer desaparecer el stock.
+// DELETE - Eliminar una variante (talla) de verdad.
+// Antes esto era un soft delete (`active = false`), pero la fila seguía
+// ocupando su talla/código de barras frente a las restricciones UNIQUE
+// (Postgres no distingue `active` en un UNIQUE normal), así que una talla
+// "eliminada" bloqueaba para siempre volver a crear esa misma talla o
+// reusar su código — bug reportado 2026-08-09 (ver migración 039). Es
+// seguro borrar la fila de verdad: todo lo que referencia
+// `product_variants.id` usa `ON DELETE SET NULL` con su propio snapshot ya
+// guardado aparte (`order_items.product_talla`/`cost_cents`, el `note` de
+// abajo en `inventory_movements`) o `ON DELETE CASCADE` sobre tablas
+// puramente operativas sin valor histórico (`restock_subscriptions`,
+// `restock_notification_queue`). El trigger de sincronización de stock
+// (migración 030) reacciona a `DELETE`, así que `products.stock_qty` queda
+// recalculado automáticamente.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -85,28 +95,30 @@ export async function DELETE(
 
     const v = variant as { id: string; product_id: string; stock_qty: number; talla: string | null }
 
-    const { error } = await supabase
-      .from('product_variants')
-      // @ts-ignore - Supabase type inference issue
-      .update({ active: false, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
-
-    if (error) {
-      throw error
-    }
-
+    // Registrar el movimiento ANTES de borrar: la fila de la variante debe
+    // seguir existiendo para que la referencia `variant_id` sea válida al
+    // insertar (la cláusula ON DELETE SET NULL solo aplica hacia adelante).
     if (v.stock_qty > 0) {
       await (supabase.from('inventory_movements') as any).insert({
         product_id: v.product_id,
         variant_id: v.id,
         qty: -v.stock_qty,
         type: 'deleted',
-        note: `Variante desactivada${v.talla ? ` (talla ${v.talla})` : ''} con ${v.stock_qty} unidades en stock`,
+        note: `Talla eliminada${v.talla ? ` (talla ${v.talla})` : ''} con ${v.stock_qty} unidades en stock`,
         created_by: auth.user.id,
       })
     }
 
-    return NextResponse.json({ message: 'Variante desactivada exitosamente', id: params.id })
+    const { error } = await supabase
+      .from('product_variants')
+      .delete()
+      .eq('id', params.id)
+
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json({ message: 'Variante eliminada exitosamente', id: params.id })
   } catch (error) {
     console.error('Error deleting product variant:', error)
     return NextResponse.json(
