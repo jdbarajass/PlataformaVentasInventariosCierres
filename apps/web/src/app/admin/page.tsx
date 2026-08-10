@@ -29,17 +29,15 @@ interface TopProductItem {
   qty: number
 }
 
-async function getDashboardStats() {
-  // Límites explícitos en hora de Bogotá. Esta página es un Server
-  // Component (corre en el runtime de Vercel, normalmente en UTC) — el
-  // código anterior usaba `new Date().setHours(0,0,0,0)` (medianoche del
-  // servidor, casi siempre UTC) y además mutaba el mismo objeto `today`
-  // tres veces seguidas (startOfWeek y luego startOfMonth encima de ese
-  // resultado ya modificado), lo que además calculaba mal "inicio del mes"
-  // los primeros 7 días de cada mes. "Ventas de hoy/semana/mes" llevaba
-  // tiempo mostrando la ventana equivocada, sobre todo en la noche
-  // (7pm-medianoche en Colombia), cuando el servidor ya piensa que es
-  // "mañana".
+type SalesChannel = 'online' | 'pos'
+
+// Estadísticas de un solo canal (online = tienda web, pos = mostrador
+// físico) — antes esta consulta traía TODAS las órdenes sin filtrar por
+// canal bajo la pestaña "Tienda Online", así que una venta de mostrador
+// registrada desde "Registrar Venta" (channel='pos', cliente por defecto
+// "mostrador@yjbmotocom.com") aparecía mezclada ahí, aunque la pestaña
+// dijera "Tienda Online". Ahora cada pestaña filtra `channel` de verdad.
+async function getChannelStats(channel: SalesChannel) {
   const now = new Date()
   const todayStr = bogotaDateStr(now)
   const startOfDay = bogotaToISO(todayStr, '00:00')
@@ -56,6 +54,7 @@ async function getDashboardStats() {
     .from('orders')
     .select('total_cents')
     .eq('payment_status', 'paid')
+    .eq('channel', channel)
     .gte('created_at', startOfDay)
 
   const typedTodaySales = (todaySales as SalesData[]) || []
@@ -66,6 +65,7 @@ async function getDashboardStats() {
     .from('orders')
     .select('total_cents')
     .eq('payment_status', 'paid')
+    .eq('channel', channel)
     .gte('created_at', startOfWeek)
 
   const typedWeekSales = (weekSales as SalesData[]) || []
@@ -75,16 +75,66 @@ async function getDashboardStats() {
   const { count: ordersToday } = await supabase
     .from('orders')
     .select('*', { count: 'exact', head: true })
+    .eq('channel', channel)
     .gte('created_at', startOfDay)
 
   const { count: pendingOrders } = await supabase
     .from('orders')
     .select('*', { count: 'exact', head: true })
+    .eq('channel', channel)
     .eq('status', 'pending')
 
-  // Low stock products — no se filtra por active: el stock bajo debe
-  // alertar sobre cualquier producto con inventario real, esté publicado
-  // en la tienda o no (ver comentario junto al cliente de servicio arriba).
+  // Top products — order_items no tiene columna channel propia, se filtra
+  // por el canal de la orden a la que pertenece (join `orders!inner`).
+  const { data: topProducts } = await supabase
+    .from('order_items')
+    .select('product_id, product_title, qty, orders!inner(channel)')
+    .eq('orders.channel', channel)
+    .gte('created_at', startOfMonth)
+    .limit(100)
+
+  const typedTopProducts = (topProducts as unknown as TopProductItem[]) || []
+  const productSales: Record<string, { title: string; qty: number }> = {}
+  typedTopProducts.forEach((item) => {
+    if (item.product_id) {
+      if (!productSales[item.product_id]) {
+        productSales[item.product_id] = { title: item.product_title, qty: 0 }
+      }
+      productSales[item.product_id].qty += item.qty
+    }
+  })
+
+  const topProductsList = Object.entries(productSales)
+    .map(([id, data]) => ({ id, ...data }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5)
+
+  // Recent orders
+  const { data: recentOrders } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('channel', channel)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const typedRecentOrders = (recentOrders as Order[]) || []
+
+  return {
+    todayTotal,
+    weekTotal,
+    ordersToday: ordersToday || 0,
+    pendingOrders: pendingOrders || 0,
+    topProducts: topProductsList,
+    recentOrders: typedRecentOrders,
+  }
+}
+
+// Stock bajo es inventario compartido, no depende del canal de venta —
+// se calcula una sola vez y se muestra igual en ambas pestañas de canal.
+async function getLowStockProducts() {
+  // No se filtra por active: el stock bajo debe alertar sobre cualquier
+  // producto con inventario real, esté publicado en la tienda o no (ver
+  // comentario junto al cliente de servicio arriba).
   // PostgREST no soporta comparar dos columnas entre sí con .filter()
   // (stock_qty vs low_stock_threshold) — .filter('stock_qty','lte',
   // 'low_stock_threshold') trataba "low_stock_threshold" como un literal
@@ -121,51 +171,9 @@ async function getDashboardStats() {
       low_stock_threshold: v.low_stock_threshold,
     }))
 
-  const typedLowStock = [...lowStockNoVariant, ...lowStockVariants]
+  return [...lowStockNoVariant, ...lowStockVariants]
     .sort((a, b) => a.stock_qty - b.stock_qty)
     .slice(0, 5)
-
-  // Top products
-  const { data: topProducts } = await supabase
-    .from('order_items')
-    .select('product_id, product_title, qty')
-    .gte('created_at', startOfMonth)
-    .limit(100)
-
-  const typedTopProducts = (topProducts as TopProductItem[]) || []
-  const productSales: Record<string, { title: string; qty: number }> = {}
-  typedTopProducts.forEach((item) => {
-    if (item.product_id) {
-      if (!productSales[item.product_id]) {
-        productSales[item.product_id] = { title: item.product_title, qty: 0 }
-      }
-      productSales[item.product_id].qty += item.qty
-    }
-  })
-
-  const topProductsList = Object.entries(productSales)
-    .map(([id, data]) => ({ id, ...data }))
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 5)
-
-  // Recent orders
-  const { data: recentOrders } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(5)
-
-  const typedRecentOrders = (recentOrders as Order[]) || []
-
-  return {
-    todayTotal,
-    weekTotal,
-    ordersToday: ordersToday || 0,
-    pendingOrders: pendingOrders || 0,
-    lowStockProducts: typedLowStock,
-    topProducts: topProductsList,
-    recentOrders: typedRecentOrders,
-  }
 }
 
 interface VentasOrderRow {
@@ -221,7 +229,7 @@ async function getVentasStats() {
 
   const weekOrders = (weekOrdersData as { total_cents: number; created_at: string }[]) || []
   const trendMap = weekOrders.reduce<Record<string, number>>((acc, o) => {
-    // Día de Bogotá, no el día UTC crudo — ver comentario de getDashboardStats.
+    // Día de Bogotá, no el día UTC crudo — ver comentario de getChannelStats.
     const day = bogotaDateStr(new Date(o.created_at))
     acc[day] = (acc[day] || 0) + o.total_cents
     return acc
@@ -241,7 +249,18 @@ async function getVentasStats() {
 }
 
 export default async function AdminDashboard() {
-  const [stats, ventas] = await Promise.all([getDashboardStats(), getVentasStats()])
+  const [onlineStats, posStats, lowStockProducts, ventas] = await Promise.all([
+    getChannelStats('online'),
+    getChannelStats('pos'),
+    getLowStockProducts(),
+    getVentasStats(),
+  ])
 
-  return <DashboardTabs tiendaOnline={stats} ventas={ventas} />
+  return (
+    <DashboardTabs
+      online={{ ...onlineStats, lowStockProducts }}
+      fisica={{ ...posStats, lowStockProducts }}
+      ventas={ventas}
+    />
+  )
 }
