@@ -144,7 +144,6 @@ export default function AdminLayout({
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
                 <span className="text-sm font-bold text-white">YB</span>
               </div>
-              {!collapsed && <span className="font-bold">Admin</span>}
             </Link>
             {!collapsed && (
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={toggleCollapsed} title="Colapsar menú">
