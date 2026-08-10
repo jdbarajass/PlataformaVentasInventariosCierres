@@ -35,6 +35,7 @@ import {
   History,
   Percent,
   Menu,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -49,6 +50,7 @@ import { SessionAlerts } from '@/components/admin/session-alerts'
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Productos', href: '/admin/productos', icon: Package },
+  { name: 'Categorías', href: '/admin/categorias', icon: Layers, adminOnly: true },
   { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
   { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
   { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
