@@ -1910,6 +1910,21 @@ El usuario preguntó si en Préstamos solo se podía prestar algo que ya estuvie
 
 Verificado en navegador real (Playwright): clic en el botón → aparece el popup con el mensaje exacto → al aceptar, se muestra el campo de texto libre con foco automático. Verificado `tsc --noEmit`, `eslint`, `npm run build` (105 páginas) y `vitest run` (62/62 tests).
 
+## 64. Categorías reales de producto — 191 productos sin categoría, filtro de "Cascos" solo mostraba 1 (2026-08-10)
+
+El usuario reportó que en Registrar Venta el filtro de categorías tenía "Repuestos" (que no venden) y que filtrar por "Cascos" solo traía **1** resultado ("Casco Integral Pro Racing") cuando tienen muchísimos más. Causa: de los 195 productos reales, **191 (el catálogo migrado del inventario físico) nunca tuvieron `category_id` asignado** — solo 4 productos de muestra/demo (uno por categoría: Cascos, Guantes, Chaquetas, Accesorios) lo tenían. "Repuestos" y "Lubricantes" existían en la tabla `categories` sin un solo producto real. Esto afecta tanto el filtro de Registrar Venta (`api/pos/search`) como el filtro/navegación por categoría de la tienda pública (`(shop)/categoria/[slug]`, `categorias`, etc.), que comparten la misma columna `products.category_id`.
+
+**Diagnóstico**: se tabularon los 191 productos sin categoría por primera palabra del nombre — 86-91 empezaban con "CASCO", 19-20 con "GUANTE", 11 con "CHAQUETA", más grupos claros de PARRILLA(11), IMPERMEABLE(9), SLIDER(8), INTERCOMUNICADOR(8), BAUL(6), CUELLO(2) — coincide casi exacto con las categorías de código de barras ya definidas en `lib/inventario-barcode.ts` (`CAT_PREFIJOS`: 11=Casco, 12=Baúl, 13=Chaqueta, 14=Cuello, 15=Guante, 16=Impermeable, 17=Audio/Intercomunicador, 19=Slider, 20=Parrilla, 10=Accesorios — el resto cae ahí por defecto).
+
+**Corrección** (solo datos, confirmada con el usuario antes de aplicar — ver preguntas de esta sección):
+- Creadas 6 categorías nuevas en `categories`: Baúles, Cuellos, Impermeables, Audio/Intercomunicadores, Sliders, Parrillas (reutilizando las 4 que ya existían: Cascos, Guantes, Chaquetas, Accesorios).
+- Los 191 productos sin categoría se categorizaron automáticamente aplicando la misma lógica de `detectarCategoria` (por palabra clave en el título) ya usada para generar códigos de barras — una sola fuente de verdad para "qué tipo de producto es esto" en todo el proyecto.
+- "Repuestos" y "Lubricantes" quedaron `active = false` (no se borraron, reversible) — dejan de aparecer en cualquier filtro sin perder el registro.
+
+**Resultado final**: Cascos 92, Accesorios 27, Guantes 20, Chaquetas 12, Parrillas 11, Impermeables 9, Audio/Intercomunicadores 8, Sliders 8, Baúles 6, Cuellos 2 — 0 productos sin categoría.
+
+Verificado en navegador real (Playwright): el desplegable de categorías en Registrar Venta ya no muestra Repuestos/Lubricantes; filtrar por "Cascos" trae la grilla completa de cascos reales (antes 1, ahora decenas). Sin cambios de código — no aplica verificación de `tsc`/`eslint`/build/tests.
+
 ## 64. "Eliminar" talla/producto no liberaba su código — bloqueaba recrearlo (2026-08-09)
 
 El usuario, creando tallas para un casco (ej. "CASCO XONE 500"), agregó por error la talla "S" (debía ser "XS"), le dio "Eliminar" en Inventario → Tallas — el sistema confirmó la eliminación pero la fila **siguió apareciendo** en la tabla de tallas, y al intentar crear la talla/código correcto obtuvo "ya existe una variante con esa talla o ese código de barras".
