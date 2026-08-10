@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Layers, Plus, Loader2, Trash2, Check, Pencil, X, Eye, EyeOff } from 'lucide-react'
+import { Layers, Plus, Loader2, Trash2, Check, Pencil, X, Eye, EyeOff, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
@@ -30,8 +30,9 @@ export default function CategoriasPage() {
   const [editDescription, setEditDescription] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const { session } = useAuth()
+  const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const isAdmin = userProfile?.role === 'admin'
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -39,7 +40,7 @@ export default function CategoriasPage() {
   )
 
   const fetchCategories = useCallback(async () => {
-    if (!session?.access_token) return
+    if (!session?.access_token || !isAdmin) return
     setLoading(true)
     try {
       const res = await fetch('/api/categories?include_inactive=true', { headers: authHeaders() })
@@ -51,7 +52,7 @@ export default function CategoriasPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, authHeaders])
+  }, [session?.access_token, isAdmin, authHeaders])
 
   useEffect(() => {
     fetchCategories()
@@ -138,6 +139,15 @@ export default function CategoriasPage() {
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+        <Lock className="h-10 w-10" />
+        <p>Esta sección solo está disponible para administradores.</p>
+      </div>
+    )
   }
 
   return (
