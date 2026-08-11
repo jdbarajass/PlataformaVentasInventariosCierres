@@ -822,20 +822,26 @@ export default function VentasPage() {
                   const agotado = totalStock === 0
                   // Un producto con tallas no tiene un solo código de barras
                   // (cada talla tiene el suyo, ver el selector de talla más
-                  // abajo) — ahí se muestra el SKU si existe, o nada, en vez
-                  // del fragmento del id interno que se mostraba antes
-                  // (ej. "F57BE55C"), que no significaba nada para el
-                  // vendedor y no era ni el código de barras ni el SKU real.
-                  const codigoMostrado = product.variants.length > 0 ? product.sku : product.barcode || product.sku
+                  // abajo) — en ese caso la insignia de arriba muestra el
+                  // conteo de tallas en vez de un código, y no se mezcla con
+                  // "Inv. N" (antes iban juntos en la misma línea y era
+                  // fácil confundir cuál número era cuál). Para un producto
+                  // sin tallas, la insignia sigue mostrando su código de
+                  // barras o SKU — nunca el fragmento del id interno que se
+                  // mostraba antes (ej. "F57BE55C"), que no significaba nada.
+                  const insignia =
+                    product.variants.length > 0
+                      ? `${product.variants.length} talla${product.variants.length !== 1 ? 's' : ''}`
+                      : product.barcode || product.sku
                   return (
                     <button
                       key={product.id}
                       onClick={() => handleCardClick(product)}
                       className="flex flex-col rounded-xl border bg-background p-3 text-left transition-colors hover:border-primary hover:shadow-sm"
                     >
-                      {codigoMostrado && (
+                      {insignia && (
                         <span className="mb-1 self-start rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-cyan-600">
-                          {codigoMostrado}
+                          {insignia}
                         </span>
                       )}
                       <div className="flex h-16 items-center justify-center">
@@ -846,11 +852,7 @@ export default function VentasPage() {
                           agotado ? 'text-amber-600' : 'text-cyan-600'
                         }`}
                       >
-                        {agotado
-                          ? 'Agotado'
-                          : product.variants.length > 0
-                            ? `Inv. ${totalStock} · ${product.variants.length} talla${product.variants.length !== 1 ? 's' : ''}`
-                            : `Inv. ${totalStock}`}
+                        {agotado ? 'Agotado' : `Inv. ${totalStock}`}
                       </p>
                       <p className="mt-1 line-clamp-2 text-sm font-medium leading-tight">{product.title}</p>
                       <p className="mt-1 font-bold">{formatPrice(product.price_cents)}</p>
