@@ -23,6 +23,7 @@ import {
   List,
   PackagePlus,
   Pencil,
+  ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +31,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { cn } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { BOGOTA_TZ, bogotaDateStr, formatBogotaTime } from '@/lib/bogota-time'
 import {
@@ -448,6 +450,137 @@ export default function InventarioPage() {
       fetchIngresarData()
     }
   }, [activeTab, ingresarLoaded, fetchIngresarData])
+
+  // Modal "Nuevo ajuste de inventario" — pedido explícito del usuario tras
+  // ver esa pantalla en Alegra: en vez de ajustar producto por producto
+  // (los botones rápidos Entrada/Salida/Ajuste de la tabla de Detalle,
+  // uno a la vez), aquí se arma una tabla con varias filas y se guardan
+  // todas de un solo golpe — pensado para un conteo físico periódico.
+  // Reutiliza itemsInventario (ya aplanado producto+talla, ver
+  // fetchIngresarData) como buscador y el mismo /api/inventory/adjust de
+  // siempre (una llamada por fila, tipo 'adjustment' con la cantidad final
+  // ya calculada) — sin endpoint nuevo, mismas validaciones/auditoría que
+  // el resto de ajustes de esta página.
+  interface AjusteRow {
+    key: string
+    item: ItemInventario | null
+    query: string
+    tipo: 'incremento' | 'disminucion'
+    cantidad: string
+  }
+  const emptyAjusteRow = (): AjusteRow => ({
+    key: crypto.randomUUID(),
+    item: null,
+    query: '',
+    tipo: 'incremento',
+    cantidad: '',
+  })
+  const [showAjusteModal, setShowAjusteModal] = useState(false)
+  const [ajusteRows, setAjusteRows] = useState<AjusteRow[]>([emptyAjusteRow()])
+  const [ajusteFocusedRow, setAjusteFocusedRow] = useState<string | null>(null)
+  const [savingAjuste, setSavingAjuste] = useState(false)
+
+  const openAjusteModal = () => {
+    if (!ingresarLoaded) fetchIngresarData()
+    setAjusteRows([emptyAjusteRow()])
+    setShowAjusteModal(true)
+  }
+
+  const updateAjusteRow = (key: string, patch: Partial<AjusteRow>) => {
+    setAjusteRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+  }
+  const addAjusteRow = () => setAjusteRows((rows) => [...rows, emptyAjusteRow()])
+  const removeAjusteRow = (key: string) =>
+    setAjusteRows((rows) => (rows.length > 1 ? rows.filter((r) => r.key !== key) : rows))
+
+  const selectAjusteItem = (key: string, item: ItemInventario) => {
+    updateAjusteRow(key, { item, query: item.title + (item.talla ? ` — ${item.talla}` : '') })
+    setAjusteFocusedRow(null)
+  }
+
+  const ajusteResultsFor = (query: string) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return itemsInventario
+      .filter(
+        (i) =>
+          i.title.toLowerCase().includes(q) ||
+          (i.sku || '').toLowerCase().includes(q) ||
+          (i.barcode || '').includes(q)
+      )
+      .slice(0, 8)
+  }
+
+  const ajusteDelta = (row: AjusteRow) => parseInt(row.cantidad) || 0
+  const ajusteCantidadFinal = (row: AjusteRow) => {
+    if (!row.item) return 0
+    return row.tipo === 'incremento' ? row.item.stockQty + ajusteDelta(row) : row.item.stockQty - ajusteDelta(row)
+  }
+  const ajusteTotalRow = (row: AjusteRow) => (row.item ? ajusteDelta(row) * row.item.costCents : 0)
+  const ajusteTotalGeneral = ajusteRows.reduce((sum, r) => sum + ajusteTotalRow(r), 0)
+
+  const ajusteEsValido = (row: AjusteRow): string | null => {
+    if (!row.item) return 'Selecciona un producto en cada fila'
+    if (ajusteDelta(row) <= 0) return `"${row.item.title}": la cantidad debe ser mayor a 0`
+    if (ajusteCantidadFinal(row) < 0) return `"${row.item.title}": la cantidad final no puede quedar negativa`
+    return null
+  }
+
+  const handleGuardarAjustes = async () => {
+    if (!session?.access_token) return
+    const primerError = ajusteRows.map(ajusteEsValido).find((e) => e !== null)
+    if (primerError) {
+      toast({ title: 'Revisa el formulario', description: primerError, variant: 'destructive' })
+      return
+    }
+
+    setSavingAjuste(true)
+    const loteId = `Lote-${Date.now()}`
+    let ok = 0
+    let errorMsg: string | null = null
+    for (const row of ajusteRows) {
+      if (!row.item) continue
+      try {
+        const res = await fetch('/api/inventory/adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            product_id: row.item.productId,
+            // El endpoint valida variant_id con z.string().uuid().optional()
+            // — acepta que falte la llave, pero no un `null` explícito (no
+            // es .nullable()) — así que se omite del todo para productos
+            // sin talla, en vez de mandar variant_id: null.
+            ...(row.item.variantId ? { variant_id: row.item.variantId } : {}),
+            qty: ajusteCantidadFinal(row),
+            type: 'adjustment',
+            note: `Ajuste de inventario (${loteId}) — ${row.tipo === 'incremento' ? 'Incremento' : 'Disminución'} de ${ajusteDelta(row)}`,
+            created_by: userProfile?.id,
+          }),
+        })
+        if (!res.ok) {
+          const error = await res.json()
+          throw new Error(error.error || 'Error al ajustar')
+        }
+        ok++
+      } catch (err: any) {
+        errorMsg = `${row.item.title}${row.item.talla ? ' (' + row.item.talla + ')' : ''}: ${err.message}`
+        break
+      }
+    }
+
+    await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue(), fetchCategoryRollup(), fetchIngresarData()])
+    setSavingAjuste(false)
+
+    if (errorMsg) {
+      // Se detiene en la primera fila que falla — las anteriores ya se
+      // guardaron (por eso el refetch de arriba corre siempre), así que se
+      // deja el modal abierto para que el usuario revise qué falta.
+      toast({ title: `Se guardaron ${ok} de ${ajusteRows.length}`, description: errorMsg, variant: 'destructive' })
+    } else {
+      toast({ title: 'Ajuste de inventario guardado', description: `${ok} producto(s) actualizados` })
+      setShowAjusteModal(false)
+    }
+  }
 
   const [ingresarNombre, setIngresarNombre] = useState('')
   const [ingresarTalla, setIngresarTalla] = useState('N/A')
@@ -1392,12 +1525,163 @@ export default function InventarioPage() {
               </Button>
             </Link>
           )}
+          {canEdit && (
+            <Button variant="outline" className="rounded-xl" onClick={openAjusteModal}>
+              <ClipboardList className="mr-2 h-4 w-4" />
+              Nuevo ajuste de inventario
+            </Button>
+          )}
           <Button variant="outline" className="rounded-xl" onClick={openExportDialog}>
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
         </div>
       </div>
+
+      {showAjusteModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
+          {/* Sin overflow-y-auto ni max-h en la tabla: si el desplegable de
+              resultados de cada fila viviera dentro de un contenedor con su
+              propio scroll, quedaría recortado (invisible) aunque exista en
+              el DOM — el overlay de arriba (del tamaño del viewport) es el
+              único que hace scroll, así el buscador nunca se corta. */}
+          <div className="mx-auto w-full max-w-4xl rounded-xl border bg-card p-6 shadow-lg">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Nuevo ajuste de inventario</h2>
+                <p className="text-sm text-muted-foreground">
+                  Ajusta las cantidades de varios productos a la vez, registrando incrementos o disminuciones —
+                  pensado para un conteo físico.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setShowAjusteModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {loadingIngresar ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <div className="rounded-lg border">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-secondary/50 text-xs text-muted-foreground">
+                      <tr>
+                        <th className="p-2 text-left">Producto</th>
+                        <th className="p-2 text-right">Cant. actual</th>
+                        <th className="p-2 text-left">Tipo de ajuste</th>
+                        <th className="p-2 text-right">Cantidad</th>
+                        <th className="p-2 text-right">Costo promedio</th>
+                        <th className="p-2 text-right">Cant. final</th>
+                        <th className="p-2 text-right">Total ajustado</th>
+                        <th className="p-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ajusteRows.map((row) => {
+                        const results = ajusteFocusedRow === row.key && !row.item ? ajusteResultsFor(row.query) : []
+                        const cantidadFinal = ajusteCantidadFinal(row)
+                        return (
+                          <tr key={row.key} className="border-t">
+                            <td className="relative p-2">
+                              <Input
+                                placeholder="Buscar producto..."
+                                value={row.query}
+                                onFocus={() => setAjusteFocusedRow(row.key)}
+                                onChange={(e) => updateAjusteRow(row.key, { item: null, query: e.target.value })}
+                                className="h-9 min-w-[220px] rounded-lg text-sm"
+                              />
+                              {results.length > 0 && (
+                                <div className="absolute left-2 right-2 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-lg border bg-card shadow-lg">
+                                  {results.map((item) => (
+                                    <button
+                                      key={item.variantId || item.productId}
+                                      type="button"
+                                      onClick={() => selectAjusteItem(row.key, item)}
+                                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-secondary"
+                                    >
+                                      <span>
+                                        {item.title}
+                                        {item.talla && <span className="text-muted-foreground"> — {item.talla}</span>}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">Stock: {item.stockQty}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-2 text-right text-muted-foreground">{row.item ? row.item.stockQty : '—'}</td>
+                            <td className="p-2">
+                              <select
+                                value={row.tipo}
+                                onChange={(e) => updateAjusteRow(row.key, { tipo: e.target.value as 'incremento' | 'disminucion' })}
+                                className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                              >
+                                <option value="incremento">Incremento</option>
+                                <option value="disminucion">Disminución</option>
+                              </select>
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={row.cantidad}
+                                onChange={(e) => updateAjusteRow(row.key, { cantidad: e.target.value })}
+                                className="h-9 w-24 rounded-lg text-right text-sm"
+                              />
+                            </td>
+                            <td className="p-2 text-right text-muted-foreground">
+                              {row.item ? formatPrice(row.item.costCents) : '—'}
+                            </td>
+                            <td
+                              className={cn(
+                                'p-2 text-right font-medium',
+                                row.item && cantidadFinal < 0 && 'text-red-500'
+                              )}
+                            >
+                              {row.item ? cantidadFinal : '—'}
+                            </td>
+                            <td className="p-2 text-right font-medium">
+                              {row.item ? formatPrice(ajusteTotalRow(row)) : '—'}
+                            </td>
+                            <td className="p-2 text-center">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeAjusteRow(row.key)}>
+                                <X className="h-3.5 w-3.5 text-red-500" />
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <Button variant="outline" size="sm" className="mt-3 rounded-lg" onClick={addAjusteRow}>
+                  <Plus className="mr-1 h-3 w-3" /> Agregar producto
+                </Button>
+
+                <div className="mt-4 flex items-center justify-between border-t pt-4">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Total ajustado: </span>
+                    <span className="font-semibold">{formatPrice(ajusteTotalGeneral)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="rounded-xl" onClick={() => setShowAjusteModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button className="rounded-xl" onClick={handleGuardarAjustes} disabled={savingAjuste}>
+                      {savingAjuste && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Guardar
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {showExportDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
