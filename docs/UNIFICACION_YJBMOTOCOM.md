@@ -2016,3 +2016,23 @@ Se revisó el resto del proyecto por el mismo patrón (`grep` de "Cuenta (opcion
 Verificado `tsc --noEmit`, `eslint`, `npm run build` y `vitest run` (62/62 tests). Probado en navegador real (Playwright, sesión admin real) con una venta de prueba real (creada y luego revertida a mano: orden, ítem, pago y movimiento de cuenta borrados, saldo de Nequi devuelto a su valor original): al elegir "Nequi" ya no aparece ningún selector de cuenta, y el saldo de la cuenta Nequi subió exactamente por el monto de la venta sin ninguna selección manual — igual en el flujo de pago combinado.
 
 **Pendiente de decisión del usuario**: este commit se dejó sin `git push` a propósito, a la espera de otro cambio que el usuario va a pedir en la misma sesión.
+
+## 70. Menú admin: agrupar 27 enlaces sueltos en submenús desplegables, al estilo Alegra (2026-08-11)
+
+El usuario mostró el menú lateral de Alegra (grupos como "Inventario" que se despliegan en subítems: Items de venta, Ajustes de inventario, Categorías, etc.) y pidió condensar el menú admin de la misma forma — sentía que 27 enlaces sueltos uno debajo del otro cargaban visualmente demasiado. Se confirmó con el usuario, antes de tocar código, la agrupación exacta y qué hacer con el modo de menú colapsado a solo iconos (que ya existía).
+
+**Agrupación acordada** (`admin/layout.tsx`): de 27 ítems sueltos a 6 grupos desplegables + 2 sueltos (Dashboard y Notas, por ser de acceso frecuente/un solo vistazo, igual que "Inicio" y "Mis tareas" en Alegra):
+- **Catálogo**: Productos, Categorías, Cupones, Reseñas.
+- **Ventas**: Registrar Venta, Ordenes, Ventas del Día, Historial Mensual, Calculadora, Mi Cuadre.
+- **Inventario**: Inventario, Préstamos.
+- **Finanzas**: Cuentas, Facturas, Fiado, Presupuesto, Cierres, Cierre Alegra, Comisiones y Gastos Fijos.
+- **Reportes**: Reportes, Rendimiento Vendedores, Auditoría.
+- **Administración** (grupo completo `adminOnly`, los 3 ítems ya lo eran): Usuarios, Exportar/Importar, Configuración.
+
+**Implementación**: la estructura `navigation` pasó de una lista plana a una unión de tipos `NavLeaf | NavGroup` (un grupo trae su propio `items: NavLeaf[]`). Cada `adminOnly` individual se respetó exactamente igual que antes — un vendedor sigue viendo, por ejemplo, el grupo "Catálogo" pero sin "Categorías" adentro, y el grupo "Reportes" pero sin "Rendimiento Vendedores" ni "Auditoría" (el grupo se oculta solo si TODOS sus ítems visibles para ese rol quedan en cero). Un `Set<string>` (`expandedGroups`) controla qué grupos están abiertos; un `useEffect` sobre `pathname` abre automáticamente (sin cerrar los demás que el usuario haya abierto a mano) el grupo que contiene la página actual — así entrar por un enlace directo o recargar la página siempre deja visible en qué sección estás. En modo colapsado (solo iconos, preferencia ya existente vía `localStorage`), un grupo no tiene dónde mostrar sus hijos — se decidió con el usuario que un clic ahí simplemente reexpande el menú completo con ese grupo ya abierto, en vez de un submenú flotante (más simple, menos superficie de bugs).
+
+**Ripple effect encontrado y corregido**: `e2e/admin.spec.ts` hacía clic directo en enlaces como "Productos" u "Ordenes" asumiendo que estaban sueltos en el nivel superior — se actualizaron esos tests para abrir primero el grupo correspondiente (`getByRole('button', { name: /catálogo/i })` antes de buscar el link). De paso, al revisar ese archivo se confirmó que estos tests e2e ya no pasaban de todas formas por una razón previa y no relacionada (`/admin` exige sesión vía middleware y el test no hace login) — no se corrigió eso por estar fuera de alcance de este cambio, pero queda anotado.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` y `vitest run` (62/62 tests). Probado en navegador real (Playwright) con sesión admin y sesión vendedor reales: los 8 ítems de primer nivel se ven igual que en la captura de referencia; abrir un grupo, entrar por URL directa a una página dentro de un grupo (auto-expande sin cerrar otros grupos abiertos), colapsar el menú a iconos y hacer clic en un grupo (reexpande con ese grupo abierto); confirmado que el vendedor no ve "Administración" ni "Categorías"/"Auditoría" dentro de sus grupos correspondientes.
+
+**Pendiente de decisión del usuario**: mismo commit sin `git push`, junto con la entrada 69.

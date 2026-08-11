@@ -36,6 +36,7 @@ import {
   Percent,
   Menu,
   Layers,
+  ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -47,34 +48,93 @@ import { SessionAlerts } from '@/components/admin/session-alerts'
 // (main_window._ocultas_vendedor). Cada una de estas páginas ya rechaza
 // o bloquea el acceso a 'seller' por su cuenta (servidor y/o cliente); esto
 // solo evita que el vendedor vea el enlace en primer lugar.
-const navigation = [
+interface NavLeaf {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  adminOnly?: boolean
+}
+
+interface NavGroup {
+  name: string
+  icon: React.ComponentType<{ className?: string }>
+  items: NavLeaf[]
+  adminOnly?: boolean
+}
+
+type NavEntry = NavLeaf | NavGroup
+
+const isGroup = (entry: NavEntry): entry is NavGroup => 'items' in entry
+
+// Agrupado en submenús desplegables (al estilo Alegra) para que el menú no
+// muestre 27 enlaces sueltos de una — Dashboard y Notas quedan sueltos por
+// ser de un solo vistazo/acceso frecuente, igual que "Inicio" y "Mis
+// tareas" en Alegra.
+const navigation: NavEntry[] = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Productos', href: '/admin/productos', icon: Package },
-  { name: 'Categorías', href: '/admin/categorias', icon: Layers, adminOnly: true },
-  { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
-  { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
-  { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
-  { name: 'Mi Cuadre', href: '/admin/mi-cuadre', icon: Gauge },
-  { name: 'Ventas del Día', href: '/admin/ventas-dia', icon: CalendarClock },
-  { name: 'Historial Mensual', href: '/admin/historial-mensual', icon: History },
-  { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
-  { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet, adminOnly: true },
-  { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
-  { name: 'Fiado', href: '/admin/fiado', icon: HandCoins },
-  { name: 'Préstamos', href: '/admin/prestamos', icon: PackageOpen },
+  {
+    name: 'Catálogo',
+    icon: Package,
+    items: [
+      { name: 'Productos', href: '/admin/productos', icon: Package },
+      { name: 'Categorías', href: '/admin/categorias', icon: Layers, adminOnly: true },
+      { name: 'Cupones', href: '/admin/cupones', icon: Tag },
+      { name: 'Resenas', href: '/admin/resenas', icon: MessageSquare },
+    ],
+  },
+  {
+    name: 'Ventas',
+    icon: Receipt,
+    items: [
+      { name: 'Registrar Venta', href: '/admin/ventas', icon: Receipt },
+      { name: 'Ordenes', href: '/admin/ordenes', icon: ShoppingCart },
+      { name: 'Ventas del Día', href: '/admin/ventas-dia', icon: CalendarClock },
+      { name: 'Historial Mensual', href: '/admin/historial-mensual', icon: History },
+      { name: 'Calculadora', href: '/admin/calculadora', icon: Calculator },
+      { name: 'Mi Cuadre', href: '/admin/mi-cuadre', icon: Gauge },
+    ],
+  },
+  {
+    name: 'Inventario',
+    icon: BarChart3,
+    items: [
+      { name: 'Inventario', href: '/admin/inventario', icon: BarChart3 },
+      { name: 'Préstamos', href: '/admin/prestamos', icon: PackageOpen },
+    ],
+  },
+  {
+    name: 'Finanzas',
+    icon: Wallet,
+    items: [
+      { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet, adminOnly: true },
+      { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
+      { name: 'Fiado', href: '/admin/fiado', icon: HandCoins },
+      { name: 'Presupuesto', href: '/admin/presupuesto', icon: PiggyBank },
+      { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
+      { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
+      { name: 'Comisiones y Gastos Fijos', href: '/admin/configuracion-pos', icon: Percent, adminOnly: true },
+    ],
+  },
+  {
+    name: 'Reportes',
+    icon: FileText,
+    items: [
+      { name: 'Reportes', href: '/admin/reportes', icon: FileText },
+      { name: 'Rendimiento Vendedores', href: '/admin/rendimiento-vendedores', icon: Trophy, adminOnly: true },
+      { name: 'Auditoria', href: '/admin/auditoria', icon: Shield, adminOnly: true },
+    ],
+  },
   { name: 'Notas', href: '/admin/notas', icon: StickyNote },
-  { name: 'Presupuesto', href: '/admin/presupuesto', icon: PiggyBank },
-  { name: 'Cierres', href: '/admin/cierres', icon: Calendar },
-  { name: 'Cierre Alegra', href: '/admin/cierre-alegra', icon: Landmark },
-  { name: 'Reportes', href: '/admin/reportes', icon: FileText },
-  { name: 'Rendimiento Vendedores', href: '/admin/rendimiento-vendedores', icon: Trophy, adminOnly: true },
-  { name: 'Cupones', href: '/admin/cupones', icon: Tag },
-  { name: 'Resenas', href: '/admin/resenas', icon: MessageSquare },
-  { name: 'Usuarios', href: '/admin/usuarios', icon: Users, adminOnly: true },
-  { name: 'Auditoria', href: '/admin/auditoria', icon: Shield, adminOnly: true },
-  { name: 'Exportar/Importar', href: '/admin/exportar-importar', icon: FileSpreadsheet, adminOnly: true },
-  { name: 'Comisiones y Gastos Fijos', href: '/admin/configuracion-pos', icon: Percent, adminOnly: true },
-  { name: 'Configuracion', href: '/admin/configuracion', icon: Settings, adminOnly: true },
+  {
+    name: 'Administración',
+    icon: Settings,
+    adminOnly: true,
+    items: [
+      { name: 'Usuarios', href: '/admin/usuarios', icon: Users, adminOnly: true },
+      { name: 'Exportar/Importar', href: '/admin/exportar-importar', icon: FileSpreadsheet, adminOnly: true },
+      { name: 'Configuracion', href: '/admin/configuracion', icon: Settings, adminOnly: true },
+    ],
+  },
 ]
 
 export default function AdminLayout({
@@ -97,6 +157,43 @@ export default function AdminLayout({
       localStorage.setItem('admin_sidebar_collapsed', String(next))
       return next
     })
+  }
+
+  const isActiveHref = (href: string) => (href === '/admin' ? pathname === href : pathname?.startsWith(href))
+
+  // Qué submenús están abiertos. Se abre solo (sin cerrar los demás que el
+  // usuario haya abierto a mano) el grupo que contiene la página actual,
+  // cada vez que cambia de ruta — así entrar por un enlace directo (o
+  // recargar) siempre deja visible en qué sección estás.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const activeGroup = navigation.find((entry) => isGroup(entry) && entry.items.some((it) => isActiveHref(it.href)))
+    if (activeGroup) {
+      setExpandedGroups((prev) => (prev.has(activeGroup.name) ? prev : new Set(prev).add(activeGroup.name)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+
+  const toggleGroup = (name: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  // En modo colapsado (solo iconos) un grupo no tiene dónde mostrar sus
+  // hijos, así que un clic ahí simplemente vuelve a expandir el menú
+  // completo con ese grupo ya abierto, en vez de un submenú flotante.
+  const handleGroupClick = (name: string) => {
+    if (collapsed) {
+      setCollapsed(false)
+      localStorage.setItem('admin_sidebar_collapsed', 'false')
+      setExpandedGroups((prev) => new Set(prev).add(name))
+    } else {
+      toggleGroup(name)
+    }
   }
 
   // Redirigir al login si no hay usuario autenticado
@@ -188,28 +285,80 @@ export default function AdminLayout({
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {navigation
-              .filter((item) => !item.adminOnly || userProfile?.role === 'admin')
-              .map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== '/admin' && pathname?.startsWith(item.href))
+            {navigation.map((entry) => {
+              if (entry.adminOnly && userProfile?.role !== 'admin') return null
+
+              if (!isGroup(entry)) {
+                const isActive = isActiveHref(entry.href)
+                return (
+                  <Link
+                    key={entry.name}
+                    href={entry.href}
+                    title={collapsed ? entry.name : undefined}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
+                      collapsed && 'justify-center px-2',
+                      isActive
+                        ? 'bg-cyan-500/10 text-cyan-500'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    )}
+                  >
+                    <entry.icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && entry.name}
+                  </Link>
+                )
+              }
+
+              const visibleItems = entry.items.filter((it) => !it.adminOnly || userProfile?.role === 'admin')
+              if (visibleItems.length === 0) return null
+              const groupHasActive = visibleItems.some((it) => isActiveHref(it.href))
+              const isOpen = expandedGroups.has(entry.name)
 
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  title={collapsed ? item.name : undefined}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
-                    collapsed && 'justify-center px-2',
-                    isActive
-                      ? 'bg-cyan-500/10 text-cyan-500'
-                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                <div key={entry.name}>
+                  <button
+                    type="button"
+                    title={collapsed ? entry.name : undefined}
+                    onClick={() => handleGroupClick(entry.name)}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
+                      collapsed && 'justify-center px-2',
+                      groupHasActive
+                        ? 'text-cyan-500'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    )}
+                  >
+                    <entry.icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left">{entry.name}</span>
+                        <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', isOpen && 'rotate-180')} />
+                      </>
+                    )}
+                  </button>
+                  {!collapsed && isOpen && (
+                    <div className="ml-4 mt-1 space-y-1 border-l pl-3">
+                      {visibleItems.map((item) => {
+                        const isActive = isActiveHref(item.href)
+                        return (
+                          <Link
+                            key={item.name}
+                            href={item.href}
+                            className={cn(
+                              'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                              isActive
+                                ? 'bg-cyan-500/10 text-cyan-500'
+                                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                            )}
+                          >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                            {item.name}
+                          </Link>
+                        )
+                      })}
+                    </div>
                   )}
-                >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && item.name}
-                </Link>
+                </div>
               )
             })}
           </nav>

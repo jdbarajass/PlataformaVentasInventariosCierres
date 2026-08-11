@@ -20,15 +20,18 @@ test.describe('Admin Dashboard', () => {
     const sidebar = page.locator('aside, nav').first()
     await expect(sidebar).toBeVisible()
 
-    // Check navigation links exist
-    await expect(page.getByRole('link', { name: /productos/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /ordenes/i })).toBeVisible()
+    // El menú está agrupado en submenús desplegables (ver admin/layout.tsx)
+    // — "Productos" y "Ordenes" viven dentro de los grupos "Catálogo" y
+    // "Ventas" respectivamente, no sueltos en el nivel superior.
+    await expect(page.getByRole('button', { name: /catálogo/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^ventas$/i })).toBeVisible()
   })
 
   test('should navigate to products page', async ({ page }) => {
     await page.goto('/admin')
 
-    // Click products link
+    // "Productos" está dentro del grupo "Catálogo" — hay que abrirlo primero
+    await page.getByRole('button', { name: /catálogo/i }).click()
     await page.getByRole('link', { name: /productos/i }).click()
 
     // Verify URL
@@ -38,7 +41,8 @@ test.describe('Admin Dashboard', () => {
   test('should navigate to orders page', async ({ page }) => {
     await page.goto('/admin')
 
-    // Click orders link
+    // "Ordenes" está dentro del grupo "Ventas" — hay que abrirlo primero
+    await page.getByRole('button', { name: /^ventas$/i }).click()
     await page.getByRole('link', { name: /ordenes/i }).click()
 
     // Verify URL
@@ -48,8 +52,9 @@ test.describe('Admin Dashboard', () => {
   test('should navigate to reports page', async ({ page }) => {
     await page.goto('/admin')
 
-    // Click reports link
-    await page.getByRole('link', { name: /reportes/i }).click()
+    // "Reportes" está dentro del grupo "Reportes" (mismo nombre que el ítem)
+    await page.getByRole('button', { name: /^reportes$/i }).click()
+    await page.getByRole('link', { name: /^reportes$/i }).click()
 
     // Verify URL
     await expect(page).toHaveURL(/admin\/reportes/)
@@ -58,7 +63,8 @@ test.describe('Admin Dashboard', () => {
   test('should navigate to audit page', async ({ page }) => {
     await page.goto('/admin')
 
-    // Click audit link
+    // "Auditoría" está dentro del grupo "Reportes"
+    await page.getByRole('button', { name: /^reportes$/i }).click()
     await page.getByRole('link', { name: /auditoría/i }).click()
 
     // Verify URL
@@ -68,7 +74,8 @@ test.describe('Admin Dashboard', () => {
   test('should navigate to users page', async ({ page }) => {
     await page.goto('/admin')
 
-    // Click users link
+    // "Usuarios" está dentro del grupo "Administración" (solo admin)
+    await page.getByRole('button', { name: /administración/i }).click()
     await page.getByRole('link', { name: /usuarios/i }).click()
 
     // Verify URL
