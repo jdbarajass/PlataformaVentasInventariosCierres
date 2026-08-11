@@ -67,16 +67,22 @@ export default async function OrderConfirmationPage({
   }
 
   const getPaymentStatusBadge = (status: string) => {
+    // Un cliente puede volver a este enlace después de que un admin marque
+    // la orden como reembolsada — sin esta entrada, "refunded" se imprimía
+    // tal cual (en inglés) en vez de traducirse (mismo tipo de bug que el
+    // badge del Dashboard, ver admin/ordenes/page.tsx paymentLabels).
     const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       paid: 'default',
       pending: 'secondary',
       failed: 'destructive',
+      refunded: 'outline',
     }
 
     const labels: Record<string, string> = {
       paid: 'Pagado',
       pending: 'Pendiente',
       failed: 'Fallido',
+      refunded: 'Reembolsado',
     }
 
     return (
@@ -87,7 +93,12 @@ export default async function OrderConfirmationPage({
   }
 
   const renderPaymentInstructions = () => {
-    if (order.payment_status === 'paid' || order.payment_method === 'card') {
+    // Antes solo se ocultaban si ya estaba paid — un cliente que vuelve a
+    // este enlace después de un reembolso o un pago fallido volvía a ver
+    // "transfiere a esta cuenta", pidiéndole pagar algo que ya no aplica
+    // (o ya pagó y le devolvieron el dinero). Solo tiene sentido mostrarlas
+    // mientras el pago sigue realmente pendiente.
+    if (order.payment_status !== 'pending' || order.payment_method === 'card') {
       return null
     }
 
@@ -161,7 +172,11 @@ export default async function OrderConfirmationPage({
         <p className="text-muted-foreground">
           {order.payment_status === 'paid'
             ? 'Tu orden ha sido confirmada y estamos procesando tu pedido.'
-            : 'Hemos recibido tu orden. Por favor completa el pago para procesarla.'}
+            : order.payment_status === 'pending'
+            ? 'Hemos recibido tu orden. Por favor completa el pago para procesarla.'
+            : order.payment_status === 'refunded'
+            ? 'Esta orden fue reembolsada.'
+            : 'Hubo un problema con el pago de esta orden.'}
         </p>
       </div>
 

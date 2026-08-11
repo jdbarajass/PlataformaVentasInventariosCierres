@@ -115,7 +115,12 @@ export async function GET(
       <h2>${isPos ? 'RECIBO DE VENTA' : 'FACTURA'}</h2>
       <p><strong>No.</strong> ${order.order_number}</p>
       <p><strong>Fecha:</strong> ${createdAt}</p>
-      <p><strong>Estado:</strong> ${order.payment_status === 'paid' ? 'PAGADO' : 'PENDIENTE'}</p>
+      <p><strong>Estado:</strong> ${
+        // Mismo mapeo que admin/ordenes (paymentLabels) — antes cualquier
+        // estado que no fuera 'paid' se imprimía como "PENDIENTE", así que
+        // una factura reimpresa de una orden reembolsada o fallida mentía.
+        ({ paid: 'PAGADO', pending: 'PENDIENTE', failed: 'FALLIDO', refunded: 'REEMBOLSADO' } as Record<string, string>)[order.payment_status] || String(order.payment_status).toUpperCase()
+      }</p>
     </div>
   </div>
 

@@ -55,6 +55,18 @@ const methodLabels: Record<string, string> = {
   addi: 'Addi', card: 'Datáfono', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
+// Mismas etiquetas/colores que admin/ordenes/page.tsx (paymentLabels) — el
+// badge de "Ordenes Recientes" solo distinguía paid/failed/"Pendiente" por
+// defecto, así que una orden con payment_status='refunded' se mostraba mal
+// etiquetada como "Pendiente" (y no aparecía al filtrar Pendientes en
+// Órdenes, porque ahí sí compara el valor real).
+const paymentLabels: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'error' }> = {
+  pending: { label: 'Pendiente', variant: 'warning' },
+  paid: { label: 'Pagado', variant: 'success' },
+  failed: { label: 'Fallido', variant: 'error' },
+  refunded: { label: 'Reembolsado', variant: 'default' },
+}
+
 // Tarjetas + órdenes recientes + top productos + alerta de stock bajo de UN
 // canal (online o físico) — antes esto solo existía para "Tienda Online" con
 // datos sin filtrar por canal; ahora se reutiliza igual para ambas pestañas,
@@ -130,39 +142,28 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
           <CardContent>
             {stats.recentOrders.length > 0 ? (
               <div className="space-y-4">
-                {stats.recentOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-medium">{order.order_number}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.customer_name || order.customer_email}
-                      </p>
+                {stats.recentOrders.map((order) => {
+                  const payment = paymentLabels[order.payment_status] || { label: order.payment_status, variant: 'default' as const }
+                  return (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">{order.order_number}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {order.customer_name || order.customer_email}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          {formatPrice(order.total_cents)}
+                        </p>
+                        <Badge variant={payment.variant}>{payment.label}</Badge>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {formatPrice(order.total_cents)}
-                      </p>
-                      <Badge
-                        variant={
-                          order.payment_status === 'paid'
-                            ? 'success'
-                            : order.payment_status === 'failed'
-                            ? 'error'
-                            : 'warning'
-                        }
-                      >
-                        {order.payment_status === 'paid'
-                          ? 'Pagado'
-                          : order.payment_status === 'failed'
-                          ? 'Fallido'
-                          : 'Pendiente'}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="text-center text-muted-foreground">
