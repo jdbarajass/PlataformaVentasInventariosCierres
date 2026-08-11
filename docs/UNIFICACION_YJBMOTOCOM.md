@@ -2004,3 +2004,15 @@ El usuario pidió auditar de pies a cabeza la entrada 67 antes de subirla, y apa
 - **`lib/recibo-termico.ts`** (recibo térmico, formato por defecto): no muestra `payment_status` en absoluto (las ventas de mostrador siempre nacen `paid`), no aplica.
 
 Verificado `tsc --noEmit`, `eslint`, `npm run build` y `vitest run` (62/62 tests) tras todos los cambios. Probado en navegador real (Playwright, sesión admin real): la orden reembolsada ahora se ve como "Reembolsado" (badge rojo) en ambas pestañas del Dashboard.
+
+## 69. Registrar Venta: quitar el selector "Cuenta (opcional)" — la cuenta se resuelve sola según el método (2026-08-11)
+
+El usuario preguntó para qué servía el desplegable "Cuenta (opcional)..." que aparece en el modal de pago de Registrar Venta después de elegir un método. Se explicó que ese campo decide a cuál cuenta de `/admin/cuentas` se le suma el monto (independiente de mostrar el método ya elegido), y que existe porque `accounts.payment_method` no es único a nivel de base de datos — el sistema permite, en teoría, más de una cuenta con el mismo método (ej. dos cajas de efectivo). Pero al revisar las cuentas reales de la tienda, hoy hay exactamente **una cuenta por método** (Efectivo, Nequi, QR/Bancolombia, NU, Daviplata, Addi, SisteCrédito — 7 métodos, 7 cuentas, ninguna repetida), así que no existe ningún caso real donde convenga elegir una cuenta distinta a la del método — el usuario decidió quitarlo para evitar confusión.
+
+**Corrección** (`admin/ventas/page.tsx`, sin tocar la base de datos): se eliminaron los dos `<select>` de "Cuenta (opcional)..." (pago único y pago combinado). En su lugar, `account_id` se resuelve automáticamente comparando el método elegido contra `accounts.payment_method` cada vez que se fija o cambia un método — al elegir "Efectivo" en el paso "Pagar factura", al cambiar el método dentro de una línea de "Combinado", y al agregar una línea nueva con "Agregar otro método" (que por defecto arranca en Efectivo). Si en el futuro no existiera una cuenta activa para algún método (ej. la desactivan desde Cuentas), la venta se registra igual pero sin abonar a ninguna cuenta — mismo comportamiento que antes al dejar el campo vacío a propósito.
+
+Se revisó el resto del proyecto por el mismo patrón (`grep` de "Cuenta (opcional)"): solo existía en Registrar Venta, ninguna otra pantalla lo usa.
+
+Verificado `tsc --noEmit`, `eslint`, `npm run build` y `vitest run` (62/62 tests). Probado en navegador real (Playwright, sesión admin real) con una venta de prueba real (creada y luego revertida a mano: orden, ítem, pago y movimiento de cuenta borrados, saldo de Nequi devuelto a su valor original): al elegir "Nequi" ya no aparece ningún selector de cuenta, y el saldo de la cuenta Nequi subió exactamente por el monto de la venta sin ninguna selección manual — igual en el flujo de pago combinado.
+
+**Pendiente de decisión del usuario**: este commit se dejó sin `git push` a propósito, a la espera de otro cambio que el usuario va a pedir en la misma sesión.

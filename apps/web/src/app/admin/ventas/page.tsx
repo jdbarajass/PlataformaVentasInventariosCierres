@@ -84,6 +84,7 @@ interface PaymentSplit {
 interface Account {
   id: string
   name: string
+  payment_method: string
   color: string | null
 }
 
@@ -454,8 +455,20 @@ export default function VentasPage() {
     return sum + amount * ((commissionRates[p.method] || 0) / 100)
   }, 0)
 
+  // Cada método de pago se abona siempre a la cuenta del mismo nombre (ver
+  // /admin/cuentas) — antes había un selector "Cuenta (opcional)" aparte que
+  // permitía elegir cualquier cuenta sin importar el método, algo que
+  // generaba confusión y en la práctica esta tienda nunca usa (una cuenta
+  // por método, sin excepciones). Si no existe una cuenta con ese método
+  // (ej. la desactivaron), la venta se registra igual pero sin abonar a
+  // ninguna cuenta — mismo comportamiento que antes al dejar el campo vacío.
+  const resolveAccountId = useCallback(
+    (method: Method) => accounts.find((a) => a.payment_method === method)?.id || '',
+    [accounts]
+  )
+
   const addPaymentSplit = () => {
-    updateActiveSession((s) => ({ ...s, payments: [...s.payments, emptyPayment()] }))
+    updateActiveSession((s) => ({ ...s, payments: [...s.payments, { ...emptyPayment(), account_id: resolveAccountId('cash') }] }))
   }
 
   const updatePaymentSplit = (key: string, patch: Partial<PaymentSplit>) => {
@@ -510,7 +523,7 @@ export default function VentasPage() {
   const selectQuickMethod = (method: Method) => {
     updateActiveSession((s) => ({
       ...s,
-      payments: [{ ...emptyPayment(method), amount: (total / 100).toString() }],
+      payments: [{ ...emptyPayment(method), account_id: resolveAccountId(method), amount: (total / 100).toString() }],
     }))
     setPaymentStep('single')
   }
@@ -518,7 +531,12 @@ export default function VentasPage() {
   const selectCombined = () => {
     updateActiveSession((s) => ({
       ...s,
-      payments: s.payments.length > 1 ? s.payments : [emptyPayment(), emptyPayment()],
+      payments: s.payments.length > 1
+        ? s.payments
+        : [
+            { ...emptyPayment(), account_id: resolveAccountId('cash') },
+            { ...emptyPayment(), account_id: resolveAccountId('cash') },
+          ],
     }))
     setPaymentStep('combined')
   }
@@ -1065,16 +1083,6 @@ export default function VentasPage() {
                       className="mb-2 rounded-lg"
                     />
                   )}
-                  <select
-                    value={payments[0].account_id}
-                    onChange={(e) => updatePaymentSplit(payments[0].key, { account_id: e.target.value })}
-                    className="mb-2 w-full rounded-lg border bg-background px-2 py-2 text-sm"
-                  >
-                    <option value="">Cuenta (opcional)...</option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
                   <label className="mb-1 block text-xs text-muted-foreground">Monto recibido</label>
                   <MoneyInput
                     value={payments[0].amount}
@@ -1115,7 +1123,10 @@ export default function VentasPage() {
                       <div className="flex gap-2">
                         <select
                           value={p.method}
-                          onChange={(e) => updatePaymentSplit(p.key, { method: e.target.value as Method })}
+                          onChange={(e) => {
+                            const newMethod = e.target.value as Method
+                            updatePaymentSplit(p.key, { method: newMethod, account_id: resolveAccountId(newMethod) })
+                          }}
                           className="flex-1 rounded-lg border bg-background px-2 py-1 text-xs"
                         >
                           {(Object.keys(methodLabels) as Method[]).map((value) => (
@@ -1136,16 +1147,6 @@ export default function VentasPage() {
                           className="h-8 rounded-lg text-xs"
                         />
                       )}
-                      <select
-                        value={p.account_id}
-                        onChange={(e) => updatePaymentSplit(p.key, { account_id: e.target.value })}
-                        className="w-full rounded-lg border bg-background px-2 py-1 text-xs"
-                      >
-                        <option value="">Cuenta (opcional)...</option>
-                        {accounts.map((a) => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                      </select>
                       <MoneyInput
                         placeholder="Monto"
                         value={p.amount}
