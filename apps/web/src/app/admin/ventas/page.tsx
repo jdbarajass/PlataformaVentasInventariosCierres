@@ -42,6 +42,7 @@ interface ProductResult {
   id: string
   title: string
   sku: string | null
+  barcode: string | null
   price_cents: number
   cost_cents: number
   stock_qty: number
@@ -789,7 +790,11 @@ export default function VentasPage() {
                     // backend igual exige confirmar "Stock insuficiente
                     // ¿continuar?" al registrar, igual que ya pasa con
                     // productos sin tallas.
-                    title={v.stock_qty === 0 ? 'Sin stock — se puede forzar la venta al confirmar' : undefined}
+                    title={
+                      v.stock_qty === 0
+                        ? `Sin stock — se puede forzar la venta al confirmar${v.barcode ? ` · ${v.barcode}` : ''}`
+                        : v.barcode || undefined
+                    }
                     onClick={() => handlePickVariant(pickingVariantsFor, v)}
                   >
                     {v.talla || 'Única'} ({v.stock_qty === 0 ? 'agotada' : v.stock_qty})
@@ -815,15 +820,24 @@ export default function VentasPage() {
                       ? product.variants.reduce((s, v) => s + v.stock_qty, 0)
                       : product.stock_qty
                   const agotado = totalStock === 0
+                  // Un producto con tallas no tiene un solo código de barras
+                  // (cada talla tiene el suyo, ver el selector de talla más
+                  // abajo) — ahí se muestra el SKU si existe, o nada, en vez
+                  // del fragmento del id interno que se mostraba antes
+                  // (ej. "F57BE55C"), que no significaba nada para el
+                  // vendedor y no era ni el código de barras ni el SKU real.
+                  const codigoMostrado = product.variants.length > 0 ? product.sku : product.barcode || product.sku
                   return (
                     <button
                       key={product.id}
                       onClick={() => handleCardClick(product)}
                       className="flex flex-col rounded-xl border bg-background p-3 text-left transition-colors hover:border-primary hover:shadow-sm"
                     >
-                      <span className="mb-1 self-start rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-cyan-600">
-                        {product.sku || product.id.slice(0, 8)}
-                      </span>
+                      {codigoMostrado && (
+                        <span className="mb-1 self-start rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-cyan-600">
+                          {codigoMostrado}
+                        </span>
+                      )}
                       <div className="flex h-16 items-center justify-center">
                         <Package className="h-9 w-9 text-muted-foreground/30" />
                       </div>
@@ -835,7 +849,7 @@ export default function VentasPage() {
                         {agotado
                           ? 'Agotado'
                           : product.variants.length > 0
-                            ? `${product.variants.length} talla${product.variants.length !== 1 ? 's' : ''}`
+                            ? `Inv. ${totalStock} · ${product.variants.length} talla${product.variants.length !== 1 ? 's' : ''}`
                             : `Inv. ${totalStock}`}
                       </p>
                       <p className="mt-1 line-clamp-2 text-sm font-medium leading-tight">{product.title}</p>
