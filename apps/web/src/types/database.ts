@@ -106,6 +106,10 @@ export interface Database {
           active: boolean
           featured: boolean
           barcode: string | null
+          // Solo lo pone DELETE /api/products/[id] — distingue "eliminado"
+          // de "todavía sin publicar" (active=false por sí solo cubre
+          // ambos casos, ver migración 00040).
+          deleted_at: string | null
           created_at: string
           updated_at: string
         }
@@ -128,6 +132,7 @@ export interface Database {
           active?: boolean
           featured?: boolean
           barcode?: string | null
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -149,6 +154,7 @@ export interface Database {
           active?: boolean
           featured?: boolean
           barcode?: string | null
+          deleted_at?: string | null
           updated_at?: string
         }
         Relationships: [

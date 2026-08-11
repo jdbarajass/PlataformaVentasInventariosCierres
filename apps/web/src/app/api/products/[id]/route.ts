@@ -62,6 +62,13 @@ export async function PUT(
       .update({
         ...validatedData,
         slug: body.slug, // El slug viene del formulario
+        // Guardar con "Producto activo" marcado es la forma de restaurar
+        // uno que se había eliminado — limpia deleted_at para que vuelva
+        // a aparecer en Registrar Venta/Cambios (ver migración 00040).
+        // JSON.stringify descarta las llaves en `undefined`, así que no
+        // toca deleted_at cuando active sigue en false (ej. un producto
+        // recién ingresado desde "Ingresar", nunca eliminado).
+        deleted_at: validatedData.active ? null : undefined,
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.id)
@@ -127,9 +134,14 @@ export async function DELETE(
 
     // Soft delete: Marcar como inactivo en lugar de eliminar
     // Esto preserva el historial de órdenes
+    // deleted_at (además de active) marca que esto fue un borrado real —
+    // a diferencia de un producto simplemente "sin publicar todavía"
+    // (ver migración 00040) — para que Registrar Venta/Cambios puedan
+    // dejar de mostrarlo sin esconder los que "Ingresar" crea a propósito
+    // con active=false.
     const { error: updateError } = await supabase
       .from('products')
-      .update({ active: false, updated_at: new Date().toISOString() })
+      .update({ active: false, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', params.id)
 
     if (updateError) {

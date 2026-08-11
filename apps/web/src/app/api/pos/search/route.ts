@@ -22,9 +22,15 @@ export async function GET(request: NextRequest) {
     if (barcode) {
       const { data: variant, error: variantError } = await supabase
         .from('product_variants')
-        .select('*, product:products(*)')
+        .select('*, product:products!inner(*)')
         .eq('barcode', barcode)
         .eq('active', true)
+        // El producto puede seguir "sin publicar" (active=false, ver
+        // comentario más abajo) y aun así debe poder venderse — lo único
+        // que de verdad lo saca de Registrar Venta es que lo hayan
+        // eliminado (deleted_at). !inner para poder filtrar por una
+        // columna del producto embebido.
+        .is('product.deleted_at', null)
         .maybeSingle()
 
       if (variantError) {
@@ -58,6 +64,7 @@ export async function GET(request: NextRequest) {
         .select('*, variants:product_variants(*)')
         // @ts-ignore - Supabase type inference issue
         .eq('barcode', barcode)
+        .is('deleted_at', null)
         .maybeSingle()
 
       if (productError) {
@@ -76,9 +83,12 @@ export async function GET(request: NextRequest) {
     // No se filtra por products.active: ese campo solo controla si el
     // producto se muestra en la tienda pública — el POS (Registrar Venta)
     // es una operación interna de admin/vendedor y debe poder vender
-    // cualquier producto con stock real, esté publicado o no (ej. los 190
-    // productos migrados del inventario físico, aún sin foto/descripción).
-    let query = supabase.from('products').select('*, variants:product_variants(*)')
+    // cualquier producto con stock real, esté publicado o no (ej. uno
+    // recién cargado desde "Ingresar" en Inventario, todavía sin foto/
+    // descripción). Lo que sí se filtra es deleted_at: un producto
+    // realmente eliminado (distinto de "sin publicar todavía", ver
+    // migración 00040) no debe poder venderse ni volver a aparecer aquí.
+    let query = supabase.from('products').select('*, variants:product_variants(*)').is('deleted_at', null)
 
     if (q) {
       // El código de barras de un producto CON tallas vive por variante

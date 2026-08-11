@@ -37,6 +37,7 @@ const createMockProduct = (id: string, title: string, slug: string, priceCents: 
   active: true,
   featured: false,
   barcode: null,
+  deleted_at: null,
   created_at: '',
   updated_at: '',
 })

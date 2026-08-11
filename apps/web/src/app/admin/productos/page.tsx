@@ -253,8 +253,8 @@ export default function ProductsPage() {
                           </Badge>
                         </td>
                         <td className="py-4">
-                          <Badge variant={product.active ? 'success' : 'secondary'}>
-                            {product.active ? 'Activo' : 'Inactivo'}
+                          <Badge variant={product.active ? 'success' : product.deleted_at ? 'error' : 'secondary'}>
+                            {product.active ? 'Activo' : product.deleted_at ? 'Eliminado' : 'Inactivo'}
                           </Badge>
                         </td>
                         <td className="py-4">
