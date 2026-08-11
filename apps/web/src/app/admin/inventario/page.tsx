@@ -261,8 +261,13 @@ export default function InventarioPage() {
     return limpio ? limpio.split(/\s+/)[0].toUpperCase() : 'OTRO'
   }
 
+  // "Inventario General" (unidades por categoría) sí lo necesita ver un
+  // vendedor, para cuadrar un conteo físico contra el sistema — antes esta
+  // función completa se saltaba para cualquier rol que no fuera admin, así
+  // que la pestaña le salía vacía ("No se encontraron categorías") en vez
+  // de simplemente no mostrarle el costo/valor (que sí sigue oculto más
+  // abajo, en el render, igual que en el resto de esta página).
   const fetchCategoryRollup = useCallback(async () => {
-    if (!isAdmin) return
     setLoadingGeneral(true)
     try {
       const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
@@ -299,7 +304,7 @@ export default function InventarioPage() {
     } finally {
       setLoadingGeneral(false)
     }
-  }, [isAdmin])
+  }, [])
 
   const [generalSearch, setGeneralSearch] = useState('')
   const filteredCategoryGroups = categoryGroups.filter((g) =>
@@ -2240,9 +2245,11 @@ export default function InventarioPage() {
                       <th className="px-6 py-4 text-center text-sm font-medium text-muted-foreground">
                         Unidades en Stock
                       </th>
-                      <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
-                        Valor en Stock
-                      </th>
+                      {canViewCost && (
+                        <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
+                          Valor en Stock
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -2257,14 +2264,16 @@ export default function InventarioPage() {
                         >
                           {g.uds}
                         </td>
-                        <td className="px-6 py-4 text-right font-medium text-blue-600">
-                          {formatPrice(g.valor)}
-                        </td>
+                        {canViewCost && (
+                          <td className="px-6 py-4 text-right font-medium text-blue-600">
+                            {formatPrice(g.valor)}
+                          </td>
+                        )}
                       </tr>
                     ))}
                     {filteredCategoryGroups.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                        <td colSpan={canViewCost ? 4 : 3} className="px-6 py-12 text-center text-muted-foreground">
                           No se encontraron categorías
                         </td>
                       </tr>
@@ -2280,7 +2289,9 @@ export default function InventarioPage() {
               {filteredCategoryGroups.length} categoría{filteredCategoryGroups.length !== 1 ? 's' : ''}
             </span>
             <span>{filteredCategoryGroups.reduce((s, g) => s + g.uds, 0)} unidades en stock</span>
-            <span>Valor: {formatPrice(filteredCategoryGroups.reduce((s, g) => s + g.valor, 0))}</span>
+            {canViewCost && (
+              <span>Valor: {formatPrice(filteredCategoryGroups.reduce((s, g) => s + g.valor, 0))}</span>
+            )}
           </div>
         </div>
       ) : (
