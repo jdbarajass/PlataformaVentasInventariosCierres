@@ -1882,17 +1882,24 @@ export default function InventarioPage() {
           <LayoutGrid className="h-4 w-4" />
           Inventario General
         </button>
-        <button
-          onClick={() => setActiveTab('movimientos')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'movimientos'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <RefreshCw className="h-4 w-4" />
-          Movimientos
-        </button>
+        {/* Historial completo de movimientos (quién ajustó qué y cuándo,
+            con notas) — es un registro de auditoría, no algo que un
+            vendedor necesite para su operación diaria (a diferencia de
+            "Inventario General", que sí necesita ver para poder cuadrar
+            el conteo físico contra el sistema). */}
+        {canEdit && (
+          <button
+            onClick={() => setActiveTab('movimientos')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'movimientos'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Movimientos
+          </button>
+        )}
         {canEdit && (
           <button
             onClick={() => setActiveTab('ingresar')}
@@ -1906,15 +1913,17 @@ export default function InventarioPage() {
             Ingresar
           </button>
         )}
-        {canEdit && (
-          <Link
-            href="/admin/inventario/cambios"
-            className="flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Cambios
-          </Link>
-        )}
+        {/* Cambios (cambio físico de producto, ej. misma talla en otro
+            color) es una operación normal de mostrador — igual que
+            Registrar Venta, la puede hacer cualquier vendedor, no es
+            administrativa. */}
+        <Link
+          href="/admin/inventario/cambios"
+          className="flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Cambios
+        </Link>
       </div>
 
       {activeTab === 'ingresar' ? (

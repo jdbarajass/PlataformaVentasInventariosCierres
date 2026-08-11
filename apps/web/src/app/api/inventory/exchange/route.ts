@@ -7,6 +7,11 @@ import { z } from 'zod'
 const sideSchema = z.object({
   productId: z.string().uuid(),
   variantId: z.string().uuid().optional().nullable(),
+  // Cuántas unidades cambian de lado — antes era siempre 1 fijo (mismo
+  // comportamiento que el software local), pero un cambio real puede ser
+  // de varias unidades a la vez (ej. cambiar 3 cascos talla M por 3 talla
+  // L) — cada lado tiene su propia cantidad, no tienen que coincidir.
+  qty: z.number().int().positive().default(1),
 })
 
 const exchangeSchema = z.object({
@@ -15,14 +20,13 @@ const exchangeSchema = z.object({
 })
 
 // POST - Cambio físico de producto: el cliente devuelve un artículo y se
-// lleva otro. Descuenta 1 unidad del que sale y suma 1 al que entra, ambos
-// como movimiento tipo 'exchange' enlazados por el mismo reference_id —
-// mismo flujo que la pestaña "Cambios" del software local
-// (ui/inventario_panel.py: _on_confirmar_cambio, siempre ±1 unidad). Solo
-// admin, igual que el resto de escritura de inventario (ver Fase 4.1).
+// lleva otro (ej. la misma talla de casco en otro color/talla) — descuenta
+// del que sale y suma al que entra, ambos como movimiento tipo 'exchange'
+// enlazados por el mismo reference_id. Admin y vendedor (igual que
+// Registrar Venta, es una operación normal de mostrador, no administrativa).
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ['admin'])
+    const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
       return auth.response
     }
@@ -61,9 +65,9 @@ export async function POST(request: NextRequest) {
     }
 
     const saleStock = await getStock(sale.productId, sale.variantId)
-    if (saleStock < 1) {
+    if (saleStock < sale.qty) {
       return NextResponse.json(
-        { error: 'El producto que sale no tiene stock disponible para entregar al cliente.' },
+        { error: `El producto que sale solo tiene ${saleStock} unidad(es) disponible(s) — no alcanza para entregar ${sale.qty}.` },
         { status: 400 }
       )
     }
@@ -95,25 +99,25 @@ export async function POST(request: NextRequest) {
 
     const referenceId = randomUUID()
 
-    const saleNewStock = await applyDelta(sale.productId, sale.variantId, -1)
+    const saleNewStock = await applyDelta(sale.productId, sale.variantId, -sale.qty)
     await (supabase.from('inventory_movements') as any).insert({
       product_id: sale.productId,
       variant_id: sale.variantId || null,
-      qty: -1,
+      qty: -sale.qty,
       type: 'exchange',
-      note: 'Cambio de producto — entregado al cliente',
+      note: `Cambio de producto — entregado al cliente (${sale.qty} unidad${sale.qty !== 1 ? 'es' : ''})`,
       reference_id: referenceId,
       reference_type: 'exchange',
       created_by: auth.user.id,
     })
 
-    const entraNewStock = await applyDelta(entra.productId, entra.variantId, 1)
+    const entraNewStock = await applyDelta(entra.productId, entra.variantId, entra.qty)
     await (supabase.from('inventory_movements') as any).insert({
       product_id: entra.productId,
       variant_id: entra.variantId || null,
-      qty: 1,
+      qty: entra.qty,
       type: 'exchange',
-      note: 'Cambio de producto — devuelto por el cliente',
+      note: `Cambio de producto — devuelto por el cliente (${entra.qty} unidad${entra.qty !== 1 ? 'es' : ''})`,
       reference_id: referenceId,
       reference_type: 'exchange',
       created_by: auth.user.id,
