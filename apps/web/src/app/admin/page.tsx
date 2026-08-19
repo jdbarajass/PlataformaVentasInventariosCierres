@@ -189,10 +189,13 @@ interface VentasOrderRow {
 // Ventas online + de mostrador unificadas, consistente con Reportes/Historial.
 async function getVentasStats() {
   const now = new Date()
-  const startOfDay = bogotaToISO(bogotaDateStr(now), '00:00')
+  const todayStr = bogotaDateStr(now)
+  const startOfDay = bogotaToISO(todayStr, '00:00')
   const sevenDaysAgoDate = new Date(now)
   sevenDaysAgoDate.setUTCDate(sevenDaysAgoDate.getUTCDate() - 6)
   const sevenDaysAgo = bogotaToISO(bogotaDateStr(sevenDaysAgoDate), '00:00')
+  const [y, m] = todayStr.split('-')
+  const startOfMonth = bogotaToISO(`${y}-${m}-01`, '00:00')
 
   const { data: todayOrdersData } = await supabase
     .from('orders')
@@ -238,6 +241,31 @@ async function getVentasStats() {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([date, cents]) => ({ date, cents }))
 
+  // Top productos combinado (online + mostrador) este mes — misma lógica
+  // de agregación que getChannelStats, pero sin filtrar por canal, para
+  // la pestaña "Ventas" (antes el top solo existía por separado en cada
+  // pestaña de canal, sin una vista unificada de "qué se está vendiendo").
+  const { data: topProductsData } = await supabase
+    .from('order_items')
+    .select('product_id, product_title, qty')
+    .gte('created_at', startOfMonth)
+    .limit(200)
+
+  const typedTopProducts = (topProductsData as unknown as TopProductItem[]) || []
+  const productSales: Record<string, { title: string; qty: number }> = {}
+  typedTopProducts.forEach((item) => {
+    if (item.product_id) {
+      if (!productSales[item.product_id]) {
+        productSales[item.product_id] = { title: item.product_title, qty: 0 }
+      }
+      productSales[item.product_id].qty += item.qty
+    }
+  })
+  const topProducts = Object.entries(productSales)
+    .map(([id, data]) => ({ id, ...data }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5)
+
   return {
     todayRevenue,
     todayOrders: todayOrders.length,
@@ -245,6 +273,7 @@ async function getVentasStats() {
     todayCommission,
     byMethod,
     weeklyTrend,
+    topProducts,
   }
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
@@ -15,6 +16,7 @@ import {
   Store,
   Building2,
   Wallet,
+  Clock,
 } from 'lucide-react'
 
 interface LowStockProduct {
@@ -47,6 +49,7 @@ interface VentasStats {
   todayCommission: number
   byMethod: { method: string; cents: number }[]
   weeklyTrend: { date: string; cents: number }[]
+  topProducts: TopProduct[]
 }
 
 const methodLabels: Record<string, string> = {
@@ -333,9 +336,35 @@ export function DashboardTabs({
                 </CardContent>
               </Card>
             )}
+
+            {/* Antes "Stock Bajo" y "Órdenes Pendientes" solo existían dentro
+                de las pestañas Tienda Online/Física — mismos datos (ya
+                vienen en `online`, compartidos entre canales para el stock),
+                solo les faltaba una tarjeta propia en el resumen de Ventas. */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{online.lowStockProducts.length}</div>
+                <p className="text-xs text-muted-foreground">Productos por reabastecer</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Órdenes Pendientes</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{online.pendingOrders}</div>
+                <p className="text-xs text-muted-foreground">Tienda online, por confirmar pago</p>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-3">
             <Card>
               <CardHeader><CardTitle>Ingresos por método de pago (hoy)</CardTitle></CardHeader>
               <CardContent>
@@ -354,13 +383,46 @@ export function DashboardTabs({
               </CardContent>
             </Card>
 
+            {/* Antes existía por separado en cada pestaña de canal (Tienda
+                Online / Física) — esta versión suma ambos, para tener de un
+                vistazo "qué se está vendiendo" sin cambiar de pestaña. */}
+            <Card>
+              <CardHeader><CardTitle>Producto Más Vendido (mes)</CardTitle></CardHeader>
+              <CardContent>
+                {ventas.topProducts.length > 0 ? (
+                  <div className="space-y-4">
+                    {ventas.topProducts.map((product, index) => (
+                      <div key={product.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-medium">
+                            {index + 1}
+                          </span>
+                          <p className="font-medium line-clamp-1">{product.title}</p>
+                        </div>
+                        <Badge variant="secondary">{product.qty} vendidos</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground">No hay datos de ventas este mes</p>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader><CardTitle>Tendencia últimos 7 días</CardTitle></CardHeader>
               <CardContent>
                 {ventas.weeklyTrend.length > 0 ? (
                   <div className="space-y-2">
                     {ventas.weeklyTrend.map((d) => (
-                      <div key={d.date} className="flex items-center gap-4">
+                      // Clic en un día -> Ventas del Día de esa fecha exacta
+                      // (?date=YYYY-MM-DD, mismo enlace que ya usa Historial
+                      // Mensual) — antes esta fila no llevaba a ningún lado.
+                      <Link
+                        key={d.date}
+                        href={`/admin/ventas-dia?date=${d.date}`}
+                        className="flex items-center gap-4 rounded-lg p-1 -m-1 transition-colors hover:bg-secondary"
+                      >
                         <span className="w-16 text-xs text-muted-foreground">
                           {new Date(d.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}
                         </span>
@@ -368,7 +430,7 @@ export function DashboardTabs({
                           <div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.cents / maxWeekly) * 100}%` }} />
                         </div>
                         <span className="w-24 text-right text-xs font-medium">{formatPrice(d.cents)}</span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 ) : (
