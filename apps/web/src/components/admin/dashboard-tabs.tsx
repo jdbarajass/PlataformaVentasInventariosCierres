@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { BOGOTA_TZ } from '@/lib/bogota-time'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -424,7 +425,19 @@ export function DashboardTabs({
                         className="flex items-center gap-4 rounded-lg p-1 -m-1 transition-colors hover:bg-secondary"
                       >
                         <span className="w-16 text-xs text-muted-foreground">
-                          {new Date(d.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}
+                          {/* "YYYY-MM-DD" sin hora se interpreta como medianoche
+                              UTC — formatearlo con la zona horaria del
+                              navegador (la de quien lo mira, no la de
+                              Bogotá) podía correr la fecha un día hacia
+                              atrás. Se ancla al mediodía de Bogotá (lejos de
+                              cualquier medianoche) y se fuerza timeZone para
+                              que el resultado no dependa de dónde esté el
+                              navegador. */}
+                          {new Date(`${d.date}T12:00:00-05:00`).toLocaleDateString('es-CO', {
+                            month: 'short',
+                            day: 'numeric',
+                            timeZone: BOGOTA_TZ,
+                          })}
                         </span>
                         <div className="flex-1">
                           <div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.cents / maxWeekly) * 100}%` }} />

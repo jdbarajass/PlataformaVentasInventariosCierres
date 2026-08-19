@@ -8,7 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
-import { bogotaDateStr, bogotaDayRange, bogotaHour } from '@/lib/bogota-time'
+import { bogotaDateStr, bogotaDayRange, bogotaHour, BOGOTA_TZ } from '@/lib/bogota-time'
+
+// "YYYY-MM-DD" sin hora se interpreta como medianoche UTC — formatearlo
+// con new Date(str).toLocaleDateString() sin fijar la zona horaria usa la
+// del navegador de quien lo mira, no la de Bogotá, y puede correr la
+// fecha un día hacia atrás (ej. un reporte del 14 mostrando "13"). Se
+// ancla al mediodía de Bogotá (lejos de cualquier medianoche) y se fuerza
+// timeZone para que el resultado no dependa de dónde esté el navegador.
+function formatDiaCorto(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00-05:00`).toLocaleDateString('es-CO', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: BOGOTA_TZ,
+  })
+}
 
 interface SalesData {
   date: string
@@ -430,7 +444,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mostProfitableDay ? new Date(mostProfitableDay.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }) : '—'}
+                {mostProfitableDay ? formatDiaCorto(mostProfitableDay.date) : '—'}
               </div>
               {mostProfitableDay && <p className="text-xs text-muted-foreground">Ganancia: {formatPrice(mostProfitableDay.profit)}</p>}
             </CardContent>
@@ -502,10 +516,7 @@ export default function ReportsPage() {
                 {salesData.slice(-14).map((day) => (
                   <div key={day.date} className="flex items-center gap-4">
                     <span className="w-20 text-sm text-muted-foreground">
-                      {new Date(day.date).toLocaleDateString('es-CO', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {formatDiaCorto(day.date)}
                     </span>
                     <div className="flex-1">
                       <div
@@ -584,7 +595,7 @@ export default function ReportsPage() {
                 <tbody>
                   {dailyProfit.map((d) => (
                     <tr key={d.date} className="border-b last:border-0">
-                      <td className="py-2 pr-4">{new Date(d.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })}</td>
+                      <td className="py-2 pr-4">{formatDiaCorto(d.date)}</td>
                       <td className="py-2 pr-4 text-right">{formatPrice(d.total)}</td>
                       <td className={`py-2 pr-4 text-right ${d.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(d.profit)}</td>
                       <td className="py-2 text-right">

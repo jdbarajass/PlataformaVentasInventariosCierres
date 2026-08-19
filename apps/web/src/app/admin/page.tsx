@@ -3,6 +3,18 @@ import { Order } from '@/types/database'
 import { DashboardTabs } from '@/components/admin/dashboard-tabs'
 import { bogotaDateStr, bogotaToISO } from '@/lib/bogota-time'
 
+// Sin esto, Next.js prerrenderiza esta página como estática en el build
+// (no detecta las consultas de Supabase como "dinámicas" — a diferencia de
+// `fetch`, que sí reconoce) y la sirve congelada con los datos de ese
+// momento a todo el mundo hasta el siguiente deploy. Así se explicaba que
+// el Dashboard mostrara una venta del 14/08 como si fuera del 13/08 y una
+// "tendencia de los últimos 7 días" con solo 1 día real: no eran los
+// últimos 7 días de HOY, eran los del instante del último build. El resto
+// del panel (Historial Mensual, Ventas del Día, etc.) no tiene este
+// problema porque son componentes de cliente que piden los datos en el
+// navegador cada vez que se abren, no en el momento del build.
+export const dynamic = 'force-dynamic'
+
 // Se usa el cliente de servicio (bypassa RLS) en vez del cliente anónimo:
 // esta página es un Server Component sin el JWT del usuario adjunto a la
 // petición, así que con el cliente anónimo las políticas RLS de orders
@@ -237,9 +249,17 @@ async function getVentasStats() {
     acc[day] = (acc[day] || 0) + o.total_cents
     return acc
   }, {})
-  const weeklyTrend = Object.entries(trendMap)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, cents]) => ({ date, cents }))
+  // Se completan los 7 días del rango con $0 aunque no tengan ventas —
+  // antes `trendMap` solo tenía llaves para días con al menos una venta,
+  // así que un día sin ventas simplemente no aparecía (en vez de aparecer
+  // en $0), y "los últimos 7 días" podía verse con una sola barra aunque
+  // el rango sí fueran 7 días reales.
+  const weeklyTrend = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(sevenDaysAgoDate)
+    d.setUTCDate(d.getUTCDate() + i)
+    const date = bogotaDateStr(d)
+    return { date, cents: trendMap[date] || 0 }
+  })
 
   // Top productos combinado (online + mostrador) este mes — misma lógica
   // de agregación que getChannelStats, pero sin filtrar por canal, para
