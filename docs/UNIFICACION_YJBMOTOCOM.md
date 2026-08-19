@@ -2,7 +2,7 @@
 
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
-**Última actualización**: 2026-08-19
+**Última actualización**: 2026-08-19 (entrada 79)
 **Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas**, más una **segunda auditoría exhaustiva sección-por-sección (sección 15/16) también completa** — las 19 secciones del panel admin fueron comparadas contra el software local módulo por módulo y se corrigieron 15 hallazgos reales adicionales que la Fase 4 no había cerrado (ver sección 16 para el resumen ejecutivo). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00025 pendientes de aplicar/confirmar por el usuario en Supabase real (la `00025` es nueva, de esta ronda). Se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, sección 14). Queda documentado un candidato claro para una futura Fase 5: ampliar la cobertura de `audit_logs` a ~8 módulos que hoy no registran nada (sección 15.17).
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
@@ -2164,3 +2164,15 @@ El usuario descargó un nuevo export del software local (dos semanas después de
 - No se tocaron las hojas Facturas (0 filas nuevas desde 04/08), Gastos (sin filas nuevas), ni el snapshot "Cuentas" del Excel (sus saldos son la vista del software local, que ya diverge de la de Supabase por diseño — cada sistema cuadra su propia caja).
 
 **Verificación**: saldos de las 7 cuentas recalculados a mano contra lo esperado (Efectivo +$2.651.000, Nequi +$1.280.000, NU +$230.000, Addi +$400.000, Tarjeta sin mover cuenta) y coinciden exactamente con lo que quedó en Supabase tras el import. Probado en navegador real (Playwright, sesión admin): Dashboard → "Tendencia últimos 7 días" muestra $2.060.000 el 13/08 (antes $0, ahora exacto: $1.880.000 nuevo en Efectivo + $180.000 nuevo en Nequi), $1.120.000 el 15/08, $676.000 el 16/08 y $1.335.000 el 18/08 — todos calzando con la suma de facturas importadas ese día; Ventas del Día → 13/08 lista las 3 facturas nuevas con todos sus ítems y montos correctos; Préstamos → la lista de pendientes incluye los préstamos nuevos; Cuentas → los 7 saldos coinciden con el cálculo manual.
+
+## 79. Registrar Venta: abrir el recibo automáticamente al confirmar una venta (2026-08-19)
+
+El usuario preguntó si al terminar una venta aparecía algún popup para imprimir el recibo — no existía: solo quedaba un enlace "Ver recibo de la última venta" que había que buscar y hacer clic manualmente. Pidió que se abriera solo.
+
+**Implementación** (`admin/ventas/page.tsx`, `handleSubmitSale`): se abre una pestaña en blanco (`window.open('about:blank', '_blank')`) **antes** del `fetch` a `/api/pos/sales` — todavía dentro del mismo gesto de clic en "Confirmar venta" — y una vez que la venta queda registrada, se redirige esa pestaña al recibo real (`receiptWindow.location.href = /api/orders/{id}/invoice`). Abrir la pestaña después de un `await` la habría marcado como popup no solicitado por el navegador y la mayoría la habrían bloqueado; abrirla en blanco de entrada y redirigirla después evita ese bloqueo.
+
+Se cubrieron los casos donde NO debe quedar una pestaña en blanco huérfana: si la venta falla por "Stock insuficiente" y se reintenta (`force=true`), la pestaña original se cierra antes de la llamada recursiva (que abre la suya propia); si la venta falla por cualquier otro error, la pestaña se cierra en el `catch` — salvo que ya se haya redirigido al recibo real (bandera `redirectedReceipt`), para no cerrarle al vendedor una pestaña que ya está mostrando el recibo si una llamada posterior no crítica (refrescar cuentas/ventas del día) llegara a fallar.
+
+El enlace manual "Ver recibo de la última venta" se dejó igual, como respaldo si el navegador bloquea el popup de todas formas (algunos navegadores/extensiones bloquean incluso el patrón blank-then-redirect).
+
+Verificado `tsc --noEmit`, `eslint` y `vitest run` (62/62 tests). Probado en navegador real (Playwright, sesión admin): venta de un ítem "fuera de catálogo" de $1.000 pagada en Efectivo → al hacer clic en "Confirmar venta" se abrió una pestaña nueva sola, sin ninguna otra acción, que terminó mostrando el recibo real (`YJBM-20260819-8588`) con el botón "Imprimir / Guardar como PDF". Venta de prueba cancelada al terminar para no dejar datos falsos.

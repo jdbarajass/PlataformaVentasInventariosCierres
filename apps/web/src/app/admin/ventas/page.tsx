@@ -573,6 +573,13 @@ export default function VentasPage() {
       return
     }
 
+    // Se abre una pestaña en blanco ANTES del fetch (todavía dentro del mismo
+    // gesto de clic en "Confirmar venta") y se redirige al recibo real una vez
+    // que la venta queda registrada — abrirla después del await la marcaría
+    // como popup no solicitado y la mayoría de navegadores la bloquearían.
+    const receiptWindow = window.open('about:blank', '_blank')
+    let redirectedReceipt = false
+
     try {
       setSaving(true)
       const res = await fetch('/api/pos/sales', {
@@ -612,6 +619,9 @@ export default function VentasPage() {
         // de continuar de todas formas (el stock nunca queda negativo).
         if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
           setSaving(false)
+          // La pestaña en blanco se cierra acá — si el usuario decide
+          // continuar, la llamada recursiva abre la suya propia.
+          receiptWindow?.close()
           if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
             await handleSubmitSale(true)
           }
@@ -623,6 +633,10 @@ export default function VentasPage() {
       const { data } = await res.json()
       toast({ title: 'Venta registrada', description: `Orden ${data.order_number}` })
       setShowPaymentModal(false)
+      redirectedReceipt = true
+      if (receiptWindow) {
+        receiptWindow.location.href = `/api/orders/${data.id}/invoice`
+      }
 
       // Si era una pestaña extra (no la primera), se cierra sola para no
       // acumular pestañas vacías; la primera pestaña se deja lista para la
@@ -639,6 +653,7 @@ export default function VentasPage() {
       }
       await Promise.all([fetchAccounts(), fetchTodaySales()])
     } catch (error: any) {
+      if (!redirectedReceipt) receiptWindow?.close()
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSaving(false)
