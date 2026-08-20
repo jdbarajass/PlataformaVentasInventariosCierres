@@ -7,8 +7,9 @@ import { variantConflictMessage } from '@/lib/variant-conflict-message'
 // GET - Listar variantes (tallas/código de barras) de un producto
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -20,7 +21,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('product_variants')
       .select('*')
-      .eq('product_id', params.id)
+      .eq('product_id', id)
       .order('talla', { ascending: true })
 
     if (error) {
@@ -40,8 +41,9 @@ export async function GET(
 // POST - Crear una variante nueva (talla/código de barras) para un producto
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     // Solo admin puede crear variantes de inventario (ver PUT/DELETE en
     // /api/product-variants/[id] para el mismo criterio).
@@ -58,7 +60,7 @@ export async function POST(
     const { data: product } = await supabase
       .from('products')
       .select('id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (!product) {
@@ -71,7 +73,7 @@ export async function POST(
     const { data: variant, error } = await supabase
       .from('product_variants')
       // @ts-ignore - Supabase type inference issue
-      .insert({ ...validatedData, product_id: params.id })
+      .insert({ ...validatedData, product_id: id })
       .select()
       .single()
 

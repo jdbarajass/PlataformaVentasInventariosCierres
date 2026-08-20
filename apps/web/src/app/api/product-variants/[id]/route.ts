@@ -7,8 +7,9 @@ import { variantConflictMessage } from '@/lib/variant-conflict-message'
 // PUT - Actualizar una variante (talla, código de barras, stock, costo, etc.)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     // Solo admin puede editar inventario, igual que el software local exige
     // la clave maestra de Admin para esta acción incluso con sesión de vendedor.
@@ -26,7 +27,7 @@ export async function PUT(
       .from('product_variants')
       // @ts-ignore - Supabase type inference issue
       .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -71,8 +72,9 @@ export async function PUT(
 // recalculado automáticamente.
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
@@ -84,7 +86,7 @@ export async function DELETE(
     const { data: variant, error: fetchError } = await supabase
       .from('product_variants')
       .select('id, product_id, stock_qty, talla')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !variant) {
@@ -110,13 +112,13 @@ export async function DELETE(
     const { error } = await supabase
       .from('product_variants')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       throw error
     }
 
-    return NextResponse.json({ message: 'Variante eliminada exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Variante eliminada exitosamente', id: id })
   } catch (error) {
     console.error('Error deleting product variant:', error)
     return NextResponse.json(

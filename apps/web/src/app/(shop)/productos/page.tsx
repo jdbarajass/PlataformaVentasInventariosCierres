@@ -28,14 +28,14 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     category?: string
     minPrice?: string
     maxPrice?: string
     inStock?: string
     sortBy?: string
     page?: string
-  }
+  }>
 }
 
 const PRODUCTS_PER_PAGE = 20
@@ -47,7 +47,8 @@ const sortOptions = [
   { value: 'name',       label: 'Nombre A–Z' },
 ]
 
-export default async function ProductosPage({ searchParams }: PageProps) {
+export default async function ProductosPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise
   const supabase = getServiceSupabase()
 
   const categoryIds = searchParams.category?.split(',')

@@ -9,14 +9,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 interface PageProps {
-  params: { id: string }
-  searchParams: { session_id?: string }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ session_id?: string }>
 }
 
 export default async function OrderConfirmationPage({
   params,
-  searchParams,
 }: PageProps) {
+  const { id } = await params
   const supabase = getServiceSupabase()
 
   // Fetch order with items and payment info
@@ -27,7 +27,7 @@ export default async function OrderConfirmationPage({
       order_items(*),
       payments(*)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !orderData) {

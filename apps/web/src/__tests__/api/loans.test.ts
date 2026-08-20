@@ -97,7 +97,7 @@ describe('PUT /api/loans/[id]', () => {
     createAuthenticatedClientMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/loans/[id]/route')
-    const res = await PUT(buildRequest({ status: 'lost' }, 'PUT'), { params: { id: 'loan-1' } })
+    const res = await PUT(buildRequest({ status: 'lost' }, 'PUT'), { params: Promise.resolve({ id: 'loan-1' }) })
 
     expect(res.status).toBe(400)
   })
@@ -109,7 +109,7 @@ describe('PUT /api/loans/[id]', () => {
     createAuthenticatedClientMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/loans/[id]/route')
-    const res = await PUT(buildRequest({ status: 'returned' }, 'PUT'), { params: { id: 'loan-1' } })
+    const res = await PUT(buildRequest({ status: 'returned' }, 'PUT'), { params: Promise.resolve({ id: 'loan-1' }) })
 
     expect(res.status).toBe(200)
     expect(calls['loans.update'][0][0]).toMatchObject({ status: 'returned' })
@@ -127,7 +127,7 @@ describe('PUT /api/loans/[id]', () => {
         { product_title: 'Guantes de cuero', warehouse: 'Sucursal Sur', created_at: '2026-08-01T10:00:00Z' },
         'PUT'
       ),
-      { params: { id: 'loan-1' } }
+      { params: Promise.resolve({ id: 'loan-1' }) }
     )
 
     expect(res.status).toBe(200)
@@ -148,7 +148,7 @@ describe('DELETE /api/loans/[id]', () => {
     createAuthenticatedClientMock.mockReturnValue(client)
 
     const { DELETE } = await import('@/app/api/loans/[id]/route')
-    const res = await DELETE(buildRequest({}, 'DELETE'), { params: { id: 'loan-1' } })
+    const res = await DELETE(buildRequest({}, 'DELETE'), { params: Promise.resolve({ id: 'loan-1' }) })
 
     expect(res.status).toBe(200)
     expect(calls['loans.delete']).toBeTruthy()

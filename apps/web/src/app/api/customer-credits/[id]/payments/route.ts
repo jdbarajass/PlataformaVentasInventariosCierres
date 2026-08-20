@@ -15,8 +15,9 @@ const paymentSchema = z.object({
 // (función pay_customer_credit).
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -37,7 +38,7 @@ export async function POST(
 
     const supabase = getServiceSupabase()
     const { data: credit, error } = await (supabase.rpc as any)('pay_customer_credit', {
-      p_credit_id: params.id,
+      p_credit_id: id,
       p_amount_cents: amount_cents,
       p_account_id: account_id || null,
       p_notes: notes || null,

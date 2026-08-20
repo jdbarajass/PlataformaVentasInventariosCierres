@@ -8,8 +8,9 @@ import { awardLoyaltyPointsForOrder } from '@/lib/loyalty'
 // GET - Admin: get single order details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const auth = await requireAuth(request, ['admin', 'seller'])
   if (!auth.success) return auth.response
 
@@ -17,7 +18,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('orders')
     .select('*, order_items(*), payments(*)')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error) {
@@ -30,8 +31,9 @@ export async function GET(
 // PUT - Admin: update order status, tracking, fulfillment
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   const auth = await requireAuth(request, ['admin', 'seller'])
   if (!auth.success) return auth.response
 
@@ -43,7 +45,7 @@ export async function PUT(
   if (status) {
     const { error } = await (supabase.from('orders') as any)
       .update({ status })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -53,12 +55,12 @@ export async function PUT(
     // api/cron/review-requests para pedir reseña unos días después, sin
     // depender de updated_at (que cambia con cualquier otra edición).
     if (status === 'delivered') {
-      const { data: order } = await supabase.from('orders').select('metadata').eq('id', params.id).single()
+      const { data: order } = await supabase.from('orders').select('metadata').eq('id', id).single()
       const currentMetadata = (order?.metadata as Record<string, any>) || {}
       if (!currentMetadata.delivered_at) {
         await (supabase.from('orders') as any)
           .update({ metadata: { ...currentMetadata, delivered_at: new Date().toISOString() } })
-          .eq('id', params.id)
+          .eq('id', id)
       }
     }
   }
@@ -73,7 +75,7 @@ export async function PUT(
     const { data: orderRow, error: orderLookupError } = await supabase
       .from('orders')
       .select('payment_status, order_number')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (orderLookupError || !orderRow) {
@@ -85,29 +87,29 @@ export async function PUT(
     if ((orderRow as any).payment_status !== 'paid') {
       const { error: updateError } = await (supabase.from('orders') as any)
         .update({ status: 'confirmed', payment_status: 'paid' })
-        .eq('id', params.id)
+        .eq('id', id)
 
       if (updateError) {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
       }
 
       try {
-        await decrementStockForOrder(supabase, params.id, `Pago manual confirmado - Orden ${(orderRow as any).order_number}`)
+        await decrementStockForOrder(supabase, id, `Pago manual confirmado - Orden ${(orderRow as any).order_number}`)
       } catch (stockError) {
         console.error('Error decrementing stock for manual payment:', stockError)
       }
 
-      await awardLoyaltyPointsForOrder(supabase, params.id)
+      await awardLoyaltyPointsForOrder(supabase, id)
 
       await (supabase.from('audit_logs') as any).insert({
         action: 'payment_completed_manual',
         table_name: 'orders',
-        record_id: params.id,
+        record_id: id,
         new_data: { payment_status: 'paid' },
       })
 
       try {
-        await sendOrderConfirmation(params.id)
+        await sendOrderConfirmation(id)
       } catch (emailError) {
         console.error('Error sending confirmation email:', emailError)
       }
@@ -120,7 +122,7 @@ export async function PUT(
     const { data: order } = await supabase
       .from('orders')
       .select('metadata')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     const currentMetadata = (order?.metadata as Record<string, any>) || {}
@@ -132,7 +134,7 @@ export async function PUT(
 
     const { error: metaError } = await (supabase.from('orders') as any)
       .update({ metadata: newMetadata })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (metaError) {
       return NextResponse.json({ error: metaError.message }, { status: 500 })
@@ -142,7 +144,7 @@ export async function PUT(
   // If status changed to 'shipped', send notification email
   if (status === 'shipped') {
     try {
-      await sendOrderShipped(params.id, tracking_number, tracking_url)
+      await sendOrderShipped(id, tracking_number, tracking_url)
     } catch (emailError) {
       console.error('Error sending shipped notification:', emailError)
     }
@@ -152,7 +154,7 @@ export async function PUT(
   await (supabase.from('audit_logs') as any).insert({
     action: `order_${status || 'updated'}`,
     table_name: 'orders',
-    record_id: params.id,
+    record_id: id,
     new_data: body,
   })
 

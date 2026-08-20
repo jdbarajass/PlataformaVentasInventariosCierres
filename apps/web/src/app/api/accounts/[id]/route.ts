@@ -18,8 +18,9 @@ const accountUpdateSchema = z.object({
 // PUT - Actualizar datos de una cuenta (nunca el saldo directamente)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
@@ -35,7 +36,7 @@ export async function PUT(
       .from('accounts')
       // @ts-ignore - Supabase type inference issue
       .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -48,7 +49,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: 'account_updated',
       tableName: 'accounts',
-      recordId: params.id,
+      recordId: id,
       newData: validatedData,
     })
 

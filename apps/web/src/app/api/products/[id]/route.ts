@@ -7,15 +7,16 @@ import { requireAuth } from '@/lib/auth-helpers'
 // GET - Obtener producto por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const supabase = getServiceSupabase()
 
     const { data: product, error } = await supabase
       .from('products')
       .select('*, categories(name, slug)')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error || !product) {
@@ -38,8 +39,9 @@ export async function GET(
 // PUT - Actualizar producto
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     // Validate authentication and role
     const auth = await requireAuth(request, ['admin', 'seller'])
@@ -71,7 +73,7 @@ export async function PUT(
         deleted_at: validatedData.active ? null : undefined,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -106,8 +108,9 @@ export async function PUT(
 // DELETE - Eliminar producto
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     // Validate authentication and role
     const auth = await requireAuth(request, ['admin', 'seller'])
@@ -122,7 +125,7 @@ export async function DELETE(
     const { data: product } = await supabase
       .from('products')
       .select('id, title')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (!product) {
@@ -142,7 +145,7 @@ export async function DELETE(
     const { error: updateError } = await supabase
       .from('products')
       .update({ active: false, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (updateError) {
       console.error('Error deleting product:', updateError)
@@ -156,7 +159,7 @@ export async function DELETE(
 
     return NextResponse.json({
       message: 'Producto eliminado exitosamente',
-      id: params.id,
+      id: id,
     })
   } catch (error) {
     console.error('Error deleting product:', error)

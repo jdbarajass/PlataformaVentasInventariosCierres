@@ -14,8 +14,9 @@ const itemUpdateSchema = z.object({
 // 4.3.9 de la auditoría de fidelidad).
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -30,7 +31,7 @@ export async function PUT(
     const { data: current, error: fetchError } = await supabase
       .from('supplier_invoice_items')
       .select('qty, unit_price_cents')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
     if (fetchError || !current) {
       return NextResponse.json({ error: 'Ítem no encontrado' }, { status: 404 })
@@ -43,7 +44,7 @@ export async function PUT(
       .from('supplier_invoice_items')
       // @ts-ignore - Supabase type inference issue
       .update({ ...validatedData, subtotal_cents: qty * unitPrice })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -64,8 +65,9 @@ export async function PUT(
 // DELETE - Quitar una línea/ítem de una factura de proveedor
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -77,13 +79,13 @@ export async function DELETE(
     const { error } = await supabase
       .from('supplier_invoice_items')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       throw error
     }
 
-    return NextResponse.json({ message: 'Ítem eliminado exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Ítem eliminado exitosamente', id: id })
   } catch (error) {
     console.error('Error deleting supplier invoice item:', error)
     return NextResponse.json(

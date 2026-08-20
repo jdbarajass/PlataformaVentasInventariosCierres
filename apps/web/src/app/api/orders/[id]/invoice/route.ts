@@ -6,8 +6,9 @@ import { generarReciboTermicoHTML } from '@/lib/recibo-termico'
 // GET - Generate invoice HTML for an order (printable as PDF)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   // Unauthenticated by design (customers open this from their confirmation
   // email/page without logging in), so the order UUID is the only access
   // control — rate limit to make brute-force enumeration impractical.
@@ -19,7 +20,7 @@ export async function GET(
   const { data: orderData, error } = await supabase
     .from('orders')
     .select('*, order_items(*), payments(*), seller:users!orders_seller_id_fkey(name)')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !orderData) {

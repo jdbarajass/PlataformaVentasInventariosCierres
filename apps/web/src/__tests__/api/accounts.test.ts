@@ -107,7 +107,7 @@ describe('PUT /api/accounts/[id]', () => {
     const { PUT } = await import('@/app/api/accounts/[id]/route')
     const res = await PUT(
       buildRequest({ name: 'Efectivo', balance_cents: 999_999_999 }, 'PUT'),
-      { params: { id: 'a1' } }
+      { params: Promise.resolve({ id: 'a1' }) }
     )
 
     expect(res.status).toBe(200)

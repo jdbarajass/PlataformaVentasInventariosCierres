@@ -51,7 +51,7 @@ describe('PUT /api/orders/[id] — puntos al marcar pago manual como pagado', ()
     getServiceSupabaseMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/orders/[id]/route')
-    const res = await PUT(buildRequest({ mark_paid: true }), { params: { id: 'order-1' } })
+    const res = await PUT(buildRequest({ mark_paid: true }), { params: Promise.resolve({ id: 'order-1' }) })
 
     expect(res.status).toBe(200)
     expect(calls['rpc.award_loyalty_points'][0][0]).toEqual({
@@ -69,7 +69,7 @@ describe('PUT /api/orders/[id] — puntos al marcar pago manual como pagado', ()
     getServiceSupabaseMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/orders/[id]/route')
-    const res = await PUT(buildRequest({ mark_paid: true }), { params: { id: 'order-1' } })
+    const res = await PUT(buildRequest({ mark_paid: true }), { params: Promise.resolve({ id: 'order-1' }) })
 
     expect(res.status).toBe(200)
     expect(calls['rpc.award_loyalty_points']).toBeUndefined()

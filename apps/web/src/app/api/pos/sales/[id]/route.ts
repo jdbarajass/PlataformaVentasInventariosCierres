@@ -40,8 +40,9 @@ const editSaleSchema = z.object({
 // GET - Detalle de una venta de mostrador (para precargar el formulario de edición)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -52,7 +53,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('orders')
       .select('*, order_items(*), payments(*)')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('channel', 'pos')
       .single()
 
@@ -72,8 +73,9 @@ export async function GET(
 // datos nuevos, conservando el mismo id/order_number (función edit_pos_sale).
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -108,7 +110,7 @@ export async function PUT(
 
     const serviceSupabase = getServiceSupabase()
     const { data: order, error } = await (serviceSupabase.rpc as any)('edit_pos_sale', {
-      p_order_id: params.id,
+      p_order_id: id,
       p_order: orderPayload,
       p_items: resolvedItems,
       p_payments: resolvedPayments,
@@ -130,7 +132,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: 'pos_sale_edited',
       tableName: 'orders',
-      recordId: params.id,
+      recordId: id,
       newData: orderPayload,
     })
 
@@ -153,8 +155,9 @@ export async function PUT(
 // cuentas (función atómica cancel_pos_sale).
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -163,7 +166,7 @@ export async function DELETE(
 
     const supabase = getServiceSupabase()
     const { error } = await (supabase.rpc as any)('cancel_pos_sale', {
-      p_order_id: params.id,
+      p_order_id: id,
     })
 
     if (error) {
@@ -178,10 +181,10 @@ export async function DELETE(
       actorEmail: auth.user.email,
       action: 'pos_sale_cancelled',
       tableName: 'orders',
-      recordId: params.id,
+      recordId: id,
     })
 
-    return NextResponse.json({ message: 'Venta cancelada exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Venta cancelada exitosamente', id: id })
   } catch (error) {
     console.error('Error cancelling POS sale:', error)
     return NextResponse.json(

@@ -13,12 +13,13 @@ import { Product } from '@/types/database'
 export const dynamic = 'force-dynamic'
 
 interface EditProductPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
+  const { id } = await params
   // Cliente de servicio (bypassa RLS): con el cliente anónimo, la política
   // "Anyone can view active products" bloqueaba esta consulta para los 190
   // productos migrados del inventario físico (inactive=true a propósito) —
@@ -27,7 +28,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   const { data: product } = await supabase
     .from('products')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!product) {

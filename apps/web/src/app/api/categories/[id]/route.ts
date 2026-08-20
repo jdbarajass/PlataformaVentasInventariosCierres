@@ -14,8 +14,9 @@ const categoryUpdateSchema = z.object({
 // PUT - Editar nombre/slug/descripción o activar/desactivar una categoría
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
@@ -29,7 +30,7 @@ export async function PUT(
     const { data: category, error } = await (supabase
       .from('categories') as any)
       .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -45,7 +46,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: 'category_updated',
       tableName: 'categories',
-      recordId: params.id,
+      recordId: id,
       newData: validatedData,
     })
 
@@ -66,8 +67,9 @@ export async function PUT(
 // admin debe reasignar esos productos o usar "Desactivar" en su lugar.
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
@@ -79,7 +81,7 @@ export async function DELETE(
     const { count } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
-      .eq('category_id', params.id)
+      .eq('category_id', id)
 
     if (count && count > 0) {
       return NextResponse.json(
@@ -88,7 +90,7 @@ export async function DELETE(
       )
     }
 
-    const { error } = await supabase.from('categories').delete().eq('id', params.id)
+    const { error } = await supabase.from('categories').delete().eq('id', id)
 
     if (error) {
       throw error
@@ -99,10 +101,10 @@ export async function DELETE(
       actorEmail: auth.user.email,
       action: 'category_deleted',
       tableName: 'categories',
-      recordId: params.id,
+      recordId: id,
     })
 
-    return NextResponse.json({ message: 'Categoría eliminada', id: params.id })
+    return NextResponse.json({ message: 'Categoría eliminada', id: id })
   } catch (error) {
     console.error('Error deleting category:', error)
     return NextResponse.json({ error: 'Error al eliminar la categoría' }, { status: 500 })

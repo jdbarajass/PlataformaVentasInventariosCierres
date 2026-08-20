@@ -20,8 +20,9 @@ const loanUpdateSchema = z.object({
 // producto/almacén de un préstamo
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -37,7 +38,7 @@ export async function PUT(
       .from('loans')
       // @ts-ignore - Supabase type inference issue
       .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -50,7 +51,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: 'loan_updated',
       tableName: 'loans',
-      recordId: params.id,
+      recordId: id,
       newData: validatedData,
     })
 
@@ -75,8 +76,9 @@ export async function PUT(
 // DELETE - Eliminar el registro de un préstamo
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -88,7 +90,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('loans')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       throw error
@@ -99,10 +101,10 @@ export async function DELETE(
       actorEmail: auth.user.email,
       action: 'loan_deleted',
       tableName: 'loans',
-      recordId: params.id,
+      recordId: id,
     })
 
-    return NextResponse.json({ message: 'Préstamo eliminado exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Préstamo eliminado exitosamente', id: id })
   } catch (error) {
     console.error('Error deleting loan:', error)
     return NextResponse.json(

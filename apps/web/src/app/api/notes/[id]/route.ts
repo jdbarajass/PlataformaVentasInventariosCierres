@@ -13,8 +13,9 @@ const noteUpdateSchema = z.object({
 // PUT - Editar o marcar completada una nota
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -30,7 +31,7 @@ export async function PUT(
       .from('notes')
       // @ts-ignore - Supabase type inference issue
       .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -43,7 +44,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: 'note_updated',
       tableName: 'notes',
-      recordId: params.id,
+      recordId: id,
       newData: validatedData,
     })
 
@@ -68,8 +69,9 @@ export async function PUT(
 // DELETE - Eliminar una nota
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -81,7 +83,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('notes')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       throw error
@@ -92,10 +94,10 @@ export async function DELETE(
       actorEmail: auth.user.email,
       action: 'note_deleted',
       tableName: 'notes',
-      recordId: params.id,
+      recordId: id,
     })
 
-    return NextResponse.json({ message: 'Nota eliminada exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Nota eliminada exitosamente', id: id })
   } catch (error) {
     console.error('Error deleting note:', error)
     return NextResponse.json(

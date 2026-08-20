@@ -108,7 +108,7 @@ describe('PUT /api/customer-credits/[id]', () => {
     createAuthenticatedClientMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/customer-credits/[id]/route')
-    const res = await PUT(buildRequest({ force_paid: true }, 'PUT'), { params: { id: 'credit-1' } })
+    const res = await PUT(buildRequest({ force_paid: true }, 'PUT'), { params: Promise.resolve({ id: 'credit-1' }) })
 
     expect(res.status).toBe(403)
     expect(client.from).not.toHaveBeenCalled()
@@ -122,7 +122,7 @@ describe('PUT /api/customer-credits/[id]', () => {
     createAuthenticatedClientMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/customer-credits/[id]/route')
-    const res = await PUT(buildRequest({ force_paid: true }, 'PUT'), { params: { id: 'credit-1' } })
+    const res = await PUT(buildRequest({ force_paid: true }, 'PUT'), { params: Promise.resolve({ id: 'credit-1' }) })
 
     expect(res.status).toBe(200)
     expect(calls['customer_credits.update'][0][0]).toMatchObject({ status: 'paid' })
@@ -139,7 +139,7 @@ describe('PUT /api/customer-credits/[id]', () => {
     // Ya abonaron 80.000 en total, intenta bajar el monto total a 50.000
     const res = await PUT(
       buildRequest({ total_amount_cents: 50_000 }, 'PUT'),
-      { params: { id: 'credit-1' } }
+      { params: Promise.resolve({ id: 'credit-1' }) }
     )
 
     expect(res.status).toBe(400)
@@ -159,7 +159,7 @@ describe('PUT /api/customer-credits/[id]', () => {
     // Ya abonaron 80.000, el nuevo total (80.000) queda exactamente cubierto
     const res = await PUT(
       buildRequest({ total_amount_cents: 80_000 }, 'PUT'),
-      { params: { id: 'credit-1' } }
+      { params: Promise.resolve({ id: 'credit-1' }) }
     )
 
     expect(res.status).toBe(200)
@@ -180,7 +180,7 @@ describe('DELETE /api/customer-credits/[id]', () => {
     getServiceSupabaseMock.mockReturnValue(client)
 
     const { DELETE } = await import('@/app/api/customer-credits/[id]/route')
-    const res = await DELETE(buildRequest({}, 'DELETE'), { params: { id: 'missing' } })
+    const res = await DELETE(buildRequest({}, 'DELETE'), { params: Promise.resolve({ id: 'missing' }) })
 
     expect(res.status).toBe(404)
   })

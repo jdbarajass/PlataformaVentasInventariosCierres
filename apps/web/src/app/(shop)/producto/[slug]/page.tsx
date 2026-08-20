@@ -54,8 +54,9 @@ async function getRelatedProducts(categoryId: string, excludeId: string): Promis
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const product = await getProduct(params.slug)
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const product = await getProduct(slug)
   if (!product) return { title: 'Producto no encontrado' }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
@@ -83,8 +84,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default async function ProductPage({ params }: { params: { slug: string } }) {
-  const product = await getProduct(params.slug)
+export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const product = await getProduct(slug)
 
   if (!product) {
     notFound()

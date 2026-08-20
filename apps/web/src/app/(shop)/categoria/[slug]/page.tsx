@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { ProductCard } from '@/components/products/product-card'
 import { Button } from '@/components/ui/button'
@@ -143,7 +144,7 @@ export default function CategoryPage() {
             La categoría que buscas no existe o no está disponible.
           </p>
           <Button asChild className="mt-4">
-            <a href="/">Volver al inicio</a>
+            <Link href="/">Volver al inicio</Link>
           </Button>
         </div>
       </div>

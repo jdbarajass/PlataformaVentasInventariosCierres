@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import * as Sentry from '@sentry/nextjs'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
@@ -32,10 +33,10 @@ export default function Error({
             Intentar de nuevo
           </Button>
           <Button asChild className="gap-2">
-            <a href="/">
+            <Link href="/">
               <Home className="h-4 w-4" />
               Ir al inicio
-            </a>
+            </Link>
           </Button>
         </div>
       </div>

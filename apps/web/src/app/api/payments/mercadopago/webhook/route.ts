@@ -24,7 +24,7 @@ import { awardLoyaltyPointsForOrder } from '@/lib/loyalty'
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
-  const headersList = headers()
+  const headersList = await headers()
   const xSignature = headersList.get('x-signature')
 
   // Parse query params — MP sends ?topic=payment&id=PAYMENT_ID or ?data.id=PAYMENT_ID

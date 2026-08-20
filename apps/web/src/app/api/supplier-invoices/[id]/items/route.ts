@@ -12,8 +12,9 @@ const itemSchema = z.object({
 // POST - Agregar una línea/ítem a una factura de proveedor
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -29,7 +30,7 @@ export async function POST(
     const { data: item, error } = await supabase
       .from('supplier_invoice_items')
       // @ts-ignore - Supabase type inference issue
-      .insert({ ...validatedData, invoice_id: params.id, subtotal_cents })
+      .insert({ ...validatedData, invoice_id: id, subtotal_cents })
       .select()
       .single()
 

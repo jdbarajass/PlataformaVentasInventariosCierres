@@ -16,8 +16,9 @@ const invoiceUpdateSchema = z.object({
 // GET - Detalle de una factura (con items y abonos)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -29,7 +30,7 @@ export async function GET(
     const { data: invoice, error } = await supabase
       .from('supplier_invoices')
       .select('*, items:supplier_invoice_items(*), payments:supplier_invoice_payments(*)')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error || !invoice) {
@@ -49,8 +50,9 @@ export async function GET(
 // PUT - Editar datos descriptivos de la factura (nunca el estado/pago directo)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -66,7 +68,7 @@ export async function PUT(
       .from('supplier_invoices')
       // @ts-ignore - Supabase type inference issue
       .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -79,7 +81,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: 'supplier_invoice_updated',
       tableName: 'supplier_invoices',
-      recordId: params.id,
+      recordId: id,
       newData: validatedData,
     })
 
@@ -104,8 +106,9 @@ export async function PUT(
 // DELETE - Eliminar la factura, revirtiendo cualquier abono que haya debitado una cuenta
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -114,7 +117,7 @@ export async function DELETE(
 
     const supabase = getServiceSupabase()
     const { error } = await (supabase.rpc as any)('delete_supplier_invoice', {
-      p_invoice_id: params.id,
+      p_invoice_id: id,
     })
 
     if (error) {
@@ -129,10 +132,10 @@ export async function DELETE(
       actorEmail: auth.user.email,
       action: 'supplier_invoice_deleted',
       tableName: 'supplier_invoices',
-      recordId: params.id,
+      recordId: id,
     })
 
-    return NextResponse.json({ message: 'Factura eliminada exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Factura eliminada exitosamente', id: id })
   } catch (error) {
     console.error('Error deleting supplier invoice:', error)
     return NextResponse.json(

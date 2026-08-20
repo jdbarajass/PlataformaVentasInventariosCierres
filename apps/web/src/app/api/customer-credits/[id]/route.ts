@@ -23,8 +23,9 @@ const creditUpdateSchema = z.object({
 // GET - Detalle de un fiado (con abonos)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -36,7 +37,7 @@ export async function GET(
     const { data: credit, error } = await supabase
       .from('customer_credits')
       .select('*, payments:customer_credit_payments(*)')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error || !credit) {
@@ -56,8 +57,9 @@ export async function GET(
 // PUT - Editar datos descriptivos del fiado, incluido el monto total
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -88,7 +90,7 @@ export async function PUT(
       const { data: paymentsData } = await supabase
         .from('customer_credit_payments')
         .select('amount_cents')
-        .eq('credit_id', params.id)
+        .eq('credit_id', id)
       const paidSoFar = ((paymentsData || []) as { amount_cents: number }[]).reduce(
         (sum, p) => sum + p.amount_cents,
         0
@@ -108,7 +110,7 @@ export async function PUT(
       .from('customer_credits')
       // @ts-ignore - Supabase type inference issue
       .update(updatePayload)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -121,7 +123,7 @@ export async function PUT(
       actorEmail: auth.user.email,
       action: force_paid ? 'customer_credit_force_paid' : 'customer_credit_updated',
       tableName: 'customer_credits',
-      recordId: params.id,
+      recordId: id,
       newData: updatePayload,
     })
 
@@ -146,8 +148,9 @@ export async function PUT(
 // DELETE - Eliminar el fiado, revirtiendo cualquier abono que haya acreditado una cuenta
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
@@ -156,7 +159,7 @@ export async function DELETE(
 
     const supabase = getServiceSupabase()
     const { error } = await (supabase.rpc as any)('delete_customer_credit', {
-      p_credit_id: params.id,
+      p_credit_id: id,
     })
 
     if (error) {
@@ -171,10 +174,10 @@ export async function DELETE(
       actorEmail: auth.user.email,
       action: 'customer_credit_deleted',
       tableName: 'customer_credits',
-      recordId: params.id,
+      recordId: id,
     })
 
-    return NextResponse.json({ message: 'Fiado eliminado exitosamente', id: params.id })
+    return NextResponse.json({ message: 'Fiado eliminado exitosamente', id: id })
   } catch (error) {
     console.error('Error deleting customer credit:', error)
     return NextResponse.json(
