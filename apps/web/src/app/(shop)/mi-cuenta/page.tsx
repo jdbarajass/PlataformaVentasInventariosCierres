@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
@@ -20,8 +20,11 @@ import {
   CheckCircle,
   Truck,
   XCircle,
+  Gift,
+  Copy,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { MIN_REDEMPTION_POINTS, REDEMPTION_CENTS_PER_POINT } from '@/lib/loyalty'
 
 interface UserProfile {
   id: string
@@ -63,6 +66,14 @@ const paymentStatusConfig: Record<string, { label: string; color: string }> = {
   refunded: { label: 'Reembolsado', color: 'bg-gray-100 text-gray-800' },
 }
 
+interface LoyaltyLedgerEntry {
+  id: string
+  points: number
+  type: 'earn' | 'redeem' | 'adjustment'
+  description: string | null
+  created_at: string
+}
+
 export default function MiCuentaPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -70,9 +81,18 @@ export default function MiCuentaPage() {
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
-  const [activeTab, setActiveTab] = useState<'perfil' | 'ordenes'>('ordenes')
+  const [activeTab, setActiveTab] = useState<'perfil' | 'ordenes' | 'puntos'>('ordenes')
   const [editName, setEditName] = useState('')
   const [editPhone, setEditPhone] = useState('')
+
+  // Puntos de fidelización (Fase 6 del plan de mejoras integrales, docs/
+  // UNIFICACION_YJBMOTOCOM.md sección 80.10).
+  const [loyaltyBalance, setLoyaltyBalance] = useState(0)
+  const [loyaltyLedger, setLoyaltyLedger] = useState<LoyaltyLedgerEntry[]>([])
+  const [redeemPointsInput, setRedeemPointsInput] = useState(String(MIN_REDEMPTION_POINTS))
+  const [redeeming, setRedeeming] = useState(false)
+  const [redeemedCoupon, setRedeemedCoupon] = useState<{ code: string; discount_value: number } | null>(null)
+  const accessTokenRef = useRef<string | null>(null)
 
   const loadData = useCallback(async () => {
     const timeout = new Promise<never>((_, reject) =>
@@ -129,6 +149,22 @@ export default function MiCuentaPage() {
       if (ordersData) {
         setOrders(ordersData as unknown as Order[])
       }
+
+      // Puntos de fidelización — best-effort: si falla, el resto de la
+      // cuenta (perfil, pedidos) ya cargó bien y sigue funcionando.
+      accessTokenRef.current = session.access_token
+      try {
+        const loyaltyRes = await fetch('/api/loyalty', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (loyaltyRes.ok) {
+          const { data } = await loyaltyRes.json()
+          setLoyaltyBalance(data.balance || 0)
+          setLoyaltyLedger(data.ledger || [])
+        }
+      } catch (loyaltyErr) {
+        console.error('Error loading loyalty points:', loyaltyErr)
+      }
     } catch (err) {
       console.error('Error loading account data:', err)
       toast({
@@ -170,6 +206,46 @@ export default function MiCuentaPage() {
     window.location.href = '/'
   }
 
+  async function handleRedeemPoints() {
+    const points = parseInt(redeemPointsInput, 10) || 0
+    if (points < MIN_REDEMPTION_POINTS || points % 100 !== 0) {
+      toast({
+        title: 'Cantidad inválida',
+        description: `Los puntos se canjean en múltiplos de 100, mínimo ${MIN_REDEMPTION_POINTS}.`,
+        variant: 'destructive',
+      })
+      return
+    }
+    if (points > loyaltyBalance) {
+      toast({ title: 'No tienes suficientes puntos', variant: 'destructive' })
+      return
+    }
+    if (!accessTokenRef.current) return
+
+    setRedeeming(true)
+    try {
+      const res = await fetch('/api/loyalty/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessTokenRef.current}` },
+        body: JSON.stringify({ points }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        toast({ title: 'No se pudo canjear', description: body.error, variant: 'destructive' })
+        return
+      }
+      setRedeemedCoupon({ code: body.data.code, discount_value: body.data.discount_value })
+      setLoyaltyBalance((b) => b - points)
+      setRedeemPointsInput(String(MIN_REDEMPTION_POINTS))
+      loadData() // refresca el historial con el movimiento nuevo
+    } catch (err) {
+      console.error('Error redeeming points:', err)
+      toast({ title: 'Error al canjear los puntos', variant: 'destructive' })
+    } finally {
+      setRedeeming(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container py-16 text-center">
@@ -202,6 +278,13 @@ export default function MiCuentaPage() {
         >
           <Package className="mr-2 h-4 w-4" />
           Mis pedidos
+        </Button>
+        <Button
+          variant={activeTab === 'puntos' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('puntos')}
+        >
+          <Gift className="mr-2 h-4 w-4" />
+          Mis puntos
         </Button>
         <Button
           variant={activeTab === 'perfil' ? 'default' : 'outline'}
@@ -339,6 +422,112 @@ export default function MiCuentaPage() {
                 </Card>
               )
             })
+          )}
+        </div>
+      )}
+
+      {/* Puntos Tab */}
+      {activeTab === 'puntos' && (
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                  <Gift className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Tienes</p>
+                  <p className="text-3xl font-bold text-primary">{loyaltyBalance} puntos</p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Ganas 1 punto por cada $1.000 COP que gastes, en la tienda online y en el local. Canjea desde{' '}
+                {MIN_REDEMPTION_POINTS} puntos por un cupón de descuento.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Canjear puntos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {redeemedCoupon ? (
+                <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 p-6 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">Tu cupón de descuento</p>
+                  <p className="mt-1 text-2xl font-bold tracking-wide text-primary">{redeemedCoupon.code}</p>
+                  <p className="mt-1 text-sm font-medium">{formatPrice(redeemedCoupon.discount_value)} de descuento</p>
+                  <div className="mt-3 flex justify-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => navigator.clipboard.writeText(redeemedCoupon.code)}
+                    >
+                      <Copy className="mr-2 h-4 w-4" /> Copiar código
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="rounded-xl" onClick={() => setRedeemedCoupon(null)}>
+                      Canjear otro
+                    </Button>
+                  </div>
+                </div>
+              ) : loyaltyBalance < MIN_REDEMPTION_POINTS ? (
+                <p className="text-sm text-muted-foreground">
+                  Necesitas al menos {MIN_REDEMPTION_POINTS} puntos para canjear tu primer cupón.
+                </p>
+              ) : (
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Puntos a canjear</label>
+                    <Input
+                      type="number"
+                      min={MIN_REDEMPTION_POINTS}
+                      max={loyaltyBalance - (loyaltyBalance % 100)}
+                      step={100}
+                      value={redeemPointsInput}
+                      onChange={(e) => setRedeemPointsInput(e.target.value)}
+                      className="w-32 rounded-xl"
+                    />
+                  </div>
+                  <p className="pb-2 text-sm text-muted-foreground">
+                    ={' '}
+                    {formatPrice(
+                      (parseInt(redeemPointsInput, 10) || 0) * REDEMPTION_CENTS_PER_POINT
+                    )}{' '}
+                    de descuento
+                  </p>
+                  <Button type="button" disabled={redeeming} onClick={handleRedeemPoints} className="rounded-xl">
+                    {redeeming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Gift className="mr-2 h-4 w-4" />}
+                    Canjear
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {loyaltyLedger.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Historial de puntos</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loyaltyLedger.map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between text-sm">
+                    <div>
+                      <p>{entry.description || (entry.type === 'earn' ? 'Puntos ganados' : 'Canje de puntos')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(entry.created_at).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className={`font-semibold ${entry.points > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {entry.points > 0 ? '+' : ''}
+                      {entry.points}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
