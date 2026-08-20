@@ -297,12 +297,84 @@ async function getVentasStats() {
   }
 }
 
+interface StaleOrder {
+  id: string
+  order_number: string
+  customer_name: string | null
+  customer_email: string
+  total_cents: number
+  created_at: string
+}
+
+// Alertas activas hoy: consolida en el Dashboard lo que hoy está repartido
+// en varias pantallas (el popup de recordatorios de sesión solo se ve una
+// vez al iniciar sesión, y "Órdenes Pendientes" del panel de canal es solo
+// un conteo sin poder ver cuáles ni desde cuándo). Reutiliza las mismas
+// reglas que /api/admin/session-alerts (facturas ≤7 días, notas ≤3 días,
+// fiados >30 días) para no duplicar el criterio de negocio en dos lugares.
+async function getBusinessAlerts() {
+  const now = new Date()
+  const in7Days = bogotaDateStr(new Date(now.getTime() + 7 * 86_400_000))
+  const in3Days = bogotaDateStr(new Date(now.getTime() + 3 * 86_400_000))
+  const yesterday = new Date(now.getTime() - 24 * 3_600_000).toISOString()
+
+  const [invoicesRes, notesRes, creditsRes, stalePendingRes, paymentPendingRes] = await Promise.all([
+    supabase
+      .from('supplier_invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .not('due_date', 'is', null)
+      .lte('due_date', in7Days),
+    supabase
+      .from('notes')
+      .select('id', { count: 'exact', head: true })
+      .eq('completed', false)
+      .not('due_date', 'is', null)
+      .lte('due_date', in3Days),
+    supabase.from('customer_credits').select('created_at').eq('status', 'pending'),
+    // Pedidos online que llevan más de 24h sin pasar de "pending" — a
+    // diferencia del conteo crudo de "Órdenes Pendientes" (que mezcla un
+    // pedido de hace 5 minutos con uno de hace 3 días), esto separa lo que
+    // de verdad necesita atención.
+    supabase
+      .from('orders')
+      .select('id, order_number, customer_name, customer_email, total_cents, created_at')
+      .eq('channel', 'online')
+      .eq('status', 'pending')
+      .lt('created_at', yesterday)
+      .order('created_at', { ascending: true })
+      .limit(5),
+    // Pagos manuales (transferencia/Nequi/etc.) esperando confirmación —
+    // requieren que un admin los marque como pagados a mano.
+    supabase
+      .from('orders')
+      .select('id, order_number, customer_name, customer_email, total_cents, created_at')
+      .eq('channel', 'online')
+      .eq('payment_status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(5),
+  ])
+
+  const oldCreditsCount = ((creditsRes.data as { created_at: string }[]) || []).filter(
+    (c) => Math.floor((now.getTime() - new Date(c.created_at).getTime()) / 86_400_000) > 30
+  ).length
+
+  return {
+    dueInvoicesCount: invoicesRes.count || 0,
+    urgentNotesCount: notesRes.count || 0,
+    oldCreditsCount,
+    stalePendingOrders: (stalePendingRes.data as StaleOrder[]) || [],
+    paymentPendingOrders: (paymentPendingRes.data as StaleOrder[]) || [],
+  }
+}
+
 export default async function AdminDashboard() {
-  const [onlineStats, posStats, lowStockProducts, ventas] = await Promise.all([
+  const [onlineStats, posStats, lowStockProducts, ventas, alerts] = await Promise.all([
     getChannelStats('online'),
     getChannelStats('pos'),
     getLowStockProducts(),
     getVentasStats(),
+    getBusinessAlerts(),
   ])
 
   return (
@@ -310,6 +382,7 @@ export default async function AdminDashboard() {
       online={{ ...onlineStats, lowStockProducts }}
       fisica={{ ...posStats, lowStockProducts }}
       ventas={ventas}
+      alerts={alerts}
     />
   )
 }

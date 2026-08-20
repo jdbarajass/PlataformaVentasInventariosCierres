@@ -18,6 +18,11 @@ import {
   Building2,
   Wallet,
   Clock,
+  CheckCircle2,
+  FileText,
+  StickyNote,
+  CreditCard,
+  PackageSearch,
 } from 'lucide-react'
 
 interface LowStockProduct {
@@ -51,6 +56,142 @@ interface VentasStats {
   byMethod: { method: string; cents: number }[]
   weeklyTrend: { date: string; cents: number }[]
   topProducts: TopProduct[]
+}
+
+interface AlertOrder {
+  id: string
+  order_number: string
+  customer_name: string | null
+  customer_email: string
+  total_cents: number
+  created_at: string
+}
+
+interface BusinessAlerts {
+  dueInvoicesCount: number
+  urgentNotesCount: number
+  oldCreditsCount: number
+  stalePendingOrders: AlertOrder[]
+  paymentPendingOrders: AlertOrder[]
+}
+
+function hoursAgo(iso: string): string {
+  const hours = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
+  if (hours < 24) return `hace ${hours}h`
+  return `hace ${Math.floor(hours / 24)}d`
+}
+
+// Alertas activas hoy — consolida en un solo lugar del Dashboard lo que
+// antes estaba repartido (popup de recordatorios solo al iniciar sesión,
+// conteo crudo de "Órdenes Pendientes" sin poder ver cuáles). No repite la
+// Alerta de Stock Bajo: esa ya tiene su propia tarjeta en cada pestaña de
+// canal, mostrarla dos veces en la misma página sería ruido.
+function AlertsPanel({ alerts }: { alerts: BusinessAlerts }) {
+  const total =
+    alerts.dueInvoicesCount +
+    alerts.urgentNotesCount +
+    alerts.oldCreditsCount +
+    alerts.stalePendingOrders.length +
+    alerts.paymentPendingOrders.length
+
+  if (total === 0) {
+    return (
+      <Card className="border-green-500/30 bg-green-500/5">
+        <CardContent className="flex items-center gap-3 py-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+          <p className="text-sm font-medium">Todo al día — sin alertas activas.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="border-amber-500/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          Alertas activas hoy
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {alerts.dueInvoicesCount > 0 && (
+            <Link href="/admin/facturas">
+              <Badge variant="warning" className="gap-1.5 px-3 py-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                {alerts.dueInvoicesCount} factura{alerts.dueInvoicesCount === 1 ? '' : 's'} por vencer
+              </Badge>
+            </Link>
+          )}
+          {alerts.urgentNotesCount > 0 && (
+            <Link href="/admin/notas">
+              <Badge variant="warning" className="gap-1.5 px-3 py-1.5">
+                <StickyNote className="h-3.5 w-3.5" />
+                {alerts.urgentNotesCount} nota{alerts.urgentNotesCount === 1 ? '' : 's'} con fecha límite próxima
+              </Badge>
+            </Link>
+          )}
+          {alerts.oldCreditsCount > 0 && (
+            <Link href="/admin/fiado">
+              <Badge variant="warning" className="gap-1.5 px-3 py-1.5">
+                <CreditCard className="h-3.5 w-3.5" />
+                {alerts.oldCreditsCount} fiado{alerts.oldCreditsCount === 1 ? '' : 's'} con más de 30 días
+              </Badge>
+            </Link>
+          )}
+        </div>
+
+        {alerts.paymentPendingOrders.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              Pagos pendientes de confirmar ({alerts.paymentPendingOrders.length})
+            </p>
+            <div className="space-y-1.5">
+              {alerts.paymentPendingOrders.map((o) => (
+                <Link
+                  key={o.id}
+                  href="/admin/ordenes"
+                  className="flex items-center justify-between rounded-lg border p-2.5 text-sm transition-colors hover:bg-secondary"
+                >
+                  <span className="line-clamp-1">
+                    {o.order_number} — {o.customer_name || o.customer_email}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {formatPrice(o.total_cents)} · {hoursAgo(o.created_at)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {alerts.stalePendingOrders.length > 0 && (
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              <PackageSearch className="h-4 w-4" />
+              Pedidos sin confirmar hace más de 24h ({alerts.stalePendingOrders.length})
+            </p>
+            <div className="space-y-1.5">
+              {alerts.stalePendingOrders.map((o) => (
+                <Link
+                  key={o.id}
+                  href="/admin/ordenes"
+                  className="flex items-center justify-between rounded-lg border p-2.5 text-sm transition-colors hover:bg-secondary"
+                >
+                  <span className="line-clamp-1">
+                    {o.order_number} — {o.customer_name || o.customer_email}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {formatPrice(o.total_cents)} · {hoursAgo(o.created_at)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 const methodLabels: Record<string, string> = {
@@ -250,10 +391,12 @@ export function DashboardTabs({
   online,
   fisica,
   ventas,
+  alerts,
 }: {
   online: ChannelStats
   fisica: ChannelStats
   ventas: VentasStats
+  alerts: BusinessAlerts
 }) {
   const [tab, setTab] = useState<'ventas' | 'online' | 'fisica'>('ventas')
   const { userProfile } = useAuth()
@@ -301,6 +444,8 @@ export function DashboardTabs({
 
       {tab === 'ventas' && (
         <div className="space-y-6">
+          <AlertsPanel alerts={alerts} />
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
