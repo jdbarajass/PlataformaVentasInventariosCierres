@@ -125,6 +125,40 @@ describe('POST /api/payments/webhook (Stripe)', () => {
     expect(calls['orders.update'][0][0]).toMatchObject({ status: 'confirmed', payment_status: 'paid' })
     expect(decrementStockAtomicMock).toHaveBeenCalledWith(client, 'p1', 2)
   })
+
+  it('otorga puntos de fidelización cuando la orden tiene un cliente registrado', async () => {
+    validateStripeWebhookMock.mockReturnValue({
+      id: 'evt_3',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'sess_3',
+          payment_intent: 'pi_3',
+          amount_total: 500_000,
+          metadata: { order_id: 'order-1' },
+        },
+      },
+    })
+    // awardLoyaltyPointsForOrder vuelve a consultar `orders` (user_id,
+    // total_cents, order_number, channel) — el mock comparte una sola
+    // respuesta fija por tabla, así que el fixture ya trae user_id.
+    const { client, calls } = createSupabaseMock({
+      orders: { data: { total_cents: 500_000, user_id: 'u1', order_number: 'YJBM-1', channel: 'online' }, error: null },
+      order_items: { data: [{ product_id: 'p1', qty: 1 }], error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/payments/webhook/route')
+    const res = await POST(buildStripeRequest())
+
+    expect(res.status).toBe(200)
+    expect(calls['rpc.award_loyalty_points'][0][0]).toEqual({
+      p_user_id: 'u1',
+      p_points: 5,
+      p_order_id: 'order-1',
+      p_description: 'Compra YJBM-1',
+    })
+  })
 })
 
 function buildMercadoPagoRequest(parsedBody: Record<string, any>) {
@@ -184,5 +218,30 @@ describe('POST /api/payments/mercadopago/webhook', () => {
     expect(res.status).toBe(200)
     expect(calls['orders.update'][0][0]).toMatchObject({ status: 'confirmed', payment_status: 'paid' })
     expect(decrementStockAtomicMock).toHaveBeenCalledWith(client, 'p1', 2)
+  })
+
+  it('otorga puntos de fidelización cuando la orden tiene un cliente registrado', async () => {
+    getMercadoPagoPaymentMock.mockResolvedValue({
+      id: 'mp_3',
+      status: 'approved',
+      external_reference: 'order-1',
+      transaction_amount: 5000, // pesos; 500.000 centavos
+    })
+    const { client, calls } = createSupabaseMock({
+      orders: { data: { total_cents: 500_000, user_id: 'u1', order_number: 'YJBM-2', channel: 'online' }, error: null },
+      order_items: { data: [{ product_id: 'p1', qty: 1 }], error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/payments/mercadopago/webhook/route')
+    const res = await POST(buildMercadoPagoRequest({ action: 'payment.updated', data: { id: 'mp_3' } }))
+
+    expect(res.status).toBe(200)
+    expect(calls['rpc.award_loyalty_points'][0][0]).toEqual({
+      p_user_id: 'u1',
+      p_points: 5,
+      p_order_id: 'order-1',
+      p_description: 'Compra YJBM-2',
+    })
   })
 })

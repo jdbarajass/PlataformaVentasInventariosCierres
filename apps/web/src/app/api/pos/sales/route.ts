@@ -3,6 +3,7 @@ import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { resolveSale } from '@/lib/pos-sale'
 import { logAudit } from '@/lib/audit'
+import { awardLoyaltyPointsForOrder } from '@/lib/loyalty'
 import { z } from 'zod'
 
 const saleItemSchema = z
@@ -34,6 +35,11 @@ const saleSchema = z.object({
   customer_name: z.string().optional().nullable(),
   customer_phone: z.string().optional().nullable(),
   customer_id_number: z.string().optional().nullable(),
+  // Cliente registrado vinculado a la venta (opcional) — permite que una
+  // venta de mostrador otorgue puntos de fidelización igual que una compra
+  // online (Fase 6 del plan de mejoras integrales). Si el vendedor no
+  // encuentra/selecciona ningún cliente, la venta sigue igual que siempre.
+  customer_user_id: z.string().uuid().optional().nullable(),
   notes: z.string().optional().nullable(),
   items: z.array(saleItemSchema).min(1, 'La venta debe tener al menos un producto'),
   payments: z.array(salePaymentSchema).min(1, 'La venta debe tener al menos un método de pago'),
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { customer_name, customer_phone, customer_id_number, notes, items, payments, force, created_at } =
+    const { customer_name, customer_phone, customer_id_number, customer_user_id, notes, items, payments, force, created_at } =
       validation.data
 
     const supabase = createAuthenticatedClient(auth.token)
@@ -75,6 +81,7 @@ export async function POST(request: NextRequest) {
       await resolveSale(supabase, items, payments)
 
     const orderPayload = {
+      user_id: customer_user_id || null,
       customer_name: customer_name || null,
       customer_phone: customer_phone || null,
       seller_id: auth.user.id,
@@ -111,6 +118,8 @@ export async function POST(request: NextRequest) {
       recordId: (order as any)?.id,
       newData: { total_cents, items: resolvedItems.length },
     })
+
+    await awardLoyaltyPointsForOrder(serviceSupabase, (order as any).id)
 
     return NextResponse.json({ data: order }, { status: 201 })
   } catch (error) {

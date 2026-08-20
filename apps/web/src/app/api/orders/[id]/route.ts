@@ -3,6 +3,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { sendOrderShipped, sendOrderConfirmation } from '@/lib/email'
 import { decrementStockForOrder } from '@/lib/order-fulfillment'
+import { awardLoyaltyPointsForOrder } from '@/lib/loyalty'
 
 // GET - Admin: get single order details
 export async function GET(
@@ -95,6 +96,8 @@ export async function PUT(
       } catch (stockError) {
         console.error('Error decrementing stock for manual payment:', stockError)
       }
+
+      await awardLoyaltyPointsForOrder(supabase, params.id)
 
       await (supabase.from('audit_logs') as any).insert({
         action: 'payment_completed_manual',

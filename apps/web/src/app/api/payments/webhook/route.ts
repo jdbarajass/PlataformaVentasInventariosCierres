@@ -7,6 +7,7 @@ import { sendOrderConfirmation, sendLowStockAlert } from '@/lib/email'
 import { validateStripeWebhook, mapStripePaymentStatus } from '@/lib/stripe-helpers'
 import { markWebhookProcessed } from '@/lib/webhook-idempotency'
 import { decrementStockAtomic, decrementVariantStockAtomic } from '@/lib/inventory'
+import { awardLoyaltyPointsForOrder } from '@/lib/loyalty'
 
 /**
  * Stripe Webhook Handler
@@ -193,6 +194,10 @@ export async function POST(request: NextRequest) {
           record_id: orderId,
           new_data: { payment_status: 'paid', stripe_session_id: session.id },
         })
+
+        // Puntos de fidelización (Fase 6) — no bloqueante, idempotente por
+        // order_id, no afecta el resultado del pago si falla.
+        await awardLoyaltyPointsForOrder(serviceSupabase, orderId)
 
         console.log(`[Webhook] Order ${orderId} payment completed successfully`)
 
