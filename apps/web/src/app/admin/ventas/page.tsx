@@ -21,6 +21,7 @@ import {
   Layers,
   ArrowLeft,
   RotateCcw,
+  Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -140,6 +141,12 @@ interface SaleSession {
   customerName: string
   customerPhone: string
   customerIdNumber: string
+  // Cliente registrado vinculado (opcional) — si se elige uno, la venta
+  // otorga puntos de fidelización a esa cuenta (Fase 6 del plan de mejoras
+  // integrales). customerUserLabel es solo para mostrar quién quedó
+  // seleccionado sin tener que volver a buscarlo.
+  customerUserId: string | null
+  customerUserLabel: string | null
   notes: string
   // Fecha editable de la venta (por defecto hoy en Bogotá) — el software
   // local permite elegirla para registrar ventas de días anteriores (ej. si
@@ -159,6 +166,8 @@ const newSession = (label: string): SaleSession => ({
   customerName: '',
   customerPhone: '',
   customerIdNumber: '',
+  customerUserId: null,
+  customerUserLabel: null,
   notes: '',
   saleDate: bogotaDateStr(new Date()),
   lastSaleId: null,
@@ -175,6 +184,16 @@ export default function VentasPage() {
   const [todaySales, setTodaySales] = useState<any[]>([])
   const [loadingSales, setLoadingSales] = useState(true)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Buscador de cliente registrado (opcional, Fase 6 — puntos de
+  // fidelización también en mostrador) — mismo patrón que el buscador de
+  // productos de arriba, pero contra /api/customers/search.
+  const [customerQuery, setCustomerQuery] = useState('')
+  const [customerResults, setCustomerResults] = useState<
+    { id: string; name: string | null; email: string; phone: string | null; loyalty_points_balance: number }[]
+  >([])
+  const [customerSearching, setCustomerSearching] = useState(false)
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [commissionRates, setCommissionRates] = useState<Record<string, number>>({})
 
@@ -323,6 +342,46 @@ export default function VentasPage() {
       }
     }, 250)
   }, [query, categoryId, session?.access_token, authHeaders])
+
+  useEffect(() => {
+    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+    if (customerQuery.trim().length < 2) {
+      setCustomerResults([])
+      return
+    }
+    customerSearchTimer.current = setTimeout(async () => {
+      if (!session?.access_token) return
+      setCustomerSearching(true)
+      try {
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(customerQuery.trim())}`, {
+          headers: authHeaders(),
+        })
+        if (!res.ok) return
+        const { data } = await res.json()
+        setCustomerResults(data || [])
+      } catch (error) {
+        console.error('Error searching customers:', error)
+      } finally {
+        setCustomerSearching(false)
+      }
+    }, 250)
+  }, [customerQuery, session?.access_token, authHeaders])
+
+  const selectCustomer = (customer: { id: string; name: string | null; email: string; phone: string | null; loyalty_points_balance: number }) => {
+    updateActiveSession((s) => ({
+      ...s,
+      customerUserId: customer.id,
+      customerUserLabel: `${customer.name || customer.email} — ${customer.loyalty_points_balance} pts`,
+      customerName: customer.name || s.customerName,
+      customerPhone: customer.phone || s.customerPhone,
+    }))
+    setCustomerQuery('')
+    setCustomerResults([])
+  }
+
+  const clearSelectedCustomer = () => {
+    updateActiveSession((s) => ({ ...s, customerUserId: null, customerUserLabel: null }))
+  }
 
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', {
@@ -500,6 +559,8 @@ export default function VentasPage() {
       customerName: '',
       customerPhone: '',
       customerIdNumber: '',
+      customerUserId: null,
+      customerUserLabel: null,
       notes: '',
       saleDate: bogotaDateStr(new Date()),
     }))
@@ -589,6 +650,7 @@ export default function VentasPage() {
           customer_name: current.customerName || null,
           customer_phone: current.customerPhone || null,
           customer_id_number: current.customerIdNumber || null,
+          customer_user_id: current.customerUserId || null,
           notes: current.notes || null,
           items: current.cart.map((l) => ({
             product_id: l.product_id,
@@ -907,6 +969,45 @@ export default function VentasPage() {
             </button>
             {showCustomerFields && (
               <div className="mb-3 space-y-2 rounded-lg border p-3">
+                {/* Cliente registrado (opcional) — si se vincula, la venta
+                    otorga puntos de fidelización a esa cuenta. */}
+                {activeSession.customerUserId ? (
+                  <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <Star className="h-3.5 w-3.5 text-primary" /> {activeSession.customerUserLabel}
+                    </span>
+                    <button type="button" onClick={clearSelectedCustomer} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Buscar cliente registrado (nombre, email o teléfono)..."
+                      value={customerQuery}
+                      onChange={(e) => setCustomerQuery(e.target.value)}
+                      className="rounded-lg"
+                    />
+                    {customerQuery.trim().length >= 2 && (customerResults.length > 0 || customerSearching) && (
+                      <div className="absolute z-10 mt-1 max-h-48 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+                        {customerSearching ? (
+                          <p className="p-2 text-xs text-muted-foreground">Buscando...</p>
+                        ) : (
+                          customerResults.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                              onClick={() => selectCustomer(c)}
+                            >
+                              {c.name || c.email} <span className="text-xs text-muted-foreground">— {c.loyalty_points_balance} pts</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid gap-2 sm:grid-cols-3">
                   <Input placeholder="Nombre" value={activeSession.customerName} onChange={(e) => setCustomerName(e.target.value)} className="rounded-lg" />
                   <Input placeholder="Teléfono" value={activeSession.customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="rounded-lg" />
