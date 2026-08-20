@@ -17,6 +17,9 @@ export interface Database {
           phone: string | null
           role: 'admin' | 'seller' | 'viewer'
           avatar_url: string | null
+          // Programa de puntos de fidelización (migración 00044) — saldo
+          // vivo, el historial detallado vive en loyalty_points_ledger.
+          loyalty_points_balance: number
           created_at: string
           updated_at: string
         }
@@ -27,6 +30,7 @@ export interface Database {
           phone?: string | null
           role?: 'admin' | 'seller' | 'viewer'
           avatar_url?: string | null
+          loyalty_points_balance?: number
           created_at?: string
           updated_at?: string
         }
@@ -37,6 +41,7 @@ export interface Database {
           phone?: string | null
           role?: 'admin' | 'seller' | 'viewer'
           avatar_url?: string | null
+          loyalty_points_balance?: number
           updated_at?: string
         }
         Relationships: []
@@ -1293,6 +1298,59 @@ export interface Database {
           }
         ]
       }
+      loyalty_points_ledger: {
+        Row: {
+          id: string
+          user_id: string
+          points: number
+          type: 'earn' | 'redeem' | 'adjustment'
+          order_id: string | null
+          coupon_id: string | null
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          points: number
+          type: 'earn' | 'redeem' | 'adjustment'
+          order_id?: string | null
+          coupon_id?: string | null
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          points?: number
+          type?: 'earn' | 'redeem' | 'adjustment'
+          order_id?: string | null
+          coupon_id?: string | null
+          description?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_points_ledger_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "loyalty_points_ledger_order_id_fkey",
+            columns: ["order_id"],
+            isOneToOne: false,
+            referencedRelation: "orders",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "loyalty_points_ledger_coupon_id_fkey",
+            columns: ["coupon_id"],
+            isOneToOne: false,
+            referencedRelation: "coupons",
+            referencedColumns: ["id"],
+          }
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -1329,3 +1387,4 @@ export type Loan = Tables<'loans'>
 export type Note = Tables<'notes'>
 export type MonthlyBudget = Tables<'monthly_budgets'>
 export type OperatingExpense = Tables<'operating_expenses'>
+export type LoyaltyPointsLedger = Tables<'loyalty_points_ledger'>
