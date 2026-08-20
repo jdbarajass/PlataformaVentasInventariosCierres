@@ -609,7 +609,7 @@ export default function VentasPage() {
     setPaymentStep('combined')
   }
 
-  const handleSubmitSale = async (force = false) => {
+  const handleSubmitSale = async (force = false, existingReceiptWindow: Window | null = null) => {
     const activeId = activeSessionId
     const current = sessions.find((s) => s.id === activeId)
     if (!current) return
@@ -643,8 +643,14 @@ export default function VentasPage() {
     // Se abre una pestaña en blanco ANTES del fetch (todavía dentro del mismo
     // gesto de clic en "Confirmar venta") y se redirige al recibo real una vez
     // que la venta queda registrada — abrirla después del await la marcaría
-    // como popup no solicitado y la mayoría de navegadores la bloquearían.
-    const receiptWindow = window.open('about:blank', '_blank')
+    // como popup no solicitado y la mayoría de navegadores la bloquearían. Si
+    // esta es la llamada recursiva tras confirmar "Stock insuficiente,
+    // ¿continuar?", se reutiliza la MISMA pestaña ya abierta — nunca se abre
+    // una segunda, porque un window.open() disparado después de un confirm()
+    // dentro de una función async ya no cuenta como gesto directo del usuario
+    // en todos los navegadores y quedaba bloqueado en silencio (la venta se
+    // registraba bien, pero la factura nunca se veía).
+    const receiptWindow = existingReceiptWindow ?? window.open('about:blank', '_blank')
     let redirectedReceipt = false
 
     try {
@@ -687,11 +693,12 @@ export default function VentasPage() {
         // de continuar de todas formas (el stock nunca queda negativo).
         if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
           setSaving(false)
-          // La pestaña en blanco se cierra acá — si el usuario decide
-          // continuar, la llamada recursiva abre la suya propia.
-          receiptWindow?.close()
           if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
-            await handleSubmitSale(true)
+            // Reutiliza la misma pestaña ya abierta en vez de abrir una
+            // segunda (ver comentario arriba).
+            await handleSubmitSale(true, receiptWindow)
+          } else {
+            receiptWindow?.close()
           }
           return
         }
@@ -1213,9 +1220,20 @@ export default function VentasPage() {
                 </button>
                 <div className="rounded-lg border p-3">
                   <p className="mb-2 text-sm font-medium">{methodLabels[payments[0].method]}</p>
-                  {(payments[0].method === 'card' || payments[0].method === 'other') && (
+                  {payments[0].method === 'card' && (
+                    <select
+                      value={payments[0].method_detail}
+                      onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
+                      className="mb-2 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Selecciona Débito o Crédito...</option>
+                      <option value="Débito">Débito</option>
+                      <option value="Crédito">Crédito</option>
+                    </select>
+                  )}
+                  {payments[0].method === 'other' && (
                     <Input
-                      placeholder={payments[0].method === 'card' ? 'Débito o Crédito' : 'Especifica...'}
+                      placeholder="Especifica..."
                       value={payments[0].method_detail}
                       onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
                       className="mb-2 rounded-lg"
@@ -1277,9 +1295,20 @@ export default function VentasPage() {
                           </Button>
                         )}
                       </div>
-                      {(p.method === 'card' || p.method === 'other') && (
+                      {p.method === 'card' && (
+                        <select
+                          value={p.method_detail}
+                          onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
+                          className="h-8 w-full rounded-lg border bg-background px-2 text-xs"
+                        >
+                          <option value="">Débito o Crédito...</option>
+                          <option value="Débito">Débito</option>
+                          <option value="Crédito">Crédito</option>
+                        </select>
+                      )}
+                      {p.method === 'other' && (
                         <Input
-                          placeholder={p.method === 'card' ? 'Débito o Crédito' : 'Especifica...'}
+                          placeholder="Especifica..."
                           value={p.method_detail}
                           onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
                           className="h-8 rounded-lg text-xs"
