@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ZoomIn, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -30,8 +31,14 @@ export function ProductImageGallery({ images, title, discountPct }: ProductImage
             className="group relative aspect-square w-full overflow-hidden rounded-2xl bg-white dark:bg-secondary cursor-zoom-in"
             aria-label={`Ampliar imagen de ${title}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={current} alt={title} className="h-full w-full object-contain p-6" />
+            <Image
+              src={current}
+              alt={title}
+              fill
+              priority
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-contain p-6"
+            />
 
             {discountPct ? (
               <Badge variant="destructive" className="absolute left-4 top-4">
@@ -82,8 +89,9 @@ export function ProductImageGallery({ images, title, discountPct }: ProductImage
               </button>
             )}
 
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={current} alt={title} className="max-h-full max-w-full object-contain" />
+            <div className="relative h-full w-full">
+              <Image src={current} alt={title} fill sizes="100vw" className="object-contain" />
+            </div>
 
             {safeImages.length > 1 && (
               <button
@@ -112,8 +120,13 @@ export function ProductImageGallery({ images, title, discountPct }: ProductImage
               )}
               aria-label={`Ver imagen ${index + 1} de ${title}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image} alt={`${title} - imagen ${index + 1}`} className="h-full w-full object-contain p-2" />
+              <Image
+                src={image}
+                alt={`${title} - imagen ${index + 1}`}
+                fill
+                sizes="120px"
+                className="object-contain p-2"
+              />
             </button>
           ))}
         </div>
