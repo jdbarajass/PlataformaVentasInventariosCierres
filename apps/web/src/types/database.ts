@@ -975,6 +975,11 @@ export interface Database {
           id: string
           date: string
           cash_amount_cents: number
+          // Efectivo esperado según Ventas de mostrador y la diferencia
+          // contra lo contado — foto tomada al registrar el cierre, no se
+          // recalcula después (migración 00041, arqueo físico de caja).
+          cash_expected_cents: number | null
+          cash_difference_cents: number | null
           card_amount_cents: number
           transfer_amount_cents: number
           wallet_amount_cents: number
@@ -993,6 +998,8 @@ export interface Database {
           id?: string
           date: string
           cash_amount_cents?: number
+          cash_expected_cents?: number | null
+          cash_difference_cents?: number | null
           card_amount_cents?: number
           transfer_amount_cents?: number
           wallet_amount_cents?: number
@@ -1010,6 +1017,8 @@ export interface Database {
         Update: {
           date?: string
           cash_amount_cents?: number
+          cash_expected_cents?: number | null
+          cash_difference_cents?: number | null
           card_amount_cents?: number
           transfer_amount_cents?: number
           wallet_amount_cents?: number
