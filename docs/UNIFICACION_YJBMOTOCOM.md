@@ -2176,3 +2176,58 @@ Se cubrieron los casos donde NO debe quedar una pestaña en blanco huérfana: si
 El enlace manual "Ver recibo de la última venta" se dejó igual, como respaldo si el navegador bloquea el popup de todas formas (algunos navegadores/extensiones bloquean incluso el patrón blank-then-redirect).
 
 Verificado `tsc --noEmit`, `eslint` y `vitest run` (62/62 tests). Probado en navegador real (Playwright, sesión admin): venta de un ítem "fuera de catálogo" de $1.000 pagada en Efectivo → al hacer clic en "Confirmar venta" se abrió una pestaña nueva sola, sin ninguna otra acción, que terminó mostrando el recibo real (`YJBM-20260819-8588`) con el botón "Imprimir / Guardar como PDF". Venta de prueba cancelada al terminar para no dejar datos falsos.
+
+## 80. Plan por fases de mejoras integrales (2026-08-20, EN CURSO)
+
+El usuario pidió una revisión integral del proyecto completo (no un módulo puntual) para identificar mejoras de funcionamiento. Se hizo un repaso de todo el estado actual — historial de este documento, dependencias reales (`npm outdated`/`npm audit`), configuración de Vercel/CORS, cobertura de tests — y se propuso una lista de mejoras agrupada por prioridad. El usuario aprobó una parte de la lista para empezar ya, con 4 decisiones explícitas que fijan el alcance:
+
+### 80.1 Decisiones tomadas
+
+1. **Seguridad NO es una fase aparte ahora.** El usuario pidió dejar documentado y "muy pendiente para recordar" todo lo que no se aborde en esta ronda, e ir metiendo lo crítico de forma barata donde encaje naturalmente en cada fase (sin bloquear el trabajo principal por eso). Ver sección 80.2 para el detalle completo de lo que queda pendiente.
+2. **Cierres se redefine como arqueo físico de caja** (conteo real del efectivo/valores en caja al cierre del día), distinto de Mi Cuadre (que sigue siendo el resumen automático de ventas del día ya calculado por el sistema). Deja de ser una pantalla redundante — pasa a compararse contra el total esperado que Mi Cuadre ya calcula (esa comparación ya existía desde la Fase 5, sección 52 ítem A.5).
+3. **WhatsApp queda diseñado pero bloqueado** — el usuario no tiene todavía cuenta/credenciales con ningún proveedor (Meta WhatsApp Business API o Twilio). No se implementa código de envío real hasta que las consiga.
+4. **Orden de fases**: lo de menor riesgo primero; el upgrade de Next.js 14→15 (el de mayor riesgo de romper algo) queda aislado como la última fase, después de que todo lo demás esté probado y estable.
+
+### 80.2 Pendientes de seguridad — NO abordados en esta ronda, recordar en el futuro
+
+Quedan **fuera del alcance de las Fases 1-8** de esta sección, pero deben resolverse eventualmente (idealmente aprovechando fases donde ya se toque el mismo código, como se hace con el CORS en la Fase 1 y el `npm audit` en la Fase 8):
+
+- **`CRON_SECRET` sin configurar en Vercel** — acción manual del usuario (Vercel → Settings → Environment Variables), no es código. Pendiente desde el 2026-07-29. Sin esto, las 5 rutas `/api/cron/*` quedan sin protección real contra llamadas externas.
+- **1 vulnerabilidad crítica + 16 más en `npm audit`** (cadena `exceljs`/`mercadopago`/`svix`/`resend` → `uuid` vulnerable) — se revisa como parte de la Fase 8 (upgrade de dependencias), donde de todos modos se van a tocar versiones.
+- **Sin 2FA para el rol admin** — el panel maneja plata real y ya tuvo un hallazgo crítico de escalación de privilegios (sección 48). No programado en ninguna fase todavía; requiere diseño propio (¿TOTP vía Supabase Auth MFA?) cuando el usuario quiera priorizarlo.
+- **Sin rate limiting propio en `/iniciar-sesion` ni `/registro`** — hoy depende 100% del rate limiting interno de Supabase Auth. No urgente, pendiente de evaluar si hace falta una capa propia.
+
+### 80.3 Plan de fases aprobado
+
+| Fase | Contenido | Riesgo |
+|------|-----------|--------|
+| **1** | Vista "productos incompletos" (sin foto/descripción) en Inventario/Productos + revisar `<img>` nativo vs `next/image` en producto + auditoría Lighthouse/Core Web Vitals + cerrar CORS abierto (`Access-Control-Allow-Origin: *`) como quick win de seguridad barato | Bajo |
+| **2** | Dashboard de salud del negocio para el dueño (alertas activas hoy: vencimientos, stock crítico por talla, pedidos sin confirmar +24h, pagos pendientes) | Bajo-medio |
+| **3** | Cobertura de tests para los módulos del "software local unificado" sin ningún test hoy: Fiado, Préstamos, Cuentas, Cierres, Calculadora | Bajo (son tests, no tocan producción) |
+| **4** | Cierres → redefinir como arqueo físico de caja (cambio de esquema + UI) | Medio (módulo financiero de uso diario) |
+| **5** | Cupón de bienvenida automático al registrarse | Bajo-medio |
+| **6** | Programa de puntos/fidelización (nuevo, usa `customer_credits` como base) | Medio (feature nueva completa) |
+| **7** | WhatsApp para notificaciones de pedido — diseño y puntos de integración documentados, implementación bloqueada hasta que el usuario tenga credenciales | Bloqueada |
+| **8** | Upgrade Next.js 14.1.0 → 15.x + Sentry 7→10 + `@stripe/stripe-js` 3→9 + revisión completa de `npm audit` | Alto — última fase, aislada, con regresión completa (unit + e2e + smoke manual de checkout/admin/POS) |
+
+Se documentará el cierre de cada fase en una nueva subsección de esta sección 80, igual que se hizo con las Fases 1-5 anteriores (secciones 45-52).
+
+### 80.4 Fase 1 completada (2026-08-20)
+
+**1. Vista "productos incompletos"** (`admin/productos/page.tsx`): checkbox "Solo incompletos (sin foto o descripción)" junto al buscador, con badge de conteo total; cada fila de la tabla ahora muestra una insignia "Sin foto" / "Sin descripción" / "Sin foto ni descripción" junto al nombre del producto cuando aplica. Un producto cuenta como incompleto si `images.length === 0` o `description` está vacío/null — los productos ya eliminados (`deleted_at`) se excluyen del conteo porque no tiene sentido pedirles foto. Verificado en navegador real (Playwright, sesión admin): de 196 productos, **186 están incompletos** (la enorme mayoría de los 190 migrados del inventario físico del software local siguen sin foto/descripción) — confirma que esta vista sí resuelve un problema real y no trivial.
+
+**2. `next/image` en la galería de producto** (`components/products/product-image-gallery.tsx`): el workaround de `<img>` nativo documentado en `ANALISIS_PROYECTO.md` (de cuando el proyecto apuntaba a Netlify) ya no aplicaba — no existe `netlify.toml` en el repo y `next.config.js` ya tenía `remotePatterns` configurado para Supabase Storage. Se migraron las 3 imágenes del componente (visor principal, lightbox a pantalla completa, miniaturas) a `<Image fill sizes=... />`, con `priority` en la imagen principal (candidata a LCP de la página). Verificado sirviendo el HTML real (`curl`) de un producto con foto real de Supabase y de uno sin foto (fallback a placeholder): en ambos casos el HTML usa el proxy de optimización `/_next/image?url=...`, no la URL cruda.
+
+**3. Auditoría Lighthouse/Core Web Vitals** (build de producción real, `next start`, no `next dev` — el primer intento midió por error el servidor de desarrollo que había quedado corriendo, con bundles de 5-8MB sin minificar; se mató el proceso y se repitió contra la build real):
+   - **Home (`/`)**: Performance **99**/100, LCP 0.8s, TBT 0ms, CLS 0. Excelente, sin acción necesaria.
+   - **Producto (`/producto/[slug]`)**: Performance **86**/100, LCP 1.1s, TBT 0ms, **CLS 0.23** (umbral "bueno" es ≤0.1).
+   - **Catálogo (`/productos`)**: Performance **82**/100, LCP 1.0s, **CLS 0.33**.
+   - **Hallazgo real, no corregido en esta fase** (fuera del alcance de "quick win" — requiere tocar componentes de carga async, no algo trivial): en ambas páginas el causante casi exclusivo del CLS es el `<footer>`, que se desplaza hacia abajo después del primer render. La causa raíz identificada: `ReviewSection` (`components/reviews/review-section.tsx`) es un Client Component que trae las reseñas con `useEffect` después del montaje — el contenido que aparece tarde empuja el footer. El catálogo probablemente comparte la misma causa raíz (contenido cargado del lado del cliente). **Queda documentado como pendiente para una fase futura**: la solución típica es reservar una altura mínima (skeleton) mientras carga, o convertir la carga inicial a server-side. No se tocó en esta ronda para no mezclar un cambio de UX con la limpieza de Fase 1.
+
+**4. CORS cerrado** (`vercel.json`): se eliminó por completo el bloque de headers `Access-Control-Allow-*` que aplicaba a **todas** las rutas `/api/*` (incluidas las de admin) con `Access-Control-Allow-Origin: *`. No se encontró en todo el código ningún consumidor legítimo de la API desde otro origen (la tienda, el admin y la API viven en el mismo dominio) — los webhooks de Stripe/MercadoPago son llamadas servidor-a-servidor y no pasan por CORS del navegador, así que no dependían de este header. Se optó por eliminar el bloque en vez de restringirlo a un dominio específico, para no arriesgar un typo de dominio (www vs. apex vs. preview de Vercel) que rompiera algo. **Nota**: los headers de `vercel.json` los aplica la capa de Vercel al desplegar, no `next start` local — no se pudo verificar el header real por `curl` en este entorno; se verificará que ya no aparezca `Access-Control-Allow-Origin: *` en las respuestas de `/api/*` tras el próximo deploy.
+
+**Verificación completa**: `tsc --noEmit` limpio, `eslint .` limpio, `vitest run` 62/62, `npm run build` sin errores (105 páginas). Además de lo anterior: e2e de Playwright (`products.spec.ts`, `home.spec.ts`, `public-pages.spec.ts`) corridos contra el build real — 3 fallas encontradas, las 3 **preexistentes y no relacionadas** con los cambios de esta fase (selectores de test desactualizados: `[data-testid="product-card"]` que `ProductCard` nunca tuvo, texto "YB" del logo que ahora aparece 3 veces en la página, link "Cascos" duplicado entre nav y footer, títulos de página distintos a los que el test espera) — confirmado corriendo el test de navegación a detalle de producto en aislamiento y repetido, pasa. Quedan anotadas aquí para no perderlas de vista, pero no se tocaron por estar fuera del alcance de esta fase (no son bugs de esta ronda).
+
+**Pendientes nuevos que salieron de esta fase** (sumar a la memoria de pendientes junto con los de seguridad):
+- CLS alto en producto/catálogo por carga async de reseñas (y probablemente del grid de productos) — necesita una fase propia de UX/loading states.
+- 3 specs de Playwright desactualizados (`e2e/home.spec.ts`, `e2e/products.spec.ts`, `e2e/public-pages.spec.ts`) con selectores que ya no matchean el diseño actual — no son bugs de producto, son deuda de test.
