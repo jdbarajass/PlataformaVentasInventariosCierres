@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { createSupabaseMock } from '../helpers/supabase-mock'
 
-// NOTA: estos tests cubren el comportamiento ACTUAL de /api/daily-closures
-// (cierre = totales manuales por método de pago). La Fase 4 del plan de
-// mejoras integrales (docs/UNIFICACION_YJBMOTOCOM.md sección 80) va a
-// rediseñar Cierres como arqueo físico de caja — cuando eso se implemente,
-// esta ruta cambia de forma y estos tests deben rehacerse junto con el resto.
+// Cierres = arqueo físico de caja (Fase 4 del plan de mejoras integrales,
+// docs/UNIFICACION_YJBMOTOCOM.md sección 80.7): cash_amount_cents es el
+// efectivo CONTADO, cash_expected_cents es la foto de lo que el sistema
+// esperaba ese día, y cash_difference_cents es la diferencia — recalculada
+// siempre server-side a partir de esos dos valores, nunca confiada del
+// cliente. NOTA: la UI real (admin/cierres/page.tsx) inserta directo por
+// el cliente de Supabase, no pasa por esta ruta — estos tests documentan
+// el contrato de la ruta igual, por si algo más la usa en el futuro.
 
 const getServiceSupabaseMock = vi.fn()
 const createAuthenticatedClientMock = vi.fn()
@@ -102,6 +105,71 @@ describe('POST /api/daily-closures', () => {
 
     expect(res.status).toBe(400)
   })
+
+  it('calcula la diferencia del arqueo (contado - esperado), ignorando una diferencia forjada por el cliente', async () => {
+    let singleCalls = 0
+    const insertCalls: any[] = []
+    const dailyClosuresChain: any = {}
+    dailyClosuresChain.select = vi.fn(() => dailyClosuresChain)
+    dailyClosuresChain.insert = vi.fn((data: any) => {
+      insertCalls.push(data)
+      return dailyClosuresChain
+    })
+    dailyClosuresChain.eq = vi.fn(() => dailyClosuresChain)
+    dailyClosuresChain.single = vi.fn(() => {
+      singleCalls += 1
+      return Promise.resolve(
+        singleCalls === 1 ? { data: null, error: null } : { data: { id: 'c1' }, error: null }
+      )
+    })
+    const auditLogsChain = { insert: vi.fn(() => Promise.resolve({ data: null, error: null })) }
+    const client = {
+      from: vi.fn((table: string) => (table === 'daily_closures' ? dailyClosuresChain : auditLogsChain)),
+    }
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/daily-closures/route')
+    const res = await POST(
+      buildRequest({
+        date: '2026-08-20',
+        cash_amount_cents: 480_000, // contado
+        cash_expected_cents: 500_000, // esperado según Ventas de mostrador
+        cash_difference_cents: 999_999, // forjado — debe ser ignorado
+      })
+    )
+
+    expect(res.status).toBe(201)
+    expect(insertCalls[0].cash_difference_cents).toBe(-20_000) // faltante de 20.000
+  })
+
+  it('sin efectivo esperado (cliente viejo), la diferencia queda en null en vez de un cero engañoso', async () => {
+    let singleCalls = 0
+    const insertCalls: any[] = []
+    const dailyClosuresChain: any = {}
+    dailyClosuresChain.select = vi.fn(() => dailyClosuresChain)
+    dailyClosuresChain.insert = vi.fn((data: any) => {
+      insertCalls.push(data)
+      return dailyClosuresChain
+    })
+    dailyClosuresChain.eq = vi.fn(() => dailyClosuresChain)
+    dailyClosuresChain.single = vi.fn(() => {
+      singleCalls += 1
+      return Promise.resolve(
+        singleCalls === 1 ? { data: null, error: null } : { data: { id: 'c1' }, error: null }
+      )
+    })
+    const auditLogsChain = { insert: vi.fn(() => Promise.resolve({ data: null, error: null })) }
+    const client = {
+      from: vi.fn((table: string) => (table === 'daily_closures' ? dailyClosuresChain : auditLogsChain)),
+    }
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/daily-closures/route')
+    const res = await POST(buildRequest({ date: '2026-08-20', cash_amount_cents: 480_000 }))
+
+    expect(res.status).toBe(201)
+    expect(insertCalls[0].cash_difference_cents).toBeNull()
+  })
 })
 
 describe('PUT /api/daily-closures', () => {
@@ -178,5 +246,32 @@ describe('PUT /api/daily-closures', () => {
     expect(res.status).toBe(200)
     const updateArgs = calls['daily_closures.update'][0][0]
     expect(updateArgs.total_amount_cents).toBe(170_000) // 120k + 50k
+  })
+
+  it('al corregir el efectivo contado, recalcula la diferencia contra lo esperado ya guardado', async () => {
+    const { client, calls } = createSupabaseMock({
+      daily_closures: {
+        data: {
+          id: 'c1',
+          cash_amount_cents: 480_000,
+          cash_expected_cents: 500_000,
+          card_amount_cents: 0,
+          transfer_amount_cents: 0,
+          wallet_amount_cents: 0,
+          other_amount_cents: 0,
+        },
+        error: null,
+      },
+      audit_logs: { data: null, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { PUT } = await import('@/app/api/daily-closures/route')
+    // Se habían contado mal — la corrección deja el efectivo en 500.000 (cuadra exacto)
+    const res = await PUT(buildRequest({ id: 'c1', cash_amount_cents: 500_000 }, 'PUT'))
+
+    expect(res.status).toBe(200)
+    const updateArgs = calls['daily_closures.update'][0][0]
+    expect(updateArgs.cash_difference_cents).toBe(0)
   })
 })
