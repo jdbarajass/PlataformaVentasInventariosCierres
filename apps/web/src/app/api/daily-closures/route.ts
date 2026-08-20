@@ -5,7 +5,13 @@ import { z } from 'zod'
 
 const closureSchema = z.object({
   date: z.string(),
+  // Efectivo contado físicamente en caja (arqueo) — ver migración 00041.
   cash_amount_cents: z.number().int().min(0).default(0),
+  // Foto de lo que el sistema esperaba ese día (Ventas de mostrador),
+  // tomada por el cliente al momento de registrar el cierre. Opcional: si
+  // no llega (ej. un cliente viejo sin actualizar), simplemente no hay
+  // diferencia que calcular.
+  cash_expected_cents: z.number().int().min(0).optional().nullable(),
   card_amount_cents: z.number().int().min(0).default(0),
   transfer_amount_cents: z.number().int().min(0).default(0),
   wallet_amount_cents: z.number().int().min(0).default(0),
@@ -59,10 +65,19 @@ export async function POST(request: NextRequest) {
       data.wallet_amount_cents +
       data.other_amount_cents
 
+    // La diferencia siempre se recalcula server-side a partir de lo
+    // contado y lo esperado — nunca se confía en un valor que mande el
+    // cliente directamente (mismo criterio que total_amount_cents arriba).
+    const cash_difference_cents =
+      data.cash_expected_cents !== undefined && data.cash_expected_cents !== null
+        ? data.cash_amount_cents - data.cash_expected_cents
+        : null
+
     // Create closure
     const insertData = {
       ...data,
       total_amount_cents,
+      cash_difference_cents,
     }
     const { data: closure, error } = await (supabase
       .from('daily_closures') as any)
@@ -221,6 +236,16 @@ export async function PUT(request: NextRequest) {
         (updates.transfer_amount_cents ?? current.transfer_amount_cents) +
         (updates.wallet_amount_cents ?? current.wallet_amount_cents) +
         (updates.other_amount_cents ?? current.other_amount_cents)
+    }
+
+    // Recalcula la diferencia del arqueo si se corrige lo contado o lo
+    // esperado — igual que el total, nunca se confía en una diferencia que
+    // mande el cliente directamente.
+    if (updates.cash_amount_cents !== undefined || updates.cash_expected_cents !== undefined) {
+      const newExpected = updates.cash_expected_cents ?? current.cash_expected_cents
+      const newCounted = updates.cash_amount_cents ?? current.cash_amount_cents
+      updateData.cash_difference_cents =
+        newExpected !== undefined && newExpected !== null ? newCounted - newExpected : null
     }
 
     const { data: closure, error } = await (supabase
