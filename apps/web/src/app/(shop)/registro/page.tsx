@@ -6,8 +6,9 @@ import Link from 'next/link'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react'
+import { Eye, EyeOff, Loader2, UserPlus, Gift, Copy, Check } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { BOGOTA_TZ } from '@/lib/bogota-time'
 
 export default function RegistroPage() {
   const router = useRouter()
@@ -22,6 +23,14 @@ export default function RegistroPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Cupón de bienvenida (Fase 5 del plan de mejoras integrales, docs/
+  // UNIFICACION_YJBMOTOCOM.md sección 80.9) — si se genera bien, se
+  // muestra en una pantalla de éxito antes de continuar a Mi Cuenta; si
+  // falla por lo que sea, no bloquea el registro (couponError se ignora
+  // en la UI, solo detiene el intento de mostrarlo).
+  const [welcomeCoupon, setWelcomeCoupon] = useState<{ code: string; validUntil: string } | null>(null)
+  const [registered, setRegistered] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,7 +87,21 @@ export default function RegistroPage() {
         })
 
         if (profileError) {
+          // Bug real encontrado en la Fase 5 (docs/UNIFICACION_YJBMOTOCOM.md
+          // sección 80.9): hasta la migración 00043, esto fallaba SIEMPRE
+          // en silencio (RLS sin política de INSERT propio) y nadie se
+          // enteraba — la cuenta de Auth quedaba creada pero sin fila de
+          // perfil. Ahora si vuelve a fallar (ej. la migración no se ha
+          // aplicado todavía), al menos se avisa en vez de fingir éxito.
           console.error('Error creating profile:', profileError)
+          toast({
+            title: 'Cuenta creada con un problema',
+            description: 'Tu cuenta se creó, pero no pudimos guardar tu perfil completo. Escríbenos si algo no funciona bien.',
+            variant: 'destructive',
+          })
+          setRegistered(true)
+          setLoading(false)
+          return
         }
 
         toast({
@@ -86,7 +109,27 @@ export default function RegistroPage() {
           description: 'Tu cuenta ha sido creada exitosamente.',
         })
 
-        router.push('/mi-cuenta')
+        // El cupón de bienvenida es un bono, no un requisito del registro
+        // — si falla (red, rate limit, lo que sea), la cuenta ya quedó
+        // creada de todas formas y el cliente sigue sin ningún cupón,
+        // nunca se le bloquea ni se le muestra un error por esto.
+        try {
+          const res = await fetch('/api/coupons/welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: data.user.id }),
+          })
+          if (res.ok) {
+            const { data: coupon } = await res.json()
+            if (coupon?.code) {
+              setWelcomeCoupon({ code: coupon.code, validUntil: coupon.valid_until })
+            }
+          }
+        } catch (couponErr) {
+          console.error('Error fetching welcome coupon:', couponErr)
+        }
+
+        setRegistered(true)
       }
     } catch (err) {
       console.error('Register error:', err)
@@ -94,6 +137,68 @@ export default function RegistroPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const copyCode = () => {
+    if (!welcomeCoupon) return
+    navigator.clipboard.writeText(welcomeCoupon.code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  if (registered) {
+    const validUntilFormatted = welcomeCoupon
+      ? new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', year: 'numeric', timeZone: BOGOTA_TZ }).format(
+          new Date(welcomeCoupon.validUntil)
+        )
+      : null
+
+    return (
+      <div className="container py-12">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
+            <Check className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold">¡Cuenta creada!</h1>
+          <p className="mt-2 text-muted-foreground">Bienvenido a YJBMOTOCOM.</p>
+
+          {welcomeCoupon && (
+            <div className="mt-6 rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 p-6">
+              <div className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground">
+                <Gift className="h-4 w-4" /> Tu regalo de bienvenida
+              </div>
+              <p className="text-2xl font-bold tracking-wide text-primary">{welcomeCoupon.code}</p>
+              <p className="mt-1 text-sm font-medium">10% de descuento en tu primera compra</p>
+              {validUntilFormatted && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Válido hasta el {validUntilFormatted}, sin monto mínimo. Un solo uso. También te lo enviamos por email.
+                </p>
+              )}
+              <Button type="button" variant="outline" size="sm" className="mt-4 rounded-xl" onClick={copyCode}>
+                {copied ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" /> Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" /> Copiar código
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          <Button
+            type="button"
+            className="mt-6 w-full rounded-xl bg-primary py-6 text-base font-semibold hover:bg-primary/90"
+            onClick={() => router.push('/mi-cuenta')}
+          >
+            Ir a mi cuenta
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
