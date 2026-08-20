@@ -18,6 +18,25 @@ const methodLabels: Record<string, string> = {
   addi: 'Addi', card: 'Datáfono', sistecredito: 'SisteCrédito', other: 'Otro',
 }
 
+// Comparación en vivo, mientras se escribe, entre el efectivo contado y lo
+// que el sistema esperaba — el corazón del arqueo físico (Fase 4 del plan
+// de mejoras, docs/UNIFICACION_YJBMOTOCOM.md sección 80.7). El signo real
+// se calcula y se guarda en el servidor recién al enviar el formulario;
+// esto es solo una vista previa para que quien cuenta la caja vea el
+// desfase antes de guardar.
+function CashDifferenceHint({ counted, expected }: { counted: number; expected: number }) {
+  const diff = counted - expected
+  if (diff === 0) {
+    return <p className="mt-1.5 text-xs font-medium text-green-600">Cuadra exacto con lo esperado.</p>
+  }
+  const faltante = diff < 0
+  return (
+    <p className={`mt-1.5 text-xs font-medium ${faltante ? 'text-red-600' : 'text-amber-600'}`}>
+      {faltante ? 'Faltante' : 'Sobrante'}: {formatPrice(Math.abs(diff))}
+    </p>
+  )
+}
+
 export default function DailyClosuresPage() {
   const [closures, setClosures] = useState<DailyClosure[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -109,9 +128,16 @@ export default function DailyClosuresPage() {
     const other = parseInt(formData.other_amount || '0') * 100
     const total = cash + card + transfer + wallet + other
 
+    // Foto de lo esperado en el momento de registrar el cierre, para poder
+    // comparar el conteo físico contra lo que el sistema calculó ese día.
+    const cashExpected = expectedByMethod.cash ?? 0
+    const cashDifference = cash - cashExpected
+
     const insertData: Inserts<'daily_closures'> = {
       date: formData.date,
       cash_amount_cents: cash,
+      cash_expected_cents: cashExpected,
+      cash_difference_cents: cashDifference,
       card_amount_cents: card,
       transfer_amount_cents: transfer,
       wallet_amount_cents: wallet,
@@ -137,10 +163,12 @@ export default function DailyClosuresPage() {
   }
 
   const exportCSV = () => {
-    const headers = ['Fecha', 'Efectivo', 'Tarjeta', 'Transferencia', 'Wallet', 'Otros', 'Total', 'Verificado', 'Notas']
+    const headers = ['Fecha', 'Efectivo contado', 'Efectivo esperado', 'Diferencia', 'Tarjeta', 'Transferencia', 'Wallet', 'Otros', 'Total', 'Verificado', 'Notas']
     const rows = closures.map((c) => [
       c.date,
       c.cash_amount_cents / 100,
+      c.cash_expected_cents !== null ? c.cash_expected_cents / 100 : '',
+      c.cash_difference_cents !== null ? c.cash_difference_cents / 100 : '',
       c.card_amount_cents / 100,
       c.transfer_amount_cents / 100,
       c.wallet_amount_cents / 100,
@@ -166,7 +194,7 @@ export default function DailyClosuresPage() {
         <div>
           <h1 className="text-3xl font-bold">Cierres Diarios</h1>
           <p className="text-muted-foreground">
-            Registro de cierres de caja y conciliacion
+            Arqueo físico de caja: cuenta el efectivo real y compáralo con lo que el sistema esperaba
           </p>
         </div>
         <div className="flex gap-2">
@@ -176,7 +204,7 @@ export default function DailyClosuresPage() {
           </Button>
           <Button onClick={() => setShowForm(!showForm)}>
             <Plus className="mr-2 h-4 w-4" />
-            Nuevo Cierre
+            Nuevo Arqueo
           </Button>
         </div>
       </div>
@@ -194,7 +222,7 @@ export default function DailyClosuresPage() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Registrar Cierre del Dia</CardTitle>
+            <CardTitle>Registrar Arqueo del Día</CardTitle>
           </CardHeader>
           <CardContent>
             {/* Total esperado según Ventas de mostrador (Mi Cuadre) de ese
@@ -234,7 +262,7 @@ export default function DailyClosuresPage() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium">
-                    Efectivo (COP)
+                    Efectivo contado en caja (COP)
                   </label>
                   <Input
                     type="number"
@@ -244,6 +272,12 @@ export default function DailyClosuresPage() {
                       setFormData({ ...formData, cash_amount: e.target.value })
                     }
                   />
+                  {formData.cash_amount && (
+                    <CashDifferenceHint
+                      counted={parseInt(formData.cash_amount || '0') * 100}
+                      expected={expectedByMethod.cash ?? 0}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium">
@@ -317,7 +351,7 @@ export default function DailyClosuresPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit">Guardar Cierre</Button>
+                <Button type="submit">Guardar Arqueo</Button>
               </div>
             </form>
           </CardContent>
@@ -343,7 +377,8 @@ export default function DailyClosuresPage() {
                 <thead>
                   <tr className="border-b text-left text-sm text-muted-foreground">
                     <th className="pb-4 font-medium">Fecha</th>
-                    <th className="pb-4 font-medium">Efectivo</th>
+                    <th className="pb-4 font-medium">Efectivo contado</th>
+                    <th className="pb-4 font-medium">Diferencia</th>
                     <th className="pb-4 font-medium">Tarjeta</th>
                     <th className="pb-4 font-medium">Transferencia</th>
                     <th className="pb-4 font-medium">Wallet</th>
@@ -359,6 +394,18 @@ export default function DailyClosuresPage() {
                       </td>
                       <td className="py-4">
                         {formatPrice(closure.cash_amount_cents)}
+                      </td>
+                      <td className="py-4">
+                        {closure.cash_difference_cents === null || closure.cash_difference_cents === undefined ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : closure.cash_difference_cents === 0 ? (
+                          <Badge variant="success">Cuadra</Badge>
+                        ) : (
+                          <Badge variant={closure.cash_difference_cents < 0 ? 'error' : 'warning'}>
+                            {closure.cash_difference_cents < 0 ? 'Faltante' : 'Sobrante'}{' '}
+                            {formatPrice(Math.abs(closure.cash_difference_cents))}
+                          </Badge>
+                        )}
                       </td>
                       <td className="py-4">
                         {formatPrice(closure.card_amount_cents)}
