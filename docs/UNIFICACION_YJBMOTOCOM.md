@@ -2341,3 +2341,36 @@ A pedido explícito del usuario, se salta la Fase 7 (notificaciones de pedido po
 - Decidir el proveedor (Meta WhatsApp Business API directo, o un intermediario como Twilio — cambia la implementación pero no el diseño de alto nivel).
 - Reutilizar el patrón ya establecido en este proyecto para efectos secundarios "best effort" (no bloquear el flujo principal si el envío falla, como ya hacen los emails y ahora los puntos de fidelización).
 - No se creó ningún archivo ni código a medio hacer para esto — mejor esperar a tener las credenciales reales que adivinar la forma de la integración sin poder probarla.
+
+## 81. Fase 8 completada (2026-08-20) — Upgrade Next.js 14→15, Sentry 7→10, limpieza de dependencias
+
+La fase de mayor riesgo del plan, guardada de última a propósito — tocó, directa o indirectamente, cada página y ruta de la aplicación. Se hizo en pasos aislados y verificables, con un commit de checkpoint después de la parte más grande antes de seguir con lo demás.
+
+### 81.1 Decisión de alcance: Next.js 15, no 16
+
+Al revisar versiones disponibles se encontró que Next.js ya iba en la versión 16 (`latest` como dist-tag). Se decidió **quedarse en la línea 15 (15.5.23, la más reciente de esa serie)**, no saltar a 16, por dos razones: (1) es lo que se le prometió al usuario desde el plan original ("Next.js 14→15"), y (2) el conocimiento confiable de qué cambia y qué se rompe en Next 16 no estaba disponible — intentarlo a ciegas contradice todo el criterio de "con calma, no generar bugs" del resto de esta ronda. Next 16 queda como una fase futura separada, para cuando haya información sólida sobre su migración.
+
+### 81.2 Next.js 14.1.0 → 15.5.23 + @sentry/nextjs 7 → 10
+
+`@sentry/nextjs@7` no soporta Next 15 (su `peerDependencies` topa en `^14.0`), así que se actualizaron juntos en el mismo paso en vez de dejar una versión intermedia rota.
+
+**Cambio principal de Next 15**: `params`/`searchParams` en páginas y rutas dinámicas, y `headers()`/`cookies()` de `next/headers`, pasan de valores directos a `Promise` que hay que `await`ear. Se identificaron los 20 archivos afectados (2 páginas, 17 route handlers con `[id]`, los 2 webhooks de pago, y `alegra-auth.ts`) revisando el código en vez de asumir. El patrón mecánico y repetido (`{ params }: { params: { id: string } }` → `Promise<{ id: string }>` + `const { id } = await params`) se aplicó con un script puntual, verificado archivo por archivo contra `tsc` — dos archivos con terminación de línea CRLF no coincidieron con la expresión regular inicial (LF) y quedaron a medio transformar; se detectaron enseguida porque `tsc` los marcó como variable no definida, y se corrigieron aparte.
+
+De paso, `eslint-config-next` 15 empezó a exigir `<Link>` en vez de `<a>` para navegación interna en 3 archivos que antes lo permitían sin avisar — corregido (no es un workaround del linter, es el fix correcto: recupera navegación del lado del cliente donde antes recargaba la página completa).
+
+**Verificación**: `tsc`, `eslint`, `vitest` (129/129, incluidos los tests que invocan las rutas `[id]` directamente, ajustados para pasar `Promise.resolve({ id: ... })` en vez del objeto plano) y `npm run build` (105 páginas) limpios. Smoke test en navegador real contra la build de producción, dos rondas: tienda pública (home → catálogo → detalle de producto → checkout) y panel admin (login → dashboard con alertas → productos → Registrar Venta → Cierres → Mi Cuenta) — cero errores de consola y cero peticiones fallidas en ambas.
+
+### 81.3 Limpieza de dependencias
+
+- **`@stripe/stripe-js` no se actualizó — se eliminó.** Estaba en `package.json` pero ningún archivo del código lo importaba: el checkout usa Stripe Checkout hospedado (SDK de servidor `stripe`, redirección), nunca Stripe Elements del lado del cliente. Confirmado con grep exhaustivo antes de tocar nada. Actualizar una dependencia que no se usa no tenía sentido; quitarla sí.
+- **`sharp` 0.34.5 → 0.35.3**: resuelve CVEs de libvips (alta severidad). La única llamada real en el código (`sharp(buffer).webp({ quality: 85 }).toBuffer()`, en `api/upload/route.ts`) usa una API estable desde hace años — se verificó con una imagen real de producto servida por `next/image` (que depende de sharp para optimizar) en el smoke test final.
+
+### 81.4 `npm audit`: de 27 a 8 vulnerabilidades, sin tocar nada arriesgado
+
+`npm audit fix` (sin `--force`) resolvió 16 de un golpe, sin ningún cambio de versión mayor. De las que quedaban:
+- **`uuid < 11.1.1`** (moderada) — ni `exceljs` ni `mercadopago` han actualizado su propia dependencia interna de `uuid` (confirmado: `exceljs@4.4.0`, la versión más reciente que existe, todavía pide `uuid@^8.3.0`). En vez de forzar un downgrade de `exceljs` (lo que sugería ingenuamente `npm audit fix --force`) o un upgrade mayor de `mercadopago` (SDK de pagos — demasiado riesgoso para tocar de paso, sin tiempo de revisar su changelog completo), se agregó un `overrides` en `package.json` (`"uuid": "^11.1.1"`) — mecanismo estándar de npm para forzar una versión seleccionada en todo el árbol de dependencias sin esperar a que el paquete padre se actualice.
+- **Las 8 restantes** quedan fuera a propósito, documentadas en la sección 80.8 (lista de pendientes): `next`/`postcss`/`sharp` (la copia interna de Next, no la nuestra) atadas a Next.js 16 — ver 81.1; `vitest`/`@vitest/coverage-istanbul`/`vite`/`esbuild`/`vite-node` atadas a un upgrade de Vitest 1→4 (tres versiones mayores) — herramienta de desarrollo y pruebas, sin ningún código propio expuesto en producción, así que el riesgo real de dejarla como está es bajo comparado con el riesgo de un upgrade de esa magnitud sin tiempo dedicado a revisar los cambios de configuración entre versiones.
+
+### 81.5 Cierre de la ronda completa de 8 fases
+
+Con esta fase se cierra el plan de mejoras integrales completo iniciado en la sección 80 (Fases 1-6 y 8 implementadas y verificadas; Fase 7 diseñada y documentada, bloqueada sin credenciales de WhatsApp). Todo commiteado en `main` en commits locales separados por cambio lógico, ninguno pusheado — sigue pendiente que el usuario autorice el `git push` cuando quiera desplegar toda la ronda. La sección 80.8 (pendientes fuera de alcance) queda como el punto de partida recomendado para la próxima sesión de trabajo en este proyecto.
