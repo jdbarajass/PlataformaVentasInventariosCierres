@@ -522,8 +522,14 @@ export default function VentasPage() {
   // por método, sin excepciones). Si no existe una cuenta con ese método
   // (ej. la desactivaron), la venta se registra igual pero sin abonar a
   // ninguna cuenta — mismo comportamiento que antes al dejar el campo vacío.
+  // Excepción: Tarjeta (datafono) no tiene cuenta propia — se liquida junto
+  // con NU, mismo mapeo que ya usaba el software local
+  // (database/cuentas_repo.py: "Datafono" cae en "Transferencia NU").
   const resolveAccountId = useCallback(
-    (method: Method) => accounts.find((a) => a.payment_method === method)?.id || '',
+    (method: Method) => {
+      const lookupMethod = method === 'card' ? 'nu' : method
+      return accounts.find((a) => a.payment_method === lookupMethod)?.id || ''
+    },
     [accounts]
   )
 
