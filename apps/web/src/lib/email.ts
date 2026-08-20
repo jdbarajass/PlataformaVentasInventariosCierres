@@ -9,8 +9,9 @@ import RestockNotificationEmail from '@/emails/restock-notification'
 import DailyDigestEmail from '@/emails/daily-digest'
 import ReviewRequestEmail from '@/emails/review-request'
 import AbandonedCartEmail from '@/emails/abandoned-cart'
+import WelcomeCouponEmail from '@/emails/welcome-coupon'
 import { getServiceSupabase } from './supabase'
-import { bogotaDateStr } from './bogota-time'
+import { bogotaDateStr, BOGOTA_TZ } from './bogota-time'
 
 let _resend: Resend | null = null
 function getResend() {
@@ -518,6 +519,56 @@ export async function sendReviewRequestEmail(orderId: string): Promise<boolean> 
     return true
   } catch (error) {
     console.error('Error in sendReviewRequestEmail:', error)
+    return false
+  }
+}
+
+/**
+ * Envía el cupón de bienvenida (10%, un solo uso) a un cliente recién
+ * registrado — Fase 5 del plan de mejoras integrales (docs/
+ * UNIFICACION_YJBMOTOCOM.md sección 80.9). Llamado desde
+ * api/coupons/welcome/route.ts justo después de crear el cupón; no
+ * bloquea la respuesta al cliente si falla (el código ya se muestra en
+ * pantalla, este email es un respaldo).
+ */
+export async function sendWelcomeCouponEmail(params: {
+  to: string
+  name: string
+  code: string
+  validUntil: string
+}): Promise<boolean> {
+  try {
+    const validUntilFormatted = new Intl.DateTimeFormat('es-CO', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: BOGOTA_TZ,
+    }).format(new Date(params.validUntil))
+
+    const emailHtml = await render(
+      WelcomeCouponEmail({
+        name: params.name,
+        code: params.code,
+        discountPct: 10,
+        validUntilFormatted,
+      })
+    )
+
+    const { error: sendError } = await getResend().emails.send({
+      from: fromEmail,
+      to: params.to,
+      subject: `Tu código de bienvenida: ${params.code} — YJBMOTOCOM`,
+      html: emailHtml,
+    })
+
+    if (sendError) {
+      console.error('Error sending welcome coupon email:', sendError)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in sendWelcomeCouponEmail:', error)
     return false
   }
 }
