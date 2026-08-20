@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Plus, Search, Edit, Trash2, MoreHorizontal, ImageIcon } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, MoreHorizontal, ImageIcon, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
 import { formatPrice, getStockStatus } from '@/lib/utils'
 import { Product } from '@/types/database'
@@ -46,6 +47,7 @@ export default function ProductsPage() {
   const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
+  const [showIncompleteOnly, setShowIncompleteOnly] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   // Códigos de barras de cada talla/variante, por producto — el producto
   // base suele quedar con barcode=null cuando tiene tallas (el código real
@@ -90,7 +92,16 @@ export default function ProductsPage() {
     }
   }
 
+  // Un producto activo/publicable sin foto o sin descripción no está listo
+  // para verse bien en la tienda pública. Los productos ya eliminados no
+  // cuentan — no tiene sentido pedirles foto/descripción.
+  const isProductIncomplete = (product: Product) =>
+    !product.deleted_at && (product.images.length === 0 || !product.description?.trim())
+
+  const incompleteCount = products.filter(isProductIncomplete).length
+
   const filteredProducts = products.filter((product) => {
+    if (showIncompleteOnly && !isProductIncomplete(product)) return false
     const q = search.toLowerCase().trim()
     if (!q) return true
     if (product.title.toLowerCase().includes(q)) return true
@@ -158,7 +169,7 @@ export default function ProductsPage() {
 
       {/* Search */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="space-y-4 pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -168,6 +179,20 @@ export default function ProductsPage() {
               className="pl-10"
             />
           </div>
+          <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              checked={showIncompleteOnly}
+              onCheckedChange={(checked) => setShowIncompleteOnly(checked === true)}
+            />
+            <span>
+              Solo incompletos (sin foto o descripción)
+              {incompleteCount > 0 && (
+                <Badge variant="warning" className="ml-2">
+                  {incompleteCount}
+                </Badge>
+              )}
+            </span>
+          </label>
         </CardContent>
       </Card>
 
@@ -216,11 +241,34 @@ export default function ProductsPage() {
                               <p className="font-medium line-clamp-1">
                                 {product.title}
                               </p>
-                              {product.featured && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Destacado
-                                </Badge>
-                              )}
+                              <div className="flex flex-wrap gap-1">
+                                {product.featured && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Destacado
+                                  </Badge>
+                                )}
+                                {isProductIncomplete(product) && (
+                                  <Badge
+                                    variant="warning"
+                                    className="gap-1 text-xs"
+                                    title={
+                                      [
+                                        product.images.length === 0 && 'sin foto',
+                                        !product.description?.trim() && 'sin descripción',
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' y ')
+                                    }
+                                  >
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {product.images.length === 0 && !product.description?.trim()
+                                      ? 'Sin foto ni descripción'
+                                      : product.images.length === 0
+                                        ? 'Sin foto'
+                                        : 'Sin descripción'}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
