@@ -1247,6 +1247,9 @@ export interface Database {
           valid_from: string | null
           valid_until: string | null
           active: boolean
+          // Cupón personal (ej. bienvenida) si no es null; los cupones
+          // compartidos/promocionales lo dejan en null (migración 00042).
+          user_id: string | null
           created_at: string
           updated_at: string
         }
@@ -1262,6 +1265,7 @@ export interface Database {
           valid_from?: string | null
           valid_until?: string | null
           active?: boolean
+          user_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1276,9 +1280,18 @@ export interface Database {
           valid_from?: string | null
           valid_until?: string | null
           active?: boolean
+          user_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "coupons_user_id_fkey",
+            columns: ["user_id"],
+            isOneToOne: false,
+            referencedRelation: "users",
+            referencedColumns: ["id"],
+          }
+        ]
       }
     }
     Views: Record<string, never>
