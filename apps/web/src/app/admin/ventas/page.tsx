@@ -609,7 +609,7 @@ export default function VentasPage() {
     setPaymentStep('combined')
   }
 
-  const handleSubmitSale = async (force = false, existingReceiptWindow: Window | null = null) => {
+  const handleSubmitSale = async (force = false) => {
     const activeId = activeSessionId
     const current = sessions.find((s) => s.id === activeId)
     if (!current) return
@@ -639,19 +639,6 @@ export default function VentasPage() {
       })
       return
     }
-
-    // Se abre una pestaña en blanco ANTES del fetch (todavía dentro del mismo
-    // gesto de clic en "Confirmar venta") y se redirige al recibo real una vez
-    // que la venta queda registrada — abrirla después del await la marcaría
-    // como popup no solicitado y la mayoría de navegadores la bloquearían. Si
-    // esta es la llamada recursiva tras confirmar "Stock insuficiente,
-    // ¿continuar?", se reutiliza la MISMA pestaña ya abierta — nunca se abre
-    // una segunda, porque un window.open() disparado después de un confirm()
-    // dentro de una función async ya no cuenta como gesto directo del usuario
-    // en todos los navegadores y quedaba bloqueado en silencio (la venta se
-    // registraba bien, pero la factura nunca se veía).
-    const receiptWindow = existingReceiptWindow ?? window.open('about:blank', '_blank')
-    let redirectedReceipt = false
 
     try {
       setSaving(true)
@@ -693,12 +680,12 @@ export default function VentasPage() {
         // de continuar de todas formas (el stock nunca queda negativo).
         if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
           setSaving(false)
+          // Primero se valida el stock y se pregunta — recién si el usuario
+          // confirma se reintenta y se registra la venta. La pestaña de la
+          // factura no se abre hasta que la venta quede realmente hecha (ver
+          // más abajo), nunca antes de saber si hay o no stock.
           if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
-            // Reutiliza la misma pestaña ya abierta en vez de abrir una
-            // segunda (ver comentario arriba).
-            await handleSubmitSale(true, receiptWindow)
-          } else {
-            receiptWindow?.close()
+            await handleSubmitSale(true)
           }
           return
         }
@@ -708,9 +695,19 @@ export default function VentasPage() {
       const { data } = await res.json()
       toast({ title: 'Venta registrada', description: `Orden ${data.order_number}` })
       setShowPaymentModal(false)
-      redirectedReceipt = true
-      if (receiptWindow) {
-        receiptWindow.location.href = `/api/orders/${data.id}/invoice`
+
+      // La pestaña con la factura se abre recién ACÁ, con la venta ya
+      // registrada — nunca antes (ni en blanco, ni antes de confirmar
+      // "Stock insuficiente"). Si el navegador la bloquea por haber pasado
+      // el gesto de clic original (ej. tras el diálogo de confirmación), el
+      // link "Ver recibo de la última venta" de abajo sigue sirviendo como
+      // respaldo para abrirla manualmente.
+      const receiptWindow = window.open(`/api/orders/${data.id}/invoice`, '_blank')
+      if (!receiptWindow) {
+        toast({
+          title: 'Factura lista',
+          description: 'El navegador bloqueó la pestaña — usa "Ver recibo de la última venta" para abrirla.',
+        })
       }
 
       // Si era una pestaña extra (no la primera), se cierra sola para no
@@ -728,7 +725,6 @@ export default function VentasPage() {
       }
       await Promise.all([fetchAccounts(), fetchTodaySales()])
     } catch (error: any) {
-      if (!redirectedReceipt) receiptWindow?.close()
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSaving(false)
