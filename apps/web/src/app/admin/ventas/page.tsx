@@ -71,6 +71,10 @@ interface CartLine {
   cost_cents: number
   discount_cents: number
   max_stock: number
+  // true = se agregó al carrito a sabiendas de que no había stock (el
+  // vendedor ya confirmó esto al agregarlo, ver addToCart) — evita volver a
+  // preguntar "Stock insuficiente, ¿continuar?" al momento de vender.
+  stock_override: boolean
 }
 
 type Method = 'cash' | 'card' | 'nequi' | 'nu' | 'qr' | 'daviplata' | 'addi' | 'sistecredito' | 'other'
@@ -392,6 +396,21 @@ export default function VentasPage() {
 
   const addToCart = (product: ProductResult, variant: ProductVariant | null) => {
     const key = variant ? `${product.id}:${variant.id}` : product.id
+    const available = variant ? variant.stock_qty : product.stock_qty
+    const alreadyInCart = cart.some((l) => l.key === key)
+
+    // Se pregunta ACÁ, al agregarlo al carrito — no al confirmar la venta al
+    // final — para que la confirmación de "sin stock" nunca choque con la
+    // apertura de la pestaña de la factura al cerrar la venta (ver
+    // docs/UNIFICACION_YJBMOTOCOM.md sección 81.9). Si ya estaba en el
+    // carrito no se vuelve a preguntar por cada unidad extra.
+    if (!alreadyInCart && available <= 0) {
+      const talla = variant?.talla ? ` (talla ${variant.talla})` : ''
+      if (!confirm(`"${product.title}"${talla} no tiene stock disponible.\n\n¿Agregarlo a la venta de todas formas?`)) {
+        return
+      }
+    }
+
     updateActiveSession((s) => {
       const existing = s.cart.find((l) => l.key === key)
       const cart = existing
@@ -411,9 +430,10 @@ export default function VentasPage() {
               // Si ya está en 0, no hay un tope real de inventario que
               // respetar — se deja un margen amplio para poder forzar la
               // cantidad que el vendedor necesite; el backend sigue
-              // exigiendo confirmar "Stock insuficiente ¿continuar?" al
-              // registrar la venta (create_pos_sale con p_force).
-              max_stock: (variant ? variant.stock_qty : product.stock_qty) || 999,
+              // validando el stock real al registrar la venta
+              // (create_pos_sale con p_force, ver handleSubmitSale).
+              max_stock: available || 999,
+              stock_override: available <= 0,
             },
           ]
       return { ...s, cart }
@@ -480,6 +500,7 @@ export default function VentasPage() {
           cost_cents: cost,
           discount_cents: 0,
           max_stock: 999999,
+          stock_override: false,
         },
       ],
     }))
@@ -609,10 +630,16 @@ export default function VentasPage() {
     setPaymentStep('combined')
   }
 
-  const handleSubmitSale = async (force = false) => {
+  const handleSubmitSale = async (forceParam = false) => {
     const activeId = activeSessionId
     const current = sessions.find((s) => s.id === activeId)
     if (!current) return
+    // Si algún ítem del carrito ya se agregó a sabiendas de que no tenía
+    // stock (el vendedor lo confirmó ahí mismo, ver addToCart), se manda
+    // force=true desde el primer intento — así el diálogo de "Stock
+    // insuficiente" nunca aparece acá, evitando que choque con la apertura
+    // de la factura al cerrar la venta.
+    const force = forceParam || current.cart.some((l) => l.stock_override)
     if (current.cart.length === 0) {
       toast({ title: 'Error', description: 'Agrega al menos un producto al carrito', variant: 'destructive' })
       return
