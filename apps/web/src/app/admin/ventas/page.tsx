@@ -746,8 +746,16 @@ export default function VentasPage() {
         setSessions(remaining)
         setActiveSessionId(remaining[0].id)
       } else {
+        // OJO: se mantiene el mismo `id` de la pestaña (`s.id`) en vez del
+        // que genera `newSession()` — de lo contrario `activeSessionId`
+        // queda apuntando a un id que ya no existe en `sessions`, y
+        // `updateActiveSession` (usado por `addToCart` y todo lo demás)
+        // deja de encontrar coincidencia y no hace nada en silencio hasta
+        // recargar la página. Bug real reportado por el usuario: tras una
+        // venta exitosa, la siguiente venta en la misma pestaña quedaba
+        // "pegada" — se podía buscar productos pero no agregarlos.
         setSessions((prev) =>
-          prev.map((s) => (s.id === activeId ? { ...newSession(s.label), lastSaleId: data.id } : s))
+          prev.map((s) => (s.id === activeId ? { ...newSession(s.label), id: s.id, lastSaleId: data.id } : s))
         )
       }
       await Promise.all([fetchAccounts(), fetchTodaySales()])
