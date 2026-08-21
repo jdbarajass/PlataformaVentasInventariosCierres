@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Percent, Building2, Loader2, Save, Lock } from 'lucide-react'
+import { Percent, Building2, Loader2, Save, Lock, Target } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
@@ -27,9 +27,11 @@ export default function ConfiguracionPosPage() {
   const [expenses, setExpenses] = useState<FixedExpenses>({
     arriendo_cents: 0, sueldo_cents: 0, servicios_cents: 0, otros_gastos_cents: 0, dias_mes: 30,
   })
+  const [sellerGoal, setSellerGoal] = useState({ goal: '0', bonus: '0' })
   const [loading, setLoading] = useState(true)
   const [savingRates, setSavingRates] = useState(false)
   const [savingExpenses, setSavingExpenses] = useState(false)
+  const [savingGoal, setSavingGoal] = useState(false)
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -52,6 +54,10 @@ export default function ConfiguracionPosPage() {
       if (data?.fixed_monthly_expenses) {
         setExpenses(data.fixed_monthly_expenses)
       }
+      setSellerGoal({
+        goal: String((data?.seller_monthly_goal_cents ?? 0) / 100),
+        bonus: String((data?.seller_goal_bonus_cents ?? 0) / 100),
+      })
     } catch (error) {
       console.error('Error fetching settings:', error)
     } finally {
@@ -82,6 +88,30 @@ export default function ConfiguracionPosPage() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSavingRates(false)
+    }
+  }
+
+  const handleSaveGoal = async () => {
+    if (!session?.access_token) return
+    const goal_cents = Math.round((parseFloat(sellerGoal.goal) || 0) * 100)
+    const bonus_cents = Math.round((parseFloat(sellerGoal.bonus) || 0) * 100)
+    if (goal_cents < 0 || bonus_cents < 0) {
+      toast({ title: 'Error', description: 'La meta y el bono no pueden ser negativos', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingGoal(true)
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ seller_monthly_goal_cents: goal_cents, seller_goal_bonus_cents: bonus_cents }),
+      })
+      if (!res.ok) throw new Error('Error al guardar la meta de ventas')
+      toast({ title: 'Meta de ventas guardada' })
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingGoal(false)
     }
   }
 
@@ -147,6 +177,29 @@ export default function ConfiguracionPosPage() {
         <Button className="mt-4 rounded-lg" onClick={handleSaveRates} disabled={savingRates}>
           {savingRates ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar comisiones
+        </Button>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <Target className="h-5 w-5" /> Meta mensual de ventas y bono
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Si un vendedor llega a la meta de ventas de mostrador en el mes, se le ofrece el bono. Cada vendedor ve su propio avance en el Dashboard.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="text-sm text-muted-foreground">Meta mensual (ventas de mostrador)</label>
+            <MoneyInput value={sellerGoal.goal} onChange={(v) => setSellerGoal({ ...sellerGoal, goal: v })} className="rounded-lg" />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground">Bono al alcanzarla</label>
+            <MoneyInput value={sellerGoal.bonus} onChange={(v) => setSellerGoal({ ...sellerGoal, bonus: v })} className="rounded-lg" />
+          </div>
+        </div>
+        <Button className="mt-4 rounded-lg" onClick={handleSaveGoal} disabled={savingGoal}>
+          {savingGoal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Guardar meta
         </Button>
       </div>
 

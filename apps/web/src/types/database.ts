@@ -1133,6 +1133,8 @@ export interface Database {
           branding: Json
           pos_commission_rates: Json
           fixed_monthly_expenses: Json
+          seller_monthly_goal_cents: number
+          seller_goal_bonus_cents: number
           updated_by: string | null
           updated_at: string
           created_at: string
@@ -1149,6 +1151,8 @@ export interface Database {
           branding?: Json
           pos_commission_rates?: Json
           fixed_monthly_expenses?: Json
+          seller_monthly_goal_cents?: number
+          seller_goal_bonus_cents?: number
           updated_by?: string | null
           updated_at?: string
           created_at?: string
@@ -1164,6 +1168,8 @@ export interface Database {
           branding?: Json
           pos_commission_rates?: Json
           fixed_monthly_expenses?: Json
+          seller_monthly_goal_cents?: number
+          seller_goal_bonus_cents?: number
           updated_by?: string | null
           updated_at?: string
         }

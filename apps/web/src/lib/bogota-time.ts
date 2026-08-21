@@ -65,3 +65,17 @@ export function bogotaDayRange(dateStr: string): { from: string; to: string } {
   const to = next.toISOString()
   return { from, to }
 }
+
+// Límites UTC (ISO) del mes de Bogotá `year`-`month` (mismo patrón que
+// `bogotaDayRange`, pero para un mes completo) — pensado para `.gte(from)
+// .lt(to)` (límite superior EXCLUSIVO). `month` es 1-12; `month=13` da
+// diciembre del año siguiente, así que también sirve para calcular "hasta
+// el primer día del mes siguiente" pasando `month + 1` sin envolver a mano.
+export function bogotaMonthRange(year: number, month: number): { from: string; to: string } {
+  const firstDayISO = (y: number, m: number) => {
+    const yy = m > 12 ? y + 1 : y
+    const mm = ((m - 1) % 12) + 1
+    return bogotaToISO(`${yy}-${String(mm).padStart(2, '0')}-01`, '00:00')
+  }
+  return { from: firstDayISO(year, month), to: firstDayISO(year, month + 1) }
+}

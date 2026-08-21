@@ -19,6 +19,7 @@ const fixedExpensesSchema = z
     dias_mes: z.number().int().min(1).max(31),
   })
   .optional()
+const sellerGoalCentsSchema = z.number().int().min(0).optional()
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,6 +86,18 @@ export async function PUT(request: NextRequest) {
         )
       }
     }
+    if (body.seller_monthly_goal_cents !== undefined) {
+      const validation = sellerGoalCentsSchema.safeParse(body.seller_monthly_goal_cents)
+      if (!validation.success) {
+        return NextResponse.json({ error: 'La meta mensual no puede ser negativa' }, { status: 400 })
+      }
+    }
+    if (body.seller_goal_bonus_cents !== undefined) {
+      const validation = sellerGoalCentsSchema.safeParse(body.seller_goal_bonus_cents)
+      if (!validation.success) {
+        return NextResponse.json({ error: 'El bono no puede ser negativo' }, { status: 400 })
+      }
+    }
 
     const supabase = getServiceSupabase()
 
@@ -104,6 +117,8 @@ export async function PUT(request: NextRequest) {
       'branding',
       'pos_commission_rates',
       'fixed_monthly_expenses',
+      'seller_monthly_goal_cents',
+      'seller_goal_bonus_cents',
     ]
 
     for (const field of allowedFields) {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { MySalesGoalCard } from '@/components/admin/my-sales-goal-card'
 import { BOGOTA_TZ } from '@/lib/bogota-time'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
@@ -445,6 +446,7 @@ export function DashboardTabs({
       {tab === 'ventas' && (
         <div className="space-y-6">
           <AlertsPanel alerts={alerts} />
+          <MySalesGoalCard />
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
