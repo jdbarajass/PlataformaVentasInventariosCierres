@@ -35,6 +35,12 @@ export async function GET(request: NextRequest) {
   let query = db
     .from('products')
     .select('*, categories(name, slug)', { count: 'exact' })
+    // Un producto borrado (deleted_at) siempre queda inactive también, así
+    // que el público nunca lo ve — pero include_inactive=true (Inventario,
+    // Productos admin) sí lo dejaba colar: ese flag existe para mostrar
+    // inventario real todavía sin publicar, no productos que el admin ya
+    // eliminó a propósito. Se filtra siempre, sin depender de includeInactive.
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 

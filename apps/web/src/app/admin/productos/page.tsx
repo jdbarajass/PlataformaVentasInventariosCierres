@@ -69,7 +69,11 @@ export default function ProductsPage() {
         data: { session },
       } = await supabase.auth.getSession()
       const [response, { data: allVariants }] = await Promise.all([
-        fetch('/api/products?limit=250&include_inactive=true', {
+        // Límite alto a propósito — mismo bug ya encontrado en Inventario
+        // (docs/UNIFICACION_YJBMOTOCOM.md sección 81.14): un límite bajo acá
+        // deja productos completos fuera del listado en silencio en cuanto
+        // el catálogo lo supera.
+        fetch('/api/products?limit=2000&include_inactive=true', {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
         }),
         supabase.from('product_variants').select('product_id, barcode'),

@@ -172,7 +172,13 @@ export default function InventarioPage() {
     if (!session?.access_token) return
 
     try {
-      const res = await fetch('/api/products?limit=200&include_inactive=true', {
+      // Límite alto a propósito: esta pestaña necesita el catálogo COMPLETO
+      // para poder filtrar/contar en el cliente (tabla, tarjetas de
+      // resumen, "Ingresar"). Un límite bajo aquí deja productos completos
+      // fuera del listado en silencio en cuanto el catálogo lo supera —
+      // pasó exactamente eso al llegar a 214 productos con un límite de 200
+      // (sección 81.14 de docs/UNIFICACION_YJBMOTOCOM.md).
+      const res = await fetch('/api/products?limit=2000&include_inactive=true', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -232,10 +238,16 @@ export default function InventarioPage() {
 
   const fetchInventoryValue = useCallback(async () => {
     if (!isAdmin) return
-    const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
-      supabase.from('products').select('id, cost_cents, stock_qty'),
-      supabase.from('product_variants').select('product_id, cost_cents, stock_qty'),
-    ])
+    // .is('deleted_at', null): un producto borrado no cascadea el borrado a
+    // sus variantes (a diferencia de un borrado real) — sin este filtro el
+    // valor de inventario seguía sumando el costo/stock de productos que el
+    // admin ya había eliminado (ver docs/UNIFICACION_YJBMOTOCOM.md sección
+    // 81.14).
+    const { data: allProducts } = await supabase.from('products').select('id, cost_cents, stock_qty').is('deleted_at', null)
+    const productIds = (allProducts || []).map((p: any) => p.id)
+    const { data: allVariants } = productIds.length
+      ? await supabase.from('product_variants').select('product_id, cost_cents, stock_qty').in('product_id', productIds)
+      : { data: [] }
     const productsWithVariants = new Set((allVariants || []).map((v: any) => v.product_id))
     const fromProducts = (allProducts || [])
       .filter((p: any) => !productsWithVariants.has(p.id))
@@ -270,10 +282,16 @@ export default function InventarioPage() {
   const fetchCategoryRollup = useCallback(async () => {
     setLoadingGeneral(true)
     try {
-      const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
-        supabase.from('products').select('id, title, cost_cents, stock_qty, categories(name)'),
-        supabase.from('product_variants').select('product_id, cost_cents, stock_qty'),
-      ])
+      // .is('deleted_at', null): mismo motivo que fetchInventoryValue — un
+      // producto borrado no arrastra el borrado de sus variantes.
+      const { data: allProducts } = await supabase
+        .from('products')
+        .select('id, title, cost_cents, stock_qty, categories(name)')
+        .is('deleted_at', null)
+      const productIds = (allProducts || []).map((p: any) => p.id)
+      const { data: allVariants } = productIds.length
+        ? await supabase.from('product_variants').select('product_id, cost_cents, stock_qty').in('product_id', productIds)
+        : { data: [] }
       const variantsByProduct = new Map<string, { stock_qty: number; cost_cents: number }[]>()
       for (const v of (allVariants || []) as any[]) {
         const list = variantsByProduct.get(v.product_id) || []
@@ -1822,7 +1840,7 @@ export default function InventarioPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{totalStock}</p>
-              <p className="text-sm text-muted-foreground">Unidades totales</p>
+              <p className="text-sm text-muted-foreground">Unidades en stock</p>
             </div>
           </div>
         </div>
@@ -1856,7 +1874,7 @@ export default function InventarioPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{inventoryValue === null ? '—' : formatPrice(inventoryValue)}</p>
-                <p className="text-sm text-muted-foreground">Valor de inventario</p>
+                <p className="text-sm text-muted-foreground">Valor en costo (todo el inventario)</p>
               </div>
             </div>
           </div>
