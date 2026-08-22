@@ -185,7 +185,7 @@ export default function ConfiguracionPosPage() {
           <Target className="h-5 w-5" /> Meta mensual de ventas y bono
         </h2>
         <p className="mb-4 text-xs text-muted-foreground">
-          Si un vendedor llega a la meta de ventas de mostrador en el mes, se le ofrece el bono. Cada vendedor ve su propio avance en el Dashboard.
+          Meta compartida por todo el equipo (no individual): si entre todos los vendedores se llega a la meta de ventas de mostrador en el mes, se ofrece el bono. Todos ven el mismo avance combinado y el desglose por vendedor en el Dashboard.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
