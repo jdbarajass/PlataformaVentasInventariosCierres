@@ -14,11 +14,12 @@ import { Product } from '@/types/database'
 interface ProductFormProps {
   product?: Product
   mode: 'create' | 'edit'
+  hasVariants?: boolean
 }
 
-export function ProductForm({ product, mode }: ProductFormProps) {
+export function ProductForm({ product, mode, hasVariants }: ProductFormProps) {
   const router = useRouter()
-  const { formData, setFormData, categories, isLoading, handleSubmit } = useProductForm({ product, mode })
+  const { formData, setFormData, categories, isLoading, handleSubmit } = useProductForm({ product, mode, hasVariants })
   const { userProfile } = useAuth()
   // El rol 'seller' no ve el costo real del producto (igual que el
   // Vendedor del software local) — el valor sigue viajando en formData.cost
@@ -231,7 +232,18 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                 placeholder="0"
+                disabled={hasVariants}
               />
+              {hasVariants && (
+                <p className="text-xs text-muted-foreground">
+                  Este producto tiene tallas — el stock se suma automáticamente de cada talla.
+                  Edítalo desde{' '}
+                  <a href="/admin/inventario" className="underline">
+                    Inventario
+                  </a>
+                  .
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

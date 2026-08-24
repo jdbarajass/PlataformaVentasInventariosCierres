@@ -1174,7 +1174,19 @@ export default function InventarioPage() {
 
       // 2. Si la cantidad cambió, registrarlo como "Ajuste" (igual que
       // actualizar_producto del local, que deja rastro en Movimientos).
-      if (nuevoStock !== stockAnterior) {
+      // Si el producto tiene tallas, este campo NUNCA debe escribir sobre
+      // products.stock_qty directo — se pierde en el siguiente movimiento
+      // de cualquier talla (el trigger de sincronización lo recalcula y lo
+      // pisa sin avisar). Mismo criterio que ya usa requireTallaSelection
+      // para los botones rápidos de Entrada/Salida/Ajuste.
+      const productoEditado = products.find((p) => p.id === productId)
+      if (nuevoStock !== stockAnterior && productoEditado?.variantCount) {
+        toast({
+          title: 'Cantidad no actualizada',
+          description: 'Este producto tiene tallas — ajusta el stock desde la sección de Tallas, no desde aquí.',
+          variant: 'destructive',
+        })
+      } else if (nuevoStock !== stockAnterior) {
         await fetch('/api/inventory/adjust', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -2467,6 +2479,8 @@ export default function InventarioPage() {
                                   value={editProductForm.stock}
                                   onChange={(e) => setEditProductForm({ ...editProductForm, stock: e.target.value })}
                                   className="h-7 w-16 rounded-lg text-xs"
+                                  disabled={product.variantCount > 0}
+                                  title={product.variantCount > 0 ? 'Este producto tiene tallas — ajusta desde Tallas' : undefined}
                                 />
                                 <Input
                                   type="number"

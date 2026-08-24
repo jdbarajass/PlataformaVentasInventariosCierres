@@ -13,7 +13,7 @@ export async function decrementStockAtomic(
   supabase: SupabaseClient,
   productId: string,
   qty: number
-): Promise<{ id: string; title: string; stock_qty: number } | null> {
+): Promise<{ id: string; title: string; stock_qty: number; actual_deducted: number } | null> {
   const { data, error } = await (supabase.rpc as any)('decrement_stock', {
     p_product_id: productId,
     p_qty: qty,
@@ -38,7 +38,7 @@ export async function decrementVariantStockAtomic(
   supabase: SupabaseClient,
   variantId: string,
   qty: number
-): Promise<{ id: string; talla: string | null; stock_qty: number } | null> {
+): Promise<{ id: string; talla: string | null; stock_qty: number; actual_deducted: number } | null> {
   const { data, error } = await (supabase.rpc as any)('decrement_variant_stock', {
     p_variant_id: variantId,
     p_qty: qty,

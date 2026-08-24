@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         // Reduce stock for each item
         const { data: orderItemsData, error: itemsError } = await serviceSupabase
           .from('order_items')
-          .select('product_id, variant_id, qty')
+          .select('id, product_id, variant_id, qty')
           .eq('order_id', orderId)
 
         if (itemsError) {
@@ -167,11 +167,18 @@ export async function POST(request: NextRequest) {
 
             console.log(`[Webhook] Reduced stock -> ${updated.stock_qty}`)
 
+            // Se guarda el descuento REAL para que cancelar la orden más
+            // adelante restaure ese monto exacto (ver
+            // restore_stock_for_cancelled_order, migración 00046).
+            await (serviceSupabase.from('order_items') as any)
+              .update({ stock_deducted: updated.actual_deducted })
+              .eq('id', item.id)
+
             // Record inventory movement
             const { error: movementError } = await (serviceSupabase.from('inventory_movements') as any).insert({
               product_id: item.product_id,
               variant_id: item.variant_id || null,
-              qty: -item.qty,
+              qty: -updated.actual_deducted,
               type: 'sale',
               reference_id: orderId,
               reference_type: 'order',

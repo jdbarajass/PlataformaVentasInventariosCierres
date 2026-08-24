@@ -16,7 +16,7 @@ export async function decrementStockForOrder(
 ): Promise<void> {
   const { data: orderItemsData, error: itemsError } = await supabase
     .from('order_items')
-    .select('product_id, variant_id, qty')
+    .select('id, product_id, variant_id, qty')
     .eq('order_id', orderId)
 
   if (itemsError) throw itemsError
@@ -35,10 +35,19 @@ export async function decrementStockForOrder(
       continue
     }
 
+    // Se guarda cuánto se descontó REALMENTE (nunca deja stock negativo,
+    // ver decrement_stock/decrement_variant_stock) para que cancelar esta
+    // orden más adelante restaure ese mismo monto, no el `qty` nominal
+    // pedido — mismo patrón que ya usa `create_pos_sale` desde la
+    // migración 00028.
+    await (supabase.from('order_items') as any)
+      .update({ stock_deducted: updated.actual_deducted })
+      .eq('id', item.id)
+
     await (supabase.from('inventory_movements') as any).insert({
       product_id: item.product_id,
       variant_id: item.variant_id || null,
-      qty: -item.qty,
+      qty: -updated.actual_deducted,
       type: 'sale',
       reference_id: orderId,
       reference_type: 'order',

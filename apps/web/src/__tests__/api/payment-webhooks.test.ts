@@ -49,7 +49,7 @@ describe('POST /api/payments/webhook (Stripe)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     markWebhookProcessedMock.mockResolvedValue(true)
-    decrementStockAtomicMock.mockResolvedValue({ id: 'p1', title: 'Casco', stock_qty: 8 })
+    decrementStockAtomicMock.mockResolvedValue({ id: 'p1', title: 'Casco', stock_qty: 8, actual_deducted: 2 })
   })
 
   it('skips processing when the event was already handled (idempotency)', async () => {
@@ -114,7 +114,7 @@ describe('POST /api/payments/webhook (Stripe)', () => {
     })
     const { client, calls } = createSupabaseMock({
       orders: { data: { total_cents: 115_000 }, error: null },
-      order_items: { data: [{ product_id: 'p1', qty: 2 }], error: null },
+      order_items: { data: [{ id: 'oi1', product_id: 'p1', qty: 2 }], error: null },
     })
     getServiceSupabaseMock.mockReturnValue(client)
 
@@ -144,7 +144,7 @@ describe('POST /api/payments/webhook (Stripe)', () => {
     // respuesta fija por tabla, así que el fixture ya trae user_id.
     const { client, calls } = createSupabaseMock({
       orders: { data: { total_cents: 500_000, user_id: 'u1', order_number: 'YJBM-1', channel: 'online' }, error: null },
-      order_items: { data: [{ product_id: 'p1', qty: 1 }], error: null },
+      order_items: { data: [{ id: 'oi1', product_id: 'p1', qty: 1 }], error: null },
     })
     getServiceSupabaseMock.mockReturnValue(client)
 
@@ -173,7 +173,7 @@ describe('POST /api/payments/mercadopago/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     markWebhookProcessedMock.mockResolvedValue(true)
-    decrementStockAtomicMock.mockResolvedValue({ id: 'p1', title: 'Casco', stock_qty: 8 })
+    decrementStockAtomicMock.mockResolvedValue({ id: 'p1', title: 'Casco', stock_qty: 8, actual_deducted: 2 })
   })
 
   it('flags and does not confirm the order when the paid amount does not match the order total', async () => {
@@ -208,7 +208,7 @@ describe('POST /api/payments/mercadopago/webhook', () => {
     })
     const { client, calls } = createSupabaseMock({
       orders: { data: { total_cents: 115_000 }, error: null },
-      order_items: { data: [{ product_id: 'p1', qty: 2 }], error: null },
+      order_items: { data: [{ id: 'oi1', product_id: 'p1', qty: 2 }], error: null },
     })
     getServiceSupabaseMock.mockReturnValue(client)
 
@@ -229,7 +229,7 @@ describe('POST /api/payments/mercadopago/webhook', () => {
     })
     const { client, calls } = createSupabaseMock({
       orders: { data: { total_cents: 500_000, user_id: 'u1', order_number: 'YJBM-2', channel: 'online' }, error: null },
-      order_items: { data: [{ product_id: 'p1', qty: 1 }], error: null },
+      order_items: { data: [{ id: 'oi1', product_id: 'p1', qty: 1 }], error: null },
     })
     getServiceSupabaseMock.mockReturnValue(client)
 

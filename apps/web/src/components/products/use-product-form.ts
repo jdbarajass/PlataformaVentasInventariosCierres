@@ -11,6 +11,7 @@ import { Product, Category } from '@/types/database'
 interface UseProductFormParams {
   product?: Product
   mode: 'create' | 'edit'
+  hasVariants?: boolean
 }
 
 // Combining diacritical marks (U+0300–U+036F), built from char codes to
@@ -26,7 +27,7 @@ function slugify(title: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export function useProductForm({ product, mode }: UseProductFormParams) {
+export function useProductForm({ product, mode, hasVariants }: UseProductFormParams) {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
@@ -84,7 +85,13 @@ export function useProductForm({ product, mode }: UseProductFormParams) {
           : null,
         category_id: formData.categoryId || null,
         images: validImages,
-        stock_qty: parseInt(formData.stock),
+        // Si el producto tiene tallas, `stock_qty` lo mantiene un trigger
+        // como la suma de sus variantes (migración 00030/00039) — se envía
+        // sin cambios para no pisarlo con el número mostrado en este
+        // formulario, que ni siquiera puede editarse aquí (ver "Inventario"
+        // → Tallas para eso). Confirmado con pruebas: escribir aquí se
+        // pierde en el siguiente movimiento de cualquier talla.
+        stock_qty: hasVariants ? product?.stock_qty ?? 0 : parseInt(formData.stock),
         low_stock_threshold: parseInt(formData.lowStockThreshold),
         tags: formData.tags
           ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)

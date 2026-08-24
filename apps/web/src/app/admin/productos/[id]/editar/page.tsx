@@ -35,5 +35,14 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     notFound()
   }
 
-  return <ProductForm mode="edit" product={product as Product} />
+  // Si el producto tiene tallas, su stock real vive en `product_variants` —
+  // `products.stock_qty` es solo la suma que mantiene un trigger (ver
+  // migración 00030/00039). Editar el stock desde aquí directamente lo pisa
+  // sin avisar en el siguiente movimiento de cualquier talla.
+  const { count: variantCount } = await supabase
+    .from('product_variants')
+    .select('id', { count: 'exact', head: true })
+    .eq('product_id', id)
+
+  return <ProductForm mode="edit" product={product as Product} hasVariants={(variantCount || 0) > 0} />
 }

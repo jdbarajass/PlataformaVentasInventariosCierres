@@ -43,12 +43,50 @@ export async function PUT(
 
   // Update order status
   if (status) {
+    // Se lee el estado ANTES de actualizar para decidir si hay que revertir
+    // stock: solo si la orden estaba realmente pagada (el stock ya se había
+    // descontado, vía webhook o pago manual) y no estaba cancelada ya antes
+    // (evita revertir dos veces si el botón se pulsa más de una vez).
+    const { data: previousOrder } = await supabase
+      .from('orders')
+      .select('status, payment_status, order_number')
+      .eq('id', id)
+      .single()
+
+    const wasPaidAndNotCancelled =
+      status === 'cancelled' &&
+      (previousOrder as any)?.payment_status === 'paid' &&
+      (previousOrder as any)?.status !== 'cancelled'
+
     const { error } = await (supabase.from('orders') as any)
-      .update({ status })
+      .update(wasPaidAndNotCancelled ? { status, payment_status: 'refunded' } : { status })
       .eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Cancelar una orden online ya pagada no revertía el stock (a diferencia
+    // de cancel_pos_sale para mostrador) — el inventario quedaba descontado
+    // para siempre. Se restaura aquí con la misma función/patrón que usa
+    // POS (ver restore_stock_for_cancelled_order, migración 00046). También
+    // se marca payment_status='refunded' arriba para que Reportes/Historial
+    // Mensual (que filtran por payment_status='paid') dejen de contarla
+    // como ingreso real.
+    if (wasPaidAndNotCancelled) {
+      const { error: restoreError } = await (supabase.rpc as any)('restore_stock_for_cancelled_order', {
+        p_order_id: id,
+      })
+      if (restoreError) {
+        console.error('Error restoring stock for cancelled order:', restoreError)
+      }
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: 'order_stock_restored',
+        table_name: 'orders',
+        record_id: id,
+        new_data: { order_number: (previousOrder as any)?.order_number },
+      })
     }
 
     // Marca cuándo quedó 'delivered' (una sola vez) — lo usa el cron de
