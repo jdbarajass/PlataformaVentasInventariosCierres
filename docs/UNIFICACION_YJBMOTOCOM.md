@@ -2511,3 +2511,26 @@ El usuario preguntó si los 82 cascos viejos desactivados (sección 81.13) segu�
 **Error propio detectado y corregido antes de escribir nada**: el primer intento de selección (`active=false` dentro de categoría Cascos) trajo 106 candidatos en vez de 82, porque también capturó los 24 productos nuevos (que están `active=false` a propósito, pendientes de foto, pero con stock real). Un chequeo de seguridad en el propio script (abortar si algún candidato tiene `stock_qty > 0`) lo detectó antes de tocar nada. Se corrigió agregando `stock_qty=0` al filtro de selección (ningún casco nuevo tiene 0 unidades en ninguna talla) — el reintento dio exactamente 82, como se esperaba.
 
 **Verificado con navegador real y consultas directas**: búsqueda de "CASCO HRO" (uno de los viejos) en Registrar Venta ya no devuelve nada; búsqueda de "CASCO SHATF 526" (uno de los nuevos) sigue funcionando igual; los 24 productos nuevos y los 5 no-casco reactivados quedaron sin tocar (`deleted_at` sigue en `null` en ambos grupos); el historial de ventas de los 82 (46 filas de `order_items`) se confirmó intacto por conteo directo. De paso se encontraron y confirmaron, sin relación con este cambio, 6 productos que ya estaban borrados desde el 2026-08-11 (los mismos de la sección 81.14).
+
+### 81.17 Regresión completa de toda la ronda de cambios (2026-08-24)
+
+El usuario pidió, dado lo grande que fue esta ronda completa de cambios (Fase 8, fixes de Registrar Venta, meta de vendedor/equipo, simplificación de Cascos, fixes de Inventario), una prueba a fondo de que todo funciona y no quedó ningún bug. Se hizo una regresión completa en 4 capas:
+
+**1. Verificación estática de todo el proyecto**: `tsc --noEmit` limpio, `eslint .` (todo el árbol, no solo archivos tocados) limpio, `npm run build` completo — 112 páginas generadas sin errores — y `vitest run` con **129/129 tests en verde**.
+
+**2. Navegador real, 17 casos de prueba independientes, contra producción real** (datos de prueba creados y borrados sin dejar rastro, saldos de las 7 cuentas verificados exactos antes/después):
+- Registrar Venta: los 9 métodos de pago (Efectivo, Datáfono, Nequi, NU, QR, Daviplata, Addi, SisteCrédito, Otro) completan la venta y abren la factura — 9/9 OK.
+- El selector Débito/Crédito de Datáfono funciona.
+- La confirmación de "sin stock" ocurre al agregar el producto (no al vender) — un solo diálogo en total, factura sin segundo popup.
+- Dos ventas seguidas en la misma pestaña sin recargar la página — ambas completas (el bug de la sesión "pegada" de la 81.10 sigue corregido).
+- Búsqueda: un casco nuevo (CASCO SHATF 526) aparece; un casco viejo (CASCO HRO) no aparece.
+- Dashboard: tanto admin como seller ven "Meta de ventas del equipo este mes" (la meta compartida de la 81.15).
+- Configuración POS: la sección de meta mensual carga con sus valores.
+- Inventario: "Unidades en stock"/"Valor en costo" visibles, un casco nuevo (CASCO XTRONG 902) se encuentra por búsqueda.
+- Tienda pública: home y `/categoria/cascos` cargan sin errores de consola/página.
+
+**3. Barrido de integridad de datos en toda la base**: 0 códigos de barra duplicados, 0 SKU duplicados en todo el catálogo; Cascos con el estado exacto esperado (5 activos no-casco, 88 borrados [82 retirados + 6 previos], 24 inactivos sin borrar pendientes de foto); historial de ventas de los cascos borrados con filas de `order_items` reales (nada se perdió); configuración de meta/bono sin alterar.
+
+**Hallazgo menor, no relacionado con esta ronda, limpiado en el camino**: quedaba **una** orden cancelada residual de pruebas de una sesión anterior (2026-08-21, "TEST DOBLE VENTA UNO") que se había cancelado correctamente pero nunca se terminó de borrar — encontrada por el barrido de "0 órdenes canceladas residuales" y limpiada ahí mismo.
+
+**Conclusión: toda la ronda de cambios de esta sesión funciona correctamente, sin bugs encontrados.** El único hallazgo fue la orden residual de una sesión anterior (ya limpiada), sin relación con el trabajo de hoy.
