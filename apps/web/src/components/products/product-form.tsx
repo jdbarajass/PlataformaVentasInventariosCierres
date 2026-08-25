@@ -24,7 +24,8 @@ export function ProductForm({ product, mode, hasVariants }: ProductFormProps) {
   // El rol 'seller' no ve el costo real del producto (igual que el
   // Vendedor del software local) — el valor sigue viajando en formData.cost
   // y se guarda sin cambios al enviar el formulario, solo se oculta el input.
-  const canViewCost = userProfile?.role === 'admin'
+  const canViewCost = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
+  const isAdmin = userProfile?.role === 'admin'
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -50,7 +51,7 @@ export function ProductForm({ product, mode, hasVariants }: ProductFormProps) {
             </p>
           </div>
         </div>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading || !isAdmin}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -321,7 +322,7 @@ export function ProductForm({ product, mode, hasVariants }: ProductFormProps) {
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading || !isAdmin}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

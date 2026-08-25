@@ -36,6 +36,10 @@ export default function ConfiguracionPosPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  // Admin de solo lectura: ve la configuración igual que un admin real,
+  // pero los botones de "Guardar" quedan deshabilitados (el backend de
+  // todas formas rechaza cualquier escritura suya con 403).
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
   const fetchSettings = useCallback(async () => {
     if (!session?.access_token) return
@@ -133,7 +137,7 @@ export default function ConfiguracionPosPage() {
     }
   }
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -174,7 +178,7 @@ export default function ConfiguracionPosPage() {
             </div>
           ))}
         </div>
-        <Button className="mt-4 rounded-lg" onClick={handleSaveRates} disabled={savingRates}>
+        <Button className="mt-4 rounded-lg" onClick={handleSaveRates} disabled={savingRates || !isAdmin}>
           {savingRates ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar comisiones
         </Button>
@@ -197,7 +201,7 @@ export default function ConfiguracionPosPage() {
             <MoneyInput value={sellerGoal.bonus} onChange={(v) => setSellerGoal({ ...sellerGoal, bonus: v })} className="rounded-lg" />
           </div>
         </div>
-        <Button className="mt-4 rounded-lg" onClick={handleSaveGoal} disabled={savingGoal}>
+        <Button className="mt-4 rounded-lg" onClick={handleSaveGoal} disabled={savingGoal || !isAdmin}>
           {savingGoal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar meta
         </Button>
@@ -232,7 +236,7 @@ export default function ConfiguracionPosPage() {
         <p className="mt-3 text-xs text-muted-foreground">
           Se usan completos (sin prorratear) en la Utilidad Real de Reportes e Historial Mensual, y prorrateados por día (total ÷ días del mes) en la Utilidad Real de Ventas del Día — igual que el software local.
         </p>
-        <Button className="mt-4 rounded-lg" onClick={handleSaveExpenses} disabled={savingExpenses}>
+        <Button className="mt-4 rounded-lg" onClick={handleSaveExpenses} disabled={savingExpenses || !isAdmin}>
           {savingExpenses ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar gastos fijos
         </Button>

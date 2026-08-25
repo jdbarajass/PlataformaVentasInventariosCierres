@@ -51,7 +51,7 @@ function IniciarSesionForm() {
           .eq('id', data.user.id)
           .single()) as { data: { role: string } | null }
 
-        if (userData?.role === 'admin' || userData?.role === 'seller') {
+        if (userData?.role === 'admin' || userData?.role === 'seller' || userData?.role === 'admin_readonly') {
           window.location.href = '/admin'
         } else {
           window.location.href = '/mi-cuenta'

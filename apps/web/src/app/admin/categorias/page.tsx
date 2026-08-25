@@ -33,6 +33,11 @@ export default function CategoriasPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  // Admin de solo lectura: ve esta sección igual que un admin real, pero
+  // ningún botón de crear/editar/eliminar se le muestra (el backend de
+  // todas formas rechaza cualquier escritura suya con 403).
+  const isReadOnlyAdmin = userProfile?.role === 'admin_readonly'
+  const canView = isAdmin || isReadOnlyAdmin
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -40,7 +45,7 @@ export default function CategoriasPage() {
   )
 
   const fetchCategories = useCallback(async () => {
-    if (!session?.access_token || !isAdmin) return
+    if (!session?.access_token || !canView) return
     setLoading(true)
     try {
       const res = await fetch('/api/categories?include_inactive=true', { headers: authHeaders() })
@@ -52,7 +57,7 @@ export default function CategoriasPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, isAdmin, authHeaders])
+  }, [session?.access_token, canView, authHeaders])
 
   useEffect(() => {
     fetchCategories()
@@ -141,7 +146,7 @@ export default function CategoriasPage() {
     }
   }
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -157,27 +162,29 @@ export default function CategoriasPage() {
         <p className="text-muted-foreground">Organiza los productos del catálogo por categoría</p>
       </div>
 
-      <div className="rounded-xl border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Nueva categoría</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            placeholder="Ej: Cascos"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="min-w-[200px] flex-1 rounded-lg"
-          />
-          <Input
-            placeholder="Descripción (opcional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="min-w-[240px] flex-[2] rounded-lg"
-          />
-          <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            Agregar
-          </Button>
+      {isAdmin && (
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold">Nueva categoría</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              placeholder="Ej: Cascos"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="min-w-[200px] flex-1 rounded-lg"
+            />
+            <Input
+              placeholder="Descripción (opcional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="min-w-[240px] flex-[2] rounded-lg"
+            />
+            <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Agregar
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center p-12">
@@ -225,23 +232,25 @@ export default function CategoriasPage() {
                   </div>
                   {category.description && <p className="text-sm text-muted-foreground">{category.description}</p>}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    title={category.active ? 'Desactivar' : 'Activar'}
-                    onClick={() => handleToggleActive(category)}
-                  >
-                    {category.active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(category)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(category)}>
-                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                  </Button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      title={category.active ? 'Desactivar' : 'Activar'}
+                      onClick={() => handleToggleActive(category)}
+                    >
+                      {category.active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(category)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(category)}>
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           })}

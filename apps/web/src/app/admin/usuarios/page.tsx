@@ -29,7 +29,7 @@ interface UserData {
   email: string
   name: string | null
   phone: string | null
-  role: 'admin' | 'seller' | 'viewer'
+  role: 'admin' | 'seller' | 'viewer' | 'admin_readonly'
   avatar_url: string | null
   created_at: string
   updated_at: string
@@ -40,6 +40,11 @@ const roleConfig = {
     label: 'Administrador',
     color: 'bg-red-500/10 text-red-500 border-red-500/20',
     icon: ShieldCheck,
+  },
+  admin_readonly: {
+    label: 'Admin (solo lectura)',
+    color: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    icon: Eye,
   },
   seller: {
     label: 'Vendedor',
@@ -53,7 +58,7 @@ const roleConfig = {
   },
 }
 
-const roles: Array<'admin' | 'seller' | 'viewer'> = ['admin', 'seller', 'viewer']
+const roles: Array<'admin' | 'seller' | 'viewer' | 'admin_readonly'> = ['admin', 'admin_readonly', 'seller', 'viewer']
 
 export default function UsuariosPage() {
   const [users, setUsers] = useState<UserData[]>([])
@@ -61,13 +66,13 @@ export default function UsuariosPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRole, setSelectedRole] = useState<string>('all')
   const [editingUser, setEditingUser] = useState<string | null>(null)
-  const [editRole, setEditRole] = useState<'admin' | 'seller' | 'viewer'>('viewer')
+  const [editRole, setEditRole] = useState<'admin' | 'seller' | 'viewer' | 'admin_readonly'>('viewer')
   const [saving, setSaving] = useState(false)
 
   // Crear usuario — igual que "+ Crear" del local (config_panel.py), que
   // crea el login directamente con nombre/rol/contraseña.
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [createForm, setCreateForm] = useState({ email: '', password: '', name: '', phone: '', role: 'seller' as 'admin' | 'seller' | 'viewer' })
+  const [createForm, setCreateForm] = useState({ email: '', password: '', name: '', phone: '', role: 'seller' as 'admin' | 'seller' | 'viewer' | 'admin_readonly' })
   const [creating, setCreating] = useState(false)
 
   // Restablecer contraseña de cualquier usuario — igual que "Cambiar
@@ -79,9 +84,10 @@ export default function UsuariosPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
   const fetchUsers = useCallback(async () => {
-    if (!session?.access_token || !isAdmin) return
+    if (!session?.access_token || !canView) return
 
     try {
       setLoading(true)
@@ -111,7 +117,7 @@ export default function UsuariosPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, isAdmin, searchQuery, selectedRole, toast])
+  }, [session?.access_token, canView, searchQuery, selectedRole, toast])
 
   useEffect(() => {
     fetchUsers()
@@ -250,11 +256,12 @@ export default function UsuariosPage() {
 
   const roleCounts = {
     admin: users.filter((u) => u.role === 'admin').length,
+    admin_readonly: users.filter((u) => u.role === 'admin_readonly').length,
     seller: users.filter((u) => u.role === 'seller').length,
     viewer: users.filter((u) => u.role === 'viewer').length,
   }
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -273,12 +280,14 @@ export default function UsuariosPage() {
             Gestiona los usuarios y sus permisos
           </p>
         </div>
-        <Button className="rounded-xl" onClick={() => setShowCreateForm((v) => !v)}>
-          <Plus className="mr-2 h-4 w-4" /> Nuevo usuario
-        </Button>
+        {isAdmin && (
+          <Button className="rounded-xl" onClick={() => setShowCreateForm((v) => !v)}>
+            <Plus className="mr-2 h-4 w-4" /> Nuevo usuario
+          </Button>
+        )}
       </div>
 
-      {showCreateForm && (
+      {isAdmin && showCreateForm && (
         <div className="rounded-xl border bg-card p-6">
           <h2 className="mb-4 text-lg font-semibold">Crear usuario</h2>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -288,7 +297,7 @@ export default function UsuariosPage() {
             <Input placeholder="Teléfono (opcional)" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} className="rounded-lg" />
             <select
               value={createForm.role}
-              onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'seller' | 'viewer' })}
+              onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'seller' | 'viewer' | 'admin_readonly' })}
               className="rounded-lg border bg-background px-3 py-2 text-sm"
             >
               {roles.map((r) => (
@@ -440,7 +449,7 @@ export default function UsuariosPage() {
                             <div className="flex items-center gap-2">
                               <select
                                 value={editRole}
-                                onChange={(e) => setEditRole(e.target.value as 'admin' | 'seller' | 'viewer')}
+                                onChange={(e) => setEditRole(e.target.value as 'admin' | 'seller' | 'viewer' | 'admin_readonly')}
                                 className="rounded-lg border bg-background px-2 py-1 text-sm"
                               >
                                 {roles.map((r) => (
@@ -485,7 +494,7 @@ export default function UsuariosPage() {
                           {formatDate(user.created_at)}
                         </td>
                         <td className="px-6 py-4">
-                          {resettingId === user.id ? (
+                          {!isAdmin ? null : resettingId === user.id ? (
                             <div className="flex items-center justify-end gap-2">
                               <Input
                                 type="password"

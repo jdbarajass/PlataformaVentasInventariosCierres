@@ -129,7 +129,7 @@ function VentasDiaContent() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   // Igual que en el software local: solo Admin ve costo/ganancia/comisión/utilidad.
-  const canViewProfit = userProfile?.role === 'admin'
+  const canViewProfit = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),

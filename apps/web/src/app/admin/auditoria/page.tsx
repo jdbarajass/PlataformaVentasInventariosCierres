@@ -67,9 +67,10 @@ export default function AuditoriaPage() {
   const [isLoading, setIsLoading] = useState(true)
   const { session, userProfile } = useAuth()
   const isAdmin = userProfile?.role === 'admin'
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
   const fetchLogs = useCallback(async () => {
-    if (!session?.access_token || !isAdmin) return
+    if (!session?.access_token || !canView) return
     try {
       setIsLoading(true)
       const res = await fetch('/api/admin/audit-logs?limit=100', {
@@ -83,7 +84,7 @@ export default function AuditoriaPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [session?.access_token, isAdmin])
+  }, [session?.access_token, canView])
 
   useEffect(() => {
     fetchLogs()
@@ -124,7 +125,7 @@ export default function AuditoriaPage() {
   const uniqueActions = Array.from(new Set(logs.map((l) => l.action)))
   const uniqueTables = Array.from(new Set(logs.map((l) => l.table_name)))
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />

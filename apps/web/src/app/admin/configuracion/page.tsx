@@ -74,6 +74,7 @@ export default function ConfiguracionPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -191,7 +192,7 @@ export default function ConfiguracionPage() {
     )
   }
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -212,7 +213,7 @@ export default function ConfiguracionPage() {
         </div>
         <Button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600"
         >
           {saving ? (
@@ -551,7 +552,7 @@ export default function ConfiguracionPage() {
       <div className="fixed bottom-6 right-6 lg:hidden">
         <Button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !isAdmin}
           size="lg"
           className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg"
         >

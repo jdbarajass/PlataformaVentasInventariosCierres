@@ -160,9 +160,11 @@ export default function InventarioPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  const isReadOnlyAdmin = userProfile?.role === 'admin_readonly'
   // El rol 'seller' no ve el costo real de las variantes, igual que en
-  // el software local (solo Admin ve costos/ganancia).
-  const canViewCost = isAdmin
+  // el software local (solo Admin ve costos/ganancia). El admin de solo
+  // lectura sí los ve (ve absolutamente todo), solo no puede editar nada.
+  const canViewCost = isAdmin || isReadOnlyAdmin
   // Editar inventario (ajustar stock, agregar/desactivar variantes) es
   // solo de Admin — el software local exige la clave maestra de Admin
   // para esto incluso con sesión de vendedor; aquí se restringe directo.
@@ -1978,8 +1980,9 @@ export default function InventarioPage() {
             con notas) — es un registro de auditoría, no algo que un
             vendedor necesite para su operación diaria (a diferencia de
             "Inventario General", que sí necesita ver para poder cuadrar
-            el conteo físico contra el sistema). */}
-        {canEdit && (
+            el conteo físico contra el sistema). El admin de solo lectura
+            SÍ lo ve (ve absolutamente todo, igual que Auditoría). */}
+        {(canEdit || isReadOnlyAdmin) && (
           <button
             onClick={() => setActiveTab('movimientos')}
             className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${

@@ -9,7 +9,7 @@ interface UserProfile {
   id: string
   email: string
   name: string | null
-  role: 'admin' | 'seller' | 'viewer'
+  role: 'admin' | 'seller' | 'viewer' | 'admin_readonly'
 }
 
 interface AuthContextType {

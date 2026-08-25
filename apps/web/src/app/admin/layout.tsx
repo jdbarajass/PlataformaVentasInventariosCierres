@@ -275,7 +275,7 @@ export default function AdminLayout({
                       {userProfile?.name || user.email?.split('@')[0]}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {userProfile?.role || 'admin'}
+                      {userProfile?.role === 'admin_readonly' ? 'Admin (solo lectura)' : userProfile?.role || 'admin'}
                     </p>
                   </div>
                 )}
@@ -286,7 +286,7 @@ export default function AdminLayout({
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
             {navigation.map((entry) => {
-              if (entry.adminOnly && userProfile?.role !== 'admin') return null
+              if (entry.adminOnly && userProfile?.role !== 'admin' && userProfile?.role !== 'admin_readonly') return null
 
               if (!isGroup(entry)) {
                 const isActive = isActiveHref(entry.href)
@@ -309,7 +309,9 @@ export default function AdminLayout({
                 )
               }
 
-              const visibleItems = entry.items.filter((it) => !it.adminOnly || userProfile?.role === 'admin')
+              const visibleItems = entry.items.filter(
+                (it) => !it.adminOnly || userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
+              )
               if (visibleItems.length === 0) return null
               const groupHasActive = visibleItems.some((it) => isActiveHref(it.href))
               const isOpen = expandedGroups.has(entry.name)

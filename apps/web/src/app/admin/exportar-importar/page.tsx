@@ -42,8 +42,12 @@ export default function ExportarImportarPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  // Exportar (descarga) es de solo lectura, así que se deja disponible
+  // para el admin de solo lectura — solo se le oculta "Importar" más
+  // abajo, que sí escribe datos.
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -162,6 +166,7 @@ export default function ExportarImportarPage() {
           </Button>
         </div>
 
+        {isAdmin && (
         <div className="rounded-xl border bg-card p-6">
           <div className="flex items-center gap-3">
             <Upload className="h-8 w-8 text-cyan-500" />
@@ -187,6 +192,7 @@ export default function ExportarImportarPage() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       <div className="rounded-xl border bg-card p-6">

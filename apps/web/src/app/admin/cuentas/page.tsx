@@ -99,6 +99,11 @@ export default function CuentasPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  // Admin de solo lectura: ve saldos/movimientos/cierres igual que un
+  // admin real, pero no puede hacer un cierre mensual nuevo (el backend
+  // de todas formas rechaza esa escritura con 403).
+  const isReadOnlyAdmin = userProfile?.role === 'admin_readonly'
+  const canView = isAdmin || isReadOnlyAdmin
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -136,7 +141,7 @@ export default function CuentasPage() {
   }, [session?.access_token, authHeaders, movementAccountFilter, movementFrom, movementTo])
 
   const fetchClosures = useCallback(async () => {
-    if (!session?.access_token || !isAdmin) return
+    if (!session?.access_token || !canView) return
     try {
       const res = await fetch('/api/account-closures', { headers: authHeaders() })
       if (!res.ok) throw new Error('Error fetching closures')
@@ -145,7 +150,7 @@ export default function CuentasPage() {
     } catch (error) {
       console.error('Error fetching account closures:', error)
     }
-  }, [session?.access_token, authHeaders, isAdmin])
+  }, [session?.access_token, authHeaders, canView])
 
   useEffect(() => {
     const load = async () => {
@@ -272,8 +277,10 @@ export default function CuentasPage() {
   }
 
   // Cuentas es un módulo 100% de Admin, igual que el software local (el
-  // vendedor no ve ni el botón de navegación de este módulo).
-  if (!isAdmin) {
+  // vendedor no ve ni el botón de navegación de este módulo). El admin de
+  // solo lectura sí entra (ve todo), pero las acciones de escritura de
+  // más abajo se quedan detrás de `isAdmin` a secas.
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -342,6 +349,7 @@ export default function CuentasPage() {
                 ))}
               </div>
 
+              {isAdmin && (
               <div className="grid gap-6 lg:grid-cols-2">
                 {/* Ajuste manual */}
                 <div className="rounded-xl border bg-card p-6">
@@ -454,6 +462,7 @@ export default function CuentasPage() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           )}
 
@@ -563,13 +572,17 @@ export default function CuentasPage() {
                     </Button>
                   </div>
                 </div>
+              ) : isReadOnlyAdmin ? (
+                <p className="text-sm text-muted-foreground">
+                  Los cierres mensuales son de solo lectura para tu perfil.
+                </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Los cierres mensuales solo están disponibles para administradores.
                 </p>
               )}
 
-              {isAdmin && (
+              {canView && (
                 <div className="space-y-4">
                   {closures.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Aún no hay cierres registrados.</p>

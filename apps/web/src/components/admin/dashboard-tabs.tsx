@@ -401,7 +401,7 @@ export function DashboardTabs({
 }) {
   const [tab, setTab] = useState<'ventas' | 'online' | 'fisica'>('ventas')
   const { userProfile } = useAuth()
-  const canViewProfit = userProfile?.role === 'admin'
+  const canViewProfit = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
 
   const todayProfit = ventas.todayRevenue - ventas.todayCost
   const maxWeekly = Math.max(...ventas.weeklyTrend.map((d) => d.cents), 1)

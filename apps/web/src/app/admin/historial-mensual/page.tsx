@@ -70,7 +70,7 @@ export default function HistorialMensualPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const { userProfile } = useAuth()
-  const canViewProfit = userProfile?.role === 'admin'
+  const canViewProfit = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
 
   // Todo el fetch va envuelto en un límite de tiempo único: supabaseBrowser
   // puede colgarse indefinidamente al refrescar la sesión tras un rato de

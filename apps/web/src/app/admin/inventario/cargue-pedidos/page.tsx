@@ -39,6 +39,11 @@ export default function CarguePedidosPage() {
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
   const isAdmin = userProfile?.role === 'admin'
+  // Todo este flujo es de carga/escritura (parsear PDF, confirmar
+  // importación) — no hay datos persistidos que "ver" aparte del formulario
+  // en sí, así que al admin de solo lectura se le deja entrar a la página
+  // pero con la carga de archivo deshabilitada.
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
@@ -132,7 +137,7 @@ export default function CarguePedidosPage() {
     }
   }
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />
@@ -172,8 +177,8 @@ export default function CarguePedidosPage() {
             <option value="distrifabrica">DISTRIFABRICA RAMIREZ SAS (SHAFT / HRO / ICH)</option>
           </select>
 
-          <label>
-            <input type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} disabled={parsing} />
+          <label className={!isAdmin ? 'pointer-events-none opacity-50' : undefined}>
+            <input type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} disabled={parsing || !isAdmin} />
             <span className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600">
               {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Cargar PDF de pedido

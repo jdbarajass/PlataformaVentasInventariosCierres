@@ -28,9 +28,10 @@ export default function RendimientoVendedoresPage() {
 
   const { session, userProfile } = useAuth()
   const isAdmin = userProfile?.role === 'admin'
+  const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
   const fetchData = useCallback(async () => {
-    if (!session?.access_token || !isAdmin) return
+    if (!session?.access_token || !canView) return
     setLoading(true)
     try {
       // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
@@ -49,7 +50,7 @@ export default function RendimientoVendedoresPage() {
     } finally {
       setLoading(false)
     }
-  }, [session?.access_token, isAdmin, dateFrom, dateTo])
+  }, [session?.access_token, canView, dateFrom, dateTo])
 
   useEffect(() => {
     fetchData()
@@ -58,7 +59,7 @@ export default function RendimientoVendedoresPage() {
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(cents / 100)
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
         <Lock className="h-10 w-10" />

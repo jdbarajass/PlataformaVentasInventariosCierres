@@ -78,7 +78,7 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const { userProfile } = useAuth()
   // Igual que en el software local: solo Admin ve costo/comisión/ganancia.
-  const canViewProfit = userProfile?.role === 'admin'
+  const canViewProfit = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
 
   const [loadError, setLoadError] = useState<string | null>(null)
 

@@ -15,7 +15,7 @@ export interface Database {
           email: string
           name: string | null
           phone: string | null
-          role: 'admin' | 'seller' | 'viewer'
+          role: 'admin' | 'seller' | 'viewer' | 'admin_readonly'
           avatar_url: string | null
           // Programa de puntos de fidelización (migración 00044) — saldo
           // vivo, el historial detallado vive en loyalty_points_ledger.
@@ -28,7 +28,7 @@ export interface Database {
           email: string
           name?: string | null
           phone?: string | null
-          role?: 'admin' | 'seller' | 'viewer'
+          role?: 'admin' | 'seller' | 'viewer' | 'admin_readonly'
           avatar_url?: string | null
           loyalty_points_balance?: number
           created_at?: string
@@ -39,7 +39,7 @@ export interface Database {
           email?: string
           name?: string | null
           phone?: string | null
-          role?: 'admin' | 'seller' | 'viewer'
+          role?: 'admin' | 'seller' | 'viewer' | 'admin_readonly'
           avatar_url?: string | null
           loyalty_points_balance?: number
           updated_at?: string

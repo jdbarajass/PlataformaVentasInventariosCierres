@@ -5,7 +5,7 @@ import { Database } from '@/types/database'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-type UserRole = 'admin' | 'seller' | 'viewer'
+type UserRole = 'admin' | 'seller' | 'viewer' | 'admin_readonly'
 
 interface AuthUser {
   id: string
@@ -125,6 +125,30 @@ export async function requireAuth(
   const authResult = await getAuthenticatedUser(request)
 
   if (!authResult.success) {
+    return authResult
+  }
+
+  // Admin de solo lectura: ve todo lo que vería un 'admin' real, pero
+  // cualquier método que escriba se rechaza aquí mismo, antes de llegar al
+  // handler de la ruta — es la única barrera real contra escrituras de
+  // este rol, ya que varias rutas mutan datos con getServiceSupabase()
+  // (bypasea RLS por completo, así que RLS no protege ahí).
+  if (authResult.user.role === 'admin_readonly') {
+    const isReadMethod = request.method === 'GET' || request.method === 'HEAD'
+    if (!isReadMethod) {
+      return {
+        success: false,
+        response: forbidden('Tu perfil es de solo lectura y no puede modificar datos'),
+      }
+    }
+    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes('admin') && !allowedRoles.includes('admin_readonly')) {
+      return {
+        success: false,
+        response: forbidden(
+          `Access denied. Required roles: ${allowedRoles.join(', ')}`
+        ),
+      }
+    }
     return authResult
   }
 
