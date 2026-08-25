@@ -1031,7 +1031,11 @@ export default function InventarioPage() {
       toast({ title: 'Variante creada', description: 'Se agregó la talla al producto' })
       setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
       newVariantBarcodeAutoRef.current = ''
-      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
+      // products.stock_qty se recalcula solo (trigger de sincronización),
+      // pero el estado `products` de esta pantalla no se actualiza solo —
+      // sin refrescarlo aquí, la columna "Stock" y las tarjetas de arriba
+      // quedan mostrando el valor viejo hasta recargar la página.
+      await Promise.all([fetchVariants(productId), fetchProducts(), fetchInventoryValue(), fetchCategoryRollup()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -1055,7 +1059,7 @@ export default function InventarioPage() {
       })
       if (!res.ok) throw new Error('Error al eliminar la talla')
       toast({ title: 'Talla eliminada' })
-      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
+      await Promise.all([fetchVariants(productId), fetchProducts(), fetchInventoryValue(), fetchCategoryRollup()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -1103,7 +1107,12 @@ export default function InventarioPage() {
       toast({ title: 'Variante ajustada' })
       setAdjustingVariant(null)
       setVariantAdjQty('')
-      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
+      // Mismo motivo que en handleAddVariant: sin refrescar `products` y
+      // `movements` aquí, la fila del producto y la pestaña Movimientos
+      // quedan desincronizadas del valor real hasta recargar la página —
+      // riesgo real de doble-ajustar por error si se sigue trabajando en la
+      // misma sesión sin recargar.
+      await Promise.all([fetchVariants(productId), fetchProducts(), fetchMovements(), fetchInventoryValue()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -1202,7 +1211,7 @@ export default function InventarioPage() {
 
       toast({ title: 'Producto actualizado' })
       setEditingProduct(null)
-      await Promise.all([fetchProducts(), fetchInventoryValue(), fetchCategoryRollup()])
+      await Promise.all([fetchProducts(), fetchMovements(), fetchInventoryValue(), fetchCategoryRollup()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'No se pudo actualizar el producto', variant: 'destructive' })
     } finally {
@@ -1258,7 +1267,11 @@ export default function InventarioPage() {
 
       toast({ title: 'Variante actualizada' })
       setEditingVariant(null)
-      await Promise.all([fetchVariants(productId), fetchInventoryValue()])
+      // Mismo motivo que en handleAddVariant/handleAdjustVariant: sin
+      // refrescar `products`/`movements`, la fila del producto ("Stock"
+      // y las tarjetas de arriba) se queda con el valor viejo hasta
+      // recargar la página, aunque el ajuste ya haya quedado bien en la BD.
+      await Promise.all([fetchVariants(productId), fetchProducts(), fetchMovements(), fetchInventoryValue()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'No se pudo actualizar la variante', variant: 'destructive' })
     } finally {
