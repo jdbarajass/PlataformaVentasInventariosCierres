@@ -983,6 +983,50 @@ export default function InventarioPage() {
     [session?.access_token]
   )
 
+  // Si el admin cambia a otra pestaña (ej. a Registrar Venta a hacer una
+  // venta) o a otra ventana y vuelve aquí, lo que se ve en pantalla puede
+  // haber quedado desactualizado por lo que se hizo en otro lado — se
+  // refresca solo al recuperar el foco, salvo que haya un ajuste/edición
+  // sin guardar en curso (para no perder lo que el admin esté escribiendo
+  // a mitad de un cambio). Con debounce de 3s para no duplicar la llamada
+  // cuando visibilitychange y focus disparan casi al mismo tiempo.
+  const lastFocusRefreshRef = useRef(0)
+  useEffect(() => {
+    const isEditingSomething = () =>
+      Boolean(editingProduct || editingVariant || adjustingProduct || adjustingVariant)
+
+    const refreshIfIdle = () => {
+      if (document.visibilityState !== 'visible') return
+      if (isEditingSomething()) return
+      const now = Date.now()
+      if (now - lastFocusRefreshRef.current < 3000) return
+      lastFocusRefreshRef.current = now
+      fetchProducts()
+      fetchMovements()
+      fetchInventoryValue()
+      fetchCategoryRollup()
+      if (expandedProduct) fetchVariants(expandedProduct)
+    }
+
+    document.addEventListener('visibilitychange', refreshIfIdle)
+    window.addEventListener('focus', refreshIfIdle)
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfIdle)
+      window.removeEventListener('focus', refreshIfIdle)
+    }
+  }, [
+    editingProduct,
+    editingVariant,
+    adjustingProduct,
+    adjustingVariant,
+    expandedProduct,
+    fetchProducts,
+    fetchMovements,
+    fetchInventoryValue,
+    fetchCategoryRollup,
+    fetchVariants,
+  ])
+
   const toggleVariants = (productId: string) => {
     if (expandedProduct === productId) {
       setExpandedProduct(null)
