@@ -262,20 +262,22 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.lowStockProducts.length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Productos por reabastecer
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/inventario?stockBajo=1" className="block">
+          <Card className="transition-colors hover:border-cyan-500/50 hover:bg-secondary/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats.lowStockProducts.length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Productos por reabastecer
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Content */}
@@ -355,15 +357,21 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
         {/* Low Stock Alert */}
         {stats.lowStockProducts.length > 0 && (
           <Card className="lg:col-span-2">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-500" />
                 Alerta de Stock Bajo
               </CardTitle>
+              <Link
+                href="/admin/inventario?stockBajo=1"
+                className="text-sm font-medium text-cyan-600 hover:underline"
+              >
+                Ver todos ({stats.lowStockProducts.length})
+              </Link>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {stats.lowStockProducts.map((product) => (
+                {stats.lowStockProducts.slice(0, 5).map((product) => (
                   <div
                     key={product.id}
                     className="flex items-center justify-between rounded-lg border p-4"
@@ -489,16 +497,18 @@ export function DashboardTabs({
                 de las pestañas Tienda Online/Física — mismos datos (ya
                 vienen en `online`, compartidos entre canales para el stock),
                 solo les faltaba una tarjeta propia en el resumen de Ventas. */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{online.lowStockProducts.length}</div>
-                <p className="text-xs text-muted-foreground">Productos por reabastecer</p>
-              </CardContent>
-            </Card>
+            <Link href="/admin/inventario?stockBajo=1" className="block">
+              <Card className="transition-colors hover:border-cyan-500/50 hover:bg-secondary/30">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{online.lowStockProducts.length}</div>
+                  <p className="text-xs text-muted-foreground">Productos por reabastecer</p>
+                </CardContent>
+              </Card>
+            </Link>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">

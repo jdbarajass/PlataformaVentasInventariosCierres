@@ -255,7 +255,7 @@ export async function sendLowStockAlert(): Promise<boolean> {
     const supabase = getServiceSupabase()
     const { data: products, error } = await supabase
       .from('products')
-      .select('title, sku, stock_qty, low_stock_threshold')
+      .select('title, sku, stock_qty, low_stock_threshold, product_variants(stock_qty)')
       .eq('active', true)
 
     if (error) {
@@ -263,10 +263,21 @@ export async function sendLowStockAlert(): Promise<boolean> {
       return false
     }
 
-    // Filter products where stock_qty <= low_stock_threshold
-    const lowStockProducts = (products || []).filter(
-      (p: any) => p.stock_qty <= (p.low_stock_threshold || 5)
-    )
+    // Un producto con tallas guarda su stock real en product_variants
+    // (products.stock_qty se queda en 0 sin uso, igual que en
+    // /admin/inventario y el Dashboard) — sin esto, CUALQUIER producto con
+    // tallas activaba esta alerta después de cada venta, porque 0 siempre
+    // es <= al umbral. Se compara el total consolidado de sus variantes
+    // contra el umbral del producto, no products.stock_qty directo.
+    const lowStockProducts = (products || [])
+      .map((p: any) => {
+        const hasVariants = p.product_variants && p.product_variants.length > 0
+        const stock_qty = hasVariants
+          ? p.product_variants.reduce((sum: number, v: any) => sum + v.stock_qty, 0)
+          : p.stock_qty
+        return { title: p.title, sku: p.sku, stock_qty, low_stock_threshold: p.low_stock_threshold }
+      })
+      .filter((p) => p.stock_qty <= (p.low_stock_threshold || 5))
 
     if (lowStockProducts.length === 0) {
       return true // No low stock, nothing to send

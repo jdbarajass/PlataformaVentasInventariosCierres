@@ -146,46 +146,46 @@ async function getChannelStats(channel: SalesChannel) {
 async function getLowStockProducts() {
   // No se filtra por active: el stock bajo debe alertar sobre cualquier
   // producto con inventario real, esté publicado en la tienda o no (ver
-  // comentario junto al cliente de servicio arriba).
-  // PostgREST no soporta comparar dos columnas entre sí con .filter()
-  // (stock_qty vs low_stock_threshold) — .filter('stock_qty','lte',
-  // 'low_stock_threshold') trataba "low_stock_threshold" como un literal
-  // de texto y fallaba en silencio (data quedaba null, sin lanzar error
-  // visible), así que el widget siempre había estado vacío. Se trae todo
-  // y se compara en el servidor.
+  // comentario junto al cliente de servicio arriba). Sí se excluyen los
+  // eliminados (deleted_at) — antes un producto ya borrado desde
+  // Productos seguía apareciendo aquí para siempre, porque esta consulta
+  // era la única del panel que no filtraba por deleted_at (a diferencia
+  // de /admin/inventario, que sí lo hace).
   //
-  // Productos con tallas se excluyen de este chequeo por producto completo
-  // (su stock_qty es la suma de todas las variantes, migración 00030 — un
-  // producto con 8 tallas puede sumar más que el umbral aunque cada talla
-  // individual esté casi agotada) y se revisan aparte, por variante, más
-  // abajo (mejora de la Fase 5, propuesta A.3).
+  // Un producto con tallas se evalúa por su stock CONSOLIDADO (suma de
+  // todas sus variantes, igual que /admin/inventario) contra el umbral
+  // del producto — no el umbral de cada talla por separado. Antes se
+  // comparaba cada variante contra su propio low_stock_threshold, así que
+  // el número mostrado aquí no coincidía con "stock bajo" en Inventario:
+  // un producto con una sola talla con existencia (ej. 1 de 8 unidades
+  // totales, mínimo 5) podía no aparecer si esa talla nunca cruzaba su
+  // propio umbral, mientras que otro con 6 tallas de umbral bajo cada una
+  // podía sonar la alerta aunque el total fuera saludable.
   const { data: allProductsStock } = await supabase
     .from('products')
-    .select('id, title, stock_qty, low_stock_threshold, product_variants(id)')
+    .select('id, title, stock_qty, low_stock_threshold, product_variants(stock_qty)')
+    .is('deleted_at', null)
 
-  const productsWithoutVariants = ((allProductsStock as any[]) || []).filter(
-    (p) => !p.product_variants || p.product_variants.length === 0
-  )
-  const lowStockNoVariant = (productsWithoutVariants as LowStockProduct[])
+  const consolidated: LowStockProduct[] = ((allProductsStock as any[]) || []).map((p) => {
+    const hasVariants = p.product_variants && p.product_variants.length > 0
+    const stock_qty = hasVariants
+      ? p.product_variants.reduce((sum: number, v: any) => sum + v.stock_qty, 0)
+      : p.stock_qty
+    return {
+      id: p.id,
+      title: p.title,
+      stock_qty,
+      low_stock_threshold: p.low_stock_threshold,
+    }
+  })
+
+  // Se devuelve la lista completa (sin recortar a 5) — el conteo real de
+  // la tarjeta "Stock Bajo" depende de este arreglo entero; el recorte a
+  // los primeros 5 para la vista previa se hace en DashboardTabs, que
+  // también enlaza a /admin/inventario?stockBajo=1 para ver el resto.
+  return consolidated
     .filter((p) => p.stock_qty <= p.low_stock_threshold)
-
-  const { data: variantStock } = await supabase
-    .from('product_variants')
-    .select('id, talla, stock_qty, low_stock_threshold, product:products(title)')
-    .eq('active', true)
-
-  const lowStockVariants = ((variantStock as any[]) || [])
-    .filter((v) => v.stock_qty <= v.low_stock_threshold)
-    .map((v) => ({
-      id: v.id,
-      title: `${v.product?.title || 'Producto'} (talla ${v.talla})`,
-      stock_qty: v.stock_qty,
-      low_stock_threshold: v.low_stock_threshold,
-    }))
-
-  return [...lowStockNoVariant, ...lowStockVariants]
     .sort((a, b) => a.stock_qty - b.stock_qty)
-    .slice(0, 5)
 }
 
 interface VentasOrderRow {

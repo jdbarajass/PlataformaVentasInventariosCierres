@@ -170,6 +170,19 @@ export default function InventarioPage() {
   // para esto incluso con sesión de vendedor; aquí se restringe directo.
   const canEdit = isAdmin
 
+  // Enlace desde la tarjeta "Stock Bajo" del Dashboard
+  // (/admin/inventario?stockBajo=1) — activa el filtro de una vez para no
+  // obligar al usuario a buscar el producto y luego prender el botón "Stock
+  // bajo" a mano. Se lee con window.location en vez de useSearchParams para
+  // no forzar un Suspense boundary en todo este componente.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('stockBajo') === '1') {
+      setShowLowStock(true)
+      setActiveTab('detalle')
+    }
+  }, [])
+
   const fetchProducts = useCallback(async () => {
     if (!session?.access_token) return
 
