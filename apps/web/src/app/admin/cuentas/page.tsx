@@ -219,6 +219,7 @@ export default function CuentasPage() {
     })
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance_cents, 0)
+  const totalReceivables = receivables.reduce((sum, r) => sum + r.amount_cents, 0)
 
   const handleManualAdjustment = async () => {
     if (!session?.access_token || !adjustAccount || !adjustAmount) return
@@ -425,8 +426,18 @@ export default function CuentasPage() {
           {tab === 'resumen' && (
             <div className="space-y-6">
               <div className="rounded-xl border bg-card p-4">
-                <p className="text-sm text-muted-foreground">Saldo total</p>
-                <p className="text-3xl font-bold">{formatPrice(totalBalance)}</p>
+                <div className="flex flex-wrap items-baseline gap-x-10 gap-y-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Saldo total (real)</p>
+                    <p className="text-3xl font-bold">{formatPrice(totalBalance)}</p>
+                  </div>
+                  {totalReceivables > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total esperado (si nos pagan todo lo pendiente)</p>
+                      <p className="text-2xl font-bold text-amber-600">{formatPrice(totalBalance + totalReceivables)}</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
