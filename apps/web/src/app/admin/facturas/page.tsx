@@ -420,7 +420,14 @@ export default function FacturasPage() {
                     <Badge variant="outline" className={invoice.status === 'paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
                       {invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}
                     </Badge>
-                    <p className="font-bold">{formatPrice(invoice.amount_cents)}</p>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">
+                        Total factura: <span className="font-medium text-foreground">{formatPrice(invoice.amount_cents)}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Saldo pendiente por pagar: <span className="font-bold text-foreground">{formatPrice(remaining)}</span>
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -434,7 +441,10 @@ export default function FacturasPage() {
                     {invoice.notes && <p className="text-sm text-muted-foreground">{invoice.notes}</p>}
 
                     <div>
-                      <p className="mb-2 text-sm font-medium">Ítems</p>
+                      <p className="mb-1 text-sm font-medium">Ítems</p>
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Acá van los productos, las cantidades y los precios de lo que llegó en esta factura — es solo un detalle informativo, no afecta el total ni el saldo (para registrar un pago usa &quot;Abonos&quot; más abajo).
+                      </p>
                       {invoice.items.length > 0 && (
                         <div className="space-y-1">
                           {invoice.items.map((item) => (
