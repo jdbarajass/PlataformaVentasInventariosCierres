@@ -11,6 +11,10 @@ import {
   History,
   CheckCircle2,
   Lock,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  HandCoins,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +44,15 @@ interface AccountMovement {
   account: { id: string; name: string; color: string | null } | null
 }
 
+interface AccountReceivable {
+  id: string
+  account_id: string
+  debtor_name: string
+  amount_cents: number
+  debt_date: string
+  notes: string | null
+}
+
 interface AccountClosure {
   id: string
   year: number
@@ -67,11 +80,19 @@ const monthNames = [
 ]
 
 export default function CuentasPage() {
-  const [tab, setTab] = useState<'resumen' | 'movimientos' | 'cierres'>('resumen')
+  const [tab, setTab] = useState<'resumen' | 'movimientos' | 'cierres' | 'por-cobrar'>('resumen')
   const [accounts, setAccounts] = useState<Account[]>([])
   const [movements, setMovements] = useState<AccountMovement[]>([])
   const [closures, setClosures] = useState<AccountClosure[]>([])
+  const [receivables, setReceivables] = useState<AccountReceivable[]>([])
   const [loading, setLoading] = useState(true)
+
+  // "Por Cobrar": deudas ligadas a una cuenta (ej. fiado prometido en
+  // Nequi, lo que debe SisteCrédito) -- puramente informativo, nunca toca
+  // accounts.balance_cents. Un solo acordeón expandido a la vez.
+  const [expandedReceivableAccount, setExpandedReceivableAccount] = useState<string | null>(null)
+  const [newReceivable, setNewReceivable] = useState({ debtor_name: '', amount: '', debt_date: '', notes: '' })
+  const [savingReceivable, setSavingReceivable] = useState(false)
 
   // Filtros de la pestaña Movimientos (la API ya los soportaba, faltaba el
   // control en la UI — ver docs/UNIFICACION_YJBMOTOCOM.md sección 13.4, ítem 4.4.8).
@@ -152,14 +173,26 @@ export default function CuentasPage() {
     }
   }, [session?.access_token, authHeaders, canView])
 
+  const fetchReceivables = useCallback(async () => {
+    if (!session?.access_token || !canView) return
+    try {
+      const res = await fetch('/api/account-receivables', { headers: authHeaders() })
+      if (!res.ok) throw new Error('Error fetching receivables')
+      const { data } = await res.json()
+      setReceivables(data || [])
+    } catch (error) {
+      console.error('Error fetching account receivables:', error)
+    }
+  }, [session?.access_token, authHeaders, canView])
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchAccounts(), fetchMovements(), fetchClosures()])
+      await Promise.all([fetchAccounts(), fetchMovements(), fetchClosures(), fetchReceivables()])
       setLoading(false)
     }
     load()
-  }, [fetchAccounts, fetchMovements, fetchClosures])
+  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables])
 
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', {
@@ -175,6 +208,14 @@ export default function CuentasPage() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+    })
+
+  // Para debt_date (columna DATE simple, sin hora) -- mismo truco que ya
+  // usa Facturas (admin/facturas/page.tsx) para evitar que Date lo
+  // interprete en UTC y corra la fecha un día hacia atrás/adelante.
+  const formatDebtDate = (dateString: string) =>
+    new Date(dateString + 'T00:00:00').toLocaleDateString('es-CO', {
+      year: 'numeric', month: 'short', day: 'numeric',
     })
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance_cents, 0)
@@ -276,6 +317,59 @@ export default function CuentasPage() {
     }
   }
 
+  const handleAddReceivable = async (accountId: string) => {
+    if (!session?.access_token || !newReceivable.debtor_name.trim() || !newReceivable.amount) return
+    const amount = Math.round(parseFloat(newReceivable.amount) * 100)
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: 'Error', description: 'El monto debe ser mayor a 0', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingReceivable(true)
+      const res = await fetch('/api/account-receivables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          account_id: accountId,
+          debtor_name: newReceivable.debtor_name.trim(),
+          amount_cents: amount,
+          debt_date: newReceivable.debt_date || undefined,
+          notes: newReceivable.notes || null,
+          created_by: userProfile?.id,
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al registrar la deuda')
+      }
+      toast({ title: 'Deuda registrada' })
+      setNewReceivable({ debtor_name: '', amount: '', debt_date: '', notes: '' })
+      await fetchReceivables()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingReceivable(false)
+    }
+  }
+
+  const handleDeleteReceivable = async (id: string) => {
+    if (!confirm('¿Ya te pagaron esta deuda? Se elimina de "Por Cobrar" — esto NO mueve el saldo de la cuenta, si el pago ya entró regístralo aparte (venta o ajuste manual).')) return
+    try {
+      const res = await fetch(`/api/account-receivables/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al eliminar la deuda')
+      }
+      toast({ title: 'Deuda eliminada' })
+      await fetchReceivables()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    }
+  }
+
   // Cuentas es un módulo 100% de Admin, igual que el software local (el
   // vendedor no ve ni el botón de navegación de este módulo). El admin de
   // solo lectura sí entra (ve todo), pero las acciones de escritura de
@@ -303,6 +397,7 @@ export default function CuentasPage() {
         {[
           { id: 'resumen', label: 'Resumen', icon: Wallet },
           { id: 'movimientos', label: 'Movimientos', icon: History },
+          { id: 'por-cobrar', label: 'Por Cobrar', icon: HandCoins },
           { id: 'cierres', label: 'Cierres', icon: Calendar },
         ].map((t) => (
           <button
@@ -335,18 +430,27 @@ export default function CuentasPage() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {accounts.map((account) => (
-                  <div key={account.id} className="rounded-xl border bg-card p-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: account.color || '#94a3b8' }}
-                      />
-                      <p className="font-medium">{account.name}</p>
+                {accounts.map((account) => {
+                  const accountReceivables = receivables.filter((r) => r.account_id === account.id)
+                  const pendingCents = accountReceivables.reduce((sum, r) => sum + r.amount_cents, 0)
+                  return (
+                    <div key={account.id} className="rounded-xl border bg-card p-4">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: account.color || '#94a3b8' }}
+                        />
+                        <p className="font-medium">{account.name}</p>
+                      </div>
+                      <p className="mt-2 text-2xl font-bold">{formatPrice(account.balance_cents)}</p>
+                      {pendingCents > 0 && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          + {formatPrice(pendingCents)} por cobrar → total esperado {formatPrice(account.balance_cents + pendingCents)}
+                        </p>
+                      )}
                     </div>
-                    <p className="mt-2 text-2xl font-bold">{formatPrice(account.balance_cents)}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {isAdmin && (
@@ -547,6 +651,125 @@ export default function CuentasPage() {
                 </div>
               )}
             </div>
+            </div>
+          )}
+
+          {tab === 'por-cobrar' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Dinero que nos deben, ligado a un medio de pago (fiados, SisteCrédito, etc.) — es solo un registro
+                informativo, no afecta el saldo real de la cuenta. Cuando de verdad paguen, registra ese ingreso
+                aparte (una venta o un ajuste manual) y luego elimina la deuda de aquí.
+              </p>
+              {accounts.map((account) => {
+                const accountReceivables = receivables.filter((r) => r.account_id === account.id)
+                const pendingCents = accountReceivables.reduce((sum, r) => sum + r.amount_cents, 0)
+                const isExpanded = expandedReceivableAccount === account.id
+                return (
+                  <div key={account.id} className="rounded-xl border bg-card">
+                    <div
+                      className="flex cursor-pointer items-center justify-between p-4"
+                      onClick={() => {
+                        setExpandedReceivableAccount(isExpanded ? null : account.id)
+                        setNewReceivable({ debtor_name: '', amount: '', debt_date: '', notes: '' })
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: account.color || '#94a3b8' }}
+                        />
+                        <p className="font-medium">{account.name}</p>
+                      </div>
+                      <p className={cn('font-bold', pendingCents > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
+                        {pendingCents > 0 ? formatPrice(pendingCents) : 'Sin deudas'}
+                      </p>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="space-y-3 border-t p-4">
+                        {accountReceivables.length > 0 && (
+                          <div className="space-y-1">
+                            {accountReceivables.map((r) => (
+                              <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                                <span>
+                                  {formatDebtDate(r.debt_date)} · <span className="font-medium">{r.debtor_name}</span>
+                                  {r.notes ? ` · ${r.notes}` : ''}
+                                </span>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-medium">{formatPrice(r.amount_cents)}</span>
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => handleDeleteReceivable(r.id)}
+                                      title="Ya pagaron / eliminar"
+                                      className="text-red-500 hover:text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {isAdmin && (
+                          <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
+                            <div>
+                              <label className="text-xs text-muted-foreground">Quién debe</label>
+                              <Input
+                                placeholder="Nombre"
+                                value={newReceivable.debtor_name}
+                                onChange={(e) => setNewReceivable({ ...newReceivable, debtor_name: e.target.value })}
+                                className="h-8 w-40 rounded-lg text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">Monto</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Monto"
+                                value={newReceivable.amount}
+                                onChange={(e) => setNewReceivable({ ...newReceivable, amount: e.target.value })}
+                                className="h-8 w-28 rounded-lg text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">Fecha</label>
+                              <Input
+                                type="date"
+                                value={newReceivable.debt_date}
+                                onChange={(e) => setNewReceivable({ ...newReceivable, debt_date: e.target.value })}
+                                className="h-8 rounded-lg text-xs"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-xs text-muted-foreground">Notas (opcional)</label>
+                              <Input
+                                placeholder="Notas"
+                                value={newReceivable.notes}
+                                onChange={(e) => setNewReceivable({ ...newReceivable, notes: e.target.value })}
+                                className="h-8 rounded-lg text-xs"
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-8 rounded-lg"
+                              onClick={() => handleAddReceivable(account.id)}
+                              disabled={savingReceivable || !newReceivable.debtor_name.trim() || !newReceivable.amount}
+                            >
+                              <Plus className="mr-1 h-3 w-3" /> Agregar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
 
