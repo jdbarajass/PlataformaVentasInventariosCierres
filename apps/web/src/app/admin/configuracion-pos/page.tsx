@@ -28,10 +28,12 @@ export default function ConfiguracionPosPage() {
     arriendo_cents: 0, sueldo_cents: 0, servicios_cents: 0, otros_gastos_cents: 0, dias_mes: 30,
   })
   const [sellerGoal, setSellerGoal] = useState({ goal: '0', bonus: '0' })
+  const [sistecreditoMargin, setSistecreditoMargin] = useState('2')
   const [loading, setLoading] = useState(true)
   const [savingRates, setSavingRates] = useState(false)
   const [savingExpenses, setSavingExpenses] = useState(false)
   const [savingGoal, setSavingGoal] = useState(false)
+  const [savingSistecredito, setSavingSistecredito] = useState(false)
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -62,6 +64,7 @@ export default function ConfiguracionPosPage() {
         goal: String((data?.seller_monthly_goal_cents ?? 0) / 100),
         bonus: String((data?.seller_goal_bonus_cents ?? 0) / 100),
       })
+      setSistecreditoMargin(String(data?.sistecredito_margin_pct ?? 2))
     } catch (error) {
       console.error('Error fetching settings:', error)
     } finally {
@@ -116,6 +119,29 @@ export default function ConfiguracionPosPage() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSavingGoal(false)
+    }
+  }
+
+  const handleSaveSistecreditoMargin = async () => {
+    if (!session?.access_token) return
+    const pct = parseFloat(sistecreditoMargin)
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      toast({ title: 'Error', description: 'El margen debe estar entre 0 y 100%', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingSistecredito(true)
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ sistecredito_margin_pct: pct }),
+      })
+      if (!res.ok) throw new Error('Error al guardar el margen de SisteCrédito')
+      toast({ title: 'Margen de SisteCrédito guardado' })
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingSistecredito(false)
     }
   }
 
@@ -205,6 +231,33 @@ export default function ConfiguracionPosPage() {
           {savingGoal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar meta
         </Button>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <Percent className="h-5 w-5" /> Margen real de SisteCrédito
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          SisteCrédito retiene el pago casi 2 meses y cobra a la tienda una comisión real (hoy 4%), pero al cliente
+          se le traslada un recargo mayor (hoy 6%) — la diferencia es ganancia real de la tienda que no aparece en
+          la venta registrada. Este porcentaje se suma al valor pendiente en Cuentas → Por Cobrar / Resumen para
+          mostrar lo que en verdad se espera recibir.
+        </p>
+        <div className="flex items-end gap-3">
+          <div>
+            <label className="text-sm text-muted-foreground">Margen extra (%)</label>
+            <Input
+              type="number" min="0" max="100" step="0.1"
+              value={sistecreditoMargin}
+              onChange={(e) => setSistecreditoMargin(e.target.value)}
+              className="w-32 rounded-lg"
+            />
+          </div>
+          <Button className="rounded-lg" onClick={handleSaveSistecreditoMargin} disabled={savingSistecredito || !isAdmin}>
+            {savingSistecredito ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Guardar margen
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border bg-card p-6">

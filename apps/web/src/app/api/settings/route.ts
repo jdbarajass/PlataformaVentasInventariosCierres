@@ -20,6 +20,7 @@ const fixedExpensesSchema = z
   })
   .optional()
 const sellerGoalCentsSchema = z.number().int().min(0).optional()
+const sistecreditoMarginSchema = z.number().min(0).max(100).optional()
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
     if (!isStaff) {
       delete responseData.pos_commission_rates
       delete responseData.fixed_monthly_expenses
+      delete responseData.sistecredito_margin_pct
     }
 
     return NextResponse.json({ data: responseData })
@@ -98,6 +100,12 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'El bono no puede ser negativo' }, { status: 400 })
       }
     }
+    if (body.sistecredito_margin_pct !== undefined) {
+      const validation = sistecreditoMarginSchema.safeParse(body.sistecredito_margin_pct)
+      if (!validation.success) {
+        return NextResponse.json({ error: 'El margen de SisteCrédito debe estar entre 0 y 100%' }, { status: 400 })
+      }
+    }
 
     const supabase = getServiceSupabase()
 
@@ -119,6 +127,7 @@ export async function PUT(request: NextRequest) {
       'fixed_monthly_expenses',
       'seller_monthly_goal_cents',
       'seller_goal_bonus_cents',
+      'sistecredito_margin_pct',
     ]
 
     for (const field of allowedFields) {

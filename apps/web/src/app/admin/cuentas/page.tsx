@@ -86,6 +86,11 @@ export default function CuentasPage() {
   const [closures, setClosures] = useState<AccountClosure[]>([])
   const [receivables, setReceivables] = useState<AccountReceivable[]>([])
   const [loading, setLoading] = useState(true)
+  // Margen real de SisteCrédito (ver Configuración POS): la venta se
+  // registra por el valor base, pero SisteCrédito paga base+margen (nos
+  // cobran 4% de comisión pero le trasladamos al cliente un recargo mayor,
+  // hoy 6% — la diferencia es ganancia real que no aparece en la venta).
+  const [sistecreditoMarginPct, setSistecreditoMarginPct] = useState(0)
 
   // "Por Cobrar": deudas ligadas a una cuenta (ej. fiado prometido en
   // Nequi, lo que debe SisteCrédito) -- puramente informativo, nunca toca
@@ -185,14 +190,37 @@ export default function CuentasPage() {
     }
   }, [session?.access_token, authHeaders, canView])
 
+  const fetchSistecreditoMargin = useCallback(async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch('/api/settings', { headers: authHeaders() })
+      if (!res.ok) return
+      const { data } = await res.json()
+      setSistecreditoMarginPct(Number(data?.sistecredito_margin_pct ?? 0))
+    } catch (error) {
+      console.error('Error fetching sistecredito margin:', error)
+    }
+  }, [session?.access_token, authHeaders])
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchAccounts(), fetchMovements(), fetchClosures(), fetchReceivables()])
+      await Promise.all([fetchAccounts(), fetchMovements(), fetchClosures(), fetchReceivables(), fetchSistecreditoMargin()])
       setLoading(false)
     }
     load()
-  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables])
+  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables, fetchSistecreditoMargin])
+
+  // El "valor esperado" real de una cuenta por cobrar: para SisteCrédito,
+  // lo que en verdad va a llegar es el valor base + el margen configurado
+  // (ver arriba) — para cualquier otra cuenta, el valor base tal cual.
+  const receivableExpectedCents = useCallback(
+    (accountPaymentMethod: string, amountCents: number) =>
+      accountPaymentMethod === 'sistecredito'
+        ? Math.round(amountCents * (1 + sistecreditoMarginPct / 100))
+        : amountCents,
+    [sistecreditoMarginPct]
+  )
 
   const formatPrice = (cents: number) =>
     new Intl.NumberFormat('es-CO', {
@@ -219,7 +247,11 @@ export default function CuentasPage() {
     })
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance_cents, 0)
-  const totalReceivables = receivables.reduce((sum, r) => sum + r.amount_cents, 0)
+  const accountById = (id: string) => accounts.find((a) => a.id === id)
+  const totalReceivables = receivables.reduce(
+    (sum, r) => sum + receivableExpectedCents(accountById(r.account_id)?.payment_method || '', r.amount_cents),
+    0
+  )
 
   const handleManualAdjustment = async () => {
     if (!session?.access_token || !adjustAccount || !adjustAmount) return
@@ -443,7 +475,12 @@ export default function CuentasPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {accounts.map((account) => {
                   const accountReceivables = receivables.filter((r) => r.account_id === account.id)
-                  const pendingCents = accountReceivables.reduce((sum, r) => sum + r.amount_cents, 0)
+                  const pendingBaseCents = accountReceivables.reduce((sum, r) => sum + r.amount_cents, 0)
+                  const pendingExpectedCents = accountReceivables.reduce(
+                    (sum, r) => sum + receivableExpectedCents(account.payment_method, r.amount_cents),
+                    0
+                  )
+                  const hasMargin = account.payment_method === 'sistecredito' && sistecreditoMarginPct > 0 && pendingBaseCents > 0
                   return (
                     <div key={account.id} className="rounded-xl border bg-card p-4">
                       <div className="flex items-center gap-2">
@@ -454,9 +491,11 @@ export default function CuentasPage() {
                         <p className="font-medium">{account.name}</p>
                       </div>
                       <p className="mt-2 text-2xl font-bold">{formatPrice(account.balance_cents)}</p>
-                      {pendingCents > 0 && (
+                      {pendingBaseCents > 0 && (
                         <p className="mt-1 text-xs text-amber-600">
-                          + {formatPrice(pendingCents)} por cobrar → total esperado {formatPrice(account.balance_cents + pendingCents)}
+                          + {formatPrice(pendingBaseCents)} por cobrar
+                          {hasMargin && ` (+${sistecreditoMarginPct}% margen SisteCrédito = ${formatPrice(pendingExpectedCents)})`}
+                          {' '}→ total esperado {formatPrice(account.balance_cents + pendingExpectedCents)}
                         </p>
                       )}
                     </div>
@@ -674,7 +713,12 @@ export default function CuentasPage() {
               </p>
               {accounts.map((account) => {
                 const accountReceivables = receivables.filter((r) => r.account_id === account.id)
-                const pendingCents = accountReceivables.reduce((sum, r) => sum + r.amount_cents, 0)
+                const hasMargin = account.payment_method === 'sistecredito' && sistecreditoMarginPct > 0
+                const pendingBaseCents = accountReceivables.reduce((sum, r) => sum + r.amount_cents, 0)
+                const pendingExpectedCents = accountReceivables.reduce(
+                  (sum, r) => sum + receivableExpectedCents(account.payment_method, r.amount_cents),
+                  0
+                )
                 const isExpanded = expandedReceivableAccount === account.id
                 return (
                   <div key={account.id} className="rounded-xl border bg-card">
@@ -693,35 +737,67 @@ export default function CuentasPage() {
                         />
                         <p className="font-medium">{account.name}</p>
                       </div>
-                      <p className={cn('font-bold', pendingCents > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
-                        {pendingCents > 0 ? formatPrice(pendingCents) : 'Sin deudas'}
-                      </p>
+                      <div className="text-right">
+                        <p className={cn('font-bold', pendingExpectedCents > 0 ? 'text-amber-600' : 'text-muted-foreground')}>
+                          {pendingExpectedCents > 0 ? formatPrice(pendingExpectedCents) : 'Sin deudas'}
+                        </p>
+                        {hasMargin && pendingBaseCents > 0 && (
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatPrice(pendingBaseCents)} + {sistecreditoMarginPct}%
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {isExpanded && (
                       <div className="space-y-3 border-t p-4">
+                        {hasMargin && accountReceivables.length > 0 && (
+                          <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                            SisteCrédito nos retiene el pago y cobra su propia comisión, pero le trasladamos al
+                            cliente un recargo mayor — por eso cada deuda se muestra con +{sistecreditoMarginPct}% de
+                            margen real, que es lo que en verdad esperamos recibir.
+                          </p>
+                        )}
                         {accountReceivables.length > 0 && (
                           <div className="space-y-1">
-                            {accountReceivables.map((r) => (
-                              <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                                <span>
-                                  {formatDebtDate(r.debt_date)} · <span className="font-medium">{r.debtor_name}</span>
-                                  {r.notes ? ` · ${r.notes}` : ''}
-                                </span>
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium">{formatPrice(r.amount_cents)}</span>
-                                  {isAdmin && (
-                                    <button
-                                      onClick={() => handleDeleteReceivable(r.id)}
-                                      title="Ya pagaron / eliminar"
-                                      className="text-red-500 hover:text-red-600"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  )}
+                            {accountReceivables.map((r) => {
+                              const expected = receivableExpectedCents(account.payment_method, r.amount_cents)
+                              return (
+                                <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                                  <span>
+                                    {formatDebtDate(r.debt_date)} · <span className="font-medium">{r.debtor_name}</span>
+                                    {r.notes ? ` · ${r.notes}` : ''}
+                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    {hasMargin ? (
+                                      <span className="text-right">
+                                        <span className="block font-medium">{formatPrice(expected)}</span>
+                                        <span className="block text-[11px] text-muted-foreground">
+                                          {formatPrice(r.amount_cents)} + {sistecreditoMarginPct}%
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="font-medium">{formatPrice(r.amount_cents)}</span>
+                                    )}
+                                    {isAdmin && (
+                                      <button
+                                        onClick={() => handleDeleteReceivable(r.id)}
+                                        title="Ya pagaron / eliminar"
+                                        className="text-red-500 hover:text-red-600"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
+                              )
+                            })}
+                            {hasMargin && (
+                              <div className="flex items-center justify-between rounded-lg border-t px-3 pt-2 text-sm font-bold">
+                                <span>Total esperado (con margen)</span>
+                                <span className="text-amber-600">{formatPrice(pendingExpectedCents)}</span>
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
 
