@@ -77,6 +77,8 @@ interface ProductResult {
 }
 interface Expense { id: string; description: string; amount_cents: number; category: string }
 interface Loan { id: string; product_title: string; warehouse: string; status: string; created_at: string }
+interface ExchangeItem { title: string; talla: string | null; qty: number }
+interface ExchangeMovement { id: string; created_at: string; delivered: ExchangeItem | null; returned: ExchangeItem | null }
 
 const methodLabels: Record<PaymentSplit['method'], string> = {
   cash: 'Efectivo', card: 'Datáfono', nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia',
@@ -102,6 +104,11 @@ function VentasDiaContent() {
   // recordatorio persistente de mercancía prestada, ver
   // docs/UNIFICACION_YJBMOTOCOM.md sección 21).
   const [pendingLoans, setPendingLoans] = useState<Loan[]>([])
+  // Cambios de producto (Inventario → Cambios) del día seleccionado — a
+  // diferencia de los préstamos pendientes, esto SÍ se filtra por `date`
+  // porque el usuario comparte esta pantalla como pantallazo diario y
+  // quiere ver los cambios de ESE día, no un acumulado histórico.
+  const [exchanges, setExchanges] = useState<ExchangeMovement[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -191,10 +198,43 @@ function VentasDiaContent() {
     }
   }, [session?.access_token, authHeaders])
 
+  const fetchExchanges = useCallback(async () => {
+    if (!session?.access_token) return
+    try {
+      const { from, to } = bogotaDayRange(date)
+      const res = await fetch(`/api/inventory/adjust?type=exchange&from=${from}&to=${to}&limit=200`, { headers: authHeaders() })
+      if (!res.ok) return
+      const { data } = await res.json()
+      // El endpoint devuelve 2 filas por cambio (una negativa — lo que se
+      // entregó al cliente — y una positiva — lo que devolvió), unidas por
+      // `reference_id` (ver POST /api/inventory/exchange). Se agrupan aquí
+      // en una sola fila "entregado → devuelto" por cambio.
+      const grouped = new Map<string, ExchangeMovement>()
+      for (const m of (data || [])) {
+        const refId = m.reference_id || m.id
+        const entry = grouped.get(refId) || { id: refId, created_at: m.created_at, delivered: null, returned: null }
+        const line: ExchangeItem = {
+          title: m.product?.title || 'Producto eliminado',
+          talla: m.variant?.talla || null,
+          qty: Math.abs(m.qty),
+        }
+        if (m.qty < 0) entry.delivered = line
+        else entry.returned = line
+        grouped.set(refId, entry)
+      }
+      setExchanges(
+        Array.from(grouped.values()).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      )
+    } catch (error) {
+      console.error('Error fetching exchanges:', error)
+    }
+  }, [session?.access_token, authHeaders, date])
+
   useEffect(() => { fetchSales() }, [fetchSales])
   useEffect(() => { fetchExpenses() }, [fetchExpenses])
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
   useEffect(() => { fetchLoans() }, [fetchLoans])
+  useEffect(() => { fetchExchanges() }, [fetchExchanges])
 
   useEffect(() => {
     if (!canViewProfit) return
@@ -704,37 +744,86 @@ function VentasDiaContent() {
           )}
         </div>
 
-        <div className="rounded-xl border bg-card p-6">
-          <h2 className="mb-3 text-lg font-semibold">Préstamos pendientes ({pendingLoans.length})</h2>
-          <p className="mb-3 text-xs text-muted-foreground">
-            Toda la mercancía prestada que aún no se ha devuelto, sin importar la fecha.
-          </p>
-          {pendingLoans.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay préstamos pendientes.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-2">Fecha</th>
-                    <th className="py-2 pr-2">Producto</th>
-                    <th className="py-2">Almacén</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingLoans.map((loan) => (
-                    <tr key={loan.id} className="border-b last:border-0">
-                      <td className="py-2 pr-2 text-muted-foreground">
-                        {new Date(loan.created_at).toLocaleDateString('es-CO')}
-                      </td>
-                      <td className="py-2 pr-2">{loan.product_title}</td>
-                      <td className="py-2">{loan.warehouse}</td>
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-card p-6">
+            <h2 className="mb-3 text-lg font-semibold">Préstamos pendientes ({pendingLoans.length})</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Toda la mercancía prestada que aún no se ha devuelto, sin importar la fecha.
+            </p>
+            {pendingLoans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay préstamos pendientes.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 pr-2">Fecha</th>
+                      <th className="py-2 pr-2">Producto</th>
+                      <th className="py-2">Almacén</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {pendingLoans.map((loan) => (
+                      <tr key={loan.id} className="border-b last:border-0">
+                        <td className="py-2 pr-2 text-muted-foreground">
+                          {new Date(loan.created_at).toLocaleDateString('es-CO')}
+                        </td>
+                        <td className="py-2 pr-2">{loan.product_title}</td>
+                        <td className="py-2">{loan.warehouse}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border bg-card p-6">
+            <h2 className="mb-3 text-lg font-semibold">Cambios de producto ({exchanges.length})</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Cambios físicos registrados este día en Inventario → Cambios (el cliente devuelve un artículo y se lleva otro).
+            </p>
+            {exchanges.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hubo cambios de producto en esta fecha.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 pr-2">Hora</th>
+                      <th className="py-2 pr-2">Entregado</th>
+                      <th className="py-2">Devuelto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exchanges.map((ex) => (
+                      <tr key={ex.id} className="border-b last:border-0">
+                        <td className="py-2 pr-2 text-muted-foreground">{formatBogotaTime(ex.created_at)}</td>
+                        <td className="py-2 pr-2">
+                          {ex.delivered ? (
+                            <>
+                              {ex.delivered.title}
+                              {ex.delivered.talla && <Badge variant="outline" className="ml-1">{ex.delivered.talla}</Badge>}
+                              {ex.delivered.qty > 1 && <span className="ml-1 text-xs text-muted-foreground">×{ex.delivered.qty}</span>}
+                            </>
+                          ) : '—'}
+                        </td>
+                        <td className="py-2">
+                          {ex.returned ? (
+                            <>
+                              {ex.returned.title}
+                              {ex.returned.talla && <Badge variant="outline" className="ml-1">{ex.returned.talla}</Badge>}
+                              {ex.returned.qty > 1 && <span className="ml-1 text-xs text-muted-foreground">×{ex.returned.qty}</span>}
+                            </>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
