@@ -130,6 +130,20 @@ export default function ProductsPage() {
     return { min: Math.min(...variantCosts), max: Math.max(...variantCosts) }
   }
 
+  // Precios mínimos sugeridos a partir del costo — solo de referencia
+  // visual, no tocan formData.price ni se guardan en ningún lado:
+  //   - margen 30% sobre el precio: costo / 0.7 (el costo queda siendo el
+  //     70% del precio de venta).
+  //   - +30% sobre el costo (markup): costo * 1.3.
+  const costoEntreMargen = (cents: number) => Math.round(cents / 0.7)
+  const costoMasMarkup = (cents: number) => Math.round(cents * 1.3)
+
+  const formatCostRange = (range: { min: number; max: number }, transform: (cents: number) => number) => {
+    const min = transform(range.min)
+    const max = transform(range.max)
+    return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`
+  }
+
   const filteredProducts = products.filter((product) => {
     if (showIncompleteOnly && !isProductIncomplete(product)) return false
     const q = search.toLowerCase().trim()
@@ -246,7 +260,17 @@ export default function ProductsPage() {
                     <th className="pb-4 font-medium">Producto</th>
                     <th className="pb-4 font-medium">SKU</th>
                     <th className="pb-4 font-medium">Precio</th>
-                    {canViewCost && <th className="pb-4 font-medium">Costo</th>}
+                    {canViewCost && (
+                      <>
+                        <th className="pb-4 font-medium">Costo</th>
+                        <th className="pb-4 font-medium" title="Costo ÷ 0.7 — el costo queda siendo el 70% del precio de venta">
+                          Mín. margen 30%
+                        </th>
+                        <th className="pb-4 font-medium" title="Costo × 1.3 — 30% de utilidad sobre el costo">
+                          Mín. +30% costo
+                        </th>
+                      </>
+                    )}
                     <th className="pb-4 font-medium">Stock</th>
                     <th className="pb-4 font-medium">Estado</th>
                     <th className="pb-4 font-medium">Acciones</th>
@@ -258,6 +282,7 @@ export default function ProductsPage() {
                       product.stock_qty,
                       product.low_stock_threshold
                     )
+                    const costRange = canViewCost ? getProductCost(product) : null
                     return (
                       <tr key={product.id} className="group">
                         <td className="py-4">
@@ -318,13 +343,12 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </td>
-                        {canViewCost && (
-                          <td className="py-4 text-muted-foreground">
-                            {(() => {
-                              const { min, max } = getProductCost(product)
-                              return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`
-                            })()}
-                          </td>
+                        {canViewCost && costRange && (
+                          <>
+                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, (c) => c)}</td>
+                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, costoEntreMargen)}</td>
+                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, costoMasMarkup)}</td>
+                          </>
                         )}
                         <td className="py-4">
                           <Badge
