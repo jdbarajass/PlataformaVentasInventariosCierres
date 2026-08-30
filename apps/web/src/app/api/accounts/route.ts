@@ -38,8 +38,13 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    const isAdmin = auth.user.role === 'admin'
-    const sanitized = isAdmin
+    // admin_readonly ve todo lo que vería un admin real (solo no puede
+    // escribir, ver auth-helpers.ts) — antes solo se comparaba contra
+    // 'admin' literal, así que este rol perdía balance_cents igual que
+    // 'seller' (para quien sí es intencional ocultarlo, ver comentario
+    // arriba) y el módulo Cuentas quedaba con "$ NaN" en todos los saldos.
+    const canSeeBalance = auth.user.role === 'admin' || auth.user.role === 'admin_readonly'
+    const sanitized = canSeeBalance
       ? data
       : (data || []).map(({ balance_cents, ...rest }: any) => rest)
 
