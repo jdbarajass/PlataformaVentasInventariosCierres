@@ -7,6 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { TALLAS_DISPONIBLES } from '@/lib/inventario-barcode'
+
+// Tallas estándar que se ofrecen como opción en "Producto que ENTRA" aunque
+// el producto todavía no tenga esa talla registrada en inventario (ej. el
+// cliente devuelve una XS de un casco que hoy solo tiene M/L/XL con stock) —
+// el usuario no debe quedar bloqueado por no tener esa talla ya cargada.
+const TALLAS_ENTRA_EXTRA = TALLAS_DISPONIBLES.filter((t) => t !== 'N/A')
+const NEW_TALLA_PREFIX = '__NEW__:'
 
 interface Variant {
   id: string
@@ -80,8 +88,22 @@ export default function CambiosPage() {
   const sideStock = (side: Side): number | null => {
     if (!side.selectedProduct) return null
     if (side.selectedProduct.variants.length === 0) return side.selectedProduct.stock_qty
+    // Talla estándar elegida en "entra" que el producto aún no tiene
+    // registrada (ver TALLAS_ENTRA_EXTRA) — todavía no existe como variante,
+    // así que su stock actual es 0 hasta que se confirme el cambio.
+    if (side.selectedVariantId.startsWith(NEW_TALLA_PREFIX)) return 0
     const v = side.selectedProduct.variants.find((v) => v.id === side.selectedVariantId)
     return v ? v.stock_qty : null
+  }
+
+  // Traduce la selección del <select> a lo que espera la API: una variante
+  // real (variantId) o, si es una talla estándar sin variante todavía, su
+  // nombre (talla) para que el backend la registre al confirmar.
+  const parseVariantSelection = (variantId: string): { variantId: string | null; talla: string | null } => {
+    if (variantId.startsWith(NEW_TALLA_PREFIX)) {
+      return { variantId: null, talla: variantId.slice(NEW_TALLA_PREFIX.length) }
+    }
+    return { variantId: variantId || null, talla: null }
   }
 
   const saleStock = sideStock(sale)
@@ -107,6 +129,8 @@ export default function CambiosPage() {
       `Entra: ${entra.selectedProduct.title} — ${entraQty} unidad${entraQty !== 1 ? 'es' : ''} (stock: ${entraStock} → ${entraStock + entraQty})`
     if (!confirm(confirmMsg)) return
 
+    const entraSelection = parseVariantSelection(entra.selectedVariantId)
+
     try {
       setConfirming(true)
       const res = await fetch('/api/inventory/exchange', {
@@ -114,7 +138,12 @@ export default function CambiosPage() {
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           sale: { productId: sale.selectedProduct.id, variantId: sale.selectedVariantId || null, qty: saleQty },
-          entra: { productId: entra.selectedProduct.id, variantId: entra.selectedVariantId || null, qty: entraQty },
+          entra: {
+            productId: entra.selectedProduct.id,
+            variantId: entraSelection.variantId,
+            talla: entraSelection.talla,
+            qty: entraQty,
+          },
         }),
       })
       if (!res.ok) {
@@ -182,6 +211,14 @@ export default function CambiosPage() {
                     Talla {v.talla || '-'} · Stock {v.stock_qty}
                   </option>
                 ))}
+                {key === 'entra' &&
+                  TALLAS_ENTRA_EXTRA.filter(
+                    (t) => !side.selectedProduct!.variants.some((v) => (v.talla || '').trim().toUpperCase() === t)
+                  ).map((t) => (
+                    <option key={`new-${t}`} value={`${NEW_TALLA_PREFIX}${t}`}>
+                      Talla {t} · Sin stock aún
+                    </option>
+                  ))}
               </select>
             ) : (
               <p className="text-xs text-muted-foreground">Sin tallas · Stock {stock}</p>
