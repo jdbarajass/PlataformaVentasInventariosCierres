@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { formatPrice, getStockStatus } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { useAuth } from '@/lib/auth-context'
 
 function ProductThumbnail({ src, alt }: { src: string; alt: string }) {
   const [hasError, setHasError] = useState(false)
@@ -45,6 +46,9 @@ function ProductThumbnail({ src, alt }: { src: string; alt: string }) {
 export default function ProductsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { userProfile } = useAuth()
+  // Mismo criterio que Editar Producto: el rol 'seller' no ve el costo real.
+  const canViewCost = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [showIncompleteOnly, setShowIncompleteOnly] = useState(false)
@@ -54,6 +58,11 @@ export default function ProductsPage() {
   // vive por variante), así que buscar solo por product.barcode no
   // encontraba nada al escanear/escribir el código de una talla específica.
   const [variantBarcodesByProduct, setVariantBarcodesByProduct] = useState<Map<string, string[]>>(new Map())
+  // Costo por variante/talla, por producto — un producto con tallas no tiene
+  // un solo costo (cada talla puede costar distinto), así que la columna
+  // "Costo" de la tabla necesita el rango real en vez de leer
+  // product.cost_cents (que ahí no se usa).
+  const [variantCostsByProduct, setVariantCostsByProduct] = useState<Map<string, number[]>>(new Map())
 
   useEffect(() => {
     fetchProducts()
@@ -76,19 +85,25 @@ export default function ProductsPage() {
         fetch('/api/products?limit=2000&include_inactive=true', {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
         }),
-        supabase.from('product_variants').select('product_id, barcode'),
+        supabase.from('product_variants').select('product_id, barcode, cost_cents'),
       ])
       const data = await response.json()
       setProducts(data.products || [])
 
       const map = new Map<string, string[]>()
-      for (const v of (allVariants || []) as { product_id: string; barcode: string | null }[]) {
-        if (!v.barcode) continue
-        const list = map.get(v.product_id) || []
-        list.push(v.barcode)
-        map.set(v.product_id, list)
+      const costMap = new Map<string, number[]>()
+      for (const v of (allVariants || []) as { product_id: string; barcode: string | null; cost_cents: number }[]) {
+        if (v.barcode) {
+          const list = map.get(v.product_id) || []
+          list.push(v.barcode)
+          map.set(v.product_id, list)
+        }
+        const costs = costMap.get(v.product_id) || []
+        costs.push(v.cost_cents)
+        costMap.set(v.product_id, costs)
       }
       setVariantBarcodesByProduct(map)
+      setVariantCostsByProduct(costMap)
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
@@ -103,6 +118,17 @@ export default function ProductsPage() {
     !product.deleted_at && (product.images.length === 0 || !product.description?.trim())
 
   const incompleteCount = products.filter(isProductIncomplete).length
+
+  // Costo a mostrar para un producto: si no tiene tallas, el costo del
+  // producto mismo; si tiene tallas, el rango de costo entre todas ellas
+  // (suelen costar igual, pero no siempre — ver docs/UNIFICACION_YJBMOTOCOM.md).
+  const getProductCost = (product: Product): { min: number; max: number } => {
+    const variantCosts = variantCostsByProduct.get(product.id)
+    if (!variantCosts || variantCosts.length === 0) {
+      return { min: product.cost_cents, max: product.cost_cents }
+    }
+    return { min: Math.min(...variantCosts), max: Math.max(...variantCosts) }
+  }
 
   const filteredProducts = products.filter((product) => {
     if (showIncompleteOnly && !isProductIncomplete(product)) return false
@@ -220,6 +246,7 @@ export default function ProductsPage() {
                     <th className="pb-4 font-medium">Producto</th>
                     <th className="pb-4 font-medium">SKU</th>
                     <th className="pb-4 font-medium">Precio</th>
+                    {canViewCost && <th className="pb-4 font-medium">Costo</th>}
                     <th className="pb-4 font-medium">Stock</th>
                     <th className="pb-4 font-medium">Estado</th>
                     <th className="pb-4 font-medium">Acciones</th>
@@ -291,6 +318,14 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </td>
+                        {canViewCost && (
+                          <td className="py-4 text-muted-foreground">
+                            {(() => {
+                              const { min, max } = getProductCost(product)
+                              return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`
+                            })()}
+                          </td>
+                        )}
                         <td className="py-4">
                           <Badge
                             variant={
