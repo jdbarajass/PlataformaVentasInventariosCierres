@@ -31,6 +31,28 @@ interface ProductResult {
   variants: { id: string; talla: string | null; cost_cents: number }[]
 }
 
+interface MinPriceVariant {
+  id: string
+  talla: string | null
+  minMargen30: number
+  minMarkup30: number
+}
+
+interface MinPriceProduct {
+  id: string
+  title: string
+  variants: MinPriceVariant[]
+  minMargen30?: number
+  minMarkup30?: number
+}
+
+interface MinPriceSelection {
+  title: string
+  talla: string | null
+  minMargen30: number
+  minMarkup30: number
+}
+
 export default function CalculadoraPage() {
   const [rates, setRates] = useState<Record<string, number>>({})
   const [mode, setMode] = useState<MarginMode>('real')
@@ -52,6 +74,17 @@ export default function CalculadoraPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductResult[]>([])
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Buscador de "Precio Mínimo para Vender" — disponible para admin Y
+  // vendedor. A diferencia del buscador de arriba, llama a
+  // /api/pos/min-price, que calcula los dos precios mínimos en el servidor
+  // y nunca incluye cost_cents en la respuesta — el costo real no debe
+  // llegar al navegador del vendedor bajo ningún escenario, ni siquiera
+  // inspeccionando la pestaña de red.
+  const [minPriceQuery, setMinPriceQuery] = useState('')
+  const [minPriceResults, setMinPriceResults] = useState<MinPriceProduct[]>([])
+  const [minPriceSelected, setMinPriceSelected] = useState<MinPriceSelection | null>(null)
+  const minPriceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Calculadora de Cascos (factura proveedor)
   const [precioFactura, setPrecioFactura] = useState('')
@@ -88,6 +121,23 @@ export default function CalculadoraPage() {
       setResults(data || [])
     }, 250)
   }, [query, isAdmin, session?.access_token])
+
+  useEffect(() => {
+    if (minPriceTimer.current) clearTimeout(minPriceTimer.current)
+    if (minPriceQuery.trim().length < 2) {
+      setMinPriceResults([])
+      return
+    }
+    minPriceTimer.current = setTimeout(async () => {
+      if (!session?.access_token) return
+      const res = await fetch(`/api/pos/min-price?q=${encodeURIComponent(minPriceQuery.trim())}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) return
+      const { data } = await res.json()
+      setMinPriceResults(data || [])
+    }, 250)
+  }, [minPriceQuery, session?.access_token])
 
   const formatPrice = (value: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value)
@@ -173,6 +223,12 @@ export default function CalculadoraPage() {
     setResults([])
   }
 
+  const selectMinPrice = (title: string, talla: string | null, minMargen30: number, minMarkup30: number) => {
+    setMinPriceSelected({ title, talla, minMargen30, minMarkup30 })
+    setMinPriceQuery('')
+    setMinPriceResults([])
+  }
+
   // Botones "Limpiar" por panel — cada uno pide confirmación antes de
   // borrar, para no perder por accidente lo que se lleva calculado.
   const limpiarCostoPrecio = () => {
@@ -207,6 +263,90 @@ export default function CalculadoraPage() {
       <div>
         <h1 className="text-3xl font-bold">Calculadora</h1>
         <p className="text-muted-foreground">Precio de venta, margen y comisión — no guarda nada, solo calcula</p>
+      </div>
+
+      {/* Precio Mínimo para Vender — para admin Y vendedor. El vendedor
+          nunca ve el costo (ver /api/pos/min-price): solo estos dos
+          precios mínimos, para poder cotizarle un descuento al cliente
+          en el momento sin tener que llamar al admin. */}
+      <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-6">
+        <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
+          <Calculator className="h-5 w-5" /> Precio Mínimo para Vender
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Busca el producto para ver hasta cuánto le puedes bajar sin perder margen — no muestra el costo, solo el precio mínimo.
+        </p>
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Nombre o SKU del producto..."
+            value={minPriceQuery}
+            onChange={(e) => setMinPriceQuery(e.target.value)}
+            className="rounded-lg pl-10"
+          />
+          {minPriceResults.length > 0 && (
+            <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+              {minPriceResults.map((p) =>
+                p.variants.length === 0 ? (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                    onClick={() => selectMinPrice(p.title, null, p.minMargen30 ?? 0, p.minMarkup30 ?? 0)}
+                  >
+                    {p.title}
+                  </button>
+                ) : (
+                  p.variants.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                      onClick={() => selectMinPrice(p.title, v.talla, v.minMargen30, v.minMarkup30)}
+                    >
+                      {p.title} {v.talla ? `— Talla ${v.talla}` : ''}
+                    </button>
+                  ))
+                )
+              )}
+            </div>
+          )}
+        </div>
+
+        {minPriceSelected && (
+          <div className="mt-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">
+                {minPriceSelected.title}
+                {minPriceSelected.talla && <span className="text-muted-foreground"> — Talla {minPriceSelected.talla}</span>}
+              </p>
+              <button
+                type="button"
+                className="shrink-0 text-xs text-muted-foreground underline"
+                onClick={() => setMinPriceSelected(null)}
+              >
+                Buscar otro producto
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+                <p className="text-xs text-muted-foreground">Mínimo — margen real 30%</p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  {formatPrice(minPriceSelected.minMargen30)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
+                <p className="text-xs text-muted-foreground">Mínimo — +30% sobre costo</p>
+                <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatPrice(minPriceSelected.minMarkup30)}
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              No bajes de estos valores sin autorización — son el punto mínimo antes de perder margen real.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

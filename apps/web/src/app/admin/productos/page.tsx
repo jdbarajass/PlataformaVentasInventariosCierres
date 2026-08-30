@@ -68,6 +68,31 @@ export default function ProductsPage() {
     fetchProducts()
   }, [])
 
+  // Costo por variante, en un efecto aparte gatillado por canViewCost (no en
+  // fetchProducts): si esto viajara siempre, un vendedor lo recibiría en la
+  // respuesta de red aunque la columna esté oculta en la UI — justo lo que
+  // esta sección de Productos quiere evitar (ver /api/pos/min-price, que
+  // existe por el mismo motivo). Se dispara de nuevo si canViewCost pasa de
+  // false a true (ej. el perfil del usuario carga después del primer render).
+  useEffect(() => {
+    if (!canViewCost) {
+      setVariantCostsByProduct(new Map())
+      return
+    }
+    supabase
+      .from('product_variants')
+      .select('product_id, cost_cents')
+      .then(({ data }) => {
+        const costMap = new Map<string, number[]>()
+        for (const v of (data || []) as { product_id: string; cost_cents: number }[]) {
+          const costs = costMap.get(v.product_id) || []
+          costs.push(v.cost_cents)
+          costMap.set(v.product_id, costs)
+        }
+        setVariantCostsByProduct(costMap)
+      })
+  }, [canViewCost])
+
   const fetchProducts = async () => {
     try {
       // include_inactive=true: sin esto (y sin el token de sesión) esta
@@ -85,25 +110,19 @@ export default function ProductsPage() {
         fetch('/api/products?limit=2000&include_inactive=true', {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
         }),
-        supabase.from('product_variants').select('product_id, barcode, cost_cents'),
+        supabase.from('product_variants').select('product_id, barcode'),
       ])
       const data = await response.json()
       setProducts(data.products || [])
 
       const map = new Map<string, string[]>()
-      const costMap = new Map<string, number[]>()
-      for (const v of (allVariants || []) as { product_id: string; barcode: string | null; cost_cents: number }[]) {
-        if (v.barcode) {
-          const list = map.get(v.product_id) || []
-          list.push(v.barcode)
-          map.set(v.product_id, list)
-        }
-        const costs = costMap.get(v.product_id) || []
-        costs.push(v.cost_cents)
-        costMap.set(v.product_id, costs)
+      for (const v of (allVariants || []) as { product_id: string; barcode: string | null }[]) {
+        if (!v.barcode) continue
+        const list = map.get(v.product_id) || []
+        list.push(v.barcode)
+        map.set(v.product_id, list)
       }
       setVariantBarcodesByProduct(map)
-      setVariantCostsByProduct(costMap)
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
