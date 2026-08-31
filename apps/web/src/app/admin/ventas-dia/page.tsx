@@ -76,6 +76,7 @@ interface ProductResult {
   variants: { id: string; talla: string | null }[]
 }
 interface Expense { id: string; description: string; amount_cents: number; category: string }
+interface DailyNote { id: string; text: string; created_at: string }
 interface Loan { id: string; product_title: string; warehouse: string; status: string; created_at: string }
 interface ExchangeItem { title: string; talla: string | null; qty: number }
 interface ExchangeMovement { id: string; created_at: string; delivered: ExchangeItem | null; returned: ExchangeItem | null }
@@ -125,6 +126,13 @@ function VentasDiaContent() {
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
   const [savingExpense, setSavingExpense] = useState(false)
 
+  // Notas del día — junto a Gastos operativos, para dejar registrado algo
+  // que haya pasado ese día (no es un gasto ni un pendiente con fecha de
+  // vencimiento, ver lib de daily_notes).
+  const [dailyNotes, setDailyNotes] = useState<DailyNote[]>([])
+  const [noteText, setNoteText] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
   const [dailyFixedExpense, setDailyFixedExpense] = useState(0)
 
   // Selección múltiple para cambio masivo de método de pago
@@ -171,6 +179,18 @@ function VentasDiaContent() {
       setExpenses(data || [])
     } catch (error) {
       console.error('Error fetching expenses:', error)
+    }
+  }, [session?.access_token, authHeaders, date])
+
+  const fetchDailyNotes = useCallback(async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch(`/api/daily-notes?from=${date}&to=${date}`, { headers: authHeaders() })
+      if (!res.ok) return
+      const { data } = await res.json()
+      setDailyNotes(data || [])
+    } catch (error) {
+      console.error('Error fetching daily notes:', error)
     }
   }, [session?.access_token, authHeaders, date])
 
@@ -235,6 +255,7 @@ function VentasDiaContent() {
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
   useEffect(() => { fetchLoans() }, [fetchLoans])
   useEffect(() => { fetchExchanges() }, [fetchExchanges])
+  useEffect(() => { fetchDailyNotes() }, [fetchDailyNotes])
 
   useEffect(() => {
     if (!canViewProfit) return
@@ -539,6 +560,41 @@ function VentasDiaContent() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSavingExpense(false)
+    }
+  }
+
+  const handleAddNote = async () => {
+    if (!noteText.trim()) return
+    try {
+      setSavingNote(true)
+      const res = await fetch('/api/daily-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ date, text: noteText.trim(), created_by: userProfile?.id }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al registrar la nota')
+      }
+      setNoteText('')
+      await fetchDailyNotes()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  const handleDeleteNote = async (id: string) => {
+    try {
+      const res = await fetch(`/api/daily-notes/${id}`, { method: 'DELETE', headers: authHeaders() })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al eliminar la nota')
+      }
+      await fetchDailyNotes()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
   }
 
@@ -1004,38 +1060,77 @@ function VentasDiaContent() {
         </div>
       )}
 
-      <div className="rounded-xl border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Gastos operativos del día</h2>
-        <div className="mb-4 flex flex-wrap gap-2">
-          <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
-          <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
-            <option value="">Categoría...</option>
-            {EXPENSE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg" />
-          <select value={expenseForm.account_id} onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
-            <option value="">Sin cuenta</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <Button className="rounded-lg" onClick={handleAddExpense} disabled={savingExpense}>
-            {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            Registrar
-          </Button>
-        </div>
-        {expenses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay gastos registrados en esta fecha.</p>
-        ) : (
-          <div className="space-y-1">
-            {expenses.map((e) => (
-              <div key={e.id} className="flex justify-between rounded-lg border px-3 py-2 text-sm">
-                <span>{e.description} · {e.category}</span>
-                <span className="font-medium">{formatPrice(e.amount_cents)}</span>
-              </div>
-            ))}
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold">Gastos operativos del día</h2>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
+            <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+              <option value="">Categoría...</option>
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg" />
+            <select value={expenseForm.account_id} onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+              <option value="">Sin cuenta</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <Button className="rounded-lg" onClick={handleAddExpense} disabled={savingExpense}>
+              {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Registrar
+            </Button>
           </div>
-        )}
+          {expenses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay gastos registrados en esta fecha.</p>
+          ) : (
+            <div className="space-y-1">
+              {expenses.map((e) => (
+                <div key={e.id} className="flex justify-between rounded-lg border px-3 py-2 text-sm">
+                  <span>{e.description} · {e.category}</span>
+                  <span className="font-medium">{formatPrice(e.amount_cents)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="mb-1 text-lg font-semibold">Notas del día</h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Cualquier cosa que haya pasado hoy y quieras dejar registrada (sin monto, sin categoría).
+          </p>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Input
+              placeholder="Escribe una nota..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddNote() }}
+              className="flex-1 rounded-lg"
+            />
+            <Button className="rounded-lg" onClick={handleAddNote} disabled={savingNote || !noteText.trim()}>
+              {savingNote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Agregar
+            </Button>
+          </div>
+          {dailyNotes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay notas en esta fecha.</p>
+          ) : (
+            <div className="space-y-1">
+              {dailyNotes.map((n) => (
+                <div key={n.id} className="flex items-start justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                  <div>
+                    <p>{n.text}</p>
+                    <p className="text-xs text-muted-foreground">{formatBogotaTime(n.created_at)}</p>
+                  </div>
+                  <button onClick={() => handleDeleteNote(n.id)} title="Eliminar nota" className="text-red-500 hover:text-red-600">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

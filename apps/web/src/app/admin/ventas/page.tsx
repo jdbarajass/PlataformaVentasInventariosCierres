@@ -958,6 +958,7 @@ export default function VentasPage() {
                     <button
                       key={product.id}
                       onClick={() => handleCardClick(product)}
+                      title={product.title}
                       className="flex flex-col rounded-xl border bg-background p-3 text-left transition-colors hover:border-primary hover:shadow-sm"
                     >
                       {insignia && (
@@ -1079,7 +1080,7 @@ export default function VentasPage() {
                     <div key={line.key} className="p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{line.title}</p>
+                          <p className="truncate text-sm font-medium" title={line.title}>{line.title}</p>
                           <div className="mt-0.5 flex flex-wrap items-center gap-1">
                             {line.talla && <Badge variant="outline">{line.talla}</Badge>}
                             {!line.product_id && (

@@ -771,7 +771,7 @@ export default function HistorialMensualPage() {
                   {topProducts.map((p, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-sm">{i + 1}</span>
-                      <div className="flex-1"><p className="line-clamp-1 font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{p.qty} unidades</p></div>
+                      <div className="flex-1"><p className="line-clamp-1 font-medium" title={p.title}>{p.title}</p><p className="text-sm text-muted-foreground">{p.qty} unidades</p></div>
                       <span className="font-semibold">{formatPrice(p.revenue)}</span>
                     </div>
                   ))}
@@ -790,7 +790,7 @@ export default function HistorialMensualPage() {
                       <div key={i} className="flex items-center gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-sm">{i + 1}</span>
                         <div className="flex-1">
-                          <p className="line-clamp-1 font-medium">{p.title}</p>
+                          <p className="line-clamp-1 font-medium" title={p.title}>{p.title}</p>
                           <p className="text-sm text-muted-foreground">{p.qty} unidades · margen {p.margin.toFixed(1)}%</p>
                         </div>
                         <span className={`font-semibold ${p.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(p.profit)}</span>

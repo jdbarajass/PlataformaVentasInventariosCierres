@@ -242,7 +242,7 @@ export default function ProductsPage() {
                               />
                             </div>
                             <div>
-                              <p className="font-medium line-clamp-1">
+                              <p className="font-medium line-clamp-1" title={product.title}>
                                 {product.title}
                               </p>
                               <div className="flex flex-wrap gap-1">

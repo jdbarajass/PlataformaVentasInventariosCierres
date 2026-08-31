@@ -556,7 +556,7 @@ export default function ReportsPage() {
                       {index + 1}
                     </span>
                     <div className="flex-1">
-                      <p className="font-medium line-clamp-1">{product.title}</p>
+                      <p className="font-medium line-clamp-1" title={product.title}>{product.title}</p>
                       <p className="text-sm text-muted-foreground">
                         {product.qty} unidades
                       </p>
