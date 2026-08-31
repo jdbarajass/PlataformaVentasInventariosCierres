@@ -42,7 +42,12 @@ export async function GET(request: NextRequest) {
     // negocio (comisiones reales, arriendo, sueldo, servicios) — solo se
     // devuelven si quien pide está autenticado como admin/seller.
     const auth = await getAuthenticatedUser(request)
-    const isStaff = auth.success && ['admin', 'seller'].includes(auth.user.role)
+    // admin_readonly ve todo lo que vería un admin real (ver auth-helpers.ts)
+    // — mismo tipo de bug ya encontrado en /api/accounts y
+    // /api/pos/sales/export: sin incluirlo aquí, este rol perdía
+    // sistecredito_margin_pct y el "total esperado" de Cuentas quedaba mal
+    // calculado (sin el margen) en vez de simplemente en $NaN.
+    const isStaff = auth.success && ['admin', 'seller', 'admin_readonly'].includes(auth.user.role)
 
     const responseData: Record<string, any> = { ...(data as any) }
     if (!isStaff) {

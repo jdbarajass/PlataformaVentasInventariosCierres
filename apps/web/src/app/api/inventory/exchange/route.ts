@@ -7,6 +7,12 @@ import { z } from 'zod'
 const sideSchema = z.object({
   productId: z.string().uuid(),
   variantId: z.string().uuid().optional().nullable(),
+  // Talla estándar elegida en "Producto que ENTRA" cuando el producto
+  // todavía no tiene esa talla registrada como variante (ej. el cliente
+  // devuelve una XS de un casco que hoy solo tiene M/L/XL con stock) — se
+  // usa solo cuando variantId viene vacío, para crear esa variante al vuelo
+  // en vez de bloquear el cambio por no tenerla ya cargada.
+  talla: z.string().trim().min(1).max(20).optional().nullable(),
   // Cuántas unidades cambian de lado — antes era siempre 1 fijo (mismo
   // comportamiento que el software local), pero un cambio real puede ser
   // de varias unidades a la vez (ej. cambiar 3 cascos talla M por 3 talla
@@ -38,16 +44,70 @@ export async function POST(request: NextRequest) {
     }
     const { sale, entra } = validation.data
 
-    const sameSide =
-      sale.productId === entra.productId && (sale.variantId || null) === (entra.variantId || null)
+    const supabase = getServiceSupabase()
+
+    // Si "entra" trae una talla en vez de variantId (talla estándar que el
+    // producto todavía no tenía registrada, ver TALLAS_ENTRA_EXTRA en la
+    // página), la busca por si ya existe (talla no distingue mayúsculas) o
+    // la crea con stock 0 — copiando costo/umbral de una variante hermana
+    // del mismo producto para no dejar el costeo de inventario en $0.
+    async function resolveEntraVariantId(
+      productId: string,
+      variantId: string | null | undefined,
+      talla: string | null | undefined
+    ): Promise<string | null> {
+      if (variantId) return variantId
+      if (!talla) return null
+
+      const { data: existing } = await supabase
+        .from('product_variants')
+        .select('id')
+        .eq('product_id', productId)
+        .ilike('talla', talla)
+        .maybeSingle()
+      if (existing) return (existing as { id: string }).id
+
+      const { data: sibling } = await supabase
+        .from('product_variants')
+        .select('cost_cents, low_stock_threshold')
+        .eq('product_id', productId)
+        .limit(1)
+        .maybeSingle()
+      const { cost_cents, low_stock_threshold } = (sibling as { cost_cents: number; low_stock_threshold: number } | null) || {
+        cost_cents: 0,
+        low_stock_threshold: 5,
+      }
+
+      const { data: created, error: createError } = await (supabase.from('product_variants') as any)
+        .insert({ product_id: productId, talla, stock_qty: 0, cost_cents, low_stock_threshold, active: true })
+        .select('id')
+        .single()
+      if (createError) {
+        // Carrera: otra petición creó la misma talla justo antes (UNIQUE
+        // product_id+talla) — se usa la que ya quedó creada.
+        if (createError.code === '23505') {
+          const { data: retry } = await supabase
+            .from('product_variants')
+            .select('id')
+            .eq('product_id', productId)
+            .ilike('talla', talla)
+            .maybeSingle()
+          if (retry) return (retry as { id: string }).id
+        }
+        throw createError
+      }
+      return (created as { id: string }).id
+    }
+
+    const entraVariantId = await resolveEntraVariantId(entra.productId, entra.variantId, entra.talla)
+
+    const sameSide = sale.productId === entra.productId && (sale.variantId || null) === (entraVariantId || null)
     if (sameSide) {
       return NextResponse.json(
         { error: 'El producto que sale y el que entra son el mismo. Selecciona artículos diferentes.' },
         { status: 400 }
       )
     }
-
-    const supabase = getServiceSupabase()
 
     async function getStock(productId: string, variantId?: string | null) {
       if (variantId) {
@@ -111,10 +171,10 @@ export async function POST(request: NextRequest) {
       created_by: auth.user.id,
     })
 
-    const entraNewStock = await applyDelta(entra.productId, entra.variantId, entra.qty)
+    const entraNewStock = await applyDelta(entra.productId, entraVariantId, entra.qty)
     await (supabase.from('inventory_movements') as any).insert({
       product_id: entra.productId,
-      variant_id: entra.variantId || null,
+      variant_id: entraVariantId,
       qty: entra.qty,
       type: 'exchange',
       note: `Cambio de producto — devuelto por el cliente (${entra.qty} unidad${entra.qty !== 1 ? 'es' : ''})`,

@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { formatPrice, getStockStatus } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { useAuth } from '@/lib/auth-context'
 
 function ProductThumbnail({ src, alt }: { src: string; alt: string }) {
   const [hasError, setHasError] = useState(false)
@@ -45,6 +46,9 @@ function ProductThumbnail({ src, alt }: { src: string; alt: string }) {
 export default function ProductsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { userProfile } = useAuth()
+  // Mismo criterio que Editar Producto: el rol 'seller' no ve el costo real.
+  const canViewCost = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [showIncompleteOnly, setShowIncompleteOnly] = useState(false)
@@ -54,10 +58,40 @@ export default function ProductsPage() {
   // vive por variante), así que buscar solo por product.barcode no
   // encontraba nada al escanear/escribir el código de una talla específica.
   const [variantBarcodesByProduct, setVariantBarcodesByProduct] = useState<Map<string, string[]>>(new Map())
+  // Costo por variante/talla, por producto — un producto con tallas no tiene
+  // un solo costo (cada talla puede costar distinto), así que la columna
+  // "Costo" de la tabla necesita el rango real en vez de leer
+  // product.cost_cents (que ahí no se usa).
+  const [variantCostsByProduct, setVariantCostsByProduct] = useState<Map<string, number[]>>(new Map())
 
   useEffect(() => {
     fetchProducts()
   }, [])
+
+  // Costo por variante, en un efecto aparte gatillado por canViewCost (no en
+  // fetchProducts): si esto viajara siempre, un vendedor lo recibiría en la
+  // respuesta de red aunque la columna esté oculta en la UI — justo lo que
+  // esta sección de Productos quiere evitar (ver /api/pos/min-price, que
+  // existe por el mismo motivo). Se dispara de nuevo si canViewCost pasa de
+  // false a true (ej. el perfil del usuario carga después del primer render).
+  useEffect(() => {
+    if (!canViewCost) {
+      setVariantCostsByProduct(new Map())
+      return
+    }
+    supabase
+      .from('product_variants')
+      .select('product_id, cost_cents')
+      .then(({ data }) => {
+        const costMap = new Map<string, number[]>()
+        for (const v of (data || []) as { product_id: string; cost_cents: number }[]) {
+          const costs = costMap.get(v.product_id) || []
+          costs.push(v.cost_cents)
+          costMap.set(v.product_id, costs)
+        }
+        setVariantCostsByProduct(costMap)
+      })
+  }, [canViewCost])
 
   const fetchProducts = async () => {
     try {
@@ -103,6 +137,31 @@ export default function ProductsPage() {
     !product.deleted_at && (product.images.length === 0 || !product.description?.trim())
 
   const incompleteCount = products.filter(isProductIncomplete).length
+
+  // Costo a mostrar para un producto: si no tiene tallas, el costo del
+  // producto mismo; si tiene tallas, el rango de costo entre todas ellas
+  // (suelen costar igual, pero no siempre — ver docs/UNIFICACION_YJBMOTOCOM.md).
+  const getProductCost = (product: Product): { min: number; max: number } => {
+    const variantCosts = variantCostsByProduct.get(product.id)
+    if (!variantCosts || variantCosts.length === 0) {
+      return { min: product.cost_cents, max: product.cost_cents }
+    }
+    return { min: Math.min(...variantCosts), max: Math.max(...variantCosts) }
+  }
+
+  // Precios mínimos sugeridos a partir del costo — solo de referencia
+  // visual, no tocan formData.price ni se guardan en ningún lado:
+  //   - margen 30% sobre el precio: costo / 0.7 (el costo queda siendo el
+  //     70% del precio de venta).
+  //   - +30% sobre el costo (markup): costo * 1.3.
+  const costoEntreMargen = (cents: number) => Math.round(cents / 0.7)
+  const costoMasMarkup = (cents: number) => Math.round(cents * 1.3)
+
+  const formatCostRange = (range: { min: number; max: number }, transform: (cents: number) => number) => {
+    const min = transform(range.min)
+    const max = transform(range.max)
+    return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`
+  }
 
   const filteredProducts = products.filter((product) => {
     if (showIncompleteOnly && !isProductIncomplete(product)) return false
@@ -220,6 +279,17 @@ export default function ProductsPage() {
                     <th className="pb-4 font-medium">Producto</th>
                     <th className="pb-4 font-medium">SKU</th>
                     <th className="pb-4 font-medium">Precio</th>
+                    {canViewCost && (
+                      <>
+                        <th className="pb-4 font-medium">Costo</th>
+                        <th className="pb-4 font-medium" title="Costo ÷ 0.7 — el costo queda siendo el 70% del precio de venta">
+                          Mín. margen 30%
+                        </th>
+                        <th className="pb-4 font-medium" title="Costo × 1.3 — 30% de utilidad sobre el costo">
+                          Mín. +30% costo
+                        </th>
+                      </>
+                    )}
                     <th className="pb-4 font-medium">Stock</th>
                     <th className="pb-4 font-medium">Estado</th>
                     <th className="pb-4 font-medium">Acciones</th>
@@ -231,6 +301,7 @@ export default function ProductsPage() {
                       product.stock_qty,
                       product.low_stock_threshold
                     )
+                    const costRange = canViewCost ? getProductCost(product) : null
                     return (
                       <tr key={product.id} className="group">
                         <td className="py-4">
@@ -291,6 +362,13 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </td>
+                        {canViewCost && costRange && (
+                          <>
+                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, (c) => c)}</td>
+                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, costoEntreMargen)}</td>
+                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, costoMasMarkup)}</td>
+                          </>
+                        )}
                         <td className="py-4">
                           <Badge
                             variant={

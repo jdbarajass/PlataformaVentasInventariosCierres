@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
     if (!auth.success) {
       return auth.response
     }
+    // Excepción puntual al criterio general de admin_readonly ("ve todo lo
+    // que vería un admin real", ver auth-helpers.ts) — a pedido explícito
+    // del usuario, el admin de solo lectura no debe ver Movimientos de
+    // Cuentas. Se bloquea aquí (no solo ocultando la pestaña en
+    // cuentas/page.tsx) para que tampoco pueda leerlos llamando esta ruta
+    // directo.
+    if (auth.user.role === 'admin_readonly') {
+      return NextResponse.json({ error: 'Tu perfil no tiene acceso a Movimientos' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(request.url)
     const accountId = searchParams.get('account_id')

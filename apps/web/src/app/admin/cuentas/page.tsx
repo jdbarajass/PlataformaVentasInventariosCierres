@@ -149,7 +149,10 @@ export default function CuentasPage() {
   }, [session?.access_token, authHeaders])
 
   const fetchMovements = useCallback(async () => {
-    if (!session?.access_token) return
+    // Admin de solo lectura: sin acceso a Movimientos (la API también lo
+    // rechaza, ver /api/account-movements) — se evita la llamada para no
+    // dejar un 403 innecesario en la consola.
+    if (!session?.access_token || isReadOnlyAdmin) return
     try {
       const params = new URLSearchParams({ limit: '50' })
       if (movementAccountFilter) params.set('account_id', movementAccountFilter)
@@ -164,7 +167,7 @@ export default function CuentasPage() {
     } catch (error) {
       console.error('Error fetching account movements:', error)
     }
-  }, [session?.access_token, authHeaders, movementAccountFilter, movementFrom, movementTo])
+  }, [session?.access_token, isReadOnlyAdmin, authHeaders, movementAccountFilter, movementFrom, movementTo])
 
   const fetchClosures = useCallback(async () => {
     if (!session?.access_token || !canView) return
@@ -429,7 +432,10 @@ export default function CuentasPage() {
       <div className="flex gap-2 border-b">
         {[
           { id: 'resumen', label: 'Resumen', icon: Wallet },
-          { id: 'movimientos', label: 'Movimientos', icon: History },
+          // Admin de solo lectura: sin acceso a Movimientos (a pedido del
+          // usuario) — se oculta la pestaña, no solo el contenido, mismo
+          // criterio que el menú lateral con las secciones adminOnly.
+          ...(isReadOnlyAdmin ? [] : [{ id: 'movimientos', label: 'Movimientos', icon: History }]),
           { id: 'por-cobrar', label: 'Por Cobrar', icon: HandCoins },
           { id: 'cierres', label: 'Cierres', icon: Calendar },
         ].map((t) => (
@@ -620,7 +626,7 @@ export default function CuentasPage() {
             </div>
           )}
 
-          {tab === 'movimientos' && (
+          {tab === 'movimientos' && !isReadOnlyAdmin && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-4">
                 <select

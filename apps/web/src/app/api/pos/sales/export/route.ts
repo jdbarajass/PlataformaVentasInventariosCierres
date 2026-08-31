@@ -26,7 +26,11 @@ export async function GET(request: NextRequest) {
     if (!date) {
       return NextResponse.json({ error: 'Falta la fecha' }, { status: 400 })
     }
-    const isAdmin = auth.user.role === 'admin'
+    // admin_readonly ve todo lo que vería un admin real (ver auth-helpers.ts)
+    // — sin esto, este rol exportaba el Excel sin Costo/Comisión/Ganancia
+    // neta, igual que 'seller' (para quien sí es intencional, ver comentario
+    // arriba), mismo tipo de bug ya encontrado y corregido en /api/accounts.
+    const isAdmin = auth.user.role === 'admin' || auth.user.role === 'admin_readonly'
 
     // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
     // que Postgres interpreta en UTC y deja la ventana corrida 5 horas —
