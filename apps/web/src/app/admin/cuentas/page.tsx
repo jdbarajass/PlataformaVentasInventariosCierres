@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -543,13 +544,10 @@ export default function CuentasPage() {
                         <Minus className="mr-1 h-4 w-4" /> Salida
                       </Button>
                     </div>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <MoneyInput
                       placeholder="Monto"
                       value={adjustAmount}
-                      onChange={(e) => setAdjustAmount(e.target.value)}
+                      onChange={setAdjustAmount}
                       className="rounded-lg"
                     />
                     <Input
@@ -596,13 +594,10 @@ export default function CuentasPage() {
                         <option key={a.id} value={a.id}>{a.name}</option>
                       ))}
                     </select>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <MoneyInput
                       placeholder="Monto"
                       value={transferAmount}
-                      onChange={(e) => setTransferAmount(e.target.value)}
+                      onChange={setTransferAmount}
                       className="rounded-lg"
                     />
                     <Input
@@ -820,13 +815,10 @@ export default function CuentasPage() {
                             </div>
                             <div>
                               <label className="text-xs text-muted-foreground">Monto</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
+                              <MoneyInput
                                 placeholder="Monto"
                                 value={newReceivable.amount}
-                                onChange={(e) => setNewReceivable({ ...newReceivable, amount: e.target.value })}
+                                onChange={(v) => setNewReceivable({ ...newReceivable, amount: v })}
                                 className="h-8 w-28 rounded-lg text-xs"
                               />
                             </div>
