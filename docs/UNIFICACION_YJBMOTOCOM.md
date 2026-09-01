@@ -2698,4 +2698,16 @@ El usuario mandó una captura de Finanzas → Cuentas → Resumen ("Ajuste manua
 
 **Implementación**: los 3 (`adjustAmount` en Ajuste manual, `transferAmount` en Transferir, `newReceivable.amount` en Por Cobrar) pasaron a `MoneyInput` — mismo componente que ya usa el resto del panel, sin tocar la lógica de envío (`Math.round(parseFloat(valor) * 100)` sigue funcionando igual, `MoneyInput` solo cambia cómo se ve mientras se escribe). Efecto secundario menor y deliberado: `MoneyInput` no admite centavos (todo el resto del panel tampoco los usa), así que estos 3 campos dejan de aceptar decimales — no hay ningún caso real en el negocio que necesite menos de $1 de un peso.
 
+### 81.32 Bug real: panel "Precio Mínimo para Vender" de Calculadora mostraba el precio x100 (2026-08-31)
+
+El usuario mandó 3 capturas (Inventario, Calculadora, Productos) del mismo producto — CASCO XTRONG R1 — señalando que el precio se veía "desfasado" en Calculadora: el panel "Precio Mínimo para Vender" (sección 81.25) mostraba **$39.900.000** y **$36.300.000**, cuando Productos mostraba correctamente $398.571 y $362.700 para las mismas dos columnas del mismo producto.
+
+**Causa**: desajuste de unidades entre dos `formatPrice` distintos que conviven en el mismo archivo. `GET /api/pos/min-price` calcula `minMargen30`/`minMarkup30` a partir de `cost_cents` y devuelve el resultado también en **centavos** (mismo criterio que el resto del backend). Pero `calculadora/page.tsx` define su propio `formatPrice()` local (línea 142, sin dividir entre 100) para los paneles donde el usuario escribe pesos directamente a mano — y ese mismo `formatPrice` local se reusaba para pintar `minPriceSelected.minMargen30`/`minMarkup30`, que llegan en centavos desde la API. Resultado: el valor se mostraba multiplicado x100 (confirmado con la aritmética exacta: $279.000 costo → $399.000/$363.000 correctos tras redondeo a $500, que es justo $39.900.000/$36.300.000 dividido entre 100). El buscador de costo del otro panel (`selectFromSearch`) sí dividía `cost_cents / 100` al guardar el valor — el buscador de mínimos (`selectMinPrice`) era el único de los dos que no lo hacía.
+
+**Repercusión revisada antes de tocar código**: se confirmó por `grep` en todo `apps/web/src` que `minMargen30`/`minMarkup30` del endpoint solo los consume este archivo — el fix quedó aislado a `calculadora/page.tsx`, sin tocar la API (que está bien tal cual, en centavos, consistente con el resto del backend) ni Productos/Inventario (que usan el `formatPrice` compartido de `lib/utils.ts` y nunca tuvieron el bug).
+
+**Fix**: las dos llamadas a `selectMinPrice()` (producto sin tallas y por variante) ahora dividen `minMargen30`/`minMarkup30` entre 100 antes de guardarlos en el estado, igual que ya hacía `selectFromSearch` con `cost_cents`.
+
+**Verificado**: `tsc --noEmit` limpio en `calculadora/page.tsx`. No se pudo confirmar visualmente en este entorno (sin credenciales de Supabase, misma limitación de sesiones anteriores) — pendiente que el usuario recargue el panel y confirme que ya muestra $399.000/$363.000 en vez de $39.900.000/$36.300.000.
+
 **Verificado con navegador real**: los 3 campos muestran el separador de miles correctamente (`662.696`, `1.500.000`, `345.000`) mientras se escribe. `tsc --noEmit` y `eslint` limpios, 129/129 tests en verde.

@@ -292,7 +292,7 @@ export default function CalculadoraPage() {
                     key={p.id}
                     type="button"
                     className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
-                    onClick={() => selectMinPrice(p.title, null, p.minMargen30 ?? 0, p.minMarkup30 ?? 0)}
+                    onClick={() => selectMinPrice(p.title, null, (p.minMargen30 ?? 0) / 100, (p.minMarkup30 ?? 0) / 100)}
                   >
                     {p.title}
                   </button>
@@ -302,7 +302,7 @@ export default function CalculadoraPage() {
                       key={v.id}
                       type="button"
                       className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
-                      onClick={() => selectMinPrice(p.title, v.talla, v.minMargen30, v.minMarkup30)}
+                      onClick={() => selectMinPrice(p.title, v.talla, v.minMargen30 / 100, v.minMarkup30 / 100)}
                     >
                       {p.title} {v.talla ? `— Talla ${v.talla}` : ''}
                     </button>
