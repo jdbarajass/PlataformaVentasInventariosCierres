@@ -180,15 +180,14 @@ export default function HistorialMensualPage() {
   // Los días que solo tuvieron gastos (sin ventas) también cuentan, igual
   // que el local (todas_fechas = ventas ∪ gastos_por_dia.keys()).
   const dailyFixedExpense = fixedMonthlyTotal / diasMes
-  const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number; commission: number; units: number }>>((acc, o) => {
+  const dailyMap = orders.reduce<Record<string, { revenue: number; cost: number; units: number }>>((acc, o) => {
     // Día de Bogotá, no el día UTC crudo de `created_at.split('T')[0]` —
     // una venta hecha entre 7pm y medianoche en Colombia ya cae en el día
     // UTC siguiente, lo que la habría atribuido al día equivocado aquí.
     const day = bogotaDateStr(new Date(o.created_at))
-    if (!acc[day]) acc[day] = { revenue: 0, cost: 0, commission: 0, units: 0 }
+    if (!acc[day]) acc[day] = { revenue: 0, cost: 0, units: 0 }
     acc[day].revenue += o.total_cents
     acc[day].cost += (o.order_items || []).reduce((s, i) => s + i.qty * (i.cost_cents || 0), 0)
-    acc[day].commission += (o.payments || []).reduce((s, p) => s + (p.commission_cents || 0), 0)
     // "Ventas" en el resumen por día son UNIDADES vendidas ese día, no
     // número de facturas — igual que cantidad_ventas del software local
     // (suma v.cantidad, y cada "venta" ahí es un renglón de producto, no
@@ -198,7 +197,7 @@ export default function HistorialMensualPage() {
     return acc
   }, {})
   for (const day of Object.keys(expensesByDay)) {
-    if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cost: 0, commission: 0, units: 0 }
+    if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cost: 0, units: 0 }
   }
   // Días sin NINGUNA actividad (ni ventas ni gastos) no quedaban en
   // `dailyMap` en absoluto — simplemente desaparecían de la lista, en vez
@@ -211,16 +210,23 @@ export default function HistorialMensualPage() {
   for (let dia = 1; dia <= diasEnElMes; dia++) {
     const dayStr = `${year}-${String(month).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
     if (dayStr > todayBogota) break
-    if (!dailyMap[dayStr]) dailyMap[dayStr] = { revenue: 0, cost: 0, commission: 0, units: 0 }
+    if (!dailyMap[dayStr]) dailyMap[dayStr] = { revenue: 0, cost: 0, units: 0 }
   }
   const dailyArray = Object.entries(dailyMap)
     .map(([day, d]) => {
       const gastosDia = expensesByDay[day] || 0
-      // Ganancia neta del día (ingresos - costo - comisión) — distinta de
-      // utilidadRealDia, que además prorratea el gasto fijo mensual y resta
-      // los gastos operativos puntuales de ese día (igual que ResumenDiario
-      // del software local: ganancia_neta vs. utilidad_real).
-      const gananciaNeta = d.revenue - d.cost - d.commission
+      // Ganancia neta del día (ingresos - costo, SIN restar comisión — regla
+      // de negocio explícita: la comisión del medio de pago se traslada al
+      // cliente como sobreprecio y no reduce la ganancia de la tienda, ver
+      // docs/UNIFICACION_YJBMOTOCOM.md línea 66 y lib/pos-sale.ts). Antes esta
+      // fila sí restaba `d.commission`, lo que hacía que el detalle por día no
+      // coincidiera ni con el total del mes de este mismo reporte (arriba,
+      // `grossProfit`/`utilidadReal` nunca restan comisión) ni con Ventas del
+      // Día (mismo cálculo `netProfit = totalDia - totalCost`, sin comisión)
+      // — un día con pagos por datáfono podía verse "Negativo" aquí sin serlo
+      // en realidad. `utilidadRealDia` además prorratea el gasto fijo mensual
+      // y resta los gastos operativos puntuales de ese día.
+      const gananciaNeta = d.revenue - d.cost
       const utilidadRealDia = canViewProfit ? gananciaNeta - dailyFixedExpense - gastosDia : d.revenue - d.cost
       // "Sin venta": no se vendió NADA ese día (pudo no abrirse, o el día
       // estuvo difícil) — distinto de un día con ventas que dio pérdida.
