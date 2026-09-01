@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { PackageOpen, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
+import { PackageOpen, PackageMinus, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -9,12 +9,15 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { BOGOTA_TZ, bogotaDateStr, bogotaTimeStr, bogotaToISO } from '@/lib/bogota-time'
 
+type Direction = 'lent' | 'borrowed'
+
 interface Loan {
   id: string
   product_title: string
   warehouse: string
   observations: string | null
   status: 'pending' | 'returned' | 'charged'
+  direction: Direction
   created_at: string
 }
 
@@ -24,16 +27,58 @@ interface ProductResult {
   variants: { id: string; talla: string | null }[]
 }
 
-const statusLabels: Record<Loan['status'], string> = {
-  pending: 'Pendiente',
-  returned: 'Devuelto',
-  charged: 'Cobrado',
-}
-
 const statusColors: Record<Loan['status'], string> = {
   pending: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
   returned: 'bg-green-500/10 text-green-500 border-green-500/20',
   charged: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
+}
+
+// Mismo ciclo de vida (pendiente → devuelto/cobrado) en los dos sentidos —
+// solo cambian las etiquetas y quién tiene el producto físico ahora mismo.
+// 'lent' = lo prestamos nosotros a otro almacén (lo que nos deben).
+// 'borrowed' = otro almacén nos lo prestó a nosotros (lo que debemos).
+const directionConfig: Record<Direction, {
+  tabLabel: string
+  pageDescription: string
+  formTitle: string
+  warehouseLabel: string
+  warehousePlaceholder: string
+  submitLabel: string
+  emptyLabel: string
+  bannerNoun: string
+  statusLabels: Record<Loan['status'], string>
+  manualConfirm: string
+  manualButtonLabel: string
+  manualPlaceholder: string
+}> = {
+  lent: {
+    tabLabel: 'Nos deben',
+    pageDescription: 'Productos prestados a otros almacenes',
+    formTitle: 'Nuevo préstamo',
+    warehouseLabel: 'Almacén / destino',
+    warehousePlaceholder: 'Almacén / destino',
+    submitLabel: 'Registrar préstamo',
+    emptyLabel: 'No hay préstamos registrados',
+    bannerNoun: 'préstamo',
+    statusLabels: { pending: 'Pendiente', returned: 'Devuelto', charged: 'Cobrado' },
+    manualConfirm: '¿Seguro que quieres prestar algo que no tienes en el local (no está en el catálogo/inventario)?',
+    manualButtonLabel: 'Prestar producto fuera de catálogo',
+    manualPlaceholder: 'Nombre del producto (fuera de catálogo)',
+  },
+  borrowed: {
+    tabLabel: 'Debemos',
+    pageDescription: 'Productos que otros almacenes nos prestaron a nosotros',
+    formTitle: 'Nueva deuda',
+    warehouseLabel: 'Almacén que nos prestó',
+    warehousePlaceholder: 'Almacén que nos prestó',
+    submitLabel: 'Registrar deuda',
+    emptyLabel: 'No hay deudas registradas',
+    bannerNoun: 'deuda',
+    statusLabels: { pending: 'Pendiente', returned: 'Devuelto', charged: 'Pagado' },
+    manualConfirm: '¿Seguro que quieres registrar algo que no tienes en el catálogo/inventario?',
+    manualButtonLabel: 'Registrar producto fuera de catálogo',
+    manualPlaceholder: 'Nombre del producto (fuera de catálogo)',
+  },
 }
 
 function diasPendientes(iso: string): number {
@@ -53,6 +98,8 @@ export default function PrestamosPage() {
   const [loans, setLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<'all' | Loan['status']>('pending')
+  const [direction, setDirection] = useState<Direction>('lent')
+  const cfg = directionConfig[direction]
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductResult[]>([])
@@ -139,8 +186,9 @@ export default function PrestamosPage() {
       minute: '2-digit',
     })
 
-  const visibleLoans = statusFilter === 'all' ? loans : loans.filter((l) => l.status === statusFilter)
-  const pendingLoans = loans.filter((l) => l.status === 'pending')
+  const loansInTab = loans.filter((l) => l.direction === direction)
+  const visibleLoans = statusFilter === 'all' ? loansInTab : loansInTab.filter((l) => l.status === statusFilter)
+  const pendingLoans = loansInTab.filter((l) => l.status === 'pending')
   const urgentCount = pendingLoans.filter((l) => diasPendientes(l.created_at) >= 30).length
 
   const handleCreate = async () => {
@@ -161,14 +209,15 @@ export default function PrestamosPage() {
             : manualTitle.trim(),
           warehouse,
           observations: observations || null,
+          direction,
           created_at: bogotaToISO(createDate, bogotaTimeStr(new Date())),
         }),
       })
       if (!res.ok) {
         const error = await res.json()
-        throw new Error(error.error || 'Error al registrar el préstamo')
+        throw new Error(error.error || `Error al registrar la ${cfg.bannerNoun}`)
       }
-      toast({ title: 'Préstamo registrado' })
+      toast({ title: direction === 'lent' ? 'Préstamo registrado' : 'Deuda registrada' })
       setSelectedProduct(null)
       setManualMode(false)
       setManualTitle('')
@@ -191,8 +240,8 @@ export default function PrestamosPage() {
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ status }),
       })
-      if (!res.ok) throw new Error('Error al actualizar el préstamo')
-      toast({ title: 'Préstamo actualizado' })
+      if (!res.ok) throw new Error(`Error al actualizar la ${directionConfig[loan.direction].bannerNoun}`)
+      toast({ title: loan.direction === 'lent' ? 'Préstamo actualizado' : 'Deuda actualizada' })
       await fetchLoans()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -228,8 +277,8 @@ export default function PrestamosPage() {
           created_at: bogotaToISO(editForm.date, editForm.time),
         }),
       })
-      if (!res.ok) throw new Error('Error al actualizar el préstamo')
-      toast({ title: 'Préstamo actualizado' })
+      if (!res.ok) throw new Error(`Error al actualizar la ${cfg.bannerNoun}`)
+      toast({ title: direction === 'lent' ? 'Préstamo actualizado' : 'Deuda actualizada' })
       setEditingId(null)
       await fetchLoans()
     } catch (error: any) {
@@ -240,11 +289,12 @@ export default function PrestamosPage() {
   }
 
   const handleDelete = async (loan: Loan) => {
-    if (!confirm(`¿Eliminar el préstamo de "${loan.product_title}"?`)) return
+    const noun = directionConfig[loan.direction].bannerNoun
+    if (!confirm(`¿Eliminar ${loan.direction === 'lent' ? 'el' : 'la'} ${noun} de "${loan.product_title}"?`)) return
     try {
       const res = await fetch(`/api/loans/${loan.id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) throw new Error('Error al eliminar el préstamo')
-      toast({ title: 'Préstamo eliminado' })
+      if (!res.ok) throw new Error(`Error al eliminar la ${noun}`)
+      toast({ title: loan.direction === 'lent' ? 'Préstamo eliminado' : 'Deuda eliminada' })
       await fetchLoans()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -255,16 +305,38 @@ export default function PrestamosPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Préstamos</h1>
-        <p className="text-muted-foreground">Productos prestados a otros almacenes</p>
+        <p className="text-muted-foreground">Control de productos prestados entre locales — lo que nos deben y lo que debemos</p>
       </div>
 
+      <div className="flex gap-2">
+        {(['lent', 'borrowed'] as const).map((d) => (
+          <Button
+            key={d}
+            variant={direction === d ? 'default' : 'outline'}
+            className="rounded-lg"
+            onClick={() => {
+              setDirection(d)
+              setStatusFilter('pending')
+              setSelectedProduct(null)
+              setManualMode(false)
+              setManualTitle('')
+              setQuery('')
+            }}
+          >
+            {d === 'lent' ? <PackageOpen className="mr-2 h-4 w-4" /> : <PackageMinus className="mr-2 h-4 w-4" />}
+            {directionConfig[d].tabLabel}
+          </Button>
+        ))}
+      </div>
+      <p className="text-sm text-muted-foreground">{cfg.pageDescription}</p>
+
       <div className="rounded-xl border bg-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">Nuevo préstamo</h2>
+        <h2 className="mb-4 text-lg font-semibold">{cfg.formTitle}</h2>
         <div className="space-y-3">
           {!selectedProduct && manualMode ? (
             <div className="flex items-center gap-2">
               <Input
-                placeholder="Nombre del producto (fuera de catálogo)"
+                placeholder={cfg.manualPlaceholder}
                 value={manualTitle}
                 onChange={(e) => setManualTitle(e.target.value)}
                 className="rounded-lg"
@@ -287,12 +359,12 @@ export default function PrestamosPage() {
                 size="sm"
                 className="mt-2 rounded-lg"
                 onClick={() => {
-                  if (confirm('¿Seguro que quieres prestar algo que no tienes en el local (no está en el catálogo/inventario)?')) {
+                  if (confirm(cfg.manualConfirm)) {
                     setManualMode(true)
                   }
                 }}
               >
-                Prestar producto fuera de catálogo
+                {cfg.manualButtonLabel}
               </Button>
               {results.length > 0 && (
                 <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
@@ -344,12 +416,12 @@ export default function PrestamosPage() {
                 className="rounded-lg"
               />
             </div>
-            <Input placeholder="Almacén / destino" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="rounded-lg self-end" />
+            <Input placeholder={cfg.warehousePlaceholder} value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="rounded-lg self-end" />
           </div>
           <Input placeholder="Observaciones (opcional)" value={observations} onChange={(e) => setObservations(e.target.value)} className="rounded-lg" />
           <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-            Registrar préstamo
+            {cfg.submitLabel}
           </Button>
         </div>
       </div>
@@ -358,7 +430,7 @@ export default function PrestamosPage() {
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>
-            {pendingLoans.length} préstamo{pendingLoans.length !== 1 ? 's' : ''} pendiente{pendingLoans.length !== 1 ? 's' : ''}
+            {pendingLoans.length} {cfg.bannerNoun}{pendingLoans.length !== 1 ? 's' : ''} pendiente{pendingLoans.length !== 1 ? 's' : ''}
             {urgentCount > 0 && ` — ${urgentCount} con más de 30 días sin resolver`}
           </span>
         </div>
@@ -373,7 +445,7 @@ export default function PrestamosPage() {
             className="rounded-lg"
             onClick={() => setStatusFilter(s)}
           >
-            {s === 'all' ? 'Todos' : statusLabels[s]}
+            {s === 'all' ? 'Todos' : cfg.statusLabels[s]}
           </Button>
         ))}
       </div>
@@ -385,7 +457,7 @@ export default function PrestamosPage() {
       ) : visibleLoans.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
           <PackageOpen className="mx-auto mb-2 h-8 w-8" />
-          No hay préstamos registrados
+          {cfg.emptyLabel}
         </div>
       ) : (
         <div className="space-y-2">
@@ -453,15 +525,15 @@ export default function PrestamosPage() {
                   <Badge variant="outline" className={diasBadgeColor(diasPendientes(loan.created_at), loan.status)}>
                     {diasPendientes(loan.created_at)}d
                   </Badge>
-                  <Badge variant="outline" className={statusColors[loan.status]}>{statusLabels[loan.status]}</Badge>
+                  <Badge variant="outline" className={statusColors[loan.status]}>{cfg.statusLabels[loan.status]}</Badge>
                   <select
                     value={loan.status}
                     onChange={(e) => handleStatusChange(loan, e.target.value as Loan['status'])}
                     className="rounded-lg border bg-background px-2 py-1 text-xs"
                   >
-                    <option value="pending">Pendiente</option>
-                    <option value="returned">Devuelto</option>
-                    <option value="charged">Cobrado</option>
+                    <option value="pending">{cfg.statusLabels.pending}</option>
+                    <option value="returned">{cfg.statusLabels.returned}</option>
+                    <option value="charged">{cfg.statusLabels.charged}</option>
                   </select>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(loan)}>
                     <Pencil className="h-3.5 w-3.5" />

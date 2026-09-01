@@ -70,6 +70,36 @@ describe('POST /api/loans', () => {
     })
   })
 
+  it('registra un préstamo sin "direction" con el valor por defecto "lent" (lo que nos deben)', async () => {
+    const { client, calls } = createSupabaseMock({
+      loans: { data: { id: 'loan-1', product_title: 'Casco genérico', warehouse: 'Sucursal Norte', direction: 'lent' }, error: null },
+    })
+    createAuthenticatedClientMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/loans/route')
+    const res = await POST(
+      buildRequest({ product_title: 'Casco genérico', warehouse: 'Sucursal Norte' })
+    )
+
+    expect(res.status).toBe(201)
+    expect(calls['loans.insert'][0][0]).toMatchObject({ direction: 'lent' })
+  })
+
+  it('registra una deuda con direction "borrowed" (lo que nosotros debemos)', async () => {
+    const { client, calls } = createSupabaseMock({
+      loans: { data: { id: 'loan-2', product_title: 'Guantes prestados', warehouse: 'Sucursal Sur', direction: 'borrowed' }, error: null },
+    })
+    createAuthenticatedClientMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/loans/route')
+    const res = await POST(
+      buildRequest({ product_title: 'Guantes prestados', warehouse: 'Sucursal Sur', direction: 'borrowed' })
+    )
+
+    expect(res.status).toBe(201)
+    expect(calls['loans.insert'][0][0]).toMatchObject({ direction: 'borrowed' })
+  })
+
   it('401 cuando no hay sesión autenticada', async () => {
     requireAuthMock.mockResolvedValue({
       success: false,

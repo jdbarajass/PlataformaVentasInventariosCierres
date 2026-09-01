@@ -10,13 +10,17 @@ const loanSchema = z.object({
   product_title: z.string().min(1, 'El producto es obligatorio'),
   warehouse: z.string().min(1, 'El almacén es obligatorio'),
   observations: z.string().optional().nullable(),
+  // 'lent' (por defecto) = lo prestamos nosotros a otro almacén (lo que nos
+  // deben); 'borrowed' = otro almacén nos lo prestó a nosotros (lo que
+  // debemos) — ver migración 00052.
+  direction: z.enum(['lent', 'borrowed']).default('lent'),
   // El software local permite elegir la fecha del préstamo (la hora siempre
   // se toma real al momento de registrar, ver ui/prestamos_panel.py). Si no
   // se envía, la base de datos usa NOW() como antes.
   created_at: z.string().datetime().optional(),
 })
 
-// GET - Listar préstamos a otros almacenes (filtro: status)
+// GET - Listar préstamos, en ambos sentidos (filtros: status, direction)
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
@@ -26,6 +30,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
+    const direction = searchParams.get('direction')
 
     const supabase = createAuthenticatedClient(auth.token)
 
@@ -36,6 +41,9 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       query = query.eq('status', status as 'pending' | 'returned' | 'charged')
+    }
+    if (direction) {
+      query = query.eq('direction', direction as 'lent' | 'borrowed')
     }
 
     const { data, error } = await query

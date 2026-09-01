@@ -834,6 +834,7 @@ export interface Database {
           warehouse: string
           observations: string | null
           status: 'pending' | 'returned' | 'charged'
+          direction: 'lent' | 'borrowed'
           created_at: string
           updated_at: string
         }
@@ -845,6 +846,7 @@ export interface Database {
           warehouse: string
           observations?: string | null
           status?: 'pending' | 'returned' | 'charged'
+          direction?: 'lent' | 'borrowed'
           created_at?: string
           updated_at?: string
         }
@@ -855,6 +857,7 @@ export interface Database {
           warehouse?: string
           observations?: string | null
           status?: 'pending' | 'returned' | 'charged'
+          direction?: 'lent' | 'borrowed'
           updated_at?: string
         }
         Relationships: [
