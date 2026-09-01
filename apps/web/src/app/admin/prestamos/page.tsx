@@ -345,19 +345,52 @@ export default function PrestamosPage() {
               <Button variant="ghost" size="sm" onClick={() => { setManualMode(false); setManualTitle('') }}>Cancelar</Button>
             </div>
           ) : !selectedProduct ? (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar producto..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="rounded-lg pl-10"
-              />
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar producto..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="rounded-lg pl-10"
+                />
+                {results.length > 0 && (
+                  <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+                    {results.map((product) =>
+                      product.variants.length === 0 ? (
+                        <button
+                          key={product.id}
+                          className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                          onClick={() => {
+                            setSelectedProduct({ id: product.id, title: product.title, variantId: null, talla: null })
+                            setResults([])
+                          }}
+                        >
+                          {product.title}
+                        </button>
+                      ) : (
+                        product.variants.map((v) => (
+                          <button
+                            key={v.id}
+                            className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                            onClick={() => {
+                              setSelectedProduct({ id: product.id, title: product.title, variantId: v.id, talla: v.talla })
+                              setResults([])
+                            }}
+                          >
+                            {product.title} {v.talla ? `(${v.talla})` : ''}
+                          </button>
+                        ))
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mt-2 rounded-lg"
+                className="rounded-lg"
                 onClick={() => {
                   if (confirm(cfg.manualConfirm)) {
                     setManualMode(true)
@@ -366,38 +399,7 @@ export default function PrestamosPage() {
               >
                 {cfg.manualButtonLabel}
               </Button>
-              {results.length > 0 && (
-                <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
-                  {results.map((product) =>
-                    product.variants.length === 0 ? (
-                      <button
-                        key={product.id}
-                        className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          setSelectedProduct({ id: product.id, title: product.title, variantId: null, talla: null })
-                          setResults([])
-                        }}
-                      >
-                        {product.title}
-                      </button>
-                    ) : (
-                      product.variants.map((v) => (
-                        <button
-                          key={v.id}
-                          className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
-                          onClick={() => {
-                            setSelectedProduct({ id: product.id, title: product.title, variantId: v.id, talla: v.talla })
-                            setResults([])
-                          }}
-                        >
-                          {product.title} {v.talla ? `(${v.talla})` : ''}
-                        </button>
-                      ))
-                    )
-                  )}
-                </div>
-              )}
-            </div>
+            </>
           ) : (
             <div className="flex items-center justify-between rounded-lg border p-3">
               <p className="text-sm font-medium">
