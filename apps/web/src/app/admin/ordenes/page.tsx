@@ -154,7 +154,7 @@ export default function OrdersPage() {
       <div>
         <h1 className="text-3xl font-bold">Ordenes</h1>
         <p className="text-muted-foreground">
-          Gestiona las ordenes de la tienda
+          Pedidos de la tienda online — las ventas de mostrador se gestionan en Ventas del Día e Historial Mensual
         </p>
       </div>
 

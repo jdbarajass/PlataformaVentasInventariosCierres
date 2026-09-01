@@ -273,4 +273,21 @@ describe('GET /api/orders', () => {
     const body = await res.json()
     expect(body).toEqual([{ id: 'order-1' }])
   })
+
+  it('filtra por channel="online" para no mezclar ventas de mostrador (ver admin/ordenes)', async () => {
+    requireAuthMock.mockResolvedValue({
+      success: true,
+      user: { id: 'u1', email: 'admin@test.com', role: 'admin' },
+      token: 'token',
+    })
+    const { client, calls } = createSupabaseMock({
+      orders: { data: [], error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { GET } = await import('@/app/api/orders/route')
+    await GET(new NextRequest('http://localhost/api/orders'))
+
+    expect(calls['orders.eq']).toContainEqual(['channel', 'online'])
+  })
 })

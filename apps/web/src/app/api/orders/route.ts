@@ -346,9 +346,18 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
 
+  // Esta ruta solo la consume admin/ordenes/page.tsx, la sección de
+  // "Órdenes" del panel — pensada para el flujo de despacho de pedidos de
+  // la tienda online (estado, guía de envío, factura). Las ventas de
+  // mostrador (channel='pos', creadas por /api/pos/sales) ya tienen sus
+  // propias pantallas dedicadas (Ventas del Día, Historial Mensual,
+  // Reportes) y no necesitan ningún seguimiento de envío, así que se
+  // excluyen aquí para no enterrar los pocos pedidos online reales entre
+  // cientos de ventas físicas ya completadas en el momento.
   let query = serviceSupabase
     .from('orders')
     .select('*, order_items(*)')
+    .eq('channel', 'online')
     .order('created_at', { ascending: false })
 
   if (status) {
