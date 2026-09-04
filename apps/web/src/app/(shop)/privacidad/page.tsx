@@ -218,7 +218,7 @@ Si eres padre/madre y crees que tu hijo ha proporcionado información personal, 
 
 **Email:** yjbmotocom@gmail.com
 **Teléfono:** +57 321 411 1371 / +57 314 406 5520
-**Dirección:** Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1, Bogotá, Colombia
+**Dirección:** Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2, Bogotá, Colombia
 **Horario de Atención:** Lunes a Viernes 8:00 AM - 6:00 PM, Sábados 9:00 AM - 2:00 PM
 
 **Responsable del Tratamiento de Datos:**

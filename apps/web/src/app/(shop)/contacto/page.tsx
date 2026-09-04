@@ -24,7 +24,7 @@ const DEFAULT_CONTACT: ContactInfo = {
   phone_primary: '+57 321 411 1371',
   phone_secondary: '+57 314 406 5520',
   email: 'yjbmotocom@gmail.com',
-  address: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
+  address: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2',
   city: 'Bogotá, Colombia',
   business_hours: {
     weekdays: 'Lunes a Viernes: 8:00 AM - 6:00 PM',

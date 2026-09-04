@@ -73,7 +73,7 @@ const faqCategories = [
       },
       {
         question: '¿Puedo recoger mi pedido en tienda?',
-        answer: 'Sí, ofrecemos recogida gratuita en nuestra tienda ubicada en Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1, Bogotá. Recibirás un email cuando tu pedido esté listo para recoger.',
+        answer: 'Sí, ofrecemos recogida gratuita en nuestra tienda ubicada en Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2, Bogotá. Recibirás un email cuando tu pedido esté listo para recoger.',
       },
     ],
   },
@@ -117,7 +117,7 @@ const faqCategories = [
       },
       {
         question: '¿Tienen tienda física?',
-        answer: 'Sí, nuestra tienda física está ubicada en Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1, Bogotá. Estamos abiertos de lunes a viernes de 8:00 AM a 6:00 PM y sábados de 9:00 AM a 2:00 PM.',
+        answer: 'Sí, nuestra tienda física está ubicada en Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2, Bogotá. Estamos abiertos de lunes a viernes de 8:00 AM a 6:00 PM y sábados de 9:00 AM a 2:00 PM.',
       },
     ],
   },
