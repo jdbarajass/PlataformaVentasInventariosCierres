@@ -63,8 +63,6 @@ export default function PaymentInstructionsEmail({
               <strong>Número de cuenta:</strong> {BRAND.payment.bank.accountNumber}
               <br />
               <strong>Titular:</strong> {BRAND.payment.bank.holderName}
-              <br />
-              <strong>NIT:</strong> {BRAND.payment.bank.nit}
             </Text>
             <Text style={referenceText}>
               <strong>Referencia de pago:</strong> {order.order_number}

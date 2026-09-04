@@ -112,7 +112,6 @@ export default async function OrderConfirmationPage({
             <p className="text-sm"><strong>Tipo de cuenta:</strong> {BRAND.payment.bank.accountType}</p>
             <p className="text-sm"><strong>Número de cuenta:</strong> {BRAND.payment.bank.accountNumber}</p>
             <p className="text-sm"><strong>Titular:</strong> {BRAND.payment.bank.holderName}</p>
-            <p className="text-sm"><strong>NIT:</strong> {BRAND.payment.bank.nit}</p>
           </div>
         )
         break

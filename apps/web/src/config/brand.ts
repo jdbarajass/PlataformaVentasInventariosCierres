@@ -20,8 +20,6 @@ const DOMAIN_FALLBACK = 'https://yjbmotocom.com'
 export const BRAND = {
   /** Nombre de marca corto, en mayúsculas (usado en textos, copyright, subjects de email) */
   name: 'YJBMOTOCOM',
-  /** Razón social completa (datos bancarios, facturación) */
-  legalName: 'YJBMOTOCOM S.A.S.',
   /** Texto del logo en header/footer (junto al ícono) */
   shortName: 'MOTOCOM',
   /** Iniciales del ícono cuadrado del logo en header/footer */
@@ -79,8 +77,8 @@ export const BRAND = {
       bankName: 'Bancolombia',
       accountType: 'Ahorros',
       accountNumber: '912-962660-81',
-      holderName: 'YJBMOTOCOM S.A.S.',
-      nit: '900.123.456-7',
+      /** Persona natural con registro de Cámara de Comercio — sin razón social ni NIT, no inventar ninguno de los dos. */
+      holderName: 'YJBMOTOCOM',
     },
     nequi: { phone: '314 406 5520', name: 'YJBMOTOCOM' },
     daviplata: { phone: '314 406 5520', name: 'YJBMOTOCOM' },
