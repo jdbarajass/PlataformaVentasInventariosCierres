@@ -7,6 +7,27 @@
 
 **De aquí en adelante, la configuración de YBMOTOCOM (subir inventario, llenar `/admin/configuracion` con datos reales, completar los campos `TODO` de su `brand.ts`) es trabajo operativo de Yojan, no requiere más cambios de código** — el usuario lo confirmó explícitamente ("ya es cuestión de tiempo para configurarlo"). Si se retoma este proyecto más adelante, lo más probable es que sea para: (a) probar la Fase 3 (cherry-pick) cuando haya una mejora real que llevar de un repo al otro, o (b) resolver un pendiente puntual que reporte el usuario sobre YBMOTOCOM ya en uso real.
 
+## 6. Auditoría de código previa al push (2026-09-04)
+
+Antes de subir a producción los ~13 commits acumulados de este proyecto (centralización de marca + correcciones), el usuario pidió una auditoría formal. Se usó la skill `code-review` (nivel `high`, 4 agentes en paralelo) sobre el diff completo `origin/main..main`, más un `next build` de producción real (no solo `tsc`/lint/vitest, que ya se venían corriendo commit a commit).
+
+**10 hallazgos reportados, 8 corregidos en el momento** (commits `b71dea6`, `370f552`, `ff3eb6f`):
+- 2 lugares más con "YJBMOTOCOM" hardcodeado en `producto/[slug]/page.tsx` pese a que el archivo ya importaba `BRAND` (título/descripción SEO).
+- El nombre de archivo de descarga en `admin/exportar-importar/page.tsx` (lado del navegador) no se había migrado a `BRAND.name` — la ruta de servidor sí. **Aclaración importante para no confundir**: esto se auditó sobre el repo de YJBMOTOCOM, así que "YJBMOTOCOM" en el nombre del archivo descargado es y sigue siendo el resultado correcto para esta tienda; el hallazgo era solo que estaba escrito a mano en vez de referenciar `BRAND.name` (riesgo de mantenimiento futuro, no un bug visible hoy). Se confirmó aparte que el archivo equivalente en el repo de YBMOTOCOM ya descarga como "YBMOTOCOM_..." correctamente (quedó bien desde el reemplazo masivo de la Fase 1 de ese fork).
+- `lib/pdf-import/xtrong.ts`: `BRAND.name` se interpolaba sin escapar dentro de un `RegExp` (el archivo ya tiene `escapeRegExp()`, solo faltaba usarla ahí) — inofensivo hoy, pero un fork con un nombre de marca con caracteres especiales de regex corrompería en silencio el parser de PDF de facturas de proveedor.
+- `nosotros/page.tsx` tenía su **propia copia independiente** de "9 años"/"+500 productos"/"YB 2.0" — el fix de la portada no cubrió esta página. Se extrajo `getActiveProductCount()` a `lib/inventory.ts` (recibiendo el cliente de Supabase por parámetro, para no romper el test existente de ese archivo) y ahora ambas páginas comparten la misma lógica; "Años exp." pasó a 15 también aquí.
+- `store_settings` se consultaba 2 veces por página pública (el nuevo `ShopLayout` y el `Footer` cada uno por su cuenta) — corregido envolviendo `getStoreSettings()` con `React.cache()`.
+- 5 títulos/descripciones SEO de una línea sin migrar (`productos`, `ofertas`, `envios`, `categorias`, `devoluciones`) y el default de dirección en `schema.sql` (archivo de referencia para restaurar la BD desde cero, no una migración ya aplicada).
+- Se agregó un comentario de advertencia en `brand.ts` aclarando que `BRAND.contact` (sitio público) y `BRAND.receipt` (recibo térmico POS) son direcciones reales **distintas** del mismo negocio — un fork podría corregir una y asumir que ya corrigió la otra.
+
+**2 hallazgos NO corregidos automáticamente, resueltos por decisión del usuario**:
+- **`store_settings` en la base de datos de producción real todavía dice "Puerta 1"** (verificado consultando la BD directamente) — el código ya dice "Puerta 2" en todos lados, pero como el footer/contacto prefieren el valor de la BD sobre el fallback de `brand.ts`, el sitio en vivo seguía mostrando la dirección vieja hasta corregir también esa fila. Se intentó corregir directamente vía script pero el sistema de permisos lo bloqueó (escritura a producción). **El usuario decidió corregirlo él mismo más adelante desde `/admin/configuracion`** — no requiere código.
+- **NIT contradictorio entre 3 documentos**: el checkout no mostraba NIT (correcto, persona natural sin NIT), el recibo térmico sí mostraba uno (la cédula del usuario), pero la factura online decía "NIT: Pendiente de registro". **El usuario pidió unificar**: la factura online ahora también muestra `BRAND.receipt.nit` (commit `ff3eb6f`).
+
+**1 hallazgo confirmado como NO-bug**: los ~15 archivos restantes con "YJBMOTOCOM" sin migrar (términos, buena parte de privacidad, reportes imprimibles de admin) son la decisión explícita ya documentada en la Fase 1 — prosa legal larga y herramientas internas de bajo riesgo, "editar a mano en cada fork", no vale la pena centralizarlos.
+
+**Estado final antes del push**: 13 commits en `main`, todos verificados (`tsc`/eslint/vitest 132×132/`next build` limpios en cada uno), pusheados a producción el 2026-09-04 con autorización explícita del usuario.
+
 ---
 
 ## 1. Contexto y objetivo
