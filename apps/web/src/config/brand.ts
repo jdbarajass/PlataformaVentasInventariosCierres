@@ -23,7 +23,7 @@ export const BRAND = {
   /** Texto del logo en header/footer (junto al ícono) */
   shortName: 'MOTOCOM',
   /** Iniciales del ícono cuadrado del logo en header/footer */
-  logoInitials: 'YB',
+  logoInitials: 'YJB',
   /** Textos del escudo/sello dibujado en el recibo térmico POS (distinto del logo del sitio) */
   receiptSeal: { top: 'YJB', bottom: 'MOTOCOM' },
   tagline: 'Tu tienda de confianza para accesorios y equipamiento de motos en Colombia.',

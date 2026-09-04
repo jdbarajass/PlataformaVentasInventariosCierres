@@ -118,7 +118,7 @@ export function Header({ whatsappNumber = BRAND.whatsapp }: HeaderProps) {
             <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary transition-all duration-300 group-hover:shadow-glow-red">
               {/* Top highlight */}
               <div className="absolute top-0 left-1.5 right-1.5 h-px bg-white/30 rounded-full" />
-              <span className="text-sm font-black tracking-tighter text-white relative z-10">{BRAND.logoInitials}</span>
+              <span className={`font-black tracking-tighter text-white relative z-10 ${BRAND.logoInitials.length > 2 ? 'text-[10px]' : 'text-sm'}`}>{BRAND.logoInitials}</span>
             </div>
             <div className="hidden sm:flex flex-col leading-none">
               <span className="font-black text-sm tracking-[0.12em] uppercase">{BRAND.shortName}</span>

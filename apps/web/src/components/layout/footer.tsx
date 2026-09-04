@@ -97,7 +97,7 @@ export async function Footer() {
             <Link href="/" className="flex items-center gap-2.5 group w-fit">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary group-hover:shadow-glow-red transition-all">
                 <div className="absolute top-0 left-1.5 right-1.5 h-px bg-white/30 rounded-full" />
-                <span className="text-sm font-black tracking-tighter text-white">{BRAND.logoInitials}</span>
+                <span className={`font-black tracking-tighter text-white ${BRAND.logoInitials.length > 2 ? 'text-[10px]' : 'text-sm'}`}>{BRAND.logoInitials}</span>
               </div>
               <div className="flex flex-col leading-none">
                 <span className="font-black text-sm tracking-[0.12em] uppercase">{BRAND.shortName}</span>
