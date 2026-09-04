@@ -61,8 +61,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!product) return { title: 'Producto no encontrado' }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || BRAND.domain
-  const title = `${product.title} - YJBMOTOCOM`
-  const description = product.description || `Compra ${product.title} en YJBMOTOCOM`
+  const title = `${product.title} - ${BRAND.name}`
+  const description = product.description || `Compra ${product.title} en ${BRAND.name}`
   const image = getProductImage(product.images)
   const url = `${baseUrl}/producto/${product.slug}`
 
@@ -116,7 +116,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         url={productUrl}
         product={{
           name: product.title,
-          description: product.description || `Compra ${product.title} en YJBMOTOCOM`,
+          description: product.description || `Compra ${product.title} en ${BRAND.name}`,
           image: mainImage,
           price: product.price_cents / 100,
           currency: 'COP',

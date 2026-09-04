@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { Product } from '@/types/database'
 import { WebPageSchema } from '@/components/seo/structured-data'
 import { BRAND } from '@/config/brand'
+import { getActiveProductCount } from '@/lib/inventory'
 
 // Without this, Next.js statically renders the home page once at build
 // time and serves that same snapshot forever — new/edited products and
@@ -63,21 +64,11 @@ async function getFeaturedProducts(): Promise<Product[]> {
   return (data as unknown as Product[]) || []
 }
 
-// Cuenta real de productos activos — nunca un número inventado en la
-// tarjeta destacada de la portada (ver BRAND.heroClientsStat/heroYearsStat).
-async function getActiveProductCount(): Promise<number> {
-  const { count } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('active', true)
-  return count || 0
-}
-
 /* ═══════════════════════════════════════════════════════════════════ */
 export default async function HomePage() {
   const [featuredProducts, activeProductCount] = await Promise.all([
     getFeaturedProducts(),
-    getActiveProductCount(),
+    getActiveProductCount(supabase),
   ])
 
   const heroStats = [

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
 import type { ContactInfo } from '@/lib/settings'
+import { BRAND } from '@/config/brand'
 
 const contactSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -287,7 +288,7 @@ export default function ContactoPage() {
                 style={{ border: 0, display: 'block' }}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación YJBMOTOCOM - Av Caracas No. 17-47, Bogotá"
+                title={`Ubicación ${BRAND.name} - Av Caracas No. 17-47, Bogotá`}
               />
             </div>
           </div>

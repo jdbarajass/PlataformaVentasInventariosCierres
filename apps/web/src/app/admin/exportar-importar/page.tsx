@@ -5,6 +5,7 @@ import { Download, Upload, Loader2, Lock, FileSpreadsheet, CheckCircle2, XCircle
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { BRAND } from '@/config/brand'
 
 interface ImportResult {
   sheet: string
@@ -20,7 +21,7 @@ async function downloadBackup(token: string, prefix: string = 'Respaldo') {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `YJBMOTOCOM_${prefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
+  a.download = `${BRAND.name}_${prefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -79,7 +80,7 @@ export default function ExportarImportarPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'YJBMOTOCOM_Plantilla.xlsx'
+      a.download = `${BRAND.name}_Plantilla.xlsx`
       a.click()
       URL.revokeObjectURL(url)
     } catch (error: any) {

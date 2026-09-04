@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { getServiceSupabase } from './supabase'
 
 export interface ContactInfo {
@@ -61,7 +62,7 @@ export interface StoreSettingsData {
  * Fetches store settings from Supabase (server-side)
  * For use in Server Components and API routes
  */
-export async function getStoreSettings(): Promise<StoreSettingsData | null> {
+export const getStoreSettings = cache(async (): Promise<StoreSettingsData | null> => {
   try {
     const supabase = getServiceSupabase()
     const { data, error } = await supabase
@@ -80,4 +81,4 @@ export async function getStoreSettings(): Promise<StoreSettingsData | null> {
     console.error('Error in getStoreSettings:', error)
     return null
   }
-}
+})

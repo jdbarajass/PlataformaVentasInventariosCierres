@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Truck, Package, Clock, MapPin, CheckCircle2 } from 'lucide-react'
+import { BRAND } from '@/config/brand'
 
 export const metadata: Metadata = {
-  title: 'Envíos y Entregas | YJBMOTOCOM',
+  title: `Envíos y Entregas | ${BRAND.name}`,
   description: 'Información sobre nuestros métodos de envío, tiempos de entrega y cobertura en Colombia.',
 }
 

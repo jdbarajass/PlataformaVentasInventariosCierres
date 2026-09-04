@@ -1,6 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
+ * Cuenta real de productos activos — usada en textos de marketing (portada,
+ * "Nosotros") para nunca mostrar un número inventado o desactualizado. No
+ * filtra por `deleted_at`: un producto borrado siempre queda con
+ * `active=false` también (ver invariante documentado en
+ * `app/api/products/route.ts`), así que `active=true` ya los excluye.
+ */
+export async function getActiveProductCount(supabase: SupabaseClient): Promise<number> {
+  const { count } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('active', true)
+  return count || 0
+}
+
+/**
  * Atomically decrements a product's stock_qty via the `decrement_stock`
  * SQL function (supabase/migrations/00005_payment_integrity.sql).
  *

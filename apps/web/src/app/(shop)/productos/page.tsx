@@ -11,6 +11,7 @@ import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink,
   BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { BRAND } from '@/config/brand'
 
 // Same issue as the home page: without this, this listing is rendered
 // once at build time and never reflects new/edited products from the
@@ -18,11 +19,11 @@ import {
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: 'Todos los Productos | YJBMOTOCOM',
+  title: `Todos los Productos | ${BRAND.name}`,
   description:
     'Explora nuestro catálogo completo de accesorios para motociclistas. Cascos, guantes, chaquetas, protecciones y más. Envíos a toda Colombia.',
   openGraph: {
-    title: 'Todos los Productos | YJBMOTOCOM',
+    title: `Todos los Productos | ${BRAND.name}`,
     description: 'Catálogo completo de accesorios para motos. Encuentra lo que necesitas.',
   },
 }

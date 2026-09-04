@@ -1,5 +1,8 @@
 import { Shield, Truck, Award, Users, Bike, Heart, ArrowRight, Star, Zap } from 'lucide-react'
 import Link from 'next/link'
+import { BRAND } from '@/config/brand'
+import { getActiveProductCount } from '@/lib/inventory'
+import { supabase } from '@/lib/supabase'
 
 const values = [
   { icon: Shield, label: 'Seguridad',  text: 'Tu protección es nuestra prioridad. Solo vendemos productos que cumplen los más altos estándares de seguridad.' },
@@ -10,10 +13,13 @@ const values = [
   { icon: Zap,    label: 'Innovación', text: 'Buscamos constantemente las últimas tendencias y tecnologías para ofrecerte siempre lo mejor.' },
 ]
 
-const stats = [
+// "Clientes satisfechos" y "Ciudades con envío" son cifras de marketing
+// (decisión del usuario: mejor mostrar algo que nada). "Productos en
+// catálogo" y "Años de experiencia" deben ser reales — el conteo de
+// productos se agrega en tiempo de render (ver NosotrosPage), y los años
+// (15) son el dato real del negocio, igual que en la portada.
+const baseStats = [
   { value: '+5,000', label: 'Clientes satisfechos' },
-  { value: '+500',   label: 'Productos en catálogo' },
-  { value: '9',      label: 'Años de experiencia' },
   { value: '32',     label: 'Ciudades con envío' },
 ]
 
@@ -22,10 +28,18 @@ const timeline = [
   { year: '2017', title: 'Expansión digital',  desc: 'Lanzamos nuestro primer e-commerce y comenzamos a llegar a todo el territorio nacional.' },
   { year: '2019', title: 'Importación directa',desc: 'Firmamos acuerdos directos con AGV, HJC y Alpinestars, reduciendo precios hasta 30%.' },
   { year: '2021', title: '+2,000 clientes',    desc: 'Alcanzamos nuestra primera gran meta de clientes y abrimos un showroom físico en el CC Megacentro.' },
-  { year: '2024', title: 'YB 2.0',             desc: 'Rediseño completo de la plataforma, nuevas marcas y entrega express en Bogotá en 24 horas.' },
+  { year: '2024', title: `${BRAND.logoInitials} 2.0`, desc: 'Rediseño completo de la plataforma, nuevas marcas y entrega express en Bogotá en 24 horas.' },
 ]
 
-export default function NosotrosPage() {
+export default async function NosotrosPage() {
+  const activeProductCount = await getActiveProductCount(supabase)
+  const stats = [
+    baseStats[0],
+    { value: `+${activeProductCount}`, label: 'Productos en catálogo' },
+    { value: '15', label: 'Años de experiencia' },
+    baseStats[1],
+  ]
+
   return (
     <div className="min-h-screen">
 
@@ -47,7 +61,7 @@ export default function NosotrosPage() {
 
             <h1 className="text-4xl md:text-5xl font-black leading-tight">
               Sobre{' '}
-              <span className="glow-text">YJBMOTOCOM</span>
+              <span className="glow-text">{BRAND.name}</span>
             </h1>
 
             <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">

@@ -10,13 +10,14 @@ import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink,
   BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { BRAND } from '@/config/brand'
 
 export const metadata: Metadata = {
-  title: 'Ofertas Especiales | YJBMOTOCOM',
+  title: `Ofertas Especiales | ${BRAND.name}`,
   description:
     'Descubre nuestras ofertas especiales en accesorios para motociclistas. Descuentos de hasta 50% en cascos, guantes, chaquetas y más. ¡Aprovecha ahora!',
   openGraph: {
-    title: 'Ofertas Especiales | YJBMOTOCOM',
+    title: `Ofertas Especiales | ${BRAND.name}`,
     description: 'Ofertas especiales en accesorios para motos. Descuentos de hasta 50%.',
     images: ['/images/ofertas-og.jpg'],
   },

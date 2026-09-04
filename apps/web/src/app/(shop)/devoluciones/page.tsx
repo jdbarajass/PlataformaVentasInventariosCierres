@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { RotateCcw, CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react'
+import { BRAND } from '@/config/brand'
 
 export const metadata: Metadata = {
-  title: 'Devoluciones y Garantías | YJBMOTOCOM',
-  description: 'Política de devoluciones, cambios y garantías de productos. Compra con confianza en YJBMOTOCOM.',
+  title: `Devoluciones y Garantías | ${BRAND.name}`,
+  description: `Política de devoluciones, cambios y garantías de productos. Compra con confianza en ${BRAND.name}.`,
 }
 
 export default function DevolucionesPage() {
@@ -49,7 +50,7 @@ export default function DevolucionesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              En YJBMOTOCOM aceptamos devoluciones dentro de los <strong>30 días</strong> posteriores
+              En {BRAND.name} aceptamos devoluciones dentro de los <strong>30 días</strong> posteriores
               a la recepción del producto, siempre que se cumplan las siguientes condiciones:
             </p>
 
@@ -261,7 +262,7 @@ export default function DevolucionesPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             <strong>Importante:</strong> Los costos de envío de la devolución corren por cuenta del cliente,
-            excepto en casos de productos defectuosos o error en el envío. En esos casos, YJBMOTOCOM asumirá
+            excepto en casos de productos defectuosos o error en el envío. En esos casos, {BRAND.name} asumirá
             todos los costos asociados.
           </AlertDescription>
         </Alert>

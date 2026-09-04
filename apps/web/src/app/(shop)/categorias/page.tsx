@@ -23,13 +23,14 @@ import {
   FolderOpen,
   Boxes,
 } from 'lucide-react'
+import { BRAND } from '@/config/brand'
 
 export const metadata: Metadata = {
-  title: 'Categorías de Productos | YJBMOTOCOM',
+  title: `Categorías de Productos | ${BRAND.name}`,
   description:
-    'Explora todas las categorías de accesorios para motociclistas en YJBMOTOCOM. Cascos, protecciones, guantes, chaquetas y más.',
+    `Explora todas las categorías de accesorios para motociclistas en ${BRAND.name}. Cascos, protecciones, guantes, chaquetas y más.`,
   openGraph: {
-    title: 'Categorías | YJBMOTOCOM',
+    title: `Categorías | ${BRAND.name}`,
     description: 'Todas las categorías de productos para motociclistas',
   },
 }
