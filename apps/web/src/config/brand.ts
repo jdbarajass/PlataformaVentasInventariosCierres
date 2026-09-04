@@ -60,7 +60,14 @@ export const BRAND = {
     tiktok: 'yjbmotocom',
   },
 
-  /** Contacto/ubicación mostrados en el sitio público (footer, structured data). Fallback si store_settings no trae contact_info. */
+  /**
+   * Contacto/ubicación mostrados en el sitio público (footer, structured
+   * data). Fallback si store_settings no trae contact_info.
+   * OJO al hacer fork: esta dirección/teléfono es DISTINTA de `receipt`
+   * (abajo) a propósito — son dos direcciones reales diferentes del mismo
+   * negocio. Confirmar y editar las DOS por separado, no asumir que
+   * corregir una corrige la otra.
+   */
   contact: {
     phonePrimary: '+57 321 411 1371',
     phoneSecondary: '+57 314 406 5520',
