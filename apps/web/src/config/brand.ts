@@ -78,11 +78,11 @@ export const BRAND = {
     bank: {
       bankName: 'Bancolombia',
       accountType: 'Ahorros',
-      accountNumber: '1234567890',
+      accountNumber: '912-962660-81',
       holderName: 'YJBMOTOCOM S.A.S.',
       nit: '900.123.456-7',
     },
-    nequi: { phone: '321 411 1371', name: 'YJBMOTOCOM' },
+    nequi: { phone: '314 406 5520', name: 'YJBMOTOCOM' },
     daviplata: { phone: '314 406 5520', name: 'YJBMOTOCOM' },
   },
 } as const
