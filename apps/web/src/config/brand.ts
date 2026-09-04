@@ -30,6 +30,15 @@ export const BRAND = {
   description:
     'Tienda especializada en accesorios y equipamiento para motociclistas en Colombia. Cascos, guantes, chaquetas, protecciones y más. Envíos a todo el país.',
 
+  /** Subtítulo bajo el logo en la tarjeta destacada de la portada (home) */
+  heroCardSubtitle: 'Racing Dark Premium',
+  /** Estadísticas mostradas en la misma tarjeta destacada de la portada — ajustar por negocio, no inventar cifras */
+  heroStats: [
+    { value: '+5K', label: 'Clientes' },
+    { value: '+500', label: 'Productos' },
+    { value: '9', label: 'Años exp.' },
+  ],
+
   /** Dominio público del sitio — fallback estático cuando la env var no está definida */
   domain: DOMAIN_FALLBACK,
 

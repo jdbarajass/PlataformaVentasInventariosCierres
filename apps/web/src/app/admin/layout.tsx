@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { SessionAlerts } from '@/components/admin/session-alerts'
+import { BRAND } from '@/config/brand'
 
 // adminOnly: oculta el enlace del menú a 'seller', igual que el software
 // local oculta el botón de navegación completo para estas páginas
@@ -241,7 +242,7 @@ export default function AdminLayout({
           <div className={cn('flex h-16 items-center border-b', collapsed ? 'justify-center px-2' : 'justify-between px-4')}>
             <Link href="/admin" className="flex items-center gap-2 overflow-hidden">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
-                <span className="text-sm font-bold text-white">YB</span>
+                <span className="text-sm font-bold text-white">{BRAND.logoInitials}</span>
               </div>
             </Link>
             {!collapsed && (

@@ -9,6 +9,7 @@ import { ProductCard } from '@/components/products/product-card'
 import { supabase } from '@/lib/supabase'
 import { Product } from '@/types/database'
 import { WebPageSchema } from '@/components/seo/structured-data'
+import { BRAND } from '@/config/brand'
 
 // Without this, Next.js statically renders the home page once at build
 // time and serves that same snapshot forever — new/edited products and
@@ -159,24 +160,20 @@ export default async function HomePage() {
                     style={{ boxShadow: '0 0 48px rgba(225,6,0,0.55), inset 0 1px 0 rgba(255,255,255,0.2)' }}
                   >
                     <div className="absolute top-1 left-3 right-3 h-px bg-white/25" />
-                    <span className="text-3xl font-black text-white tracking-tighter">YB</span>
+                    <span className="text-3xl font-black text-white tracking-tighter">{BRAND.logoInitials}</span>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-2xl font-black tracking-[0.10em] uppercase">MOTOCOM</p>
-                    <p className="text-xs text-muted-foreground tracking-[0.2em] uppercase">Racing Dark Premium</p>
+                    <p className="text-2xl font-black tracking-[0.10em] uppercase">{BRAND.shortName}</p>
+                    <p className="text-xs text-muted-foreground tracking-[0.2em] uppercase">{BRAND.heroCardSubtitle}</p>
                   </div>
 
                   {/* Stats row */}
                   <div className="grid grid-cols-3 gap-3 w-full">
-                    {[
-                      { v: '+5K',  l: 'Clientes' },
-                      { v: '+500', l: 'Productos' },
-                      { v: '9',   l: 'Años exp.' },
-                    ].map(s => (
-                      <div key={s.l} className="rounded-xl border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-3 text-center">
-                        <p className="text-lg font-black text-primary leading-none">{s.v}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">{s.l}</p>
+                    {BRAND.heroStats.map(s => (
+                      <div key={s.label} className="rounded-xl border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-3 text-center">
+                        <p className="text-lg font-black text-primary leading-none">{s.value}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">{s.label}</p>
                       </div>
                     ))}
                   </div>
