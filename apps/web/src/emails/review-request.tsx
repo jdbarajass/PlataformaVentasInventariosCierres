@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Section, Text, Button } from '@react-email/components'
 import EmailLayout from './components/email-layout'
+import { BRAND } from '@/config/brand'
 
 interface ReviewRequestProps {
   customerName: string
@@ -8,7 +9,7 @@ interface ReviewRequestProps {
   siteUrl?: string
 }
 
-export default function ReviewRequestEmail({ customerName, items, siteUrl = 'https://yjbmotocom.com' }: ReviewRequestProps) {
+export default function ReviewRequestEmail({ customerName, items, siteUrl = BRAND.domain }: ReviewRequestProps) {
   return (
     <EmailLayout preview="¿Qué te pareció tu compra? Cuéntanos en una reseña">
       <Section style={{ textAlign: 'center', paddingBottom: '16px' }}>
@@ -28,7 +29,7 @@ export default function ReviewRequestEmail({ customerName, items, siteUrl = 'htt
       </Section>
 
       <Section style={{ textAlign: 'center', paddingTop: '8px' }}>
-        <Text style={footnote}>Solo toma un minuto — gracias por confiar en YJBMOTOCOM.</Text>
+        <Text style={footnote}>Solo toma un minuto — gracias por confiar en {BRAND.name}.</Text>
       </Section>
     </EmailLayout>
   )

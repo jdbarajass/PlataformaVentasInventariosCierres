@@ -14,6 +14,7 @@ import { useCart } from '@/lib/cart-context'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
+import { BRAND } from '@/config/brand'
 
 const categories = [
   { name: 'Cascos',     href: '/categoria/cascos',     icon: HardHat, description: 'Protección certificada' },
@@ -32,9 +33,12 @@ const navigation = [
   { name: 'Contacto',  href: '/contacto' },
 ]
 
-const WHATSAPP_NUMBER = '573214111371'
+interface HeaderProps {
+  /** Número de WhatsApp (solo dígitos, sin '+') para el botón flotante — viene de store_settings.social_links.whatsapp, con BRAND.whatsapp como fallback. Ver ShopLayout. */
+  whatsappNumber?: string
+}
 
-export function Header() {
+export function Header({ whatsappNumber = BRAND.whatsapp }: HeaderProps) {
   const pathname     = usePathname()
   const { totalItems, toggleCart } = useCart()
 
@@ -114,10 +118,10 @@ export function Header() {
             <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary transition-all duration-300 group-hover:shadow-glow-red">
               {/* Top highlight */}
               <div className="absolute top-0 left-1.5 right-1.5 h-px bg-white/30 rounded-full" />
-              <span className="text-sm font-black tracking-tighter text-white relative z-10">YB</span>
+              <span className="text-sm font-black tracking-tighter text-white relative z-10">{BRAND.logoInitials}</span>
             </div>
             <div className="hidden sm:flex flex-col leading-none">
-              <span className="font-black text-sm tracking-[0.12em] uppercase">MOTOCOM</span>
+              <span className="font-black text-sm tracking-[0.12em] uppercase">{BRAND.shortName}</span>
               <span className="text-[9px] text-muted-foreground tracking-widest uppercase">Accesorios · Colombia</span>
             </div>
           </Link>
@@ -330,7 +334,7 @@ export function Header() {
 
       {/* ── WhatsApp Floating Button (premium redesign) ── */}
       <a
-        href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola!%20Quiero%20información%20sobre%20sus%20productos`}
+        href={`https://wa.me/${whatsappNumber}?text=Hola!%20Quiero%20información%20sobre%20sus%20productos`}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Contactar por WhatsApp"

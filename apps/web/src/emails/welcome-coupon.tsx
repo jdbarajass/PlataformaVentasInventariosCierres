@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Section, Text } from '@react-email/components'
 import EmailLayout from './components/email-layout'
+import { BRAND } from '@/config/brand'
 
 interface WelcomeCouponProps {
   name: string
@@ -13,7 +14,7 @@ export default function WelcomeCouponEmail({ name, code, discountPct, validUntil
   return (
     <EmailLayout preview={`Tu código de bienvenida: ${code} — ${discountPct}% en tu primera compra`}>
       <Section style={{ textAlign: 'center', paddingBottom: '16px' }}>
-        <Text style={title}>¡Bienvenido a YJBMOTOCOM, {name}!</Text>
+        <Text style={title}>¡Bienvenido a {BRAND.name}, {name}!</Text>
         <Text style={subtitle}>Aquí tienes un descuento para tu primera compra.</Text>
       </Section>
 

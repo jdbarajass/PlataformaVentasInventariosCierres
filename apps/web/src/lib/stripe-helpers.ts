@@ -4,6 +4,7 @@
  */
 
 import Stripe from 'stripe'
+import { BRAND } from '@/config/brand'
 
 // Singleton Stripe instance
 let _stripe: Stripe | null = null
@@ -22,7 +23,7 @@ export function getStripe(): Stripe {
       apiVersion: '2023-10-16',
       typescript: true,
       appInfo: {
-        name: 'YJBMOTOCOM',
+        name: BRAND.name,
         version: '1.0.0',
       },
     })

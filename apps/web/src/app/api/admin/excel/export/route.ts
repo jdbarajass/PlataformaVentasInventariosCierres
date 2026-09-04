@@ -4,6 +4,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { sheetDefinitions } from '@/lib/excel/sheets'
 import { bogotaDateStr } from '@/lib/bogota-time'
+import { BRAND } from '@/config/brand'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getServiceSupabase()
     const workbook = new ExcelJS.Workbook()
-    workbook.creator = 'YJBMOTOCOM'
+    workbook.creator = BRAND.name
     workbook.created = new Date()
 
     for (const def of sheetDefinitions) {
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     const buffer = await workbook.xlsx.writeBuffer()
-    const filename = `YJBMOTOCOM_Respaldo_${bogotaDateStr(new Date())}.xlsx`
+    const filename = `${BRAND.name}_Respaldo_${bogotaDateStr(new Date())}.xlsx`
 
     return new NextResponse(buffer, {
       headers: {

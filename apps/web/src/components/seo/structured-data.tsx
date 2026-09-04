@@ -1,4 +1,5 @@
 import Script from 'next/script'
+import { BRAND } from '@/config/brand'
 
 interface OrganizationSchemaProps {
   url: string
@@ -8,25 +9,25 @@ export function OrganizationSchema({ url }: OrganizationSchemaProps) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Store',
-    name: 'YJBMOTOCOM',
+    name: BRAND.name,
     description: 'Tienda especializada en accesorios y equipamiento para motociclistas en Colombia',
     url: url,
     logo: `${url}/logo.png`,
     image: `${url}/og-image.jpg`,
-    telephone: '+57-321-411-1371',
-    email: 'yjbmotocom@gmail.com',
+    telephone: BRAND.contact.phonePrimary.replace(/\s/g, '-'),
+    email: BRAND.supportEmail,
     address: {
       '@type': 'PostalAddress',
-      streetAddress: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
-      addressLocality: 'Bogotá',
-      addressRegion: 'Cundinamarca',
-      postalCode: '110111',
-      addressCountry: 'CO',
+      streetAddress: BRAND.contact.address,
+      addressLocality: BRAND.contact.city,
+      addressRegion: BRAND.contact.region,
+      postalCode: BRAND.contact.postalCode,
+      addressCountry: BRAND.contact.country,
     },
     geo: {
       '@type': 'GeoCoordinates',
-      latitude: 4.598889,
-      longitude: -74.075833,
+      latitude: BRAND.contact.geo.latitude,
+      longitude: BRAND.contact.geo.longitude,
     },
     openingHoursSpecification: [
       {
@@ -43,9 +44,9 @@ export function OrganizationSchema({ url }: OrganizationSchemaProps) {
       },
     ],
     sameAs: [
-      'https://facebook.com/yjbmotocom',
-      'https://instagram.com/yjbmotocom',
-      'https://twitter.com/yjbmotocom',
+      `https://facebook.com/${BRAND.socialHandles.facebook}`,
+      `https://instagram.com/${BRAND.socialHandles.instagram}`,
+      `https://twitter.com/${BRAND.socialHandles.twitter}`,
     ],
     priceRange: '$$',
     paymentAccepted: 'Cash, Credit Card, Debit Card, Nequi, Daviplata',
@@ -85,7 +86,7 @@ export function ProductSchema({ product, url }: ProductSchemaProps) {
     sku: product.sku || 'N/A',
     brand: {
       '@type': 'Brand',
-      name: product.brand || 'YJBMOTOCOM',
+      name: product.brand || BRAND.name,
     },
     offers: {
       '@type': 'Offer',
@@ -95,7 +96,7 @@ export function ProductSchema({ product, url }: ProductSchemaProps) {
       availability: `https://schema.org/${product.availability}`,
       seller: {
         '@type': 'Organization',
-        name: 'YJBMOTOCOM',
+        name: BRAND.name,
       },
     },
   }
@@ -152,7 +153,7 @@ export function WebPageSchema({ name, description, url }: WebPageSchemaProps) {
     url: url,
     publisher: {
       '@type': 'Organization',
-      name: 'YJBMOTOCOM',
+      name: BRAND.name,
       logo: {
         '@type': 'ImageObject',
         url: `${url}/logo.png`,

@@ -21,10 +21,16 @@ const MODEL_DISPLAY: Record<string, string> = {
   R1: 'R1',
 }
 
+import { BRAND } from '@/config/brand'
+
 const RUIDO_RE = /\b(?:SET|ECE-\w+|XTRONG(?:-GP)?|FLY|SP|FOTO-\S+|RACING)\b|\bVISOR\s+\S+/gi
 
-const HEADER_RE =
-  /ACCESORIOS PARA MOTOS|YJBMOTOCOM|BOGOT|NIT\.|TEL[EÉ]FONO|VENDEDOR|SE[NÑ]ORES|EMAIL|PEDIDOS|DIRECCI[OÓ]N|CIUDAD|DEPENDEN|RECIB[IÍ] CONFORME|OBSERVACIONES|BRUTO|DESCUENTO|SUBTOTAL|IVA:|NETO|FECHA|pag:|CANT\.|VALOR|PRECIO|C[OÓ]DIGO|PORCENTAJE|RTE\.|TOTAL/i
+// El nombre del comprador (este negocio) aparece impreso en el encabezado
+// del PDF del proveedor — se filtra junto con el resto del ruido de cabecera.
+const HEADER_RE = new RegExp(
+  `ACCESORIOS PARA MOTOS|${BRAND.name}|BOGOT|NIT\\.|TEL[EÉ]FONO|VENDEDOR|SE[NÑ]ORES|EMAIL|PEDIDOS|DIRECCI[OÓ]N|CIUDAD|DEPENDEN|RECIB[IÍ] CONFORME|OBSERVACIONES|BRUTO|DESCUENTO|SUBTOTAL|IVA:|NETO|FECHA|pag:|CANT\\.|VALOR|PRECIO|C[OÓ]DIGO|PORCENTAJE|RTE\\.|TOTAL`,
+  'i'
+)
 
 const PRICE_RE = /^\d{1,3}(?:,\d{3})+$/
 const PCT_RE = /^\d+(?:\.\d+)?%$/

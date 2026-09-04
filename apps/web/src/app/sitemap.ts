@@ -1,8 +1,9 @@
 import { MetadataRoute } from 'next'
 import { getServiceSupabase } from '@/lib/supabase'
+import { BRAND } from '@/config/brand'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yjbmotocom.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || BRAND.domain
   const supabase = getServiceSupabase()
 
   // Páginas estáticas

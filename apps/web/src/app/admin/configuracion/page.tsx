@@ -27,6 +27,7 @@ import type {
   SocialLinks,
   Branding,
 } from '@/lib/settings'
+import { BRAND } from '@/config/brand'
 
 interface SettingsState {
   store_name: string
@@ -40,7 +41,7 @@ interface SettingsState {
 }
 
 const defaultSettings: SettingsState = {
-  store_name: 'YJBMOTOCOM',
+  store_name: BRAND.name,
   store_description: '',
   contact_info: {
     phone_primary: '',
@@ -503,7 +504,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.facebook}
                   onChange={(e) => updateSocial('facebook', e.target.value)}
-                  placeholder="https://facebook.com/yjbmotocom"
+                  placeholder={`https://facebook.com/${BRAND.socialHandles.facebook}`}
                   className="rounded-xl"
                 />
               </div>
@@ -512,7 +513,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.instagram}
                   onChange={(e) => updateSocial('instagram', e.target.value)}
-                  placeholder="https://instagram.com/yjbmotocom"
+                  placeholder={`https://instagram.com/${BRAND.socialHandles.instagram}`}
                   className="rounded-xl"
                 />
               </div>
@@ -530,7 +531,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.tiktok}
                   onChange={(e) => updateSocial('tiktok', e.target.value)}
-                  placeholder="https://tiktok.com/@yjbmotocom"
+                  placeholder={`https://tiktok.com/@${BRAND.socialHandles.tiktok}`}
                   className="rounded-xl"
                 />
               </div>
@@ -539,7 +540,7 @@ export default function ConfiguracionPage() {
                 <Input
                   value={settings.social_links.twitter}
                   onChange={(e) => updateSocial('twitter', e.target.value)}
-                  placeholder="https://x.com/yjbmotocom"
+                  placeholder={`https://x.com/${BRAND.socialHandles.twitter}`}
                   className="rounded-xl"
                 />
               </div>

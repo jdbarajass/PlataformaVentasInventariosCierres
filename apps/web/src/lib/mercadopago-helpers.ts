@@ -5,6 +5,7 @@
 
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago'
 import * as crypto from 'crypto'
+import { BRAND } from '@/config/brand'
 
 // Singleton MercadoPago instance
 let _client: MercadoPagoConfig | null = null
@@ -78,7 +79,7 @@ export async function createPreference(params: {
       auto_return: 'approved',
       external_reference: orderId,
       notification_url: `${appUrl}/api/payments/mercadopago/webhook`,
-      statement_descriptor: 'YJBMOTOCOM',
+      statement_descriptor: BRAND.name,
     },
   })
 

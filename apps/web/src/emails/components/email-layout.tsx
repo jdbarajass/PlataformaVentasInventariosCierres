@@ -10,6 +10,7 @@ import {
   Link,
   Hr,
 } from '@react-email/components'
+import { BRAND } from '@/config/brand'
 
 interface EmailLayoutProps {
   children: React.ReactNode
@@ -25,7 +26,7 @@ export default function EmailLayout({ children, preview }: EmailLayoutProps) {
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logoText}>YJBMOTOCOM</Text>
+            <Text style={logoText}>{BRAND.name}</Text>
             <Text style={tagline}>Accesorios para Motos</Text>
           </Section>
 
@@ -36,7 +37,7 @@ export default function EmailLayout({ children, preview }: EmailLayoutProps) {
           <Hr style={hr} />
           <Section style={footer}>
             <Text style={footerText}>
-              YJBMOTOCOM - Tienda de Accesorios para Motociclistas
+              {BRAND.name} - Tienda de Accesorios para Motociclistas
             </Text>
             <Text style={footerText}>
               <Link href={process.env.NEXT_PUBLIC_APP_URL} style={link}>

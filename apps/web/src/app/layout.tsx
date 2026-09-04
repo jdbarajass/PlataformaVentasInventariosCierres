@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { Providers } from '@/components/providers'
 import { WebVitals } from './web-vitals'
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider'
+import { BRAND } from '@/config/brand'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -13,16 +14,16 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || BRAND.domain),
   title: {
-    default: 'YJBMOTOCOM - Accesorios para Motos en Colombia',
-    template: '%s | YJBMOTOCOM',
+    default: `${BRAND.name} - Accesorios para Motos en Colombia`,
+    template: `%s | ${BRAND.name}`,
   },
-  description: 'Tienda especializada en accesorios y equipamiento para motociclistas en Colombia. Cascos, guantes, chaquetas, protecciones y más. Envíos a todo el país.',
+  description: BRAND.description,
   keywords: ['motos', 'accesorios', 'cascos', 'guantes', 'chaquetas', 'motocicletas', 'colombia', 'bogotá', 'equipamiento', 'protecciones'],
-  authors: [{ name: 'YJBMOTOCOM' }],
-  creator: 'YJBMOTOCOM',
-  publisher: 'YJBMOTOCOM',
+  authors: [{ name: BRAND.name }],
+  creator: BRAND.name,
+  publisher: BRAND.name,
   robots: {
     index: true,
     follow: true,
@@ -38,24 +39,24 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_CO',
     url: '/',
-    title: 'YJBMOTOCOM - Accesorios para Motos en Colombia',
+    title: `${BRAND.name} - Accesorios para Motos en Colombia`,
     description: 'Tienda especializada en accesorios y equipamiento para motociclistas en Colombia. Cascos, guantes, chaquetas y más.',
-    siteName: 'YJBMOTOCOM',
+    siteName: BRAND.name,
     images: [
       {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'YJBMOTOCOM - Accesorios para Motos',
+        alt: `${BRAND.name} - Accesorios para Motos`,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'YJBMOTOCOM - Accesorios para Motos en Colombia',
+    title: `${BRAND.name} - Accesorios para Motos en Colombia`,
     description: 'Tienda especializada en accesorios y equipamiento para motociclistas en Colombia.',
     images: ['/og-image.jpg'],
-    creator: '@yjbmotocom',
+    creator: BRAND.twitterHandle,
   },
   verification: {
     google: 'google-site-verification-code', // Actualizar con código real

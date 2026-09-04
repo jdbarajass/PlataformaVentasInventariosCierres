@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator'
 import { Check, Package, Clock, CreditCard, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { BRAND } from '@/config/brand'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -107,27 +108,27 @@ export default async function OrderConfirmationPage({
       case 'transfer':
         instructions = (
           <div className="space-y-2">
-            <p className="text-sm"><strong>Banco:</strong> Bancolombia</p>
-            <p className="text-sm"><strong>Tipo de cuenta:</strong> Ahorros</p>
-            <p className="text-sm"><strong>Número de cuenta:</strong> 1234567890</p>
-            <p className="text-sm"><strong>Titular:</strong> YJBMOTOCOM S.A.S.</p>
-            <p className="text-sm"><strong>NIT:</strong> 900.123.456-7</p>
+            <p className="text-sm"><strong>Banco:</strong> {BRAND.payment.bank.bankName}</p>
+            <p className="text-sm"><strong>Tipo de cuenta:</strong> {BRAND.payment.bank.accountType}</p>
+            <p className="text-sm"><strong>Número de cuenta:</strong> {BRAND.payment.bank.accountNumber}</p>
+            <p className="text-sm"><strong>Titular:</strong> {BRAND.payment.bank.holderName}</p>
+            <p className="text-sm"><strong>NIT:</strong> {BRAND.payment.bank.nit}</p>
           </div>
         )
         break
       case 'nequi':
         instructions = (
           <div className="space-y-2">
-            <p className="text-sm"><strong>Número de celular:</strong> 321 411 1371</p>
-            <p className="text-sm"><strong>Nombre:</strong> YJBMOTOCOM</p>
+            <p className="text-sm"><strong>Número de celular:</strong> {BRAND.payment.nequi.phone}</p>
+            <p className="text-sm"><strong>Nombre:</strong> {BRAND.payment.nequi.name}</p>
           </div>
         )
         break
       case 'daviplata':
         instructions = (
           <div className="space-y-2">
-            <p className="text-sm"><strong>Número de celular:</strong> 314 406 5520</p>
-            <p className="text-sm"><strong>Nombre:</strong> YJBMOTOCOM</p>
+            <p className="text-sm"><strong>Número de celular:</strong> {BRAND.payment.daviplata.phone}</p>
+            <p className="text-sm"><strong>Nombre:</strong> {BRAND.payment.daviplata.name}</p>
           </div>
         )
         break

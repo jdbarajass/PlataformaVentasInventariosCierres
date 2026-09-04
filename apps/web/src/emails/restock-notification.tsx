@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Section, Text, Button, Img } from '@react-email/components'
 import EmailLayout from './components/email-layout'
+import { BRAND } from '@/config/brand'
 
 interface RestockNotificationProps {
   productTitle: string
@@ -20,7 +21,7 @@ export default function RestockNotificationEmail({
   productSlug,
   productImage,
   productPrice,
-  siteUrl = 'https://yjbmotocom.com',
+  siteUrl = BRAND.domain,
 }: RestockNotificationProps) {
   const productUrl = `${siteUrl}/producto/${productSlug}`
 

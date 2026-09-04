@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Section, Text, Button } from '@react-email/components'
 import EmailLayout from './components/email-layout'
+import { BRAND } from '@/config/brand'
 
 interface AbandonedCartProps {
   items: { title: string; qty: number; price_cents: number }[]
@@ -11,7 +12,7 @@ interface AbandonedCartProps {
 const formatPrice = (cents: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(cents / 100)
 
-export default function AbandonedCartEmail({ items, subtotalCents, siteUrl = 'https://yjbmotocom.com' }: AbandonedCartProps) {
+export default function AbandonedCartEmail({ items, subtotalCents, siteUrl = BRAND.domain }: AbandonedCartProps) {
   return (
     <EmailLayout preview="Dejaste productos en tu carrito — todavía están disponibles">
       <Section style={{ textAlign: 'center', paddingBottom: '16px' }}>

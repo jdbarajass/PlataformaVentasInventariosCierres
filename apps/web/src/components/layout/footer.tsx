@@ -5,6 +5,7 @@ import {
   CreditCard, Banknote, Smartphone,
 } from 'lucide-react'
 import { getStoreSettings } from '@/lib/settings'
+import { BRAND } from '@/config/brand'
 
 const footerLinks = {
   tienda: [
@@ -28,11 +29,11 @@ const footerLinks = {
 }
 
 const FALLBACK_CONTACT = {
-  phone_primary:   '+57 321 411 1371',
-  phone_secondary: '+57 314 406 5520',
-  email:           'yjbmotocom@gmail.com',
-  address:         'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 1',
-  city:            'Bogotá, Colombia',
+  phone_primary:   BRAND.contact.phonePrimary,
+  phone_secondary: BRAND.contact.phoneSecondary,
+  email:           BRAND.supportEmail,
+  address:         BRAND.contact.address,
+  city:            BRAND.contact.cityCountry,
 }
 
 const paymentMethods = [
@@ -96,17 +97,17 @@ export async function Footer() {
             <Link href="/" className="flex items-center gap-2.5 group w-fit">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary group-hover:shadow-glow-red transition-all">
                 <div className="absolute top-0 left-1.5 right-1.5 h-px bg-white/30 rounded-full" />
-                <span className="text-sm font-black tracking-tighter text-white">YB</span>
+                <span className="text-sm font-black tracking-tighter text-white">{BRAND.logoInitials}</span>
               </div>
               <div className="flex flex-col leading-none">
-                <span className="font-black text-sm tracking-[0.12em] uppercase">MOTOCOM</span>
+                <span className="font-black text-sm tracking-[0.12em] uppercase">{BRAND.shortName}</span>
                 <span className="text-[9px] text-muted-foreground tracking-widest uppercase">Accesorios · Colombia</span>
               </div>
             </Link>
 
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Tu tienda de confianza para accesorios y equipamiento de motos en Colombia.
-              Calidad certificada y seguridad en cada viaje.
+              {BRAND.tagline}
+              {' '}Calidad certificada y seguridad en cada viaje.
             </p>
 
             {/* Social */}
@@ -253,7 +254,7 @@ export async function Footer() {
       <div className="border-t border-border/30">
         <div className="container py-5 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} YJBMOTOCOM · Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} {BRAND.name} · Todos los derechos reservados.
           </p>
           <div className="flex gap-5">
             {footerLinks.legal.map((link) => (

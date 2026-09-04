@@ -6,6 +6,7 @@ import {
   Button,
 } from '@react-email/components'
 import EmailLayout from './components/email-layout'
+import { BRAND } from '@/config/brand'
 
 interface OrderItem {
   id: string
@@ -55,15 +56,15 @@ export default function PaymentInstructionsEmail({
           <Section style={instructionsBox}>
             <Text style={instructionsTitle}>Datos bancarios:</Text>
             <Text style={instructionsDetail}>
-              <strong>Banco:</strong> Bancolombia
+              <strong>Banco:</strong> {BRAND.payment.bank.bankName}
               <br />
-              <strong>Tipo de cuenta:</strong> Ahorros
+              <strong>Tipo de cuenta:</strong> {BRAND.payment.bank.accountType}
               <br />
-              <strong>Número de cuenta:</strong> 1234567890
+              <strong>Número de cuenta:</strong> {BRAND.payment.bank.accountNumber}
               <br />
-              <strong>Titular:</strong> YJBMOTOCOM S.A.S.
+              <strong>Titular:</strong> {BRAND.payment.bank.holderName}
               <br />
-              <strong>NIT:</strong> 900.123.456-7
+              <strong>NIT:</strong> {BRAND.payment.bank.nit}
             </Text>
             <Text style={referenceText}>
               <strong>Referencia de pago:</strong> {order.order_number}
@@ -79,9 +80,9 @@ export default function PaymentInstructionsEmail({
           <Section style={instructionsBox}>
             <Text style={instructionsTitle}>Instrucciones Nequi:</Text>
             <Text style={instructionsDetail}>
-              <strong>Número de celular:</strong> 321 411 1371
+              <strong>Número de celular:</strong> {BRAND.payment.nequi.phone}
               <br />
-              <strong>Nombre:</strong> YJBMOTOCOM
+              <strong>Nombre:</strong> {BRAND.payment.nequi.name}
             </Text>
             <Text style={referenceText}>
               <strong>Referencia de pago:</strong> {order.order_number}
@@ -97,9 +98,9 @@ export default function PaymentInstructionsEmail({
           <Section style={instructionsBox}>
             <Text style={instructionsTitle}>Instrucciones Daviplata:</Text>
             <Text style={instructionsDetail}>
-              <strong>Número de celular:</strong> 314 406 5520
+              <strong>Número de celular:</strong> {BRAND.payment.daviplata.phone}
               <br />
-              <strong>Nombre:</strong> YJBMOTOCOM
+              <strong>Nombre:</strong> {BRAND.payment.daviplata.name}
             </Text>
             <Text style={referenceText}>
               <strong>Referencia de pago:</strong> {order.order_number}

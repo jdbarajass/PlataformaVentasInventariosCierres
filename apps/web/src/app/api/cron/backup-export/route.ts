@@ -5,6 +5,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { sheetDefinitions } from '@/lib/excel/sheets'
 import { bogotaDateStr } from '@/lib/bogota-time'
 import { verifyCronRequest } from '@/lib/cron-auth'
+import { BRAND } from '@/config/brand'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = getServiceSupabase()
     const workbook = new ExcelJS.Workbook()
-    workbook.creator = 'YJBMOTOCOM'
+    workbook.creator = BRAND.name
     workbook.created = new Date()
 
     for (const def of sheetDefinitions) {
@@ -59,16 +60,16 @@ export async function GET(request: NextRequest) {
 
     const buffer = await workbook.xlsx.writeBuffer()
     const dateStr = bogotaDateStr(new Date())
-    const filename = `YJBMOTOCOM_Respaldo_${dateStr}.xlsx`
+    const filename = `${BRAND.name}_Respaldo_${dateStr}.xlsx`
 
     const resend = new Resend(process.env.RESEND_API_KEY)
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'YJBMOTOCOM <pedidos@yjbmotocom.com>'
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'yjbmotocom@gmail.com'
+    const fromEmail = process.env.RESEND_FROM_EMAIL || BRAND.ordersFromAddress
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || BRAND.supportEmail
 
     const { error } = await resend.emails.send({
       from: fromEmail,
       to: adminEmail,
-      subject: `Respaldo automático YJBMOTOCOM — ${dateStr}`,
+      subject: `Respaldo automático ${BRAND.name} — ${dateStr}`,
       html: `<p>Adjunto el respaldo automático de esta semana (${dateStr}) con las 18 hojas de datos del negocio.</p>`,
       attachments: [{ filename, content: Buffer.from(buffer) }],
     })

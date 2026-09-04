@@ -12,6 +12,7 @@ import AbandonedCartEmail from '@/emails/abandoned-cart'
 import WelcomeCouponEmail from '@/emails/welcome-coupon'
 import { getServiceSupabase } from './supabase'
 import { bogotaDateStr, BOGOTA_TZ } from './bogota-time'
+import { BRAND } from '@/config/brand'
 
 let _resend: Resend | null = null
 function getResend() {
@@ -20,8 +21,8 @@ function getResend() {
   }
   return _resend
 }
-const fromEmail = process.env.RESEND_FROM_EMAIL || 'YJBMOTOCOM <pedidos@yjbmotocom.com>'
-const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'yjbmotocom@gmail.com'
+const fromEmail = process.env.RESEND_FROM_EMAIL || BRAND.ordersFromAddress
+const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || BRAND.supportEmail
 
 interface OrderWithItems {
   id: string
@@ -315,7 +316,7 @@ export async function sendLowStockAlert(): Promise<boolean> {
 export async function sendRestockNotifications(productId: string, variantId?: string | null): Promise<number> {
   try {
     const supabase = getServiceSupabase()
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || BRAND.domain
 
     // Get product info
     const { data: product, error: productError } = await supabase
@@ -369,7 +370,7 @@ export async function sendRestockNotifications(productId: string, variantId?: st
         const { error: sendError } = await getResend().emails.send({
           from: fromEmail,
           to: sub.email,
-          subject: `¡${displayTitle} ya está disponible! — YJBMOTOCOM`,
+          subject: `¡${displayTitle} ya está disponible! — ${BRAND.name}`,
           html: emailHtml,
         })
 
@@ -518,7 +519,7 @@ export async function sendReviewRequestEmail(orderId: string): Promise<boolean> 
     const { error: sendError } = await getResend().emails.send({
       from: fromEmail,
       to: o.customer_email,
-      subject: '¿Qué te pareció tu compra? — YJBMOTOCOM',
+      subject: `¿Qué te pareció tu compra? — ${BRAND.name}`,
       html: emailHtml,
     })
 
@@ -568,7 +569,7 @@ export async function sendWelcomeCouponEmail(params: {
     const { error: sendError } = await getResend().emails.send({
       from: fromEmail,
       to: params.to,
-      subject: `Tu código de bienvenida: ${params.code} — YJBMOTOCOM`,
+      subject: `Tu código de bienvenida: ${params.code} — ${BRAND.name}`,
       html: emailHtml,
     })
 
@@ -599,7 +600,7 @@ export async function sendAbandonedCartReminder(
     const { error } = await getResend().emails.send({
       from: fromEmail,
       to: email,
-      subject: 'Dejaste algo en tu carrito — YJBMOTOCOM',
+      subject: `Dejaste algo en tu carrito — ${BRAND.name}`,
       html: emailHtml,
     })
 

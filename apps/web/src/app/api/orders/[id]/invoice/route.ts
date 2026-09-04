@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generarReciboTermicoHTML } from '@/lib/recibo-termico'
+import { BRAND } from '@/config/brand'
 
 // GET - Generate invoice HTML for an order (printable as PDF)
 export async function GET(
@@ -71,7 +72,7 @@ export async function GET(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${isPos ? 'Recibo' : 'Factura'} ${order.order_number} - YJBMOTOCOM</title>
+  <title>${isPos ? 'Recibo' : 'Factura'} ${order.order_number} - ${BRAND.name}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; }
@@ -108,7 +109,7 @@ export async function GET(
 
   <div class="header">
     <div class="brand">
-      <h1>YJBMOTOCOM</h1>
+      <h1>${BRAND.name}</h1>
       <p>Accesorios para Motociclistas</p>
       <p>NIT: Pendiente de registro</p>
     </div>
@@ -195,8 +196,8 @@ export async function GET(
   </div>
 
   <div class="footer">
-    <p>YJBMOTOCOM - Accesorios para Motociclistas en Colombia</p>
-    <p>yjbmotocom@gmail.com | yjbmotocom.com</p>
+    <p>${BRAND.name} - Accesorios para Motociclistas en Colombia</p>
+    <p>${BRAND.supportEmail} | ${BRAND.domain.replace(/^https?:\/\//, '')}</p>
     <p style="margin-top:8px;">Gracias por tu compra</p>
   </div>
 </body>

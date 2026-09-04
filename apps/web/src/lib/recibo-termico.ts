@@ -4,11 +4,13 @@
 // adaptado a HTML+CSS para imprimir desde el navegador (@page 80mm auto).
 // Ver docs/UNIFICACION_YJBMOTOCOM.md sección 61.
 
-const NEGOCIO_NIT = 'NIT 1032464724-2'
-const NEGOCIO_DIR = 'AK 14 # 17-21 LOCAL 127, Bogotá D.C.'
-const NEGOCIO_TEL = 'Tel: +57 314 406 5520'
-const NEGOCIO_EMAIL = 'yjbmotocom@gmail.com'
-const NEGOCIO_REGIMEN = 'No responsable de IVA'
+import { BRAND } from '@/config/brand'
+
+const NEGOCIO_NIT = BRAND.receipt.nit
+const NEGOCIO_DIR = BRAND.receipt.address
+const NEGOCIO_TEL = BRAND.receipt.phone
+const NEGOCIO_EMAIL = BRAND.supportEmail
+const NEGOCIO_REGIMEN = BRAND.receipt.regimen
 
 const GARANTIA =
   'Para cambios o garantías, presenta este comprobante. Plazo máximo: 30 días calendario. Aplican condiciones.'
@@ -29,8 +31,8 @@ const ESCUDO_SVG = `
   <path d="M2 2 H32 V24.5 C32 32 27 36 17 45 C7 36 2 32 2 24.5 Z"
         fill="none" stroke="#141414" stroke-width="1.6"/>
   <line x1="6.5" y1="23.5" x2="27.5" y2="23.5" stroke="#2e2e2e" stroke-width="0.6"/>
-  <text x="17" y="18" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="9.5" fill="#0d0d0d">YJB</text>
-  <text x="17" y="32.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="4" letter-spacing="-0.3" fill="#0d0d0d">MOTOCOM</text>
+  <text x="17" y="18" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="9.5" fill="#0d0d0d">${BRAND.receiptSeal.top}</text>
+  <text x="17" y="32.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="4" letter-spacing="-0.3" fill="#0d0d0d">${BRAND.receiptSeal.bottom}</text>
 </svg>`
 
 function formatCOP(cents: number): string {
@@ -108,7 +110,7 @@ export function generarReciboTermicoHTML(
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Recibo ${order.order_number} - YJBMOTOCOM</title>
+<title>Recibo ${order.order_number} - ${BRAND.name}</title>
 <style>
   @page { size: 80mm auto; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -142,7 +144,7 @@ export function generarReciboTermicoHTML(
     <button onclick="window.print()">Imprimir / Guardar como PDF</button>
   </div>
 
-  <h1>YJBMOTOCOM</h1>
+  <h1>${BRAND.name}</h1>
   <div class="cabecera">
     ${ESCUDO_SVG}
     <div class="info">
@@ -166,7 +168,7 @@ export function generarReciboTermicoHTML(
   <div class="kv"><span>Fecha:</span><span>${fechaBogota}</span></div>
   <div class="kv"><span>Hora:</span><span>${horaBogota}</span></div>
   ${pagoHTML}
-  <div class="kv"><span>Vendedor:</span><span>${vendedorNombre || 'YJB Motocom'}</span></div>
+  <div class="kv"><span>Vendedor:</span><span>${vendedorNombre || BRAND.receipt.defaultSellerName}</span></div>
   <hr class="sep">
 
   <div class="tabla-header"><span>#  Descripción</span><span>Total</span></div>

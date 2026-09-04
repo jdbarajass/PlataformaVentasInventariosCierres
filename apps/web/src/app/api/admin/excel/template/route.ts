@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { requireAuth } from '@/lib/auth-helpers'
 import { sheetDefinitions } from '@/lib/excel/sheets'
+import { BRAND } from '@/config/brand'
 
 // GET - Plantilla en blanco (solo encabezados, sin datos) para llenar a
 // mano y luego importar — equivalente a "⬇ Descargar Plantilla" del
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const workbook = new ExcelJS.Workbook()
-    workbook.creator = 'YJBMOTOCOM'
+    workbook.creator = BRAND.name
     workbook.created = new Date()
 
     for (const def of sheetDefinitions) {
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename="YJBMOTOCOM_Plantilla.xlsx"',
+        'Content-Disposition': `attachment; filename="${BRAND.name}_Plantilla.xlsx"`,
       },
     })
   } catch (error) {
