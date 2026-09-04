@@ -86,7 +86,7 @@ export default async function HomePage() {
     BRAND.heroYearsStat,
   ]
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || BRAND.domain
 
   return (
     <div className="flex flex-col">

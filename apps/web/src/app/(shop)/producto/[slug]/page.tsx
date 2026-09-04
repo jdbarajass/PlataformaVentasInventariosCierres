@@ -12,6 +12,7 @@ import { RestockSubscribe } from '@/components/products/restock-subscribe'
 import { CompareButton } from '@/components/products/compare-button'
 import { Product, ProductVariant } from '@/types/database'
 import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
+import { BRAND } from '@/config/brand'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,7 +60,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const product = await getProduct(slug)
   if (!product) return { title: 'Producto no encontrado' }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || BRAND.domain
   const title = `${product.title} - YJBMOTOCOM`
   const description = product.description || `Compra ${product.title} en YJBMOTOCOM`
   const image = getProductImage(product.images)
@@ -105,7 +106,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   })
 
   const mainImage = getProductImage(product.images)
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || BRAND.domain
   const productUrl = `${baseUrl}/producto/${product.slug}`
   const availability = product.stock_qty > 0 ? 'InStock' : 'OutOfStock'
 
