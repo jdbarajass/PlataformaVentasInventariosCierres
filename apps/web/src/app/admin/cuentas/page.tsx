@@ -73,6 +73,7 @@ const movementTypeLabels: Record<string, string> = {
   invoice_payment: 'Pago de factura',
   credit_payment_reversal: 'Reversión de abono',
   sale_reversal: 'Reversión de venta',
+  sistecredito_release: 'Liberación SisteCrédito',
 }
 
 const monthNames = [
@@ -86,6 +87,17 @@ export default function CuentasPage() {
   const [movements, setMovements] = useState<AccountMovement[]>([])
   const [closures, setClosures] = useState<AccountClosure[]>([])
   const [receivables, setReceivables] = useState<AccountReceivable[]>([])
+  // Ventas por SisteCrédito ya registradas pero todavía no liberadas al
+  // saldo real (ver migración 00053) -- se liberan solas el día 1 del mes
+  // siguiente a la venta, vía cron. Cada fila trae su propio margin_pct
+  // (el que regía al momento de esa venta), no el actual.
+  const [sistecreditoPending, setSistecreditoPending] = useState<{
+    account_id: string
+    base_amount_cents: number
+    margin_pct: number
+    sale_date: string
+    release_date: string
+  }[]>([])
   const [loading, setLoading] = useState(true)
   // Margen real de SisteCrédito (ver Configuración POS): la venta se
   // registra por el valor base, pero SisteCrédito paga base+margen (nos
@@ -206,14 +218,29 @@ export default function CuentasPage() {
     }
   }, [session?.access_token, authHeaders])
 
+  const fetchSistecreditoPending = useCallback(async () => {
+    if (!session?.access_token || !canView) return
+    try {
+      const res = await fetch('/api/sistecredito/pending-releases', { headers: authHeaders() })
+      if (!res.ok) throw new Error('Error fetching sistecredito pending releases')
+      const { data } = await res.json()
+      setSistecreditoPending(data || [])
+    } catch (error) {
+      console.error('Error fetching sistecredito pending releases:', error)
+    }
+  }, [session?.access_token, authHeaders, canView])
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await Promise.all([fetchAccounts(), fetchMovements(), fetchClosures(), fetchReceivables(), fetchSistecreditoMargin()])
+      await Promise.all([
+        fetchAccounts(), fetchMovements(), fetchClosures(), fetchReceivables(),
+        fetchSistecreditoMargin(), fetchSistecreditoPending(),
+      ])
       setLoading(false)
     }
     load()
-  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables, fetchSistecreditoMargin])
+  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables, fetchSistecreditoMargin, fetchSistecreditoPending])
 
   // El "valor esperado" real de una cuenta por cobrar: para SisteCrédito,
   // lo que en verdad va a llegar es el valor base + el margen configurado
@@ -254,6 +281,9 @@ export default function CuentasPage() {
   const accountById = (id: string) => accounts.find((a) => a.id === id)
   const totalReceivables = receivables.reduce(
     (sum, r) => sum + receivableExpectedCents(accountById(r.account_id)?.payment_method || '', r.amount_cents),
+    0
+  ) + sistecreditoPending.reduce(
+    (sum, p) => sum + Math.round(p.base_amount_cents * (1 + p.margin_pct / 100)),
     0
   )
 
@@ -488,6 +518,16 @@ export default function CuentasPage() {
                     0
                   )
                   const hasMargin = account.payment_method === 'sistecredito' && sistecreditoMarginPct > 0 && pendingBaseCents > 0
+
+                  const accountPendingReleases = sistecreditoPending.filter((p) => p.account_id === account.id)
+                  const pendingReleaseFinalCents = accountPendingReleases.reduce(
+                    (sum, p) => sum + Math.round(p.base_amount_cents * (1 + p.margin_pct / 100)),
+                    0
+                  )
+                  const nextReleaseDate = accountPendingReleases
+                    .map((p) => p.release_date)
+                    .sort()[0]
+
                   return (
                     <div key={account.id} className="rounded-xl border bg-card p-4">
                       <div className="flex items-center gap-2">
@@ -503,6 +543,12 @@ export default function CuentasPage() {
                           + {formatPrice(pendingBaseCents)} por cobrar
                           {hasMargin && ` (+${sistecreditoMarginPct}% margen SisteCrédito = ${formatPrice(pendingExpectedCents)})`}
                           {' '}→ total esperado {formatPrice(account.balance_cents + pendingExpectedCents)}
+                        </p>
+                      )}
+                      {pendingReleaseFinalCents > 0 && (
+                        <p className="mt-1 text-xs text-blue-600">
+                          + {formatPrice(pendingReleaseFinalCents)} pendiente de liberar
+                          {nextReleaseDate && ` (se libera el ${formatDebtDate(nextReleaseDate)})`}
                         </p>
                       )}
                     </div>
