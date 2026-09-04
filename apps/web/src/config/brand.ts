@@ -32,12 +32,15 @@ export const BRAND = {
 
   /** Subtítulo bajo el logo en la tarjeta destacada de la portada (home) */
   heroCardSubtitle: 'Racing Dark Premium',
-  /** Estadísticas mostradas en la misma tarjeta destacada de la portada — ajustar por negocio, no inventar cifras */
-  heroStats: [
-    { value: '+5K', label: 'Clientes' },
-    { value: '+500', label: 'Productos' },
-    { value: '9', label: 'Años exp.' },
-  ],
+  /**
+   * Estadísticas mostradas en la misma tarjeta destacada de la portada.
+   * "Clientes" es una cifra de marketing (a propósito, decisión del usuario:
+   * mostrar algo da más credibilidad que no mostrar nada). "Productos" NO
+   * vive aquí — se calcula en vivo contra la base de datos en page.tsx, para
+   * que nunca muestre un número inventado ni desactualizado.
+   */
+  heroClientsStat: { value: '+5K', label: 'Clientes' },
+  heroYearsStat: { value: '15', label: 'Años exp.' },
 
   /** Dominio público del sitio — fallback estático cuando la env var no está definida */
   domain: DOMAIN_FALLBACK,

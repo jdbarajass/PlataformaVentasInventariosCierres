@@ -63,9 +63,28 @@ async function getFeaturedProducts(): Promise<Product[]> {
   return (data as unknown as Product[]) || []
 }
 
+// Cuenta real de productos activos — nunca un número inventado en la
+// tarjeta destacada de la portada (ver BRAND.heroClientsStat/heroYearsStat).
+async function getActiveProductCount(): Promise<number> {
+  const { count } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('active', true)
+  return count || 0
+}
+
 /* ═══════════════════════════════════════════════════════════════════ */
 export default async function HomePage() {
-  const featuredProducts = await getFeaturedProducts()
+  const [featuredProducts, activeProductCount] = await Promise.all([
+    getFeaturedProducts(),
+    getActiveProductCount(),
+  ])
+
+  const heroStats = [
+    BRAND.heroClientsStat,
+    { value: `+${activeProductCount}`, label: 'Productos' },
+    BRAND.heroYearsStat,
+  ]
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yjbmotocom.com'
 
@@ -170,7 +189,7 @@ export default async function HomePage() {
 
                   {/* Stats row */}
                   <div className="grid grid-cols-3 gap-3 w-full">
-                    {BRAND.heroStats.map(s => (
+                    {heroStats.map(s => (
                       <div key={s.label} className="rounded-xl border border-border/40 bg-background/40 backdrop-blur-sm px-3 py-3 text-center">
                         <p className="text-lg font-black text-primary leading-none">{s.value}</p>
                         <p className="text-[10px] text-muted-foreground mt-1">{s.label}</p>
