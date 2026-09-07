@@ -553,6 +553,7 @@ export default function CuentasPage() {
                         <p className="mt-1 text-xs text-blue-600">
                           + {formatPrice(pendingReleaseFinalCents)} pendiente de liberar
                           {nextReleaseDate && ` (se libera el ${formatDebtDate(nextReleaseDate)})`}
+                          {' '}→ total esperado {formatPrice(account.balance_cents + pendingReleaseFinalCents)}
                         </p>
                       )}
                     </div>
