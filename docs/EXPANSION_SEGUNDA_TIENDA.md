@@ -5,6 +5,14 @@
 **Última actualización**: 2026-09-04 (entrada 4)
 **Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones aplicadas, Vercel propio (`ybmotocom-web.vercel.app`) conectado y con auto-deploy en cada push a `main`, usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. Pendiente solo la Fase 3 (sección 5, estrategia de `cherry-pick` para compartir mejoras futuras) — documentada pero nunca probada en la práctica.
 
+## 7. Precedente de sincronización entre tiendas: liberación mensual de SisteCrédito (2026-09-07)
+
+Primer caso real del modelo "franquicia" (sección 5): una mejora de lógica de negocio (no de marca) que aplica a las dos tiendas por igual. Detalle completo del feature en memoria [[project_sistecredito_monthly_release]] — resumen: SisteCrédito paga con corte a fin de mes y 2 meses de plazo, con un margen a favor (`sistecredito_margin_pct`); antes el código acreditaba el valor al saldo real de inmediato, ahora queda "pendiente de liberar" hasta la fecha real (migraciones `00053` y `00054`, cron diario nuevo, vista por venta en Cuentas > Por Cobrar).
+
+- **Base de datos**: el usuario ya corrió `00053` y `00054` en el Supabase de **ambas** tiendas (YJBMOTOCOM con datos reales migrados; YBMOTOCOM sin datos, las migraciones no hicieron nada ahí — normal, es una tienda nueva).
+- **Código**: los commits `f53ee69` y `b504748` (este repo) traen la UI de Cuentas, las 2 rutas de API nuevas y la entrada de cron en `vercel.json`. **Pendiente**: llevar estos mismos commits al repo de YBMOTOCOM (`C:\Users\JJBarajas\Pictures\YOJAN`) — sin el código, aunque su base de datos ya esté lista, su panel no muestra la vista nueva ni existe el cron ahí.
+- A partir de ahora, el usuario pidió explícitamente que se le avise siempre por separado cuando algo (sobre todo migraciones SQL) también le corresponda a YBMOTOCOM — ver [[feedback_avisar_cambios_ybmotocom]].
+
 **De aquí en adelante, la configuración de YBMOTOCOM (subir inventario, llenar `/admin/configuracion` con datos reales, completar los campos `TODO` de su `brand.ts`) es trabajo operativo de Yojan, no requiere más cambios de código** — el usuario lo confirmó explícitamente ("ya es cuestión de tiempo para configurarlo"). Si se retoma este proyecto más adelante, lo más probable es que sea para: (a) probar la Fase 3 (cherry-pick) cuando haya una mejora real que llevar de un repo al otro, o (b) resolver un pendiente puntual que reporte el usuario sobre YBMOTOCOM ya en uso real.
 
 ## 6. Auditoría de código previa al push (2026-09-04)
