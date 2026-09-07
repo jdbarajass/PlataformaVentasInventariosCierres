@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 
-// GET - Ventas por SisteCrédito que ya se registraron pero todavía no se
-// liberan al saldo real (ver migración 00053) — pendientes de que llegue
-// el día 1 del mes siguiente a la venta. Solo admin, mismo criterio que
-// el resto de Cuentas.
+// GET - Ventas por SisteCrédito (ver migración 00053/00054): todas, con su
+// estado (pendiente o ya liberada al saldo real) y fecha de liberación —
+// usado tanto para el resumen (solo pendientes) como para el detalle de
+// "Por Cobrar" (todas, con estado). Solo admin, mismo criterio que el
+// resto de Cuentas.
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request, ['admin'])
@@ -17,9 +18,8 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('sistecredito_pending_releases')
-      .select('id, account_id, base_amount_cents, margin_pct, sale_date, release_date')
-      .is('released_at', null)
-      .order('release_date', { ascending: true })
+      .select('id, account_id, order_id, base_amount_cents, margin_pct, sale_date, release_date, released_at')
+      .order('sale_date', { ascending: false })
 
     if (error) {
       throw error

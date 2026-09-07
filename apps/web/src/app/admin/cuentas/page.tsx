@@ -91,13 +91,17 @@ export default function CuentasPage() {
   // saldo real (ver migración 00053) -- se liberan solas el día 1 del mes
   // siguiente a la venta, vía cron. Cada fila trae su propio margin_pct
   // (el que regía al momento de esa venta), no el actual.
-  const [sistecreditoPending, setSistecreditoPending] = useState<{
+  const [sistecreditoReleases, setSistecreditoReleases] = useState<{
+    id: string
     account_id: string
+    order_id: string | null
     base_amount_cents: number
     margin_pct: number
     sale_date: string
     release_date: string
+    released_at: string | null
   }[]>([])
+  const sistecreditoPending = sistecreditoReleases.filter((p) => !p.released_at)
   const [loading, setLoading] = useState(true)
   // Margen real de SisteCrédito (ver Configuración POS): la venta se
   // registra por el valor base, pero SisteCrédito paga base+margen (nos
@@ -224,7 +228,7 @@ export default function CuentasPage() {
       const res = await fetch('/api/sistecredito/pending-releases', { headers: authHeaders() })
       if (!res.ok) throw new Error('Error fetching sistecredito pending releases')
       const { data } = await res.json()
-      setSistecreditoPending(data || [])
+      setSistecreditoReleases(data || [])
     } catch (error) {
       console.error('Error fetching sistecredito pending releases:', error)
     }
@@ -798,6 +802,40 @@ export default function CuentasPage() {
 
                     {isExpanded && (
                       <div className="space-y-3 border-t p-4">
+                        {account.payment_method === 'sistecredito' && (
+                          <>
+                            <p className="rounded-lg bg-blue-500/10 px-3 py-2 text-xs text-blue-700">
+                              Esta cuenta es automática: cada venta por SisteCrédito queda aquí con su fecha real,
+                              y se marca como pagado sola el día que corresponde (corte a fin de mes de la venta,
+                              pago 2 meses después) — no hace falta agregarla ni borrarla a mano.
+                            </p>
+                            {sistecreditoReleases
+                              .filter((r) => r.account_id === account.id)
+                              .map((r) => {
+                                const finalCents = Math.round(r.base_amount_cents * (1 + r.margin_pct / 100))
+                                const isReleased = !!r.released_at
+                                return (
+                                  <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                                    <span>
+                                      Venta del {formatDebtDate(r.sale_date)}
+                                      {!isReleased && ` · se libera el ${formatDebtDate(r.release_date)}`}
+                                    </span>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-right">
+                                        <span className="block font-medium">{formatPrice(finalCents)}</span>
+                                        <span className="block text-[11px] text-muted-foreground">
+                                          {formatPrice(r.base_amount_cents)} + {r.margin_pct}%
+                                        </span>
+                                      </span>
+                                      <Badge variant={isReleased ? 'success' : 'outline'}>
+                                        {isReleased ? 'Ya pagado' : 'Pendiente a pagar'}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                          </>
+                        )}
                         {hasMargin && accountReceivables.length > 0 && (
                           <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
                             SisteCrédito nos retiene el pago y cobra su propia comisión, pero le trasladamos al
