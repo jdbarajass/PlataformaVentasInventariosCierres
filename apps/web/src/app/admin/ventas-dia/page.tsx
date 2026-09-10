@@ -1185,7 +1185,12 @@ function VentasDiaContent() {
       <div className="grid gap-6 lg:grid-cols-2 items-start">
         <div className="rounded-xl border bg-card p-6">
           <h2 className="mb-4 text-lg font-semibold">Gastos operativos del día</h2>
-          <div className="mb-4 flex flex-wrap gap-2">
+          {/* Formulario oculto durante la exportación: html2canvas no rasteriza
+              bien el texto de <input>/<select> nativos (el placeholder queda
+              cortado/desplazado en la imagen resultante) y de todas formas es
+              un control para AGREGAR datos, no un dato en sí, así que no hace
+              falta que aparezca en el PDF/imagen que se comparte. */}
+          <div className={exportMode ? 'hidden' : 'mb-4 flex flex-wrap gap-2'}>
             <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
             <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
               <option value="">Categoría...</option>
@@ -1222,7 +1227,7 @@ function VentasDiaContent() {
           <p className="mb-4 text-xs text-muted-foreground">
             Cualquier cosa que haya pasado hoy y quieras dejar registrada (sin monto, sin categoría).
           </p>
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className={exportMode ? 'hidden' : 'mb-4 flex flex-wrap gap-2'}>
             <Input
               placeholder="Escribe una nota..."
               value={noteText}
