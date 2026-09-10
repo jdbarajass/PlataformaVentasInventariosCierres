@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { flushSync } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import {
   Calendar, Search, Plus, Trash2, Loader2, Receipt, Pencil, X, CheckCircle2, Download,
@@ -140,6 +141,14 @@ function VentasDiaContent() {
   const [bulkMethod, setBulkMethod] = useState<PaymentSplit['method']>('cash')
   const [applyingBulk, setApplyingBulk] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'excel' | 'pdf' | 'png' | 'jpg'>('excel')
+  // Mientras es true, la franja de arriba (fecha/selector/botón) se oculta y
+  // el resto de la pantalla se captura tal cual para PDF/PNG/JPG — así el
+  // grupo de WhatsApp recibe UNA sola imagen con todo lo vendido en el día
+  // sin importar cuántos productos se salgan del recuadro (antes tocaba
+  // tomar varios pantallazos manuales, pedido explícito del usuario).
+  const [exportMode, setExportMode] = useState(false)
+  const captureRef = useRef<HTMLDivElement>(null)
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
@@ -512,7 +521,7 @@ function VentasDiaContent() {
     }
   }
 
-  const handleExport = async () => {
+  const handleExportExcel = async () => {
     if (!session?.access_token) return
     try {
       setExporting(true)
@@ -530,6 +539,90 @@ function VentasDiaContent() {
     } finally {
       setExporting(false)
     }
+  }
+
+  // Captura la pantalla completa (no solo lo visible en el viewport) como
+  // canvas — se usa tanto para PNG/JPG como para el PDF, que arma sus
+  // páginas a partir del mismo canvas.
+  const captureScreenAsCanvas = async () => {
+    const node = captureRef.current
+    if (!node) return null
+    const { default: html2canvas } = await import('html2canvas')
+    const bg = getComputedStyle(document.body).backgroundColor || '#ffffff'
+    return html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true })
+  }
+
+  const handleExportImage = async (format: 'png' | 'jpg') => {
+    if (editingId) {
+      toast({ title: 'Error', description: 'Termina de editar la venta antes de exportar', variant: 'destructive' })
+      return
+    }
+    try {
+      setExporting(true)
+      flushSync(() => setExportMode(true))
+      const canvas = await captureScreenAsCanvas()
+      flushSync(() => setExportMode(false))
+      if (!canvas) return
+      const mime = format === 'jpg' ? 'image/jpeg' : 'image/png'
+      const a = document.createElement('a')
+      a.href = canvas.toDataURL(mime, 0.92)
+      a.download = `ventas-${date}.${format}`
+      a.click()
+    } catch (error: any) {
+      setExportMode(false)
+      toast({ title: 'Error', description: 'No se pudo generar la imagen', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (editingId) {
+      toast({ title: 'Error', description: 'Termina de editar la venta antes de exportar', variant: 'destructive' })
+      return
+    }
+    try {
+      setExporting(true)
+      flushSync(() => setExportMode(true))
+      const canvas = await captureScreenAsCanvas()
+      flushSync(() => setExportMode(false))
+      if (!canvas) return
+      const { default: JsPDF } = await import('jspdf')
+      const pdf = new JsPDF('p', 'mm', 'a4')
+      const pageWidthMm = pdf.internal.pageSize.getWidth()
+      const pageHeightMm = pdf.internal.pageSize.getHeight()
+      // Alto (en px del canvas) equivalente a una página completa de PDF,
+      // para partir el canvas en tajadas y no depender de que jsPDF recorte
+      // sola una imagen más alta que la página.
+      const pageHeightPx = Math.floor((canvas.width * pageHeightMm) / pageWidthMm)
+      let renderedPx = 0
+      let firstPage = true
+      while (renderedPx < canvas.height) {
+        const sliceHeightPx = Math.min(pageHeightPx, canvas.height - renderedPx)
+        const pageCanvas = document.createElement('canvas')
+        pageCanvas.width = canvas.width
+        pageCanvas.height = sliceHeightPx
+        const ctx = pageCanvas.getContext('2d')
+        ctx?.drawImage(canvas, 0, renderedPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx)
+        const sliceHeightMm = (sliceHeightPx * pageWidthMm) / canvas.width
+        if (!firstPage) pdf.addPage()
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pageWidthMm, sliceHeightMm)
+        renderedPx += sliceHeightPx
+        firstPage = false
+      }
+      pdf.save(`ventas-${date}.pdf`)
+    } catch (error: any) {
+      setExportMode(false)
+      toast({ title: 'Error', description: 'No se pudo generar el PDF', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExport = () => {
+    if (exportFormat === 'excel') return handleExportExcel()
+    if (exportFormat === 'pdf') return handleExportPdf()
+    return handleExportImage(exportFormat)
   }
 
   const handleAddExpense = async () => {
@@ -598,24 +691,47 @@ function VentasDiaContent() {
     }
   }
 
+  // Fecha en texto plano para que quede visible en la captura exportada —
+  // el <input type="date"> se oculta durante la exportación (su valor lo
+  // dibuja el navegador con su propio widget nativo, que html2canvas no
+  // puede rasterizar).
+  const formattedDateLong = new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" ref={captureRef}>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Ventas del Día</h1>
-          <p className="text-muted-foreground">Ver, editar y cancelar ventas de mostrador por fecha</p>
+          <p className="text-muted-foreground">
+            Ver, editar y cancelar ventas de mostrador por fecha · {formattedDateLong}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto rounded-lg" />
-          <Button variant="outline" className="rounded-lg" onClick={handleExport} disabled={exporting}>
-            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Exportar Excel
-          </Button>
-        </div>
+        {!exportMode && (
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto rounded-lg" />
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as typeof exportFormat)}
+              className="rounded-lg border bg-background px-2 py-2 text-sm"
+              title="Formato de exportación"
+            >
+              <option value="excel">Excel</option>
+              <option value="pdf">PDF</option>
+              <option value="png">Imagen PNG</option>
+              <option value="jpg">Imagen JPG</option>
+            </select>
+            <Button variant="outline" className="rounded-lg" onClick={handleExport} disabled={exporting}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Exportar
+            </Button>
+          </div>
+        )}
       </div>
 
-      {selectedIds.size >= 2 && (
+      {!exportMode && selectedIds.size >= 2 && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4">
           <span className="text-sm font-medium">{selectedIds.size} ventas seleccionadas</span>
           <select
@@ -702,14 +818,20 @@ function VentasDiaContent() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="w-8 px-3 py-2"></th>
+                      {/* Checkbox y Acciones se ocultan durante la exportación: no
+                          aportan nada en una imagen/PDF que se comparte, y esa
+                          columna ya se ve cortada por el scroll horizontal de la
+                          tabla (overflow-x-auto) al capturar el ancho fijo del
+                          contenedor — ocultarla evita el recorte/superposición
+                          visual en el archivo exportado. */}
+                      <th className={exportMode ? 'hidden' : 'w-8 px-3 py-2'}></th>
                       <th className="px-3 py-2 text-left text-muted-foreground">Producto</th>
                       {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">Costo</th>}
                       <th className="px-3 py-2 text-right text-muted-foreground">Precio Venta</th>
                       <th className="px-3 py-2 text-left text-muted-foreground">Método de Pago</th>
                       {canViewProfit && <th className="px-3 py-2 text-right text-muted-foreground">G. Neta</th>}
                       <th className="px-3 py-2 text-left text-muted-foreground">Factura</th>
-                      <th className="px-3 py-2 text-center text-muted-foreground">Acciones</th>
+                      <th className={exportMode ? 'hidden' : 'px-3 py-2 text-center text-muted-foreground'}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -717,7 +839,7 @@ function VentasDiaContent() {
                       const gananciaNeta = item.total_cents - item.qty * (item.cost_cents || 0)
                       return (
                         <tr key={item.id} className="border-b last:border-0">
-                          <td className="px-3 py-2">
+                          <td className={exportMode ? 'hidden' : 'px-3 py-2'}>
                             <input
                               type="checkbox"
                               checked={selectedIds.has(sale.id)}
@@ -746,7 +868,7 @@ function VentasDiaContent() {
                               {formatBogotaTime(sale.created_at)}
                             </p>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className={exportMode ? 'hidden' : 'px-3 py-2'}>
                             <div className="flex items-center justify-center gap-1">
                               <Button
                                 variant="ghost" size="icon" className="h-7 w-7"
