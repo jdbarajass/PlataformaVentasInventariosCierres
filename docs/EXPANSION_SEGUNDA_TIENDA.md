@@ -2,8 +2,15 @@
 
 > **Este documento es el estado vivo de este proyecto.** Si retomas este trabajo en una sesión nueva, léelo completo antes de tocar código.
 
-**Última actualización**: 2026-09-10 (entrada 5)
-**Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones aplicadas, Vercel propio (`ybmotocom-web.vercel.app`) conectado y con auto-deploy en cada push a `main`, usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. El modelo de "franquicia" (Fase 3, sección 5) ya tiene dos casos reales probados con éxito (secciones 7 y 8) — cherry-pick sin conflictos en ambos.
+**Última actualización**: 2026-09-14 (entrada 6)
+**Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones aplicadas, Vercel propio (`ybmotocom-web.vercel.app`) conectado y con auto-deploy en cada push a `main`, usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. El modelo de "franquicia" (Fase 3, sección 5) ya tiene tres casos reales probados con éxito (secciones 7, 8 y 9) — cherry-pick sin conflictos en los tres.
+
+## 9. Tercer precedente de sincronización: fix del bug de sesión + cierre automático de otras sesiones (2026-09-14)
+
+Corrección de un bug de autenticación que afecta a toda la app (no una página puntual) — detalle completo del diagnóstico en `docs/UNIFICACION_YJBMOTOCOM.md` sección 82: `auth-context.tsx` podía dejar una sesión a medias (sin `access_token`) cuando `getSession()` se colgaba, rompiendo en silencio la carga de datos de las ~50 páginas del admin. Se corrigió para que nunca quede una sesión incompleta (o es válida, o se trata como sesión nula) y se agregó, a pedido del usuario, el cierre automático de cualquier otra sesión de la misma cuenta al iniciar sesión (`signOut({ scope: 'others' })`), con un aviso de una sola vez en `/admin`.
+
+- **Código sincronizado (2026-09-14)**: los commits `0fc53e3` y `68fd2c6` de este repo se llevaron con `git cherry-pick` al repo de YBMOTOCOM (`C:\Users\JJBarajas\Pictures\YOJAN` → `8ae8024`/`6fee352`) — sin conflictos. Verificado `tsc` limpio en la copia de YBMOTOCOM antes de pushear. No aplica ninguna migración de base de datos (cambio 100% de autenticación/frontend, `auth-context.tsx` no depende de ninguna tabla nueva).
+- Probado de punta a punta en el navegador (login real, toast del aviso visible, Dashboard y Ventas del Día cargando datos) antes de sincronizar — no solo `tsc`/`eslint`/tests, siguiendo la lección de la sección 21/sección 6 de este documento sobre probar contra el navegador real.
 
 ## 8. Segundo precedente de sincronización: exportar Ventas del Día a PDF/PNG/JPG (2026-09-10)
 
