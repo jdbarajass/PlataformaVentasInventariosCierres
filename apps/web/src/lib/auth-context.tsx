@@ -42,32 +42,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // @supabase/auth-helpers-nextjs (deprecada) con el lock interno de
     // refresco de sesión entre pestañas — dejando el spinner de /admin
     // girando para siempre sin ninguna forma de recuperarse. Se envuelve en
-    // una carrera con timeout (mismo patrón ya usado en mi-cuenta/page.tsx)
-    // y, si se agota, se intenta getUser() como respaldo — hace una
-    // llamada de red nueva e independiente que no depende del mismo lock.
+    // una carrera con timeout (mismo patrón ya usado en mi-cuenta/page.tsx).
+    //
+    // Bug real encontrado (2026-09-14): el respaldo anterior, si getSession()
+    // se agotaba, reintentaba con getUser() y armaba una `session` falsa
+    // (`{ user } as any`) SIN `access_token`. Esa sesión a medias pasaba el
+    // check `if (!loading && !user)` del layout de /admin (user sí existía),
+    // así que el panel se veía normal, pero las ~50 páginas que usan
+    // `session?.access_token` para autenticar sus fetch a la API se quedaban
+    // en silencio con `if (!session?.access_token) return` — ninguna mostraba
+    // dato ni error, como si la tienda estuviera vacía. Y como esa sesión
+    // falsa no vuelve a cambiar sola (nada dispara un nuevo intento), el
+    // usuario quedaba así hasta recargar y tener suerte en el próximo intento
+    // — de ahí el patrón "a veces carga, a veces no" reportado.
+    //
+    // Corrección: en vez de fabricar una sesión incompleta, se reintenta
+    // getSession() una vez más (los locks de este bug suelen liberarse en
+    // segundos) y, si vuelve a fallar, se resuelve como "sin sesión" (null)
+    // — nunca una sesión a medias. Con `session=null`, el layout de /admin
+    // redirige limpiamente a /iniciar-sesion en vez de mostrar un panel
+    // completo con todo vacío sin explicación.
     let cancelled = false
 
-    const resolveSession = async () => {
+    const getSessionWithTimeout = async (ms: number) => {
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('getSession timeout')), 8000)
+        setTimeout(() => reject(new Error('getSession timeout')), ms)
       )
+      const { data: { session }, error } = await Promise.race([supabase.auth.getSession(), timeout])
+      if (error) throw error
+      return session
+    }
+
+    const resolveSession = async () => {
       try {
-        const { data: { session }, error } = await Promise.race([supabase.auth.getSession(), timeout])
-        if (error) {
-          console.error('Error getting session:', error)
-        }
-        return session
-      } catch (raceError) {
-        console.error('getSession colgada o falló, reintentando con getUser():', raceError)
+        return await getSessionWithTimeout(8000)
+      } catch (firstError) {
+        console.error('getSession() colgada o falló, reintentando una vez:', firstError)
         try {
-          const { data: { user: fallbackUser }, error: userError } = await supabase.auth.getUser()
-          if (userError || !fallbackUser) return null
-          // getUser() no devuelve el objeto Session completo, pero alcanza
-          // con user para desbloquear la UI — session se completará sola
-          // vía onAuthStateChange si el cliente logra recuperarse después.
-          return { user: fallbackUser } as any
-        } catch (fallbackError) {
-          console.error('Fallback getUser() también falló:', fallbackError)
+          return await getSessionWithTimeout(4000)
+        } catch (secondError) {
+          console.error('getSession() volvió a fallar — se trata como sesión no disponible:', secondError)
           return null
         }
       }
