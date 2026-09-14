@@ -41,6 +41,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/use-toast'
 import { SessionAlerts } from '@/components/admin/session-alerts'
 import { BRAND } from '@/config/brand'
 
@@ -145,6 +146,37 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const { user, userProfile, loading, signOut } = useAuth()
+  const { toast } = useToast()
+
+  // Aviso de una sola vez tras iniciar sesión: la bandera la deja
+  // iniciar-sesion/page.tsx justo después de pedir el cierre de cualquier
+  // otra sesión abierta de esta cuenta (scope: 'others'). Se lee y se borra
+  // aquí para que no vuelva a aparecer en la siguiente navegación/recarga.
+  //
+  // El setTimeout (no un toast() directo) es necesario: en la carga inicial
+  // de /admin, este efecto corre ANTES de que <Toaster/> (montado más abajo
+  // en el layout raíz) alcance a suscribirse — llamar toast() en ese
+  // instante actualiza el estado interno de use-toast.ts pero <Toaster/>
+  // todavía no está escuchando, así que el aviso nunca llega a pintarse.
+  // Con un pequeño retraso, ya montó y sí lo recibe.
+  useEffect(() => {
+    let flagFound = false
+    try {
+      flagFound = !!sessionStorage.getItem('yjb_other_sessions_closed')
+      if (flagFound) sessionStorage.removeItem('yjb_other_sessions_closed')
+    } catch {
+      // sessionStorage deshabilitado — no es crítico, se omite el aviso.
+    }
+    if (!flagFound) return
+    const timer = setTimeout(() => {
+      toast({
+        title: 'Sesión iniciada',
+        description: 'Si esta cuenta estaba abierta en otro dispositivo, esa sesión se cerró automáticamente.',
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Colapsar el sidebar para dar más espacio al contenido — preferencia
   // persistida en localStorage, pedida explícitamente por el usuario.

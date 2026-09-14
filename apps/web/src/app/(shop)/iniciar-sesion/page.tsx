@@ -36,6 +36,22 @@ function IniciarSesionForm() {
       }
 
       if (data.session) {
+        // Cierra cualquier otra sesión abierta de esta cuenta (otro
+        // dispositivo/navegador) para que solo quede activa esta — evita que
+        // dos sesiones vivas al mismo tiempo generen datos desincronizados
+        // (decisión del usuario, 2026-09-14: automático, sin preguntar).
+        // Fire-and-forget: no bloquea el login si falla o tarda, y no le
+        // afecta a la sesión que se acaba de crear (`scope: 'others'` nunca
+        // cierra la propia). El aviso se muestra una vez del lado de /admin
+        // (ver SessionAlerts / admin/layout.tsx) leyendo esta bandera.
+        supabase.auth.signOut({ scope: 'others' }).catch(() => {})
+        try {
+          sessionStorage.setItem('yjb_other_sessions_closed', '1')
+        } catch {
+          // localStorage/sessionStorage deshabilitado (modo incógnito
+          // estricto, etc.) — no es crítico, simplemente no se mostrará el aviso.
+        }
+
         if (redirectTo) {
           window.location.href = redirectTo
           return
