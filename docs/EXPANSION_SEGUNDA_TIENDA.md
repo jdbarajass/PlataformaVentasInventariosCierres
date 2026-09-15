@@ -2,10 +2,36 @@
 
 > **Este documento es el estado vivo de este proyecto.** Si retomas este trabajo en una sesión nueva, léelo completo antes de tocar código.
 
-**Última actualización**: 2026-09-14 (entrada 7)
-**Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones aplicadas, Vercel propio (`ybmotocom-web.vercel.app`) conectado y con auto-deploy en cada push a `main`, usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. El modelo de "franquicia" (Fase 3, sección 5) ya tiene cuatro casos reales probados con éxito (secciones 7, 8, 9 y 10) — cherry-pick sin conflictos en tres de los cuatro (el de la sección 10 tuvo un conflicto esperado y fácil de resolver, ver ahí).
+**Última actualización**: 2026-09-15 (entrada 8)
+**Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones + la 00055 ya aplicadas, Vercel propio (`ybmotocom-web.vercel.app`), usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. El modelo de "franquicia" (Fase 3, sección 5) ya tiene cinco casos reales probados con éxito (secciones 7, 8, 9, 10 y 11) — cherry-pick sin conflictos en cuatro de los cinco.
 
-**Pendiente urgente de acción del usuario**: la migración `00055_card_pending_releases.sql` (sección 10) ya se llevó al código de YBMOTOCOM y está pusheada, pero **las migraciones de Supabase son independientes por tienda** — hay que correrla también en el Supabase propio de YBMOTOCOM. Hasta que eso pase, cualquier venta por Datáfono en YBMOTOCOM fallará (la función `create_pos_sale` ahora referencia una tabla `card_pending_releases` que en esa base todavía no existe).
+**Corrección importante (2026-09-15, ver sección 11)**: el auto-deploy de YBMOTOCOM **no estaba funcionando desde el 2026-09-04** — todo lo de las secciones 8, 9 y 10 se pusheó a GitHub pero nunca llegó realmente a producción hasta que se diagnosticó y corrigió esto. Ya está resuelto; detalle completo abajo.
+
+## 11. Bug real de infraestructura: los deploys de YBMOTOCOM quedaban "Blocked" en Vercel desde hace más de una semana (2026-09-15)
+
+El usuario pidió, para probar que el auto-deploy seguía funcionando, un commit vacío en YBMOTOCOM. Al revisar Vercel, resultó que **cada deployment desde el commit `3d8112e` (2026-09-04) aparecía como "Blocked"** — ninguno de los cambios de las secciones 8, 9 y 10 (exportar Ventas del Día, fix de sesión + cierre de otras sesiones, desembolso de Datáfono) había llegado nunca a producción real, aunque sí estaban en GitHub.
+
+**Diagnóstico** (abriendo el detalle de un deployment bloqueado en Vercel, que muestra el motivo exacto): *"The deployment was blocked because the commit author did not have contributing access to the project on Vercel. The Hobby Plan does not support collaboration for private repositories."* El equipo de Vercel `ybmotocom` pertenece a la cuenta `ybmotocom.cc.megacentro@gmail.com`; `jdbarajass` solo es colaborador del **repositorio de GitHub** (necesario para poder pushear desde su máquina, ver sección 4.4), nunca miembro del **equipo de Vercel**. El plan Hobby no permite colaboradores externos en el equipo, así que cualquier commit autorado por `jdbarajass` queda bloqueado, sin importar cómo se dispare el deploy.
+
+**Se probaron y descartaron, en orden** (cada una parecía razonable pero no era la causa):
+1. Quitar el trailer `Co-Authored-By: Claude Sonnet 5` del commit — mismo bloqueo con un commit de un solo autor.
+2. Redeploy manual desde el dashboard de Vercel — mismo bloqueo, mismo mensaje exacto.
+3. Crear un Deploy Hook y dispararlo — mismo bloqueo (el hook hereda el estado del commit en la punta de `main`, no lo esquiva).
+
+**La solución real**: configurar `git config --local` **solo en la copia local de YBMOTOCOM** (`C:\Users\JJBarajas\Pictures\YOJAN`) con la identidad de la cuenta dueña del equipo de Vercel:
+```
+git config --local user.name "YBMOTOCOM"
+git config --local user.email "ybmotocom.cc.megacentro@gmail.com"
+```
+No hace falta iniciar sesión en GitHub como esa cuenta ni su contraseña — GitHub vincula la autoría de un commit por el correo que trae (contra los correos verificados de las cuentas), no por qué credenciales hicieron el `git push`. Esto no afecta en nada al repo de YJBMOTOCOM (que sigue con la config global normal de `jdbarajass` — ahí nunca hubo este problema porque ahí `jdbarajass` sí es el dueño del equipo de Vercel).
+
+Se verificó con un commit de prueba (`6aead47`) que sí pasa a "Ready", y como Git es acumulativo, ese único deploy trajo de una vez todo lo acumulado de las secciones 8, 9 y 10 — confirmado por el usuario entrando al `/admin` del deployment nuevo y viendo el Dashboard cargar con normalidad, con Yojan Barajas logueado.
+
+**Detalle completo y regla para commits futuros** (no usar el trailer `Co-Authored-By` en este repo, por qué, y qué hacer si se re-clona el repo alguna vez) documentado en `docs/DESPLIEGUE_VERCEL.md` **dentro del propio repo de YBMOTOCOM** (no en este, porque una sesión que abra directamente esa carpeta necesita verlo ahí, no aquí).
+
+**Arreglo de fondo, si se quiere** (no aplicado, decisión pendiente del usuario): subir el proyecto de Vercel de YBMOTOCOM a plan Pro (~$20/mes) e invitar a `jdbarajass` como miembro real del equipo — con eso el bloqueo desaparece sin importar qué cuenta aparezca como autora, y ya no haría falta el truco de `git config --local`.
+
+**Hallazgo aparte, no corregido**: el workflow `.github/workflows/ci.yml` manda un correo de "Run failed" en cada push porque el job de E2E Tests (`e2e/admin.spec.ts`) siempre falla — esas pruebas visitan `/admin` sin iniciar sesión primero, y el panel redirige a login (comportamiento correcto, no un bug). Es independiente del bloqueo de arriba (se confirmó que el paso "Deploy to Vercel" de ese mismo workflow es un mecanismo aparte del que realmente actualiza el sitio — la integración nativa Git↔Vercel). El mismo archivo de pruebas está igual de roto en YJBMOTOCOM. No se corrigió (fuera del alcance de lo pedido en esta sesión).
 
 ## 10. Cuarto precedente de sincronización: desembolso real de Datáfono al siguiente día hábil colombiano (2026-09-14)
 
