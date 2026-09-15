@@ -75,6 +75,7 @@ const movementTypeLabels: Record<string, string> = {
   sale_reversal: 'Reversión de venta',
   sistecredito_release: 'Liberación SisteCrédito',
   card_release: 'Desembolso Datáfono',
+  addi_release: 'Desembolso Addi',
 }
 
 const monthNames = [
@@ -118,6 +119,20 @@ export default function CuentasPage() {
     released_at: string | null
   }[]>([])
   const cardPending = cardReleases.filter((p) => !p.released_at)
+  // Ventas por Addi (plan de 7 días) ya registradas pero todavía no
+  // desembolsadas al saldo real (ver migración 00056) -- paga 7 días de
+  // calendario después de la venta (9 si la venta fue sábado/domingo),
+  // sin margen. Se liberan solas vía cron a las 4pm hora Bogotá.
+  const [addiReleases, setAddiReleases] = useState<{
+    id: string
+    account_id: string
+    order_id: string | null
+    amount_cents: number
+    sale_date: string
+    release_date: string
+    released_at: string | null
+  }[]>([])
+  const addiPending = addiReleases.filter((p) => !p.released_at)
   const [loading, setLoading] = useState(true)
   // Margen real de SisteCrédito (ver Configuración POS): la venta se
   // registra por el valor base, pero SisteCrédito paga base+margen (nos
@@ -262,17 +277,29 @@ export default function CuentasPage() {
     }
   }, [session?.access_token, authHeaders, canView])
 
+  const fetchAddiPending = useCallback(async () => {
+    if (!session?.access_token || !canView) return
+    try {
+      const res = await fetch('/api/addi/pending-releases', { headers: authHeaders() })
+      if (!res.ok) throw new Error('Error fetching addi pending releases')
+      const { data } = await res.json()
+      setAddiReleases(data || [])
+    } catch (error) {
+      console.error('Error fetching addi pending releases:', error)
+    }
+  }, [session?.access_token, authHeaders, canView])
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       await Promise.all([
         fetchAccounts(), fetchMovements(), fetchClosures(), fetchReceivables(),
-        fetchSistecreditoMargin(), fetchSistecreditoPending(), fetchCardPending(),
+        fetchSistecreditoMargin(), fetchSistecreditoPending(), fetchCardPending(), fetchAddiPending(),
       ])
       setLoading(false)
     }
     load()
-  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables, fetchSistecreditoMargin, fetchSistecreditoPending, fetchCardPending])
+  }, [fetchAccounts, fetchMovements, fetchClosures, fetchReceivables, fetchSistecreditoMargin, fetchSistecreditoPending, fetchCardPending, fetchAddiPending])
 
   // El "valor esperado" real de una cuenta por cobrar: para SisteCrédito,
   // lo que en verdad va a llegar es el valor base + el margen configurado
@@ -318,6 +345,7 @@ export default function CuentasPage() {
     (sum, p) => sum + Math.round(p.base_amount_cents * (1 + p.margin_pct / 100)),
     0
   ) + cardPending.reduce((sum, p) => sum + p.amount_cents, 0)
+    + addiPending.reduce((sum, p) => sum + p.amount_cents, 0)
 
   const handleManualAdjustment = async () => {
     if (!session?.access_token || !adjustAccount || !adjustAmount) return
@@ -575,6 +603,18 @@ export default function CuentasPage() {
                   ).sort(([a], [b]) => (a < b ? -1 : 1))
                   const cardPendingTotalCents = accountCardPending.reduce((sum, p) => sum + p.amount_cents, 0)
 
+                  // Igual que Datáfono, pero para Addi (plan de 7 días) —
+                  // agrupado por fecha de pago para no repetir una línea
+                  // por cada venta del mismo día.
+                  const accountAddiPending = addiPending.filter((p) => p.account_id === account.id)
+                  const addiPendingByDate = Object.entries(
+                    accountAddiPending.reduce<Record<string, number>>((acc, p) => {
+                      acc[p.release_date] = (acc[p.release_date] || 0) + p.amount_cents
+                      return acc
+                    }, {})
+                  ).sort(([a], [b]) => (a < b ? -1 : 1))
+                  const addiPendingTotalCents = accountAddiPending.reduce((sum, p) => sum + p.amount_cents, 0)
+
                   return (
                     <div key={account.id} className="rounded-xl border bg-card p-4">
                       <div className="flex items-center gap-2">
@@ -607,6 +647,16 @@ export default function CuentasPage() {
                       {cardPendingTotalCents > 0 && (
                         <p className="mt-1 text-xs text-muted-foreground">
                           → total esperado {formatPrice(account.balance_cents + cardPendingTotalCents)}
+                        </p>
+                      )}
+                      {addiPendingByDate.map(([releaseDate, cents]) => (
+                        <p key={releaseDate} className="mt-1 text-xs text-blue-600">
+                          + {formatPrice(cents)} pendiente de desembolso (Addi) — llega el {formatDebtDate(releaseDate)}
+                        </p>
+                      ))}
+                      {addiPendingTotalCents > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          → total esperado {formatPrice(account.balance_cents + addiPendingTotalCents)}
                         </p>
                       )}
                     </div>
