@@ -109,6 +109,15 @@ const methodLabels: Record<Method, string> = {
   other: 'Otro',
 }
 
+// Atajos para ítems fuera de catálogo que se repiten seguido (servicios,
+// no productos de inventario — ej. lavado de cascos) — evita escribir el
+// mismo nombre/precio/costo a mano en cada venta. Si con el tiempo se
+// necesitan varios más y da pereza tocar código cada vez, vale la pena
+// moverlos a Configuración POS; por ahora es solo este uno.
+const MANUAL_ITEM_PRESETS = [
+  { label: 'Servicio lavado de casco', title: 'Servicio lavado de casco', price: '30000', cost: '6000' },
+]
+
 const methodIcons: Record<Method, React.ComponentType<{ className?: string }>> = {
   cash: Banknote,
   card: CreditCard,
@@ -863,6 +872,24 @@ export default function VentasPage() {
             {showManualForm ? (
               <div className="space-y-2 rounded-xl border bg-card p-3">
                 <p className="text-xs font-medium text-muted-foreground">Producto fuera de catálogo</p>
+                <div className="flex flex-wrap gap-2">
+                  {MANUAL_ITEM_PRESETS.map((preset) => (
+                    <Button
+                      key={preset.label}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => {
+                        setManualTitle(preset.title)
+                        setManualPrice(preset.price)
+                        setManualCost(preset.cost)
+                      }}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <Input
                     placeholder="Nombre del producto"
