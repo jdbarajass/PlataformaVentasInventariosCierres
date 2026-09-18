@@ -727,7 +727,7 @@ export default function CuentasPage() {
                               setAccountNotesDrafts((prev) => ({ ...prev, [account.id]: e.target.value }))
                             }
                             onBlur={() => handleSaveNotes(account.id)}
-                            placeholder="Ej: 700 mil de esto están en Nu, 300 mil en Nequi..."
+                            placeholder="Nota:"
                             className="mt-1 min-h-[52px] rounded-lg text-xs"
                           />
                           {savingNotesFor === account.id && (
