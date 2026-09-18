@@ -13,6 +13,10 @@ const accountUpdateSchema = z.object({
   color: z.string().optional().nullable(),
   active: z.boolean().optional(),
   sort_order: z.number().int().optional(),
+  // Observación libre (ej. "700 mil están en Nu, 300 mil en Nequi") para
+  // dejar constancia de movimientos de plata entre cuentas que no pasan
+  // por el saldo real -- ver migración 00058.
+  notes: z.string().max(2000).optional().nullable(),
 })
 
 // PUT - Actualizar datos de una cuenta (nunca el saldo directamente)

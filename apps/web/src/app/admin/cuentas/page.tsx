@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
@@ -33,6 +34,7 @@ interface Account {
   color: string | null
   active: boolean
   sort_order: number
+  notes: string | null
 }
 
 interface AccountMovement {
@@ -146,6 +148,13 @@ export default function CuentasPage() {
   const [expandedReceivableAccount, setExpandedReceivableAccount] = useState<string | null>(null)
   const [newReceivable, setNewReceivable] = useState({ debtor_name: '', amount: '', debt_date: '', notes: '' })
   const [savingReceivable, setSavingReceivable] = useState(false)
+
+  // Notas/observaciones por cuenta (ej. "de esto, 700 mil en verdad están
+  // en Nu"): 100% informativo, no toca balance_cents ni movimientos -- ver
+  // migración 00058. Se guarda un borrador local por cuenta para no perder
+  // lo que el admin está escribiendo cada vez que se refresca `accounts`.
+  const [accountNotesDrafts, setAccountNotesDrafts] = useState<Record<string, string>>({})
+  const [savingNotesFor, setSavingNotesFor] = useState<string | null>(null)
 
   // Filtros de la pestaña Movimientos (la API ya los soportaba, faltaba el
   // control en la UI — ver docs/UNIFICACION_YJBMOTOCOM.md sección 13.4, ítem 4.4.8).
@@ -335,6 +344,47 @@ export default function CuentasPage() {
     new Date(dateString + 'T00:00:00').toLocaleDateString('es-CO', {
       year: 'numeric', month: 'short', day: 'numeric',
     })
+
+  // Solo inicializa el borrador la primera vez que llega cada cuenta -- así
+  // un refetch de `accounts` (tras un ajuste, transferencia, etc.) no pisa
+  // lo que el admin esté escribiendo en otra tarjeta.
+  useEffect(() => {
+    setAccountNotesDrafts((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const a of accounts) {
+        if (!(a.id in next)) {
+          next[a.id] = a.notes || ''
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [accounts])
+
+  const handleSaveNotes = async (accountId: string) => {
+    if (!session?.access_token) return
+    const account = accountById(accountId)
+    const value = accountNotesDrafts[accountId] ?? ''
+    if ((account?.notes || '') === value) return
+    try {
+      setSavingNotesFor(accountId)
+      const res = await fetch(`/api/accounts/${accountId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ notes: value || null }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al guardar la nota')
+      }
+      await fetchAccounts()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingNotesFor(null)
+    }
+  }
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance_cents, 0)
   const accountById = (id: string) => accounts.find((a) => a.id === id)
@@ -659,6 +709,37 @@ export default function CuentasPage() {
                           → total esperado {formatPrice(account.balance_cents + addiPendingTotalCents)}
                         </p>
                       )}
+
+                      {/* Nota/observación libre -- ej. "700 mil de esto en
+                          verdad están en Nu, 300 mil en Nequi" cuando hubo
+                          un movimiento de plata entre cuentas que no se
+                          registró aquí para no descuadrar el Excel de
+                          control. Editable solo para admin; admin_readonly
+                          la ve pero no la puede tocar. */}
+                      {isAdmin ? (
+                        <div className="mt-3 border-t pt-3">
+                          <label className="text-xs text-muted-foreground">
+                            Notas / observaciones
+                          </label>
+                          <Textarea
+                            value={accountNotesDrafts[account.id] ?? ''}
+                            onChange={(e) =>
+                              setAccountNotesDrafts((prev) => ({ ...prev, [account.id]: e.target.value }))
+                            }
+                            onBlur={() => handleSaveNotes(account.id)}
+                            placeholder="Ej: 700 mil de esto están en Nu, 300 mil en Nequi..."
+                            className="mt-1 min-h-[52px] rounded-lg text-xs"
+                          />
+                          {savingNotesFor === account.id && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">Guardando...</p>
+                          )}
+                        </div>
+                      ) : account.notes ? (
+                        <div className="mt-3 border-t pt-3">
+                          <p className="text-xs text-muted-foreground">Notas / observaciones</p>
+                          <p className="mt-1 whitespace-pre-wrap text-xs">{account.notes}</p>
+                        </div>
+                      ) : null}
                     </div>
                   )
                 })}

@@ -43,10 +43,13 @@ export async function GET(request: NextRequest) {
     // 'admin' literal, así que este rol perdía balance_cents igual que
     // 'seller' (para quien sí es intencional ocultarlo, ver comentario
     // arriba) y el módulo Cuentas quedaba con "$ NaN" en todos los saldos.
+    // `notes` es la misma información sensible que balance_cents (cómo
+    // está distribuida en verdad la plata entre cuentas) -- se oculta
+    // igual para 'seller', ver migración 00058.
     const canSeeBalance = auth.user.role === 'admin' || auth.user.role === 'admin_readonly'
     const sanitized = canSeeBalance
       ? data
-      : (data || []).map(({ balance_cents, ...rest }: any) => rest)
+      : (data || []).map(({ balance_cents, notes, ...rest }: any) => rest)
 
     return NextResponse.json({ data: sanitized })
   } catch (error) {
