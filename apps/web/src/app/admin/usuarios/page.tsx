@@ -292,8 +292,8 @@ export default function UsuariosPage() {
           <h2 className="mb-4 text-lg font-semibold">Crear usuario</h2>
           <div className="grid gap-3 sm:grid-cols-3">
             <Input placeholder="Nombre" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="rounded-lg" />
-            <Input type="email" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="rounded-lg" />
-            <Input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="rounded-lg" />
+            <Input type="email" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="rounded-lg" autoComplete="off" name="new-user-email" />
+            <Input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="rounded-lg" autoComplete="new-password" name="new-user-password" />
             <Input placeholder="Teléfono (opcional)" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} className="rounded-lg" />
             <select
               value={createForm.role}
@@ -349,10 +349,13 @@ export default function UsuariosPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            type="search"
             placeholder="Buscar por nombre o email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="rounded-xl pl-10"
+            autoComplete="off"
+            name="users-table-search"
           />
         </div>
         <div className="flex gap-2">
@@ -502,6 +505,8 @@ export default function UsuariosPage() {
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 className="h-8 w-40 rounded-lg text-xs"
+                                autoComplete="new-password"
+                                name={`new-password-${user.id}`}
                               />
                               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleResetPassword(user.id)} disabled={savingReset}>
                                 {savingReset ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-500" />}

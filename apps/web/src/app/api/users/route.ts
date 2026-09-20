@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (role && role !== 'all') {
-      query = query.eq('role', role as 'admin' | 'seller' | 'viewer')
+      query = query.eq('role', role as 'admin' | 'admin_readonly' | 'seller' | 'viewer')
     }
 
     const { data, error } = await query
@@ -55,7 +55,7 @@ const createUserSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
   name: z.string().min(1, 'El nombre es obligatorio'),
-  role: z.enum(['admin', 'seller', 'viewer']),
+  role: z.enum(['admin', 'admin_readonly', 'seller', 'viewer']),
   phone: z.string().optional().nullable(),
 })
 
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
 const updateUserSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['admin', 'seller', 'viewer']).optional(),
+  role: z.enum(['admin', 'admin_readonly', 'seller', 'viewer']).optional(),
   name: z.string().min(1).optional(),
   phone: z.string().optional().nullable(),
   // Restablecer la contraseña de cualquier usuario — igual que "Cambiar
