@@ -29,6 +29,7 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 | Documento | Descripción | Para quién |
 |-----------|-------------|------------|
 | **[UX/guide.md](UX/guide.md)** | Guía de diseño y componentes | 🎨 Diseñadores + Frontend |
+| **[CLAUDE_SKILLS.md](CLAUDE_SKILLS.md)** | Skills de Claude Code y MCP servers instalados (diseño/UX), y su dependencia de red/GitHub | 👨‍💻 Desarrolladores usando Claude Code |
 
 ### 📦 Otros Recursos
 
