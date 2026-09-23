@@ -2,6 +2,8 @@
 
 Instalados el 2026-09-23 para mejorar el trabajo de frontend/UX. Viven en `.claude/skills/` (fijados en `skills-lock.json`, reinstalables con `npx skills@latest add <repo> --skill <nombre> -a claude-code -y`) y en `.mcp.json`.
 
+> El checklist de qué hacer al abrir este proyecto en una máquina nueva (aprobar MCP, `API_KEY_21ST`, precalentar `impeccable`) está en `CLAUDE.md` en la raíz — Claude Code lo lee solo al iniciar sesión ahí, no hace falta pedirlo de nuevo.
+
 ## Skills de diseño
 
 | Skill | Repo | Para qué sirve |
