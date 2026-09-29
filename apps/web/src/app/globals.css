@@ -391,6 +391,50 @@
 }
 
 /* ═══════════════════════════════════════
+   CELULAR / PANTALLAS TÁCTILES
+   Ver docs/MOVIL_PANEL_ADMIN.md (Fase 1). Nada de esto cambia el
+   escritorio: todo va detrás de un media query de ancho o de puntero.
+═══════════════════════════════════════ */
+
+/* Sin retardo de doble toque (zoom) al tocar controles */
+a, button, input, select, textarea, label, summary, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Resaltado de toque discreto en vez del recuadro azul/gris del navegador */
+* {
+  -webkit-tap-highlight-color: rgb(127 127 127 / 0.12);
+}
+
+/* En celular los campos deben medir >= 16px: por debajo, iOS Safari hace
+   zoom automático al enfocar y el vendedor tiene que alejar la página a
+   mano. Especificidad (elemento + atributos) > utilidades text-xs/text-sm
+   de Tailwind, sin !important (el :not() de select/textarea solo existe
+   para subirles la especificidad). Checkbox/radio/range no llevan texto. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select:not([data-keep-font]),
+  textarea:not([data-keep-font]) {
+    font-size: 16px;
+  }
+}
+
+/* Pantallas táctiles: los botones de solo ícono llegan a 44px, el tamaño
+   mínimo recomendado para el dedo (editar, eliminar, cerrar, +/-...).
+   Ocupan ese espacio de verdad (min-width/height) para que dos vecinos
+   nunca se superpongan. Se identifican por tener nombre accesible
+   (aria-label/title) o el tamaño "icon" de shadcn (h-10 w-10) — con
+   :only-child solo no basta, porque el texto de un botón "ícono + texto"
+   no cuenta como hijo. Se excluyen los posicionados dentro de un campo
+   (.absolute: ojo de contraseña, limpiar búsqueda) y los ocultos. */
+@media (pointer: coarse) {
+  :is(button[aria-label], button[title], button.h-10.w-10):has(> svg:only-child):not(.absolute, [class*="hidden"]) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ═══════════════════════════════════════
    SCROLLBAR
 ═══════════════════════════════════════ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

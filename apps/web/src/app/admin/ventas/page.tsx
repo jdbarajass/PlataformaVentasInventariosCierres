@@ -816,7 +816,7 @@ export default function VentasPage() {
             )}
             {sessions.length > 1 && (
               <X
-                className="h-3 w-3 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100"
+                className="h-3 w-3 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation()
                   closeSessionTab(s.id)

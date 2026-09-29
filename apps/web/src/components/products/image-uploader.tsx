@@ -64,7 +64,7 @@ function ImagePreview({
         type="button"
         onClick={onRemove}
         className={`absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground transition-opacity hover:bg-destructive/90 ${
-          isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100'
         }`}
       >
         <X className="h-4 w-4" />

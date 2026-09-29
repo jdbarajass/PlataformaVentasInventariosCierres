@@ -388,7 +388,7 @@ export default function ProductsPage() {
                           </Badge>
                         </td>
                         <td className="py-4">
-                          <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100">
                             <Button
                               variant="ghost"
                               size="icon"

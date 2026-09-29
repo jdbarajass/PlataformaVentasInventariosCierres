@@ -2,6 +2,12 @@ import type { Config } from 'tailwindcss'
 
 const config: Config = {
   darkMode: ['class'],
+  // hover: solo donde hay mouse — en celular el efecto quedaba "pegado"
+  // tras tocar (tarjetas elevadas, fondos resaltados). Escritorio igual.
+  // Ver docs/MOVIL_PANEL_ADMIN.md (Fase 1).
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',

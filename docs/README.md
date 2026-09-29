@@ -29,6 +29,7 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 | Documento | Descripción | Para quién |
 |-----------|-------------|------------|
 | **[UX/guide.md](UX/guide.md)** | Guía de diseño y componentes | 🎨 Diseñadores + Frontend |
+| **[MOVIL_PANEL_ADMIN.md](MOVIL_PANEL_ADMIN.md)** | Plan por fases y bitácora de la adaptación del panel admin a celular (vendedores lo usan como respaldo) | 👨‍💻 Frontend |
 | **[CLAUDE_SKILLS.md](CLAUDE_SKILLS.md)** | Skills de Claude Code y MCP servers instalados (diseño/UX), y su dependencia de red/GitHub | 👨‍💻 Desarrolladores usando Claude Code |
 
 ### 📦 Otros Recursos
