@@ -37,6 +37,7 @@ import {
   Menu,
   Layers,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -192,7 +193,61 @@ export default function AdminLayout({
     })
   }
 
+  // Celular/tablet (< lg): el sidebar es un cajón que se abre con el botón de
+  // la barra superior. En escritorio (>= lg) no existe este estado: el
+  // sidebar es fijo como siempre y manda `collapsed`. Ver
+  // docs/MOVIL_PANEL_ADMIN.md (Fase 2).
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(true)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const sync = () => {
+      setIsDesktop(mq.matches)
+      if (mq.matches) setMobileOpen(false)
+    }
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  // Al navegar, el cajón se cierra solo (el vendedor tocó una opción).
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  // Cajón abierto: Escape lo cierra y el fondo no se desplaza detrás.
+  useEffect(() => {
+    if (!mobileOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false)
+    }
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [mobileOpen])
+
+  // En el cajón móvil el menú siempre va completo (con textos): el modo
+  // "solo íconos" es una preferencia de escritorio.
+  const showCollapsed = collapsed && isDesktop
+
   const isActiveHref = (href: string) => (href === '/admin' ? pathname === href : pathname?.startsWith(href))
+
+  // Nombre de la página actual para la barra superior móvil ("¿dónde estoy?").
+  const currentPageName = (() => {
+    for (const entry of navigation) {
+      if (isGroup(entry)) {
+        const match = entry.items.filter((it) => isActiveHref(it.href)).sort((a, b) => b.href.length - a.href.length)[0]
+        if (match) return match.name
+      } else if (isActiveHref(entry.href)) {
+        return entry.name
+      }
+    }
+    return 'Panel'
+  })()
 
   // Qué submenús están abiertos. Se abre solo (sin cerrar los demás que el
   // usuario haya abierto a mano) el grupo que contiene la página actual,
@@ -220,7 +275,7 @@ export default function AdminLayout({
   // hijos, así que un clic ahí simplemente vuelve a expandir el menú
   // completo con ese grupo ya abierto, en vez de un submenú flotante.
   const handleGroupClick = (name: string) => {
-    if (collapsed) {
+    if (showCollapsed) {
       setCollapsed(false)
       localStorage.setItem('admin_sidebar_collapsed', 'false')
       setExpandedGroups((prev) => new Set(prev).add(name))
@@ -262,28 +317,72 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
+      {/* Barra superior — solo celular/tablet (< lg) */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 border-b bg-card/95 px-2 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menú"
+          aria-expanded={mobileOpen}
+          aria-controls="admin-sidebar"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-foreground transition-colors hover:bg-secondary active:bg-secondary"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <p className="min-w-0 flex-1 truncate text-base font-semibold">{currentPageName}</p>
+        <Link href="/admin" aria-label="Ir al Dashboard" className="flex h-11 w-11 shrink-0 items-center justify-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
+            <span className="text-sm font-bold text-white">{BRAND.logoInitials}</span>
+          </div>
+        </Link>
+      </header>
+
+      {/* Fondo del cajón móvil: tocar fuera lo cierra */}
+      {mobileOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 animate-fade-in lg:hidden"
+        />
+      )}
+
+      {/* Sidebar — fijo en escritorio, cajón deslizable en celular/tablet */}
       <aside
+        id="admin-sidebar"
+        aria-label="Menú del panel"
+        // Cerrado en celular: fuera de pantalla y fuera del Tab/lector de
+        // pantalla. (App Router corre React 19: inert es booleano.)
+        inert={!isDesktop && !mobileOpen}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 border-r bg-card transition-all duration-200',
-          collapsed ? 'w-16' : 'w-64'
+          'fixed inset-y-0 left-0 z-50 w-[min(18rem,85vw)] border-r bg-card shadow-2xl transition-[transform,width] duration-300 ease-out motion-reduce:transition-none',
+          'lg:translate-x-0 lg:shadow-none lg:duration-200',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          collapsed ? 'lg:w-16' : 'lg:w-64'
         )}
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className={cn('flex h-16 items-center border-b', collapsed ? 'justify-center px-2' : 'justify-between px-4')}>
+          <div className={cn('flex h-16 items-center border-b', showCollapsed ? 'justify-center px-2' : 'justify-between px-4')}>
             <Link href="/admin" className="flex items-center gap-2 overflow-hidden">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
                 <span className="text-sm font-bold text-white">{BRAND.logoInitials}</span>
               </div>
             </Link>
-            {!collapsed && (
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={toggleCollapsed} title="Colapsar menú">
+            {!showCollapsed && (
+              <Button variant="ghost" size="icon" className="hidden h-8 w-8 shrink-0 lg:inline-flex" onClick={toggleCollapsed} title="Colapsar menú">
                 <Menu className="h-4 w-4" />
               </Button>
             )}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Cerrar menú"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:hidden"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          {collapsed && (
+          {showCollapsed && (
             <button
               onClick={toggleCollapsed}
               title="Expandir menú"
@@ -295,14 +394,14 @@ export default function AdminLayout({
 
           {/* User Info */}
           {user && (
-            <div className={cn('border-b p-4', collapsed && 'flex justify-center px-2')}>
-              <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+            <div className={cn('border-b p-4', showCollapsed && 'flex justify-center px-2')}>
+              <div className={cn('flex items-center gap-3', showCollapsed && 'justify-center')}>
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600">
                   <span className="text-sm font-bold text-white">
                     {userProfile?.name?.charAt(0) || user.email?.charAt(0) || 'U'}
                   </span>
                 </div>
-                {!collapsed && (
+                {!showCollapsed && (
                   <div className="flex-1 truncate">
                     <p className="truncate text-sm font-medium">
                       {userProfile?.name || user.email?.split('@')[0]}
@@ -327,17 +426,17 @@ export default function AdminLayout({
                   <Link
                     key={entry.name}
                     href={entry.href}
-                    title={collapsed ? entry.name : undefined}
+                    title={showCollapsed ? entry.name : undefined}
                     className={cn(
                       'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
-                      collapsed && 'justify-center px-2',
+                      showCollapsed && 'justify-center px-2',
                       isActive
                         ? 'bg-cyan-500/10 text-cyan-500'
                         : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     )}
                   >
                     <entry.icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && entry.name}
+                    {!showCollapsed && entry.name}
                   </Link>
                 )
               }
@@ -353,25 +452,25 @@ export default function AdminLayout({
                 <div key={entry.name}>
                   <button
                     type="button"
-                    title={collapsed ? entry.name : undefined}
+                    title={showCollapsed ? entry.name : undefined}
                     onClick={() => handleGroupClick(entry.name)}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors',
-                      collapsed && 'justify-center px-2',
+                      showCollapsed && 'justify-center px-2',
                       groupHasActive
                         ? 'text-cyan-500'
                         : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     )}
                   >
                     <entry.icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && (
+                    {!showCollapsed && (
                       <>
                         <span className="flex-1 text-left">{entry.name}</span>
                         <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', isOpen && 'rotate-180')} />
                       </>
                     )}
                   </button>
-                  {!collapsed && isOpen && (
+                  {!showCollapsed && isOpen && (
                     <div className="ml-4 mt-1 space-y-1 border-l pl-3">
                       {visibleItems.map((item) => {
                         const isActive = isActiveHref(item.href)
@@ -380,7 +479,7 @@ export default function AdminLayout({
                             key={item.name}
                             href={item.href}
                             className={cn(
-                              'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                              'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors lg:py-2',
                               isActive
                                 ? 'bg-cyan-500/10 text-cyan-500'
                                 : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -402,34 +501,36 @@ export default function AdminLayout({
           <div className="border-t p-4 space-y-2">
             <Link
               href="/"
-              title={collapsed ? 'Ver tienda' : undefined}
+              title={showCollapsed ? 'Ver tienda' : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
-                collapsed && 'justify-center px-2'
+                showCollapsed && 'justify-center px-2'
               )}
             >
               <Store className="h-5 w-5 shrink-0" />
-              {!collapsed && 'Ver tienda'}
+              {!showCollapsed && 'Ver tienda'}
             </Link>
             <Button
               variant="ghost"
               onClick={signOut}
-              title={collapsed ? 'Cerrar sesion' : undefined}
+              title={showCollapsed ? 'Cerrar sesion' : undefined}
               className={cn(
                 'w-full gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 hover:text-red-500',
-                collapsed ? 'justify-center px-2' : 'justify-start'
+                showCollapsed ? 'justify-center px-2' : 'justify-start'
               )}
             >
               <LogOut className="h-5 w-5 shrink-0" />
-              {!collapsed && 'Cerrar sesion'}
+              {!showCollapsed && 'Cerrar sesion'}
             </Button>
           </div>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className={cn('flex-1 transition-all duration-200', collapsed ? 'pl-16' : 'pl-64')}>
-        <div className="p-8">{children}</div>
+      {/* pt-14 en celular = alto de la barra superior fija. min-w-0: sin él,
+          una tabla ancha estira el flex item más allá de la pantalla. */}
+      <main className={cn('min-w-0 flex-1 pt-14 transition-all duration-200 lg:pt-0', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
       <SessionAlerts />
     </div>

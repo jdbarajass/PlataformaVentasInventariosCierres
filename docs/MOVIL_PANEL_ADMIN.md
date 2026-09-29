@@ -38,7 +38,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | # | Fase | Qué incluye | Estado |
 |---|------|-------------|--------|
 | 1 | Capa global táctil | `globals.css`: inputs a 16 px en < 640 px (evita el zoom de iOS), `touch-action: manipulation` (sin retardo de doble toque), resaltado de toque discreto, botones de ícono a 44 px en pantallas táctiles. `tailwind.config.ts`: `hoverOnlyWhenSupported` (el hover solo existe donde hay mouse). Sin cambios en escritorio. | ✅ Hecha |
-| 2 | Estructura del admin | Barra superior compacta con botón de menú en < 1024 px; el sidebar actual pasa a cajón lateral que se abre/cierra (se cierra al navegar); contenido con `p-4` / `sm:p-6` / `lg:p-8`. En ≥ 1024 px todo igual, incluido el colapso guardado. | Pendiente |
+| 2 | Estructura del admin | Barra superior compacta con botón de menú en < 1024 px; el sidebar actual pasa a cajón lateral que se abre/cierra (se cierra al navegar); contenido con `p-4` / `sm:p-6` / `lg:p-8`. En ≥ 1024 px todo igual, incluido el colapso guardado. | ✅ Hecha |
 | 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | Pendiente |
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | Pendiente |
 | 5 | Modales y avisos | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. | Pendiente |
@@ -71,4 +71,21 @@ Documento vivo. Leer primero si se retoma este trabajo.
 - Escritorio 1366: inputs 14/12 px y botones 32/28/40 px **sin cambio**; capturas visualmente idénticas.
 - `tsc --noEmit` OK · `next lint` sin warnings · `vitest run` 132/132 · `next build` OK.
 - Pendiente conocido (se resuelve en Fase 2): la página sigue midiendo más que la pantalla en celular (sidebar fijo), p. ej. Ventas del Día ~900–1.160 px de ancho. En esa tabla los botones de 44 px la ensanchan ~30 px más; se rehace en la Fase 4.
-- **YBMOTOCOM** (`C:\Users\JJBarajas\Pictures\YOJAN`) comparte este código base: estos cambios de frontend también le aplican y hay que replicarlos allá (sin migraciones SQL ni variables de entorno). Decisión del usuario pendiente: replicar fase por fase o todo al final.
+- **YBMOTOCOM** (`C:\Users\JJBarajas\Pictures\YOJAN`) comparte este código base: estos cambios de frontend también le aplican y hay que replicarlos allá (sin migraciones SQL ni variables de entorno). Decisión del usuario (2026-09-29): se replica **todo al final**, cuando todas las fases estén hechas y probadas.
+
+### Fase 2 — Estructura del admin (2026-09-29) — aprobada
+
+**Cambios** (solo `apps/web/src/app/admin/layout.tsx`)
+- **Barra superior fija** (`h-14`, solo `< lg`): botón "Abrir menú" (44 px), nombre de la página actual ("¿dónde estoy?", sale de la misma lista `navigation`) y logo que lleva al Dashboard.
+- **Sidebar → cajón** en `< lg`: fuera de pantalla (`-translate-x-full`) hasta que se toca el menú; ancho `min(18rem, 85vw)`; fondo oscuro que lo cierra al tocarlo; también se cierra con Escape, con la ✕ y **al navegar**. Con el cajón abierto el fondo no se desplaza. Cerrado es `inert` (fuera del Tab y del lector de pantalla).
+- En el cajón el menú va siempre completo: el modo "solo íconos" (`collapsed`, en localStorage) es una preferencia de escritorio y solo aplica en `≥ lg` (`showCollapsed = collapsed && isDesktop`). El botón "Colapsar menú" solo existe en escritorio.
+- Subenlaces del menú: `py-3` en celular (44 px de alto), `lg:py-2` en escritorio como antes.
+- `<main>`: sangría del sidebar solo en `lg` (`lg:pl-64` / `lg:pl-16`), `pt-14` en celular por la barra, `min-w-0` para que una tabla ancha no estire el layout, relleno `p-4 sm:p-6 lg:p-8` (antes `p-8` fijo).
+- Detalle técnico: el App Router corre React 19.2 (vendorizado por Next 15), así que `inert` va como booleano.
+
+**Verificación**
+- Prueba de interacción (Playwright, 360 y 390, táctil): cajón cerrado fuera de pantalla e inert; barra con el título correcto; contenido desde x=0; abrir → visible, fondo bloqueado; enlaces ≥ 44 px; Escape cierra; tocar el fondo cierra; tocar "Ventas del Día" navega, cierra el cajón y cambia el título. Todo OK.
+- Escritorio 1366: barra móvil oculta, sidebar fijo de 256 px, `main` con `padding-left` 256 px y `p-8`, sin sombra; colapsar → 64 px; persiste al recargar; expandir → 256 px. Capturas idénticas a las de antes.
+- Recorrido de las 35 rutas del admin (390 y 1366): todas cargan, sin errores de JavaScript, con el título correcto en la barra. En 390, **18/35 ya caben exactas en la pantalla** (antes de esta fase ninguna medía menos de 660 px). Siguen más anchas que el celular: Ventas del Día 855, Inventario 716, Presupuesto 637, Usuarios 617, Historial Mensual 570, Auditoría 543, Préstamos 514, Cuentas 507, Facturas 492, Cargue de pedidos 477, Categorías 473, Registrar Venta 441, Cierres 431, Exportar/Importar 426, Notas 413, Configuración 396, Reportes 394 → se tratan en las Fases 3, 4, 6 y 7.
+- `tsc --noEmit` OK · `next lint` sin warnings.
+- Pendiente conocido: el **contenido** de algunas páginas todavía es más ancho que el celular (Registrar Venta ~441 px en un teléfono de 390; el encabezado de Ventas del Día queda apretado). Se resuelve en las Fases 3 y 4. Mientras tanto la barra superior se extiende a ese ancho (el logo de la derecha queda fuera de la vista en esas dos páginas).
