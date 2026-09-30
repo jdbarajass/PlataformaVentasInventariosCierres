@@ -274,7 +274,7 @@ export default function CuponesPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por codigo o descripcion..."
+                placeholder="Buscar por codigo o descripcion…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
@@ -549,7 +549,9 @@ export default function CuponesPage() {
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, active: !form.active })}
-                  className="focus:outline-none"
+                  aria-label={form.active ? 'Desactivar cupón' : 'Activar cupón'}
+                  aria-pressed={form.active}
+                  className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {form.active ? (
                     <CheckCircle className="h-6 w-6 text-green-500" />

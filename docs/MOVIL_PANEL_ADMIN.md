@@ -44,7 +44,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
 | 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | ✅ Hecha (6a · 6b · 6c) |
 | 7 | Páginas solo-admin + tabla de Inventario en portátil | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. **Además (pedido del usuario, 2026-09-30)**: la tabla Detalle de Inventario en 1024–1366 (la columna de acciones queda cortada dentro del scroll horizontal) — se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
-| 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
+| 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | ✅ Hecha |
 
 ## Bitácora
 
@@ -220,3 +220,24 @@ La Fase 6 se dividió en 6a / 6b / 6c (ver tabla) para seguir comprobando por pa
 - 360/390/768: las 8 páginas con ancho = dispositivo y **0 controles < 40 px**.
 - **Escritorio píxel a píxel** (página completa): las 8 páginas en 1366 y 1024 idénticas (única diferencia en Cuentas: la insignia de desarrollo de Next.js); Inventario en 1600 y 1920 (4 pestañas) idéntico — el arreglo aprobado solo actúa por debajo de 1536.
 - `tsc` OK · `next lint` sin warnings · `vitest` 132/132 · **`next build` OK** (la portada de la tienda tardó por la red y Next la reintentó sola).
+
+### Fase 8 — Auditoría final (2026-09-30) — aprobada
+
+Hecha con red a GitHub (wifi del celular del usuario: `raw.githubusercontent.com` y `github.com` respondiendo; en la red de la oficina `github.com` está bloqueado).
+
+**`web-design-guidelines`** (reglas descargadas en el momento de `vercel-labs/web-interface-guidelines`) sobre el flujo de venta (layout, Registrar Venta, Ventas del Día, globals.css). **Corregido** (solo afecta celular o a quien activa "reducir movimiento"):
+- `prefers-reduced-motion` no se respetaba en ninguna parte → `globals.css`: animaciones y transiciones instantáneas y scroll no suave; se conservan los indicadores de carga (`.animate-spin`). Aplica a toda la app (también la tienda) solo para quien tiene activada esa opción del sistema.
+- Cajón del menú sin `overscroll-behavior: contain` → agregado al `<nav>` del sidebar.
+- `autoFocus` en el buscador de Registrar Venta abría el teclado solo en algunos celulares → ahora el foco inicial solo se da con mouse (`pointer: fine`), con una *callback ref* estable que reproduce exactamente a `autoFocus` (se enfoca en cada montaje del campo, nunca en re-renders). En el PC sigue enfocado al abrir para el lector de código de barras (verificado; un primer intento con un efecto de montaje falló porque el campo se vuelve a montar al cargar datos — se detectó en la prueba y se corrigió antes de dar la fase por buena).
+
+**Preexistentes que cambian el escritorio — corregidos a pedido del usuario (2026-09-30):**
+- Textos con `...` → `…` en todo el panel admin (47 textos en 21 archivos: marcadores de posición, mensajes de carga y opciones; solo cadenas visibles, nunca el operador `...`).
+- `transition-all` → lista explícita de propiedades (mismo efecto visual): `<main>` del layout (`padding`), barra de progreso de Cierre Alegra (`width`), zona de arrastre de imágenes, componentes base `Button`, `Card`, `Input`, `Textarea` y las clases `btn-racing`, `btn-outline-racing`, `card-racing`, `card-glass`, `card-premium`, `input-modern`, `nav-link` de `globals.css`. (Se dejaron `accordion` y `toast` de la tienda: sus animaciones dependen de Radix.)
+- Anillo de foco visible con teclado (`focus-visible:ring`) en el campo de cantidad del carrito y en el interruptor Activo de Cupones (que además recibió nombre accesible y `aria-pressed`).
+- Pestañas de venta de Registrar Venta: la ✕ era un ícono con `onClick` dentro del botón de la pestaña (HTML inválido, fuera del alcance del teclado). Ahora la pestaña y la ✕ son dos botones hermanos dentro de un contenedor con el mismo aspecto; la ✕ tiene nombre accesible ("Cerrar Venta 2"), aparece también al enfocarla con teclado y ocupa 44×44 en táctil con el ícono centrado. Probado: agregar pestaña, ✕ oculta en reposo en PC, visible con mouse y con teclado, Enter/toque la cierra, sin errores.
+- `color-scheme: light/dark` en `:root`/`.dark` (controles nativos en el tema correcto) y `viewport.themeColor` en el layout raíz (barra del navegador del celular del color del fondo). Aplica a toda la app.
+
+**`impeccable detect`** sobre todo lo tocado en estas fases: 7 avisos, todos de estilo visual ("AI slop"), ninguno de celular ni accesibilidad: fuente Inter (4), texto con degradado (`text-aurora` en `globals.css`), borde lateral de color (Cierre Alegra) y subrayado grueso en la pestaña activa (Registrar Venta). No se tocaron: el estilo Racing Dark se mantiene por decisión del usuario; quedan para un eventual rediseño.
+
+**Barrido final de regresión**: las 35 rutas del admin en 390 y 1366 → **70/70 OK**: todas cargan, sin errores de JavaScript, con el título correcto en la barra y con ancho exactamente igual a la pantalla (antes de la Fase 1 ninguna ruta cabía en 390; al terminar la Fase 2, 18/35). Verificación puntual de los arreglos de esta fase: PC con el buscador enfocado al abrir, celular sin teclado automático, menú con scroll contenido, "reducir movimiento" respetado. `tsc` OK · `next lint` sin warnings.
+- `next build` OK antes del commit.

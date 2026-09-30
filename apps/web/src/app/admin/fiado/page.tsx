@@ -301,7 +301,7 @@ export default function FiadoPage() {
               onChange={(e) => setForm({ ...form, initial_payment_account_id: e.target.value })}
               className="rounded-lg border bg-background px-3 py-2 text-sm"
             >
-              <option value="">Cuenta del abono inicial...</option>
+              <option value="">Cuenta del abono inicial…</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}

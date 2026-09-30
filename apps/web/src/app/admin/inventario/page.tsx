@@ -1695,7 +1695,7 @@ export default function InventarioPage() {
                           <tr key={row.key} className="border-t">
                             <td className="relative p-2">
                               <Input
-                                placeholder="Buscar producto..."
+                                placeholder="Buscar producto…"
                                 value={row.query}
                                 onFocus={() => setAjusteFocusedRow(row.key)}
                                 onChange={(e) => updateAjusteRow(row.key, { item: null, query: e.target.value })}
@@ -2234,7 +2234,7 @@ export default function InventarioPage() {
             <div className="relative min-w-0 basis-full sm:flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por producto..."
+                placeholder="Buscar por producto…"
                 value={movimientosSearch}
                 onChange={(e) => setMovimientosSearch(e.target.value)}
                 className="rounded-xl pl-10 touch:h-11"
@@ -2263,7 +2263,7 @@ export default function InventarioPage() {
             {loadingMovimientos ? (
               <div className="flex items-center justify-center p-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-3 text-muted-foreground">Cargando movimientos...</span>
+                <span className="ml-3 text-muted-foreground">Cargando movimientos…</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -2327,7 +2327,7 @@ export default function InventarioPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar categoría..."
+                placeholder="Buscar categoría…"
                 value={generalSearch}
                 onChange={(e) => setGeneralSearch(e.target.value)}
                 className="rounded-xl pl-10"
@@ -2339,7 +2339,7 @@ export default function InventarioPage() {
             {loadingGeneral ? (
               <div className="flex items-center justify-center p-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-3 text-muted-foreground">Cargando inventario general...</span>
+                <span className="ml-3 text-muted-foreground">Cargando inventario general…</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -2412,7 +2412,7 @@ export default function InventarioPage() {
         <div className="relative min-w-0 basis-full sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre, SKU o código de barras..."
+            placeholder="Buscar por nombre, SKU o código de barras…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="rounded-xl pl-10 touch:h-11"
@@ -2433,7 +2433,7 @@ export default function InventarioPage() {
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">Cargando inventario...</span>
+            <span className="ml-3 text-muted-foreground">Cargando inventario…</span>
           </div>
         ) : loadError ? (
           <div className="flex flex-col items-center gap-3 p-12 text-center">
@@ -2645,7 +2645,7 @@ export default function InventarioPage() {
                               </div>
                               <div className="flex items-center gap-1">
                                 <Input
-                                  placeholder="Nota..."
+                                  placeholder="Nota…"
                                   value={adjustmentNote}
                                   onChange={(e) => setAdjustmentNote(e.target.value)}
                                   className="h-7 touch:h-11 rounded-lg text-xs"
@@ -2739,7 +2739,7 @@ export default function InventarioPage() {
                                 Tallas / variantes de &quot;{product.title}&quot;
                               </p>
                               {loadingVariants && variants.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">Cargando variantes...</p>
+                                <p className="text-sm text-muted-foreground">Cargando variantes…</p>
                               ) : variants.length === 0 ? (
                                 <div className="space-y-2">
                                   <p className="text-sm text-muted-foreground">

@@ -279,7 +279,7 @@ export default function CalculadoraPage() {
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Nombre o SKU del producto..."
+            placeholder="Nombre o SKU del producto…"
             value={minPriceQuery}
             onChange={(e) => setMinPriceQuery(e.target.value)}
             className="rounded-lg pl-10"
@@ -365,7 +365,7 @@ export default function CalculadoraPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Nombre o SKU..."
+                    placeholder="Nombre o SKU…"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     className="rounded-lg pl-10"

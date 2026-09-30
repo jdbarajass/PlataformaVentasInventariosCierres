@@ -165,7 +165,7 @@ export default function OrdersPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por numero de orden, email o nombre..."
+                placeholder="Buscar por numero de orden, email o nombre…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"

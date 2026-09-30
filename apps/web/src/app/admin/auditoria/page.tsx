@@ -138,7 +138,7 @@ export default function AuditoriaPage() {
     return (
       <div className="flex items-center justify-center p-24">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Cargando auditoría...</span>
+        <span className="ml-3 text-muted-foreground">Cargando auditoría…</span>
       </div>
     )
   }
@@ -212,7 +212,7 @@ export default function AuditoriaPage() {
         <div className="relative min-w-0 basis-full sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por usuario, acción o registro..."
+            placeholder="Buscar por usuario, acción o registro…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="rounded-xl pl-10 touch:h-11"

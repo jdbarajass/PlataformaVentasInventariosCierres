@@ -309,7 +309,7 @@ export default function AdminLayout({
           </div>
           <h1 className="text-xl font-bold text-white">Acceso Restringido</h1>
           <p className="mt-2 text-slate-400">Debes iniciar sesion para acceder</p>
-          <p className="mt-4 text-sm text-slate-500">Redirigiendo al login...</p>
+          <p className="mt-4 text-sm text-slate-500">Redirigiendo al login…</p>
         </div>
       </div>
     )
@@ -416,7 +416,7 @@ export default function AdminLayout({
           )}
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+          <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-4">
             {navigation.map((entry) => {
               if (entry.adminOnly && userProfile?.role !== 'admin' && userProfile?.role !== 'admin_readonly') return null
 
@@ -529,7 +529,7 @@ export default function AdminLayout({
       {/* Main content */}
       {/* pt-14 en celular = alto de la barra superior fija. min-w-0: sin él,
           una tabla ancha estira el flex item más allá de la pantalla. */}
-      <main className={cn('min-w-0 flex-1 pt-14 transition-all duration-200 lg:pt-0', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
+      <main className={cn('min-w-0 flex-1 pt-14 transition-[padding] duration-200 lg:pt-0', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
       <SessionAlerts />

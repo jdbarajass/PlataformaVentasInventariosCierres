@@ -136,7 +136,7 @@ export default function ProductosPage() {
                         </span>
                         <div className="flex-1 bg-secondary rounded-full h-4 overflow-hidden">
                           <div
-                            className="bg-orange-500 h-4 rounded-full transition-all"
+                            className="bg-orange-500 h-4 rounded-full transition-[width]"
                             style={{ width: `${pct}%` }}
                           />
                         </div>

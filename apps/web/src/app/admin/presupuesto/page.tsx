@@ -343,7 +343,7 @@ export default function PresupuestoPage() {
             <h2 className="mb-4 text-lg font-semibold">Agregar/actualizar categoría</h2>
             <div className="flex flex-wrap gap-2">
               <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} aria-label="Categoría" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
-                <option value="">Categoría...</option>
+                <option value="">Categoría…</option>
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -419,7 +419,7 @@ export default function PresupuestoPage() {
             <div className="flex flex-wrap gap-2">
               <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg touch:h-11" />
               <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} aria-label="Categoría del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
-                <option value="">Categoría...</option>
+                <option value="">Categoría…</option>
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}

@@ -350,7 +350,7 @@ export default function UsuariosPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar por nombre o email..."
+            placeholder="Buscar por nombre o email…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="rounded-xl pl-10 touch:h-11"
@@ -384,7 +384,7 @@ export default function UsuariosPage() {
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">Cargando usuarios...</span>
+            <span className="ml-3 text-muted-foreground">Cargando usuarios…</span>
           </div>
         ) : (
           <>

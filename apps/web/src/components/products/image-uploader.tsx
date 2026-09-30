@@ -242,7 +242,7 @@ export function ImageUploader({ images, onChange, maxImages = 5 }: ImageUploader
     <div className="space-y-4">
       {/* Upload Area */}
       <Card
-        className={`relative border-2 border-dashed p-8 text-center transition-all ${
+        className={`relative border-2 border-dashed p-8 text-center transition-[border-color,background-color,opacity] ${
           dragActive
             ? 'border-primary bg-primary/5'
             : 'border-border hover:border-primary/50'

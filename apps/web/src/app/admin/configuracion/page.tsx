@@ -188,7 +188,7 @@ export default function ConfiguracionPage() {
     return (
       <div className="flex items-center justify-center p-24">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Cargando configuración...</span>
+        <span className="ml-3 text-muted-foreground">Cargando configuración…</span>
       </div>
     )
   }

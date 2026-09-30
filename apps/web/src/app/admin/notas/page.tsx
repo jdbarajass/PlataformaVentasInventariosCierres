@@ -223,10 +223,10 @@ export default function NotasPage() {
           <Input
             placeholder={
               activeTab === 'restock'
-                ? 'Ej: Cascos XTR-M70 talla M x 5...'
+                ? 'Ej: Cascos XTR-M70 talla M x 5…'
                 : activeTab === 'admin_task'
-                ? 'Ej: Revisar contrato de arriendo antes de fin de mes...'
-                : 'Ej: Revisar cuentas de Addi del mes...'
+                ? 'Ej: Revisar contrato de arriendo antes de fin de mes…'
+                : 'Ej: Revisar cuentas de Addi del mes…'
             }
             value={text}
             onChange={(e) => setText(e.target.value)}

@@ -439,7 +439,7 @@ export default function CierreCajaPage() {
                   type="text"
                   value={gastosNota}
                   onChange={(e) => setGastosNota(e.target.value)}
-                  placeholder="Nota de gastos..."
+                  placeholder="Nota de gastos…"
                 />
               </div>
               <div className="space-y-2">
@@ -453,7 +453,7 @@ export default function CierreCajaPage() {
                   type="text"
                   value={prestamosNota}
                   onChange={(e) => setPrestamosNota(e.target.value)}
-                  placeholder="Nota de préstamos..."
+                  placeholder="Nota de préstamos…"
                 />
               </div>
             </div>

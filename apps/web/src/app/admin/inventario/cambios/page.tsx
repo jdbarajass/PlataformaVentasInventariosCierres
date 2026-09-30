@@ -178,7 +178,7 @@ export default function CambiosPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre o SKU..."
+            placeholder="Buscar por nombre o SKU…"
             value={side.query}
             onChange={(e) => search(key, e.target.value)}
             className="rounded-lg pl-10 touch:h-11"

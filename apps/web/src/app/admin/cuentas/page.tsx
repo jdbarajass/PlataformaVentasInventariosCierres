@@ -731,7 +731,7 @@ export default function CuentasPage() {
                             className="mt-1 min-h-[52px] rounded-lg text-xs"
                           />
                           {savingNotesFor === account.id && (
-                            <p className="mt-1 text-[11px] text-muted-foreground">Guardando...</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">Guardando…</p>
                           )}
                         </div>
                       ) : account.notes ? (
@@ -756,7 +756,7 @@ export default function CuentasPage() {
                       onChange={(e) => setAdjustAccount(e.target.value)}
                       className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
-                      <option value="">Selecciona una cuenta...</option>
+                      <option value="">Selecciona una cuenta…</option>
                       {accounts.map((a) => (
                         <option key={a.id} value={a.id}>{a.name}</option>
                       ))}
@@ -811,7 +811,7 @@ export default function CuentasPage() {
                       onChange={(e) => setFromAccount(e.target.value)}
                       className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
-                      <option value="">Cuenta origen...</option>
+                      <option value="">Cuenta origen…</option>
                       {accounts.map((a) => (
                         <option key={a.id} value={a.id}>{a.name} ({formatPrice(a.balance_cents)})</option>
                       ))}
@@ -824,7 +824,7 @@ export default function CuentasPage() {
                       onChange={(e) => setToAccount(e.target.value)}
                       className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
-                      <option value="">Cuenta destino...</option>
+                      <option value="">Cuenta destino…</option>
                       {accounts.map((a) => (
                         <option key={a.id} value={a.id}>{a.name}</option>
                       ))}

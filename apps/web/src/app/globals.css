@@ -25,6 +25,8 @@
     --input: 220 13% 90%;
     --ring: 354 100% 42%;
     --radius: 0.75rem;
+    /* Controles nativos (select, fecha, scrollbars) en el tema correcto. Fase 8. */
+    color-scheme: light;
 
     /* Premium extras */
     --glow-primary:    rgba(217, 4, 41, 0.25);
@@ -57,6 +59,7 @@
     --border: 224 12% 18%;
     --input: 224 12% 18%;
     --ring: 354 100% 44%;
+    color-scheme: dark;
 
     /* Premium extras */
     --glow-primary:    rgba(225, 6, 0, 0.35);
@@ -87,7 +90,7 @@
     @apply relative overflow-hidden
            bg-primary text-primary-foreground
            font-semibold tracking-wide py-3 px-8 rounded-xl
-           transition-all duration-300 ease-out
+           transition-[box-shadow,transform] duration-300 ease-out
            hover:shadow-[0_0_32px_var(--glow-primary),0_4px_20px_rgba(0,0,0,0.3)]
            hover:scale-[1.02]
            active:scale-95;
@@ -111,7 +114,7 @@
     @apply relative overflow-hidden
            border border-primary/50 text-primary
            font-semibold tracking-wide py-3 px-8 rounded-xl
-           transition-all duration-300 ease-out bg-transparent
+           transition-[color,background-color,border-color,box-shadow,transform] duration-300 ease-out bg-transparent
            hover:bg-primary hover:text-primary-foreground
            hover:shadow-[0_0_24px_var(--glow-primary)]
            hover:border-primary
@@ -127,7 +130,7 @@
            bg-card rounded-2xl
            border border-border/50
            shadow-[0_8px_32px_rgba(0,0,0,0.3)]
-           transition-all duration-300
+           transition-[box-shadow,border-color,transform] duration-300
            hover:shadow-[0_20px_60px_rgba(0,0,0,0.5),0_0_30px_var(--glow-primary-lg)]
            hover:border-primary/30
            hover:-translate-y-1;
@@ -140,7 +143,7 @@
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     box-shadow: 0 4px 24px rgba(0,0,0,0.08), inset 0 1px 0 var(--highlight-sm);
-    @apply rounded-2xl transition-all duration-300;
+    @apply rounded-2xl transition-shadow duration-300;
   }
   .card-glass:hover {
     box-shadow: 0 8px 40px rgba(0,0,0,0.15), inset 0 1px 0 var(--highlight-sm);
@@ -150,7 +153,7 @@
   .card-premium {
     @apply relative overflow-hidden rounded-2xl
            bg-card border border-border/40
-           transition-all duration-500
+           transition-[box-shadow,border-color,transform] duration-500
            hover:border-primary/40
            hover:-translate-y-2;
     box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 var(--highlight);
@@ -193,7 +196,7 @@
     @apply w-full px-4 py-3 rounded-xl
            bg-secondary/50 border border-border
            focus:border-primary focus:ring-2 focus:ring-primary/20
-           transition-all duration-200
+           transition-[border-color,box-shadow] duration-200
            placeholder:text-muted-foreground
            outline-none;
   }
@@ -209,7 +212,7 @@
     content: '';
     @apply absolute bottom-0 left-1/2 -translate-x-1/2
            w-0 h-0.5 bg-primary rounded-full
-           transition-all duration-300;
+           transition-[width] duration-300;
   }
   .nav-link:hover::after,
   .nav-link.active::after { @apply w-full; }
@@ -533,6 +536,24 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   .table-compact-xl > tbody > tr > td {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
+  }
+}
+
+/* "Reducir movimiento" del sistema (iOS/Android/Windows): las animaciones y
+   transiciones terminan al instante (siguen llegando al estado final, así
+   nada queda a medias) y el scroll deja de ser suave. Los indicadores de
+   carga (.animate-spin) se conservan: son información, no decoración.
+   Fase 8 — auditoría Web Interface Guidelines. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }
 

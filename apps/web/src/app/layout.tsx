@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
@@ -61,6 +61,16 @@ export const metadata: Metadata = {
   verification: {
     google: 'google-site-verification-code', // Actualizar con código real
   },
+}
+
+// Color de la barra del navegador en el celular = fondo de la página (claro
+// #F7F8FA / oscuro #0F1115, ver --background en globals.css). No se toca el
+// zoom (width/initialScale por defecto de Next). Fase 8 — Web Interface Guidelines.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F7F8FA' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F1115' },
+  ],
 }
 
 export default function RootLayout({

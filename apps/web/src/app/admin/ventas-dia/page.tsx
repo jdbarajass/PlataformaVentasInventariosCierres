@@ -1098,7 +1098,7 @@ function VentasDiaContent() {
 
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Agregar producto..." value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="rounded-lg pl-10 touch:h-11" />
+                <Input placeholder="Agregar producto…" value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="rounded-lg pl-10 touch:h-11" />
                 {editResults.length > 0 && (
                   <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
                     {editResults.map((p) =>
@@ -1326,7 +1326,7 @@ function VentasDiaContent() {
           <div className={exportMode ? 'hidden' : 'mb-4 flex flex-wrap gap-2'}>
             <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
             <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} aria-label="Categoría del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
-              <option value="">Categoría...</option>
+              <option value="">Categoría…</option>
               {EXPENSE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -1362,7 +1362,7 @@ function VentasDiaContent() {
           </p>
           <div className={exportMode ? 'hidden' : 'mb-4 flex flex-wrap gap-2'}>
             <Input
-              placeholder="Escribe una nota..."
+              placeholder="Escribe una nota…"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddNote() }}

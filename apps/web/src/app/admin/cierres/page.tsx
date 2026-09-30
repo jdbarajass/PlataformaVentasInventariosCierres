@@ -230,7 +230,7 @@ export default function DailyClosuresPage() {
             <div className="mb-4 rounded-xl border border-dashed bg-muted/30 p-4">
               <p className="text-sm font-medium">Total esperado según Ventas de mostrador</p>
               {loadingExpected ? (
-                <p className="mt-1 text-sm text-muted-foreground">Calculando...</p>
+                <p className="mt-1 text-sm text-muted-foreground">Calculando…</p>
               ) : expectedTotal !== null ? (
                 <>
                   <p className="mt-1 text-xl font-bold text-primary">{formatPrice(expectedTotal)}</p>
@@ -336,7 +336,7 @@ export default function DailyClosuresPage() {
                 <label className="mb-2 block text-sm font-medium">Notas</label>
                 <textarea
                   className="flex min-h-[80px] w-full rounded-xl border border-input bg-background px-4 py-2 text-sm"
-                  placeholder="Observaciones del dia..."
+                  placeholder="Observaciones del dia…"
                   value={formData.notes}
                   onChange={(e) =>
                     setFormData({ ...formData, notes: e.target.value })

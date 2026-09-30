@@ -264,6 +264,17 @@ export default function VentasPage() {
   // queda debajo. Una barra fija abajo muestra el total y baja a la factura;
   // se esconde cuando la factura ya está en pantalla para no duplicar el
   // botón "Vender". Solo presentación. Ver docs/MOVIL_PANEL_ADMIN.md (Fase 3).
+  // Foco inicial en el buscador solo con mouse (PC): ahí sirve para escanear
+  // el código de barras apenas abre la página, igual que antes con autoFocus.
+  // En pantallas táctiles no, para que el teclado no aparezca solo tapando
+  // media pantalla. Fase 8 — auditoría Web Interface Guidelines.
+  // Callback ref estable (no un efecto de montaje): se ejecuta cada vez que el
+  // campo se monta — igual que autoFocus, que el campo puede volver a montarse
+  // al cargar los datos — y nunca en re-renders, así no roba el foco.
+  const searchInputRef = useCallback((el: HTMLInputElement | null) => {
+    if (el && window.matchMedia('(pointer: fine)').matches) el.focus()
+  }, [])
+
   const facturaRef = useRef<HTMLDivElement>(null)
   const [facturaVisible, setFacturaVisible] = useState(false)
   useEffect(() => {
@@ -830,32 +841,44 @@ export default function VentasPage() {
       {/* Pestañas de venta en paralelo (estilo Alegra) */}
       <div className="flex flex-wrap items-center gap-1 border-b">
         {sessions.map((s) => (
-          <button
+          // Contenedor con el aspecto de la pestaña; adentro, la pestaña y la ✕
+          // son dos botones hermanos (antes la ✕ era un ícono con onClick
+          // dentro del botón: HTML inválido y fuera del alcance del teclado).
+          // Mismos rellenos y espacios que antes. Fase 8.
+          <div
             key={s.id}
-            onClick={() => setActiveSessionId(s.id)}
-            className={`group flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition-colors touch:min-h-11 ${
+            className={`group flex items-center rounded-t-lg border-b-2 text-sm font-medium transition-colors touch:min-h-11 ${
               s.id === activeSessionId
                 ? 'border-primary bg-card text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            {s.label}
-            {s.cart.length > 0 && s.id !== activeSessionId && (
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-            )}
+            <button
+              type="button"
+              onClick={() => setActiveSessionId(s.id)}
+              aria-current={s.id === activeSessionId ? 'page' : undefined}
+              className={`flex items-center gap-2 self-stretch rounded-t-lg py-2 pl-3 ${sessions.length > 1 ? 'pr-0' : 'pr-3'}`}
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              {s.label}
+              {s.cart.length > 0 && s.id !== activeSessionId && (
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              )}
+            </button>
             {sessions.length > 1 && (
-              <X
-                // touch: el ícono sigue viéndose de 12px, pero el área que
-                // responde al dedo crece a ~36px (padding + margen negativo).
-                className="h-3 w-3 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100 [@media(hover:none)]:opacity-100 touch:-m-3 touch:box-content touch:p-3"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  closeSessionTab(s.id)
-                }}
-              />
+              <button
+                type="button"
+                aria-label={`Cerrar ${s.label}`}
+                onClick={() => closeSessionTab(s.id)}
+                // Se ve igual que antes (ícono de 12px, visible al pasar el
+                // mouse o al enfocarlo con teclado; siempre en táctil). En
+                // táctil ocupa 44×44 (regla global de globals.css, Fase 1).
+                className="ml-2 mr-3 text-muted-foreground opacity-0 hover:text-red-500 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 touch:m-0 touch:inline-flex touch:items-center touch:justify-center"
+              >
+                <X className="h-3 w-3" />
+              </button>
             )}
-          </button>
+          </div>
         ))}
         <button
           onClick={addSessionTab}
@@ -877,12 +900,12 @@ export default function VentasPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 enterKeyHint="search"
-                placeholder="Buscar por nombre/SKU o escanear código de barras..."
+                placeholder="Buscar por nombre/SKU o escanear código de barras…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleBarcodeEnter}
                 className="rounded-xl pl-10 touch:h-11"
-                autoFocus
+                ref={searchInputRef}
               />
               {searching && (
                 <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -1106,7 +1129,7 @@ export default function VentasPage() {
                     {customerQuery.trim().length >= 2 && (customerResults.length > 0 || customerSearching) && (
                       <div className="absolute z-10 mt-1 max-h-48 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
                         {customerSearching ? (
-                          <p className="p-2 text-xs text-muted-foreground">Buscando...</p>
+                          <p className="p-2 text-xs text-muted-foreground">Buscando…</p>
                         ) : (
                           customerResults.map((c) => (
                             <button
@@ -1191,7 +1214,7 @@ export default function VentasPage() {
                             }
                             aria-label="Cantidad"
                             inputMode="numeric"
-                            className="w-10 border-0 bg-transparent text-center text-sm font-medium focus:outline-none"
+                            className="w-10 rounded-md border-0 bg-transparent text-center text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           />
                           <Button
                             variant="ghost"
@@ -1363,14 +1386,14 @@ export default function VentasPage() {
                       onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
                       aria-label="Tipo de tarjeta" className="mb-2 w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
-                      <option value="">Selecciona Débito o Crédito...</option>
+                      <option value="">Selecciona Débito o Crédito…</option>
                       <option value="Débito">Débito</option>
                       <option value="Crédito">Crédito</option>
                     </select>
                   )}
                   {payments[0].method === 'other' && (
                     <Input
-                      placeholder="Especifica..."
+                      placeholder="Especifica…"
                       value={payments[0].method_detail}
                       onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
                       className="mb-2 rounded-lg touch:h-11"
@@ -1439,14 +1462,14 @@ export default function VentasPage() {
                           onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
                           aria-label="Tipo de tarjeta" className="h-8 w-full rounded-lg border bg-background px-2 text-xs touch:h-11"
                         >
-                          <option value="">Débito o Crédito...</option>
+                          <option value="">Débito o Crédito…</option>
                           <option value="Débito">Débito</option>
                           <option value="Crédito">Crédito</option>
                         </select>
                       )}
                       {p.method === 'other' && (
                         <Input
-                          placeholder="Especifica..."
+                          placeholder="Especifica…"
                           value={p.method_detail}
                           onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
                           className="h-8 rounded-lg text-xs touch:h-11"
