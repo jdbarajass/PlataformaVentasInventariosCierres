@@ -1055,7 +1055,9 @@ export default function VentasPage() {
         {/* Factura de venta */}
         <div ref={facturaRef} id="factura-venta" className="scroll-mt-20 space-y-4 lg:col-span-2">
           <div className="rounded-xl border bg-card p-3 sm:p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
+            {/* Siempre puede pasar a dos filas: la columna de la factura es angosta
+                en portátil (~1024-1340px con el menú expandido) y en celular. */}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-semibold">Factura de venta</h2>
               <div className="flex items-center gap-2">
                 <Input
@@ -1162,9 +1164,11 @@ export default function VentasPage() {
                           <Trash2 className="h-3.5 w-3.5 text-red-500" />
                         </Button>
                       </div>
-                      {/* < sm: fila 1 = cantidad + total de la línea; fila 2 =
-                          precio (con order), igual que la fila de descuento. */}
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
+                      {/* Fila 1 = cantidad + total de la línea; fila 2 = precio
+                          (con order); fila 3 = descuento. En todos los tamaños:
+                          en una sola fila no cabía en la columna de la factura
+                          de un portátil (se salía de la tarjeta). Fase 5. */}
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-1 rounded-lg border">
                           <Button
                             variant="ghost"
@@ -1199,7 +1203,7 @@ export default function VentasPage() {
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground max-sm:order-last max-sm:basis-full max-sm:justify-end">
+                        <label className="order-last flex basis-full items-center justify-end gap-2 text-xs text-muted-foreground">
                           <span>Precio</span>
                           <MoneyInput
                             value={String(line.price_cents / 100)}
@@ -1300,13 +1304,15 @@ export default function VentasPage() {
 
       {/* Modal de pago — "Pagar factura" al estilo Alegra */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg">
+        // < sm: hoja inferior (sube desde abajo, botones al alcance del pulgar,
+        // scroll propio). sm+: el diálogo centrado de siempre. Fase 5.
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="pago-titulo" className="max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border bg-card p-4 pb-6 shadow-lg animate-in slide-in-from-bottom duration-300 motion-reduce:animate-none sm:max-h-none sm:overflow-visible sm:rounded-xl sm:p-6 sm:animate-none">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
+              <h2 id="pago-titulo" className="text-lg font-semibold">
                 {paymentStep === 'methods' ? 'Pagar factura' : 'Confirmar pago'}
               </h2>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPaymentModal(false)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Cerrar pago" onClick={() => setShowPaymentModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -1345,7 +1351,7 @@ export default function VentasPage() {
               <div className="space-y-3">
                 <button
                   onClick={() => setPaymentStep('methods')}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground touch:min-h-11"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" /> Cambiar método
                 </button>
@@ -1355,7 +1361,7 @@ export default function VentasPage() {
                     <select
                       value={payments[0].method_detail}
                       onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
-                      className="mb-2 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                      aria-label="Tipo de tarjeta" className="mb-2 w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
                       <option value="">Selecciona Débito o Crédito...</option>
                       <option value="Débito">Débito</option>
@@ -1367,14 +1373,15 @@ export default function VentasPage() {
                       placeholder="Especifica..."
                       value={payments[0].method_detail}
                       onChange={(e) => updatePaymentSplit(payments[0].key, { method_detail: e.target.value })}
-                      className="mb-2 rounded-lg"
+                      className="mb-2 rounded-lg touch:h-11"
                     />
                   )}
-                  <label className="mb-1 block text-xs text-muted-foreground">Monto recibido</label>
+                  <label htmlFor="monto-recibido" className="mb-1 block text-xs text-muted-foreground">Monto recibido</label>
                   <MoneyInput
+                    id="monto-recibido"
                     value={payments[0].amount}
                     onChange={(v) => updatePaymentSplit(payments[0].key, { amount: v })}
-                    className="rounded-lg"
+                    className="rounded-lg touch:h-12 touch:text-lg"
                   />
                 </div>
                 {Math.round(paymentsTotal) !== total && (
@@ -1400,11 +1407,11 @@ export default function VentasPage() {
               <div className="space-y-3">
                 <button
                   onClick={() => setPaymentStep('methods')}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground touch:min-h-11"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" /> Cambiar método
                 </button>
-                <div className="max-h-72 space-y-2 overflow-y-auto">
+                <div className="space-y-2 sm:max-h-72 sm:overflow-y-auto">
                   {payments.map((p) => (
                     <div key={p.key} className="space-y-2 rounded-lg border p-2">
                       <div className="flex gap-2">
@@ -1414,14 +1421,14 @@ export default function VentasPage() {
                             const newMethod = e.target.value as Method
                             updatePaymentSplit(p.key, { method: newMethod, account_id: resolveAccountId(newMethod) })
                           }}
-                          className="flex-1 rounded-lg border bg-background px-2 py-1 text-xs"
+                          aria-label="Método de pago" className="flex-1 rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
                         >
                           {(Object.keys(methodLabels) as Method[]).map((value) => (
                             <option key={value} value={value}>{methodLabels[value]}</option>
                           ))}
                         </select>
                         {payments.length > 1 && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removePaymentSplit(p.key)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Quitar este pago" onClick={() => removePaymentSplit(p.key)}>
                             <X className="h-3 w-3 text-red-500" />
                           </Button>
                         )}
@@ -1430,7 +1437,7 @@ export default function VentasPage() {
                         <select
                           value={p.method_detail}
                           onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
-                          className="h-8 w-full rounded-lg border bg-background px-2 text-xs"
+                          aria-label="Tipo de tarjeta" className="h-8 w-full rounded-lg border bg-background px-2 text-xs touch:h-11"
                         >
                           <option value="">Débito o Crédito...</option>
                           <option value="Débito">Débito</option>
@@ -1442,19 +1449,19 @@ export default function VentasPage() {
                           placeholder="Especifica..."
                           value={p.method_detail}
                           onChange={(e) => updatePaymentSplit(p.key, { method_detail: e.target.value })}
-                          className="h-8 rounded-lg text-xs"
+                          className="h-8 rounded-lg text-xs touch:h-11"
                         />
                       )}
                       <MoneyInput
                         placeholder="Monto"
                         value={p.amount}
                         onChange={(v) => updatePaymentSplit(p.key, { amount: v })}
-                        className="h-8 rounded-lg text-xs"
+                        className="h-8 rounded-lg text-xs touch:h-11"
                       />
                     </div>
                   ))}
                 </div>
-                <Button variant="outline" size="sm" className="w-full rounded-lg" onClick={addPaymentSplit}>
+                <Button variant="outline" size="sm" className="w-full rounded-lg touch:h-11" onClick={addPaymentSplit}>
                   <Plus className="mr-1 h-3 w-3" /> Agregar otro método
                 </Button>
                 <div className="flex justify-between text-xs text-muted-foreground">

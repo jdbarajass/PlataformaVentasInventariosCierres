@@ -41,12 +41,13 @@ export function SessionAlerts() {
   if (dismissed || !data) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-xl border bg-card p-6 shadow-lg">
+    // < sm: hoja inferior; sm+: el diálogo de siempre. Ver docs/MOVIL_PANEL_ADMIN.md (Fase 5).
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="recordatorios-titulo" className="max-h-[92dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border bg-card p-4 pb-6 shadow-lg animate-in slide-in-from-bottom duration-300 motion-reduce:animate-none sm:max-h-none sm:overflow-visible sm:rounded-xl sm:p-6 sm:animate-none">
         <div className="mb-4 flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <h2 className="text-lg font-semibold">Recordatorios</h2>
-          <button onClick={() => setDismissed(true)} className="ml-auto rounded-lg p-1 hover:bg-secondary">
+          <h2 id="recordatorios-titulo" className="text-lg font-semibold">Recordatorios</h2>
+          <button onClick={() => setDismissed(true)} aria-label="Cerrar recordatorios" className="ml-auto rounded-lg p-1 hover:bg-secondary">
             <X className="h-4 w-4" />
           </button>
         </div>

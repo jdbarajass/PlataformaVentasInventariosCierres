@@ -1080,34 +1080,35 @@ function VentasDiaContent() {
           solo el que se clickeó) para poder cambiar cantidades/método/
           cliente de la factura como tal — pedido explícito del usuario. */}
       {editingSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Editar factura {editingSale.order_number}</h2>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}>
+        // < sm: hoja inferior con scroll propio; sm+: el diálogo de siempre. Fase 5.
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="editar-factura-titulo" className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl border bg-card p-4 pb-6 animate-in slide-in-from-bottom duration-300 motion-reduce:animate-none sm:max-h-[90vh] sm:rounded-xl sm:p-6 sm:animate-none">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 id="editar-factura-titulo" className="text-lg font-semibold">Editar factura {editingSale.order_number}</h2>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Cerrar edición" onClick={cancelEdit}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
             <div className="space-y-4">
               <div className="grid gap-2 sm:grid-cols-2">
-                <Input placeholder="Nombre del cliente" value={editCustomerName} onChange={(e) => setEditCustomerName(e.target.value)} className="rounded-lg" />
-                <Input placeholder="Teléfono" value={editCustomerPhone} onChange={(e) => setEditCustomerPhone(e.target.value)} className="rounded-lg" />
+                <Input placeholder="Nombre del cliente" value={editCustomerName} onChange={(e) => setEditCustomerName(e.target.value)} className="rounded-lg touch:h-11" />
+                <Input placeholder="Teléfono" value={editCustomerPhone} onChange={(e) => setEditCustomerPhone(e.target.value)} className="rounded-lg touch:h-11" />
               </div>
 
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Agregar producto..." value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="rounded-lg pl-10" />
+                <Input placeholder="Agregar producto..." value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="rounded-lg pl-10 touch:h-11" />
                 {editResults.length > 0 && (
                   <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
                     {editResults.map((p) =>
                       p.variants.length === 0 ? (
-                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => addToEditCart(p, null)}>
+                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => addToEditCart(p, null)}>
                           {p.title}
                         </button>
                       ) : (
                         p.variants.map((v) => (
-                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => addToEditCart(p, v)}>
+                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => addToEditCart(p, v)}>
                             {p.title} {v.talla ? `(${v.talla})` : ''}
                           </button>
                         ))
@@ -1117,7 +1118,68 @@ function VentasDiaContent() {
                 )}
               </div>
 
-              <div className="overflow-x-auto rounded-lg border">
+              {/* < sm: cada producto de la factura como tarjeta (la tabla necesita
+                  ~500px con inputs); mismos campos y mismos setEditCart. */}
+              <ul className="divide-y rounded-lg border sm:hidden">
+                {editCart.map((line) => (
+                  <li key={line.key} className="space-y-2 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 text-sm font-medium">
+                        {line.product_id ? (
+                          <>{line.title} {line.talla ? `(${line.talla})` : ''}</>
+                        ) : (
+                          <Input
+                            placeholder="Nombre del producto"
+                            value={line.title}
+                            onChange={(e) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, title: e.target.value } : l))}
+                            className="h-11 rounded-lg"
+                            title="Fuera de catálogo — nombre editable"
+                            aria-label="Nombre del producto fuera de catálogo"
+                          />
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Quitar ${line.title || 'producto'} de la factura`} onClick={() => setEditCart((prev) => prev.filter((l) => l.key !== line.key))}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                    <div className={`grid gap-2 ${canViewProfit ? 'grid-cols-[4.5rem_1fr_1fr]' : 'grid-cols-[4.5rem_1fr]'}`}>
+                      <label className="space-y-1 text-xs text-muted-foreground">
+                        <span>Cant.</span>
+                        <Input
+                          type="number" min="1" value={line.qty} inputMode="numeric"
+                          onChange={(e) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, qty: parseInt(e.target.value) || 1 } : l))}
+                          className="h-11 rounded-lg text-center"
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs text-muted-foreground">
+                        <span>Precio</span>
+                        <MoneyInput
+                          value={String(line.price_cents / 100)}
+                          onChange={(v) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, price_cents: (parseInt(v) || 0) * 100 } : l))}
+                          className="h-11 rounded-lg text-right"
+                        />
+                      </label>
+                      {canViewProfit && (
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <span>Costo</span>
+                          {line.product_id ? (
+                            <p className="flex h-11 items-center justify-end">{formatPrice(line.cost_cents)}</p>
+                          ) : (
+                            <MoneyInput
+                              value={String(line.cost_cents / 100)}
+                              onChange={(v) => setEditCart((prev) => prev.map((l) => l.key === line.key ? { ...l, cost_cents: (parseInt(v) || 0) * 100 } : l))}
+                              className="h-11 rounded-lg text-right"
+                              aria-label="Costo"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden overflow-x-auto rounded-lg border sm:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
@@ -1189,14 +1251,14 @@ function VentasDiaContent() {
                     <select
                       value={p.method}
                       onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, method: e.target.value as PaymentSplit['method'] } : x))}
-                      className="rounded-lg border bg-background px-2 py-1 text-xs"
+                      aria-label="Método de pago" className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11 max-sm:flex-1"
                     >
                       {Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
                     <select
                       value={p.account_id}
                       onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, account_id: e.target.value } : x))}
-                      className="rounded-lg border bg-background px-2 py-1 text-xs"
+                      aria-label="Cuenta" className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11 max-sm:flex-1"
                     >
                       <option value="">Sin cuenta</option>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -1204,16 +1266,16 @@ function VentasDiaContent() {
                     <MoneyInput
                       placeholder="Monto" value={p.amount}
                       onChange={(v) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, amount: v } : x))}
-                      className="h-8 w-28 rounded-lg text-xs"
+                      className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                     />
                     {editPayments.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditPayments((prev) => prev.filter((x) => x.key !== p.key))}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Quitar este pago" onClick={() => setEditPayments((prev) => prev.filter((x) => x.key !== p.key))}>
                         <X className="h-3 w-3 text-red-500" />
                       </Button>
                     )}
                   </div>
                 ))}
-                <Button variant="outline" size="sm" className="rounded-lg" onClick={addEditPayment}>
+                <Button variant="outline" size="sm" className="rounded-lg touch:h-11" onClick={addEditPayment}>
                   <Plus className="mr-1 h-3 w-3" /> Agregar método de pago
                 </Button>
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -1228,15 +1290,15 @@ function VentasDiaContent() {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <Button className="rounded-lg" onClick={() => saveEdit(editingSale.id)} disabled={saving}>
+              <div className="flex flex-wrap gap-2">
+                <Button className="rounded-lg touch:h-11 max-sm:flex-1" onClick={() => saveEdit(editingSale.id)} disabled={saving}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                   Guardar cambios
                 </Button>
-                <Button variant="outline" className="rounded-lg" onClick={cancelEdit}>Cancelar edición</Button>
+                <Button variant="outline" className="rounded-lg touch:h-11 max-sm:flex-1" onClick={cancelEdit}>Cancelar edición</Button>
                 <a
                   href={`/api/orders/${editingSale.id}/invoice`} target="_blank" rel="noopener noreferrer"
-                  className="ml-auto text-sm text-cyan-500 hover:underline"
+                  className="ml-auto text-sm text-cyan-500 hover:underline touch:inline-flex touch:min-h-11 touch:items-center"
                 >
                   Ver recibo
                 </a>

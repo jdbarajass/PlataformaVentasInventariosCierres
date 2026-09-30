@@ -41,7 +41,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 2 | Estructura del admin | Barra superior compacta con botón de menú en < 1024 px; el sidebar actual pasa a cajón lateral que se abre/cierra (se cierra al navegar); contenido con `p-4` / `sm:p-6` / `lg:p-8`. En ≥ 1024 px todo igual, incluido el colapso guardado. | ✅ Hecha |
 | 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | ✅ Hecha |
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | ✅ Hecha |
-| 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | Pendiente |
+| 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
 | 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. | Pendiente |
 | 7 | Páginas solo-admin | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. | Pendiente |
 | 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
@@ -133,3 +133,18 @@ Documento vivo. Leer primero si se retoma este trabajo.
 - La red de la oficina siguió rechazando peticiones de forma intermitente (401 tras ~11 s, p. ej. préstamos o gastos que aparecen vacíos); la prueba recarga hasta que todo carga. No es de la app ni de estos cambios.
 
 **Queda para la Fase 5**: el modal "Editar factura completa" de esta página todavía es el diálogo de escritorio.
+
+### Fase 5 — Modales y avisos + portátil (2026-09-30) — aprobada
+
+**Cambios**
+- **Hoja inferior en celular (< sm)** para los 3 modales del flujo de venta — sube desde abajo, llega al borde, scroll propio (`max-h-[92dvh]`, `overscroll-contain`), esquinas superiores redondeadas, animación corta (se omite con "reducir movimiento"). En sm+ el diálogo centrado de siempre (`sm:` restaura exactamente las clases anteriores). Todos con `role="dialog"`, `aria-modal`, título enlazado y ✕ con nombre accesible. No se agregaron comportamientos nuevos (p. ej. cerrar tocando afuera): se cierran igual que antes.
+  - `admin/ventas` — **Pagar factura / Confirmar pago**: controles a 44 px en táctil (tipo de tarjeta, "especifica…", método, monto, "Cambiar método", "Agregar otro método", quitar pago); "Monto recibido" más grande (48 px, texto 18 px) y enlazado a su etiqueta; en Combinado sin scroll interno en celular (la hoja ya desplaza).
+  - `admin/ventas-dia` — **Editar factura completa**: los productos pasan a tarjetas en celular (nombre/quitar arriba; Cant., Precio y — admin — Costo abajo, 44 px), con los mismos `setEditCart`; en sm+ la tabla de siempre. Pagos y botones finales a 44 px y a todo el ancho en celular.
+  - `components/admin/session-alerts.tsx` — **Recordatorios** al iniciar sesión.
+- **Portátil — Registrar Venta** (aprobado cambiar escritorio): la factura usa siempre el diseño apilado — encabezado en dos filas cuando no cabe (en 1366 "Factura de venta" ya no se parte en dos líneas) y en cada línea del carrito el precio en su propia fila (como el descuento). Así funciona con cualquier ancho de columna.
+
+**Verificación**
+- Versión anterior (git stash), portátil con 2 productos: la factura se salía de la tarjeta en **3 de 4** casos — 1024 (Limpiar, precios y totales; página 1.046 px), **1280** (el total $280.000 — no se había detectado antes) y 1024 con menú colapsado. Después: **4/4 OK** (1024, 1280, 1366, 1024 colapsado).
+- Celular 360/390 (sin pulsar nunca Confirmar venta / Guardar cambios): cobro, cobro en Efectivo, cobro Combinado, editar factura y recordatorios → hoja pegada abajo y a todo el ancho, sin desborde, todos los controles ≥ 44 px, se cierran con la ✕, sin errores JS.
+- Escritorio 1366 píxel a píxel: modal de edición **idéntico**; modal de cobro idéntico (la única diferencia es la factura de fondo, que es el arreglo del portátil).
+- `tsc` OK · `next lint` sin warnings · `vitest` 132/132 · **`next build` OK** (123 páginas; los "Connect Timeout" del log son la red intermitente al leer la configuración de la tienda, no detienen el build).
