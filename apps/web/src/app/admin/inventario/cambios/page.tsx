@@ -181,7 +181,7 @@ export default function CambiosPage() {
             placeholder="Buscar por nombre o SKU..."
             value={side.query}
             onChange={(e) => search(key, e.target.value)}
-            className="rounded-lg pl-10"
+            className="rounded-lg pl-10 touch:h-11"
           />
         </div>
         {side.results.length > 0 && (
@@ -190,7 +190,7 @@ export default function CambiosPage() {
               <button
                 key={p.id}
                 onClick={() => selectProduct(key, p)}
-                className="block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary"
+                className="block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary touch:py-3 touch:text-sm"
               >
                 {p.title}
               </button>
@@ -204,7 +204,7 @@ export default function CambiosPage() {
               <select
                 value={side.selectedVariantId}
                 onChange={(e) => setSide((prev) => ({ ...prev, selectedVariantId: e.target.value }))}
-                className="w-full rounded-lg border bg-background px-2 py-1 text-xs"
+                aria-label="Talla" className="w-full rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
               >
                 {side.selectedProduct.variants.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -231,7 +231,7 @@ export default function CambiosPage() {
                 max={key === 'sale' && stock !== null ? stock : undefined}
                 value={side.qty}
                 onChange={(e) => setSide((prev) => ({ ...prev, qty: e.target.value }))}
-                className="h-8 w-20 rounded-lg text-sm"
+                className="h-8 w-20 rounded-lg text-sm touch:h-11"
               />
               {key === 'sale' && stock !== null && parseInt(side.qty) > stock && (
                 <span className="text-xs font-medium text-red-500">Solo hay {stock} disponible(s)</span>
@@ -244,20 +244,20 @@ export default function CambiosPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/inventario" className="rounded-lg p-2 hover:bg-secondary">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex items-start gap-2 sm:items-center sm:gap-3">
+        <Link href="/admin/inventario" aria-label="Volver a Inventario" className="shrink-0 rounded-lg p-2 hover:bg-secondary touch:p-3">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Cambio de Producto</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Cambio de Producto</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             El cliente devuelve un producto y se lleva otro a cambio. Busca ambos artículos.
           </p>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {renderColumn(
           'Producto que SALE (se le entrega al cliente)',
           'baja',

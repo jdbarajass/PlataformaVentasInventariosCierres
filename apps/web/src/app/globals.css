@@ -434,6 +434,54 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   }
 }
 
+/* Tabla apilada (< md): cada fila se ve como tarjeta y cada celda con
+   data-label muestra "Etiqueta …… valor". Es la MISMA tabla (mismo HTML,
+   mismos botones y formularios en línea): no se duplica ninguna lógica.
+   Solo afecta a los hijos directos de la tabla que lleva la clase, así una
+   tabla anidada (p. ej. las tallas dentro de una fila) no se ve afectada
+   salvo que también lleve la clase. En md+ la tabla es la de siempre.
+   Uso: <table class="table-stack"> + <td data-label="Stock">. Fase 6b. */
+@media (max-width: 767px) {
+  .table-stack,
+  .table-stack > tbody,
+  .table-stack > tbody > tr,
+  .table-stack > tbody > tr > td {
+    display: block;
+    width: 100%;
+  }
+  .table-stack > thead {
+    display: none;
+  }
+  .table-stack > tbody > tr {
+    padding: 0.75rem 1rem;
+  }
+  .table-stack > tbody > tr > td {
+    padding: 0.25rem 0;
+  }
+  /* Etiqueta a la izquierda; TODO el contenido de la celda junto a la
+     derecha (margin-right:auto en la etiqueta), aunque tenga varios hijos
+     (p. ej. "2" + "/ mín 5"). */
+  .table-stack > tbody > tr > td[data-label] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    column-gap: 0.375rem;
+    row-gap: 0.25rem;
+    text-align: right;
+  }
+  .table-stack > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    margin-right: auto;
+    padding-right: 0.75rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+  }
+}
+
 /* ═══════════════════════════════════════
    SCROLLBAR
 ═══════════════════════════════════════ */

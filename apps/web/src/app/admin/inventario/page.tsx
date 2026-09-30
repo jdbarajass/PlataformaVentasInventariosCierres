@@ -1614,31 +1614,32 @@ export default function InventarioPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header — < lg: título arriba y acciones debajo, que se acomodan en
+          varias filas si no caben (móvil, Fase 6b). lg+: igual que antes. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Inventario</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Inventario</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Gestiona el stock de tus productos
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 lg:flex-nowrap">
           {canEdit && (
-            <Link href="/admin/inventario/cargue-pedidos">
-              <Button variant="outline" className="rounded-xl">
+            <Link href="/admin/inventario/cargue-pedidos" className="max-sm:flex-1">
+              <Button variant="outline" className="rounded-xl touch:h-11 max-sm:w-full">
                 <Upload className="mr-2 h-4 w-4" />
                 Cargue de Pedidos
               </Button>
             </Link>
           )}
           {canEdit && (
-            <Button variant="outline" className="rounded-xl" onClick={openAjusteModal}>
+            <Button variant="outline" className="rounded-xl touch:h-11 max-sm:flex-1" onClick={openAjusteModal}>
               <ClipboardList className="mr-2 h-4 w-4" />
               Nuevo ajuste de inventario
             </Button>
           )}
-          <Button variant="outline" className="rounded-xl" onClick={openExportDialog}>
+          <Button variant="outline" className="rounded-xl touch:h-11 max-sm:flex-1" onClick={openExportDialog}>
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
@@ -1646,13 +1647,13 @@ export default function InventarioPage() {
       </div>
 
       {showAjusteModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-2 sm:p-4">
           {/* Sin overflow-y-auto ni max-h en la tabla: si el desplegable de
               resultados de cada fila viviera dentro de un contenedor con su
               propio scroll, quedaría recortado (invisible) aunque exista en
               el DOM — el overlay de arriba (del tamaño del viewport) es el
               único que hace scroll, así el buscador nunca se corta. */}
-          <div className="mx-auto w-full max-w-4xl rounded-xl border bg-card p-6 shadow-lg">
+          <div role="dialog" aria-modal="true" aria-label="Nuevo ajuste de inventario" className="mx-auto w-full max-w-4xl rounded-xl border bg-card p-4 shadow-lg sm:p-6">
             <div className="mb-4 flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Nuevo ajuste de inventario</h2>
@@ -1661,7 +1662,7 @@ export default function InventarioPage() {
                   pensado para un conteo físico.
                 </p>
               </div>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setShowAjusteModal(false)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Cerrar ajuste" onClick={() => setShowAjusteModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -1673,7 +1674,7 @@ export default function InventarioPage() {
             ) : (
               <>
                 <div className="rounded-lg border">
-                  <table className="w-full text-sm">
+                  <table className="table-stack w-full text-sm">
                     <thead className="sticky top-0 bg-secondary/50 text-xs text-muted-foreground">
                       <tr>
                         <th className="p-2 text-left">Producto</th>
@@ -1698,7 +1699,7 @@ export default function InventarioPage() {
                                 value={row.query}
                                 onFocus={() => setAjusteFocusedRow(row.key)}
                                 onChange={(e) => updateAjusteRow(row.key, { item: null, query: e.target.value })}
-                                className="h-9 min-w-[220px] rounded-lg text-sm"
+                                className="h-9 min-w-[220px] rounded-lg text-sm touch:h-11 max-md:min-w-0"
                               />
                               {results.length > 0 && (
                                 <div className="absolute left-2 right-2 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-lg border bg-card shadow-lg">
@@ -1707,7 +1708,7 @@ export default function InventarioPage() {
                                       key={item.variantId || item.productId}
                                       type="button"
                                       onClick={() => selectAjusteItem(row.key, item)}
-                                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-secondary"
+                                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-secondary touch:py-3"
                                     >
                                       <span>
                                         {item.title}
@@ -1719,30 +1720,30 @@ export default function InventarioPage() {
                                 </div>
                               )}
                             </td>
-                            <td className="p-2 text-right text-muted-foreground">{row.item ? row.item.stockQty : '—'}</td>
-                            <td className="p-2">
+                            <td data-label="Cant. actual" className="p-2 text-right text-muted-foreground">{row.item ? row.item.stockQty : '—'}</td>
+                            <td data-label="Tipo de ajuste" className="p-2">
                               <select
                                 value={row.tipo}
                                 onChange={(e) => updateAjusteRow(row.key, { tipo: e.target.value as 'incremento' | 'disminucion' })}
-                                className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                                aria-label="Tipo de ajuste" className="h-9 w-full rounded-lg border bg-background px-2 text-sm touch:h-11 max-md:w-auto"
                               >
                                 <option value="incremento">Incremento</option>
                                 <option value="disminucion">Disminución</option>
                               </select>
                             </td>
-                            <td className="p-2">
+                            <td data-label="Cantidad" className="p-2">
                               <Input
                                 type="number"
                                 min="0"
                                 value={row.cantidad}
                                 onChange={(e) => updateAjusteRow(row.key, { cantidad: e.target.value })}
-                                className="h-9 w-24 rounded-lg text-right text-sm"
+                                aria-label="Cantidad" className="h-9 w-24 rounded-lg text-right text-sm touch:h-11"
                               />
                             </td>
-                            <td className="p-2 text-right text-muted-foreground">
+                            <td data-label="Costo promedio" className="p-2 text-right text-muted-foreground">
                               {row.item ? formatPrice(row.item.costCents) : '—'}
                             </td>
-                            <td
+                            <td data-label="Cant. final"
                               className={cn(
                                 'p-2 text-right font-medium',
                                 row.item && cantidadFinal < 0 && 'text-red-500'
@@ -1750,11 +1751,11 @@ export default function InventarioPage() {
                             >
                               {row.item ? cantidadFinal : '—'}
                             </td>
-                            <td className="p-2 text-right font-medium">
+                            <td data-label="Total ajustado" className="p-2 text-right font-medium">
                               {row.item ? formatPrice(ajusteTotalRow(row)) : '—'}
                             </td>
-                            <td className="p-2 text-center">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeAjusteRow(row.key)}>
+                            <td className="p-2 text-center max-md:text-right">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Quitar fila" onClick={() => removeAjusteRow(row.key)}>
                                 <X className="h-3.5 w-3.5 text-red-500" />
                               </Button>
                             </td>
@@ -1765,20 +1766,20 @@ export default function InventarioPage() {
                   </table>
                 </div>
 
-                <Button variant="outline" size="sm" className="mt-3 rounded-lg" onClick={addAjusteRow}>
+                <Button variant="outline" size="sm" className="mt-3 rounded-lg touch:h-11" onClick={addAjusteRow}>
                   <Plus className="mr-1 h-3 w-3" /> Agregar producto
                 </Button>
 
-                <div className="mt-4 flex items-center justify-between border-t pt-4">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4 sm:gap-0">
                   <div className="text-sm">
                     <span className="text-muted-foreground">Total ajustado: </span>
                     <span className="font-semibold">{formatPrice(ajusteTotalGeneral)}</span>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" className="rounded-xl" onClick={() => setShowAjusteModal(false)}>
+                    <Button variant="outline" className="rounded-xl touch:h-11" onClick={() => setShowAjusteModal(false)}>
                       Cancelar
                     </Button>
-                    <Button className="rounded-xl" onClick={handleGuardarAjustes} disabled={savingAjuste}>
+                    <Button className="rounded-xl touch:h-11" onClick={handleGuardarAjustes} disabled={savingAjuste}>
                       {savingAjuste && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Guardar
                     </Button>
@@ -1791,8 +1792,8 @@ export default function InventarioPage() {
       )}
 
       {showExportDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-label="Exportar inventario" className="max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border bg-card p-4 pb-6 shadow-lg animate-in slide-in-from-bottom duration-300 motion-reduce:animate-none sm:max-h-none sm:overflow-visible sm:rounded-xl sm:p-6 sm:animate-none">
             <h2 className="mb-4 text-lg font-semibold">Exportar inventario</h2>
 
             {loadingIngresar ? (
@@ -1806,14 +1807,14 @@ export default function InventarioPage() {
                   <div className="flex gap-2">
                     <Button
                       variant={exportFormat === 'pdf' ? 'default' : 'outline'}
-                      className="flex-1 rounded-xl"
+                      className="flex-1 rounded-xl touch:h-11"
                       onClick={() => setExportFormat('pdf')}
                     >
                       PDF
                     </Button>
                     <Button
                       variant={exportFormat === 'excel' ? 'default' : 'outline'}
-                      className="flex-1 rounded-xl"
+                      className="flex-1 rounded-xl touch:h-11"
                       onClick={() => setExportFormat('excel')}
                     >
                       Excel
@@ -1826,7 +1827,7 @@ export default function InventarioPage() {
                   <select
                     value={exportAlcance}
                     onChange={(e) => setExportAlcance(e.target.value as typeof exportAlcance)}
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
                   >
                     <option value="todos">Todos los productos</option>
                     <option value="con_stock">Solo con stock (cantidad &gt; 0)</option>
@@ -1839,7 +1840,7 @@ export default function InventarioPage() {
                   <select
                     value={exportCategoria}
                     onChange={(e) => setExportCategoria(e.target.value)}
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
                   >
                     <option value="">Todas las categorías</option>
                     {categoriasDisponibles.map((c) => (
@@ -1855,7 +1856,7 @@ export default function InventarioPage() {
                   <select
                     value={exportTalla}
                     onChange={(e) => setExportTalla(e.target.value)}
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
                   >
                     <option value="">Todas las tallas</option>
                     <option value="__sin_talla__">Sin talla</option>
@@ -1872,7 +1873,7 @@ export default function InventarioPage() {
                   <select
                     value={exportOrden}
                     onChange={(e) => setExportOrden(e.target.value as typeof exportOrden)}
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
                   >
                     <option value="nombre">Nombre (A-Z)</option>
                     <option value="categoria">Categoría</option>
@@ -1881,7 +1882,7 @@ export default function InventarioPage() {
                   </select>
                 </div>
 
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 text-sm touch:min-h-11">
                   <input
                     type="checkbox"
                     checked={exportIncluirResumen}
@@ -1891,10 +1892,10 @@ export default function InventarioPage() {
                 </label>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" className="rounded-xl" onClick={() => setShowExportDialog(false)}>
+                  <Button variant="outline" className="rounded-xl touch:h-11 max-sm:flex-1" onClick={() => setShowExportDialog(false)}>
                     Cancelar
                   </Button>
-                  <Button className="rounded-xl" onClick={handleGenerarExportacion}>
+                  <Button className="rounded-xl touch:h-11 max-sm:flex-1" onClick={handleGenerarExportacion}>
                     Generar {exportFormat === 'pdf' ? 'PDF' : 'Excel'}
                   </Button>
                 </div>
@@ -1904,60 +1905,64 @@ export default function InventarioPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className={`grid gap-4 sm:grid-cols-4 ${canViewCost ? 'lg:grid-cols-5' : ''}`}>
-        <div className="rounded-xl border bg-card p-4">
+      {/* Stats — celular: 2 columnas compactas, íconos ocultos (Fase 6b).
+          5 columnas solo desde xl: en portátil (1024) "Valor en costo" no cabía
+          en su columna y estiraba la página a 1.063 px (arreglo aprobado). */}
+      <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 ${canViewCost ? 'xl:grid-cols-5' : ''}`}>
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-muted">
               <Package className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{products.length}</p>
+              <p className="text-lg font-bold sm:text-2xl">{products.length}</p>
               <p className="text-sm text-muted-foreground">Productos</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-green-500/10">
               <Package className="h-5 w-5 text-green-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{totalStock}</p>
+              <p className="text-lg font-bold sm:text-2xl">{totalStock}</p>
               <p className="text-sm text-muted-foreground">Unidades en stock</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-orange-500/10">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{lowStockCount}</p>
+              <p className="text-lg font-bold sm:text-2xl">{lowStockCount}</p>
               <p className="text-sm text-muted-foreground">Stock bajo</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-red-500/10">
               <Package className="h-5 w-5 text-red-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{outOfStockCount}</p>
+              <p className="text-lg font-bold sm:text-2xl">{outOfStockCount}</p>
               <p className="text-sm text-muted-foreground">Sin stock</p>
             </div>
           </div>
         </div>
         {canViewCost && (
-          <div className="rounded-xl border bg-card p-4">
+          <div className="col-span-2 rounded-xl border bg-card p-3 sm:col-span-4 sm:p-4 xl:col-span-1">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10">
+              {/* xl–2xl (5 columnas angostas): sin ícono y cifra un tamaño menor
+                  para que "$ 61.343.912" quepa en la tarjeta (arreglo aprobado). */}
+              <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:flex xl:hidden 2xl:flex bg-cyan-500/10">
                 <Package className="h-5 w-5 text-cyan-500" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">{inventoryValue === null ? '—' : formatPrice(inventoryValue)}</p>
+              <div className="min-w-0">
+                <p className="text-lg font-bold sm:text-2xl xl:text-xl 2xl:text-2xl">{inventoryValue === null ? '—' : formatPrice(inventoryValue)}</p>
                 <p className="text-sm text-muted-foreground">Valor en costo (todo el inventario)</p>
               </div>
             </div>
@@ -1965,11 +1970,11 @@ export default function InventarioPage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      {/* Tabs — < sm: desplazamiento horizontal (Fase 6b) */}
+      <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0">
         <button
           onClick={() => setActiveTab('detalle')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+          className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 touch:min-h-11 px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'detalle'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1980,7 +1985,7 @@ export default function InventarioPage() {
         </button>
         <button
           onClick={() => setActiveTab('general')}
-          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+          className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 touch:min-h-11 px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'general'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1998,7 +2003,7 @@ export default function InventarioPage() {
         {(canEdit || isReadOnlyAdmin) && (
           <button
             onClick={() => setActiveTab('movimientos')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 touch:min-h-11 px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'movimientos'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -2011,7 +2016,7 @@ export default function InventarioPage() {
         {canEdit && (
           <button
             onClick={() => setActiveTab('ingresar')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 touch:min-h-11 px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'ingresar'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -2027,7 +2032,7 @@ export default function InventarioPage() {
             administrativa. */}
         <Link
           href="/admin/inventario/cambios"
-          className="flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 touch:min-h-11 border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <RefreshCcw className="h-4 w-4" />
           Cambios
@@ -2035,9 +2040,9 @@ export default function InventarioPage() {
       </div>
 
       {activeTab === 'ingresar' ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Formulario */}
-          <div className="space-y-4 rounded-xl border bg-card p-6">
+          <div className="space-y-4 rounded-xl border bg-card p-4 sm:p-6">
             <div>
               <label className="mb-1 block text-sm font-medium">Nombre del producto</label>
               <Input
@@ -2045,7 +2050,7 @@ export default function InventarioPage() {
                 value={ingresarNombre}
                 onChange={(e) => setIngresarNombre(e.target.value)}
                 placeholder="Ej: CASCO XTRONG M70 NEGRO MATE"
-                className="rounded-xl"
+                className="rounded-xl touch:h-11"
               />
               <datalist id="ingresar-nombres">
                 {nombresSugeridos.slice(0, 20).map((n) => (
@@ -2054,7 +2059,7 @@ export default function InventarioPage() {
               </datalist>
             </div>
 
-            <label className="flex items-center gap-2 text-sm font-medium">
+            <label className="flex items-center gap-2 text-sm font-medium touch:min-h-11">
               <input
                 type="checkbox"
                 checked={ingresarTieneTallas}
@@ -2068,7 +2073,7 @@ export default function InventarioPage() {
                 <label className="mb-1 block text-sm font-medium">Tallas a crear</label>
                 <div className="flex flex-wrap gap-3 rounded-xl border p-3">
                   {TALLAS_ESTANDAR.map((t) => (
-                    <label key={t} className="flex items-center gap-1.5 text-sm">
+                    <label key={t} className="flex items-center gap-1.5 text-sm touch:min-h-11 touch:px-1">
                       <input
                         type="checkbox"
                         checked={ingresarTallasSeleccionadas.includes(t)}
@@ -2092,7 +2097,7 @@ export default function InventarioPage() {
                 <select
                   value={ingresarTalla}
                   onChange={(e) => setIngresarTalla(e.target.value)}
-                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
                 >
                   {TALLAS_DISPONIBLES.map((t) => (
                     <option key={t} value={t}>
@@ -2112,7 +2117,7 @@ export default function InventarioPage() {
                 min={ingresarTieneTallas ? '0' : '1'}
                 value={ingresarCantidad}
                 onChange={(e) => setIngresarCantidad(e.target.value)}
-                className="rounded-xl"
+                className="rounded-xl touch:h-11"
               />
             </div>
 
@@ -2122,13 +2127,13 @@ export default function InventarioPage() {
                 value={ingresarCosto}
                 onChange={setIngresarCosto}
                 placeholder="0"
-                className="rounded-xl"
+                className="rounded-xl touch:h-11"
               />
             </div>
 
             {ingresarTieneTallas ? null : (
             <>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm touch:min-h-11">
               <input
                 type="checkbox"
                 checked={ingresarManual}
@@ -2137,14 +2142,14 @@ export default function InventarioPage() {
               Editar serial / código manualmente
             </label>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-muted-foreground">Serial (auto)</label>
                 <Input
                   value={ingresarManual ? ingresarSerialManual : serialSugerido}
                   onChange={(e) => setIngresarSerialManual(e.target.value)}
                   disabled={!ingresarManual}
-                  className="rounded-xl"
+                  className="rounded-xl touch:h-11"
                 />
               </div>
               <div>
@@ -2155,19 +2160,19 @@ export default function InventarioPage() {
                   value={ingresarManual ? ingresarBarcodeManual : barcodeSugerido}
                   onChange={(e) => setIngresarBarcodeManual(e.target.value)}
                   disabled={!ingresarManual}
-                  className="rounded-xl"
+                  className="rounded-xl touch:h-11"
                 />
               </div>
             </div>
             </>
             )}
 
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="rounded-xl" onClick={limpiarFormularioIngresar}>
+            <div className="flex gap-2 pt-2 max-sm:flex-wrap">
+              <Button variant="outline" className="rounded-xl touch:h-11" onClick={limpiarFormularioIngresar}>
                 <X className="mr-2 h-4 w-4" />
                 Limpiar campos
               </Button>
-              <Button className="flex-1 rounded-xl" onClick={handleIngresar} disabled={savingIngresar}>
+              <Button className="flex-1 rounded-xl touch:h-11 max-sm:basis-full" onClick={handleIngresar} disabled={savingIngresar}>
                 {savingIngresar ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -2179,7 +2184,7 @@ export default function InventarioPage() {
           </div>
 
           {/* Productos similares */}
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-xl border bg-card p-4 sm:p-6">
             <h2 className="mb-1 text-lg font-semibold">Productos similares</h2>
             <p className="mb-4 text-sm text-muted-foreground">
               {categoriaDetectada
@@ -2191,7 +2196,7 @@ export default function InventarioPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="max-h-[28rem] overflow-y-auto">
+              <div className="lg:max-h-[28rem] lg:overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
@@ -2225,20 +2230,21 @@ export default function InventarioPage() {
         </div>
       ) : activeTab === 'movimientos' ? (
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="relative min-w-0 basis-full sm:flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por producto..."
                 value={movimientosSearch}
                 onChange={(e) => setMovimientosSearch(e.target.value)}
-                className="rounded-xl pl-10"
+                className="rounded-xl pl-10 touch:h-11"
               />
             </div>
             <select
               value={movimientosTipo}
               onChange={(e) => setMovimientosTipo(e.target.value)}
-              className="rounded-xl border bg-background px-3 py-2 text-sm"
+              aria-label="Tipo de movimiento"
+              className="rounded-xl border bg-background px-3 py-2 text-sm touch:h-11 max-sm:flex-1"
             >
               <option value="">Todos los tipos</option>
               {Object.entries(typeLabels).map(([value, label]) => (
@@ -2247,7 +2253,7 @@ export default function InventarioPage() {
                 </option>
               ))}
             </select>
-            <Button variant="outline" className="rounded-xl" onClick={fetchFullMovements}>
+            <Button variant="outline" className="rounded-xl touch:h-11" onClick={fetchFullMovements}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Actualizar
             </Button>
@@ -2261,7 +2267,7 @@ export default function InventarioPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="table-stack w-full">
                   <thead>
                     <tr className="border-b">
                       <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">Fecha</th>
@@ -2278,15 +2284,16 @@ export default function InventarioPage() {
                       const esPositivo = m.qty > 0
                       return (
                         <tr key={m.id} className="border-b last:border-0">
-                          <td className="px-6 py-4 text-sm">
+                          <td data-label="Fecha" className="px-6 py-4 text-sm">
                             {d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: BOGOTA_TZ })}
                           </td>
-                          <td className="px-6 py-4 text-sm text-muted-foreground">
+                          <td data-label="Hora" className="px-6 py-4 text-sm text-muted-foreground">
                             {formatBogotaTime(m.created_at)}
                           </td>
-                          <td className="px-6 py-4 font-medium">{m.product?.title || 'Producto eliminado'}</td>
-                          <td className="px-6 py-4 text-sm">{typeLabels[m.type] || m.type}</td>
+                          <td data-label="Producto" className="px-6 py-4 font-medium">{m.product?.title || 'Producto eliminado'}</td>
+                          <td data-label="Tipo" className="px-6 py-4 text-sm">{typeLabels[m.type] || m.type}</td>
                           <td
+                            data-label="Cambio"
                             className={`px-6 py-4 text-center font-bold ${
                               esPositivo ? 'text-green-600' : m.qty < 0 ? 'text-red-600' : 'text-muted-foreground'
                             }`}
@@ -2294,7 +2301,7 @@ export default function InventarioPage() {
                             {esPositivo ? '+' : ''}
                             {m.qty}
                           </td>
-                          <td className="px-6 py-4 text-sm text-muted-foreground">{m.note || '-'}</td>
+                          <td data-label="Notas" className="px-6 py-4 text-sm text-muted-foreground">{m.note || '-'}</td>
                         </tr>
                       )
                     })}
@@ -2336,7 +2343,7 @@ export default function InventarioPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="table-stack w-full">
                   <thead>
                     <tr className="border-b">
                       <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
@@ -2359,8 +2366,9 @@ export default function InventarioPage() {
                     {filteredCategoryGroups.map((g) => (
                       <tr key={g.categoria} className="border-b last:border-0">
                         <td className="px-6 py-4 font-semibold">{g.categoria}</td>
-                        <td className="px-6 py-4 text-center text-muted-foreground">{g.refs}</td>
+                        <td data-label="Referencias" className="px-6 py-4 text-center text-muted-foreground">{g.refs}</td>
                         <td
+                          data-label="Unidades en stock"
                           className={`px-6 py-4 text-center text-lg font-bold ${
                             g.uds > 5 ? 'text-green-600' : g.uds > 0 ? 'text-orange-500' : 'text-red-600'
                           }`}
@@ -2368,7 +2376,7 @@ export default function InventarioPage() {
                           {g.uds}
                         </td>
                         {canViewCost && (
-                          <td className="px-6 py-4 text-right font-medium text-blue-600">
+                          <td data-label="Valor en stock" className="px-6 py-4 text-right font-medium text-blue-600">
                             {formatPrice(g.valor)}
                           </td>
                         )}
@@ -2400,20 +2408,20 @@ export default function InventarioPage() {
       ) : (
       <>
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+        <div className="relative min-w-0 basis-full sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre, SKU o código de barras..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-xl pl-10"
+            className="rounded-xl pl-10 touch:h-11"
           />
         </div>
         <Button
           variant={showLowStock ? 'default' : 'outline'}
           onClick={() => setShowLowStock(!showLowStock)}
-          className="rounded-xl"
+          className="rounded-xl touch:h-11 max-sm:w-full"
         >
           <AlertTriangle className="mr-2 h-4 w-4" />
           Stock bajo ({lowStockCount})
@@ -2437,7 +2445,8 @@ export default function InventarioPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              {/* table-stack: en < md cada producto se ve como tarjeta (ver globals.css). */}
+              <table className="table-stack w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
@@ -2482,33 +2491,34 @@ export default function InventarioPage() {
                         <td className="px-6 py-4">
                           <p className="font-medium">{product.title}</p>
                         </td>
-                        <td className="px-6 py-4">
+                        <td data-label="SKU" className="px-6 py-4">
                           <code className="rounded bg-muted px-2 py-1 text-sm">
                             {product.sku || '-'}
                           </code>
                         </td>
-                        <td className="px-6 py-4 text-sm">
+                        <td data-label="Categoría" className="px-6 py-4 text-sm">
                           {product.category?.name || 'Sin categoría'}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td data-label="Stock" className="px-6 py-4 text-center">
                           <span className="text-xl font-bold">{product.stock_qty}</span>
                           <span className="text-sm text-muted-foreground">
                             {' '}/ mín {product.low_stock_threshold}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td data-label="Estado" className="px-6 py-4">
                           <Badge variant="outline" className={status.color}>
                             {status.label}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 font-medium">
+                        <td data-label="Precio" className="px-6 py-4 font-medium">
                           {formatPrice(product.price_cents)}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td data-label="Tallas" className="px-6 py-4 text-center">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="rounded-lg"
+                            className="rounded-lg touch:h-11"
+                            aria-expanded={isExpanded}
                             onClick={() => toggleVariants(product.id)}
                           >
                             <Tags className="mr-1 h-4 w-4" />
@@ -2529,20 +2539,20 @@ export default function InventarioPage() {
                                 placeholder="Nombre"
                                 value={editProductForm.title}
                                 onChange={(e) => setEditProductForm({ ...editProductForm, title: e.target.value })}
-                                className="h-7 rounded-lg text-xs"
+                                className="h-7 touch:h-11 rounded-lg text-xs"
                               />
                               <div className="flex gap-1">
                                 <MoneyInput
                                   placeholder="Precio de venta"
                                   value={editProductForm.precio}
                                   onChange={(v) => setEditProductForm({ ...editProductForm, precio: v })}
-                                  className="h-7 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 rounded-lg text-xs"
                                 />
                                 <MoneyInput
                                   placeholder="Costo"
                                   value={editProductForm.costo}
                                   onChange={(v) => setEditProductForm({ ...editProductForm, costo: v })}
-                                  className="h-7 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 rounded-lg text-xs"
                                 />
                               </div>
                               <div className="flex gap-1">
@@ -2551,7 +2561,7 @@ export default function InventarioPage() {
                                   placeholder="Cant."
                                   value={editProductForm.stock}
                                   onChange={(e) => setEditProductForm({ ...editProductForm, stock: e.target.value })}
-                                  className="h-7 w-16 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                   disabled={product.variantCount > 0}
                                   title={product.variantCount > 0 ? 'Este producto tiene tallas — ajusta desde Tallas' : undefined}
                                 />
@@ -2560,7 +2570,7 @@ export default function InventarioPage() {
                                   placeholder="Mín."
                                   value={editProductForm.umbral}
                                   onChange={(e) => setEditProductForm({ ...editProductForm, umbral: e.target.value })}
-                                  className="h-7 w-16 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                 />
                               </div>
                               <div className="flex gap-1">
@@ -2568,13 +2578,13 @@ export default function InventarioPage() {
                                   placeholder="Código de barras"
                                   value={editProductForm.barcode}
                                   onChange={(e) => setEditProductForm({ ...editProductForm, barcode: e.target.value })}
-                                  className="h-7 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 rounded-lg text-xs"
                                 />
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-7 w-7 shrink-0 rounded-lg"
+                                  className="h-7 touch:h-11 w-7 touch:w-11 shrink-0 rounded-lg"
                                   title="Generar código de barras automático"
                                   onClick={() =>
                                     setEditProductForm({
@@ -2590,8 +2600,8 @@ export default function InventarioPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 shrink-0"
-                                  onClick={() => handleSaveProductEdit(product.id)}
+                                  className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                  aria-label="Guardar producto" onClick={() => handleSaveProductEdit(product.id)}
                                   disabled={savingProductEdit}
                                 >
                                   {savingProductEdit ? (
@@ -2603,8 +2613,8 @@ export default function InventarioPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 shrink-0"
-                                  onClick={() => setEditingProduct(null)}
+                                  className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                  aria-label="Cancelar edición" onClick={() => setEditingProduct(null)}
                                 >
                                   <X className="h-3 w-3 text-red-500" />
                                 </Button>
@@ -2616,7 +2626,7 @@ export default function InventarioPage() {
                                 <select
                                   value={adjustmentType}
                                   onChange={(e) => setAdjustmentType(e.target.value as 'in' | 'out' | 'adjustment')}
-                                  className="rounded-lg border bg-background px-2 py-1 text-xs"
+                                  className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
                                 >
                                   <option value="in">Entrada</option>
                                   <option value="out">Salida</option>
@@ -2628,7 +2638,7 @@ export default function InventarioPage() {
                                   placeholder="Cant."
                                   value={adjustmentQty}
                                   onChange={(e) => setAdjustmentQty(e.target.value)}
-                                  className="h-7 w-16 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                 />
                               </div>
                               <div className="flex items-center gap-1">
@@ -2636,13 +2646,13 @@ export default function InventarioPage() {
                                   placeholder="Nota..."
                                   value={adjustmentNote}
                                   onChange={(e) => setAdjustmentNote(e.target.value)}
-                                  className="h-7 rounded-lg text-xs"
+                                  className="h-7 touch:h-11 rounded-lg text-xs"
                                 />
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 shrink-0"
-                                  onClick={handleAdjust}
+                                  className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                  aria-label="Confirmar ajuste" onClick={handleAdjust}
                                   disabled={saving}
                                 >
                                   {saving ? (
@@ -2654,8 +2664,8 @@ export default function InventarioPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7 shrink-0"
-                                  onClick={() => {
+                                  className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                  aria-label="Cancelar ajuste" onClick={() => {
                                     setAdjustingProduct(null)
                                     setAdjustmentQty('')
                                     setAdjustmentNote('')
@@ -2744,7 +2754,7 @@ export default function InventarioPage() {
                                           <Button
                                             variant="outline"
                                             size="sm"
-                                            className="h-7 rounded-lg text-xs"
+                                            className="h-7 touch:h-11 rounded-lg text-xs"
                                             onClick={() => handleGenerarBarcodeProducto(product)}
                                           >
                                             <RefreshCw className="mr-1 h-3 w-3" />
@@ -2757,7 +2767,7 @@ export default function InventarioPage() {
                                 </div>
                               ) : (
                                 <div className="overflow-x-auto rounded-lg border bg-card">
-                                  <table className="w-full text-sm">
+                                  <table className="table-stack w-full text-sm">
                                     <thead>
                                       <tr className="border-b">
                                         <th className="px-4 py-2 text-left font-medium text-muted-foreground">Talla</th>
@@ -2777,13 +2787,13 @@ export default function InventarioPage() {
                                         const isEditingVariant = editingVariant === variant.id
                                         return (
                                           <tr key={variant.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{variant.talla || '-'}</td>
-                                            <td className="px-4 py-2">
+                                            <td data-label="Talla" className="px-4 py-2">{variant.talla || '-'}</td>
+                                            <td data-label="Código de barras" className="px-4 py-2">
                                               <code className="rounded bg-muted px-2 py-1 text-xs">
                                                 {variant.barcode || '-'}
                                               </code>
                                             </td>
-                                            <td className="px-4 py-2 text-center">
+                                            <td data-label="Stock" className="px-4 py-2 text-center">
                                               <span className="font-bold">{variant.stock_qty}</span>
                                               {variant.stock_qty <= variant.low_stock_threshold && (
                                                 <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-500 border-orange-500/20">
@@ -2792,7 +2802,7 @@ export default function InventarioPage() {
                                               )}
                                             </td>
                                             {canViewCost && (
-                                              <td className="px-4 py-2">{formatPrice(variant.cost_cents)}</td>
+                                              <td data-label="Costo" className="px-4 py-2">{formatPrice(variant.cost_cents)}</td>
                                             )}
                                             {canEdit && (
                                             <td className="px-4 py-2">
@@ -2803,13 +2813,13 @@ export default function InventarioPage() {
                                                       placeholder="Talla"
                                                       value={editVariantForm.talla}
                                                       onChange={(e) => setEditVariantForm({ ...editVariantForm, talla: e.target.value })}
-                                                      className="h-7 w-16 rounded-lg text-xs"
+                                                      className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                                     />
                                                     <MoneyInput
                                                       placeholder="Costo"
                                                       value={editVariantForm.costo}
                                                       onChange={(v) => setEditVariantForm({ ...editVariantForm, costo: v })}
-                                                      className="h-7 rounded-lg text-xs"
+                                                      className="h-7 touch:h-11 rounded-lg text-xs"
                                                     />
                                                   </div>
                                                   <div className="flex gap-1">
@@ -2818,28 +2828,28 @@ export default function InventarioPage() {
                                                       placeholder="Cant."
                                                       value={editVariantForm.stock}
                                                       onChange={(e) => setEditVariantForm({ ...editVariantForm, stock: e.target.value })}
-                                                      className="h-7 w-16 rounded-lg text-xs"
+                                                      className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                                     />
                                                     <Input
                                                       type="number"
                                                       placeholder="Mín."
                                                       value={editVariantForm.umbral}
                                                       onChange={(e) => setEditVariantForm({ ...editVariantForm, umbral: e.target.value })}
-                                                      className="h-7 w-16 rounded-lg text-xs"
+                                                      className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                                     />
                                                   </div>
                                                   <Input
                                                     placeholder="Código de barras"
                                                     value={editVariantForm.barcode}
                                                     onChange={(e) => setEditVariantForm({ ...editVariantForm, barcode: e.target.value })}
-                                                    className="h-7 rounded-lg text-xs"
+                                                    className="h-7 touch:h-11 rounded-lg text-xs"
                                                   />
                                                   <div className="flex justify-end gap-1">
                                                     <Button
                                                       variant="ghost"
                                                       size="icon"
-                                                      className="h-7 w-7 shrink-0"
-                                                      onClick={() => handleSaveVariantEdit(product.id, variant.id, variant.stock_qty)}
+                                                      className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                                      aria-label="Guardar talla" onClick={() => handleSaveVariantEdit(product.id, variant.id, variant.stock_qty)}
                                                       disabled={savingVariantEdit}
                                                     >
                                                       {savingVariantEdit ? (
@@ -2851,8 +2861,8 @@ export default function InventarioPage() {
                                                     <Button
                                                       variant="ghost"
                                                       size="icon"
-                                                      className="h-7 w-7 shrink-0"
-                                                      onClick={() => setEditingVariant(null)}
+                                                      className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                                      aria-label="Cancelar edición de talla" onClick={() => setEditingVariant(null)}
                                                     >
                                                       <X className="h-3 w-3 text-red-500" />
                                                     </Button>
@@ -2863,7 +2873,7 @@ export default function InventarioPage() {
                                                   <select
                                                     value={variantAdjType}
                                                     onChange={(e) => setVariantAdjType(e.target.value as 'in' | 'out' | 'adjustment')}
-                                                    className="rounded-lg border bg-background px-2 py-1 text-xs"
+                                                    className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
                                                   >
                                                     <option value="in">Entrada</option>
                                                     <option value="out">Salida</option>
@@ -2875,13 +2885,13 @@ export default function InventarioPage() {
                                                     placeholder="Cant."
                                                     value={variantAdjQty}
                                                     onChange={(e) => setVariantAdjQty(e.target.value)}
-                                                    className="h-7 w-16 rounded-lg text-xs"
+                                                    className="h-7 touch:h-11 w-16 rounded-lg text-xs"
                                                   />
                                                   <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 shrink-0"
-                                                    onClick={() => handleAdjustVariant(product.id, variant.id)}
+                                                    className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                                    aria-label="Confirmar ajuste de talla" onClick={() => handleAdjustVariant(product.id, variant.id)}
                                                     disabled={saving}
                                                   >
                                                     <Check className="h-3 w-3 text-green-500" />
@@ -2889,8 +2899,8 @@ export default function InventarioPage() {
                                                   <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 shrink-0"
-                                                    onClick={() => {
+                                                    className="h-7 touch:h-11 w-7 touch:w-11 shrink-0"
+                                                    aria-label="Cancelar ajuste de talla" onClick={() => {
                                                       setAdjustingVariant(null)
                                                       setVariantAdjQty('')
                                                     }}
@@ -2903,7 +2913,7 @@ export default function InventarioPage() {
                                                   <Button
                                                     variant="outline"
                                                     size="icon"
-                                                    className="h-7 w-7 rounded-lg"
+                                                    className="h-7 touch:h-11 w-7 touch:w-11 rounded-lg"
                                                     title="Ajustar stock de la variante"
                                                     onClick={() => {
                                                       setAdjustingVariant(variant.id)
@@ -2915,7 +2925,7 @@ export default function InventarioPage() {
                                                   <Button
                                                     variant="outline"
                                                     size="icon"
-                                                    className="h-7 w-7 rounded-lg"
+                                                    className="h-7 touch:h-11 w-7 touch:w-11 rounded-lg"
                                                     title="Editar variante"
                                                     onClick={() => startEditVariant(variant)}
                                                   >
@@ -2924,7 +2934,7 @@ export default function InventarioPage() {
                                                   <Button
                                                     variant="outline"
                                                     size="icon"
-                                                    className="h-7 w-7 rounded-lg"
+                                                    className="h-7 touch:h-11 w-7 touch:w-11 rounded-lg"
                                                     title="Eliminar talla"
                                                     onClick={() => handleDeleteVariant(product.id, variant.id, variant.talla)}
                                                   >
@@ -2966,13 +2976,13 @@ export default function InventarioPage() {
                                     })
                                     newVariantBarcodeAutoRef.current = sugerido
                                   }}
-                                  className="h-8 w-32 rounded-lg text-xs"
+                                  className="h-8 w-32 touch:h-11 max-sm:w-full rounded-lg text-xs"
                                 />
                                 <Input
                                   placeholder="Código de barras (auto)"
                                   value={newVariant.barcode}
                                   onChange={(e) => setNewVariant({ ...newVariant, barcode: e.target.value })}
-                                  className="h-8 w-40 rounded-lg text-xs"
+                                  className="h-8 w-40 touch:h-11 max-sm:w-full rounded-lg text-xs"
                                 />
                                 <Input
                                   type="number"
@@ -2980,19 +2990,19 @@ export default function InventarioPage() {
                                   placeholder="Stock inicial"
                                   value={newVariant.stock_qty}
                                   onChange={(e) => setNewVariant({ ...newVariant, stock_qty: e.target.value })}
-                                  className="h-8 w-28 rounded-lg text-xs"
+                                  className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                                 />
                                 {canViewCost && (
                                   <MoneyInput
                                     placeholder="Costo unitario"
                                     value={newVariant.cost_cents}
                                     onChange={(v) => setNewVariant({ ...newVariant, cost_cents: v })}
-                                    className="h-8 w-28 rounded-lg text-xs"
+                                    className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                                   />
                                 )}
                                 <Button
                                   size="sm"
-                                  className="h-8 rounded-lg"
+                                  className="h-8 rounded-lg touch:h-11 max-sm:w-full"
                                   onClick={() => handleAddVariant(product.id)}
                                   disabled={savingVariant}
                                 >
@@ -3029,7 +3039,7 @@ export default function InventarioPage() {
       </div>
 
       {/* Recent Movements */}
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-4 text-lg font-semibold">Movimientos recientes</h2>
         {movements.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hay movimientos registrados</p>

@@ -42,7 +42,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | ✅ Hecha |
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | ✅ Hecha |
 | 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
-| 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | 6a ✅ · 6b en curso |
+| 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | 6a ✅ · 6b ✅ · 6c en curso |
 | 7 | Páginas solo-admin | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. | Pendiente |
 | 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
 
@@ -165,3 +165,23 @@ La Fase 6 se dividió en 6a / 6b / 6c (ver tabla) para seguir comprobando por pa
 - Diagnóstico después en 360/390/768: las 4 páginas con ancho = dispositivo y **0 controles < 40 px** (en Notas solo la fila de pestañas desplaza, a propósito).
 - **Escritorio píxel a píxel** (1366 y 1024, página completa) contra la versión anterior: las 8 capturas **idénticas**. La primera comparación detectó 3 diferencias en 1024 causadas por `shrink-0`/`min-w-0`/`gap`/`flex-wrap` que también actuaban con columna angosta → se limitaron a celular (`max-sm:` / `sm:flex-nowrap` / `sm:gap-0`) antes de dar la parte por buena.
 - `tsc` OK · `next lint` sin warnings.
+
+### Fase 6b — Inventario, Cambios, Cargue de pedidos (2026-09-30) — aprobada
+
+**Diagnóstico antes** (390 px): Inventario 716 px (botones del encabezado y pestañas); tabla Detalle de 1.228 px dentro de un scroll horizontal con 145 controles pequeños; Ingresar 435 px; Cargue de pedidos 477 px (selector de proveedor).
+
+**Técnica nueva — `table-stack`** (`globals.css`): en < md cada fila de la tabla se muestra como tarjeta ("Etiqueta …… valor", etiqueta desde `data-label`) **sin duplicar el HTML**: los formularios en línea (editar producto, ajustar stock, tallas) son exactamente los mismos. Solo afecta a los hijos directos de la tabla con la clase, así la tabla de tallas anidada se apila por separado. En md+ la tabla es la de siempre. Reutilizable en las fases siguientes. Se prefirió sobre duplicar la tabla como tarjetas porque el Detalle tiene ~600 líneas interactivas y duplicarlas arriesgaba que las dos versiones se desincronizaran.
+
+**Cambios**
+- `inventario/page.tsx`: encabezado apilado con acciones que se acomodan (< lg); resumen en 2 columnas compactas (íconos decorativos ocultos en celular; "Valor en costo" a lo ancho); pestañas con desplazamiento horizontal; buscadores a todo el ancho; `table-stack` + `data-label` en Detalle, tallas, Inventario General, Movimientos y la tabla del modal "Nuevo ajuste"; controles de los formularios en línea a 44 px en táctil y botones ✓/✕ cuadrados de 44 px con nombre accesible (8); Ingresar con `grid-cols-1` (causa del desborde, igual que en la Fase 3), casillas de talla con más área de toque y botones que pasan a dos filas en celular; modal "Exportar" como hoja inferior; relleno menor en tarjetas.
+- `inventario/cambios` y `inventario/cargue-pedidos`: flecha "volver" de 44 px con nombre accesible, título responsive, columnas apiladas, controles táctiles; en Cargue, selector de proveedor a todo el ancho, `table-stack` en la tabla de cascos y botones finales apilados en celular.
+
+**Verificación**
+- 360/390: las 4 pestañas de Inventario, Cambios y Cargue con ancho = dispositivo y **0 controles < 40 px**; Detalle con una fila de tallas desplegada revisado visualmente (etiquetas y valores alineados, tallas apiladas dentro de la tarjeta).
+- 768 (tablet): todo cabe; las tablas Detalle y Movimientos siguen como tabla con scroll horizontal controlado (el apilado aplica en < 768).
+- **Escritorio píxel a píxel** (1366 y 1024, página completa, esperando a que cada pestaña termine de cargar): las 12 capturas idénticas (única diferencia: la insignia de desarrollo de Next.js, que no existe en producción).
+- `tsc` OK · `next lint` sin warnings.
+
+**Arreglo de portátil (aprobado por el usuario, 2026-09-30)**: en 1024 Inventario medía 1.063 px (ya pasaba antes). Se creía que eran los botones del encabezado, pero el diagnóstico mostró la causa real: la tarjeta "Valor en costo" ($ 61.343.912) no cabía en la 5.ª columna del resumen. Arreglo: 5 columnas solo desde xl (1280); entre sm y xl, 4 columnas y "Valor en costo" en su propia fila a lo ancho; entre xl y 2xl (1280–1535) esa tarjeta sin ícono y con la cifra un tamaño menor (en 1280/1366 la cifra tocaba el borde y el ícono quedaba aplastado — también preexistente). El encabezado se dejó como antes (sí cabía). Verificado: 1024 (menú expandido y colapsado), 1280, 1366, 1440, 1600, 1920 → ancho = ventana y nada se sale de las tarjetas del resumen. En 1366 lo único que cambia respecto a antes es esa tarjeta.
+
+**Pendiente preexistente (no incluido en lo aprobado)**: en 1024 y 1366 la tabla Detalle tiene más columnas de las que caben y la columna de acciones queda cortada dentro de su scroll horizontal.

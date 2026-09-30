@@ -151,26 +151,27 @@ export default function CarguePedidosPage() {
   const nSuma = items.filter((i) => i.matchStatus === 'suma').length
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/inventario" className="rounded-lg p-2 hover:bg-secondary">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex items-start gap-2 sm:items-center sm:gap-3">
+        <Link href="/admin/inventario" aria-label="Volver a Inventario" className="shrink-0 rounded-lg p-2 hover:bg-secondary touch:p-3">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Cargue de Pedidos (Cascos)</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Cargue de Pedidos (Cascos)</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Selecciona el proveedor, carga el PDF del pedido y el sistema extrae los cascos, sugiere nombres y
             códigos de barras. Los productos nuevos se crean inactivos hasta que los revises en Productos.
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-xl border bg-card p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-4">
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value as Provider | '')}
-            className="rounded-lg border bg-background px-3 py-2 text-sm"
+            aria-label="Proveedor"
+            className="w-full min-w-0 rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 sm:w-auto"
           >
             <option value="">— Selecciona proveedor —</option>
             <option value="xtrong">ACCESORIOS PARA MOTOS S.A.S. (XTRONG)</option>
@@ -179,7 +180,7 @@ export default function CarguePedidosPage() {
 
           <label className={!isAdmin ? 'pointer-events-none opacity-50' : undefined}>
             <input type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} disabled={parsing || !isAdmin} />
-            <span className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600">
+            <span className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 touch:min-h-11">
               {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               Cargar PDF de pedido
             </span>
@@ -198,7 +199,7 @@ export default function CarguePedidosPage() {
       {items.length > 0 && (
         <div className="rounded-xl border bg-card">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="table-stack w-full text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground">Estado</th>
@@ -215,38 +216,38 @@ export default function CarguePedidosPage() {
                   const cfg = statusConfig[item.matchStatus]
                   return (
                     <tr key={item.key} className="border-b last:border-0">
-                      <td className="px-3 py-2">
+                      <td data-label="Estado" className="px-3 py-2">
                         <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
                       </td>
-                      <td className="px-3 py-2">
+                      <td data-label="Nombre" className="px-3 py-2">
                         <Input
                           value={item.nombreSugerido}
                           onChange={(e) => updateItem(item.key, { nombreSugerido: e.target.value })}
-                          className="h-8 rounded-lg text-xs"
+                          aria-label="Nombre en inventario" className="h-8 rounded-lg text-xs touch:h-11"
                         />
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td data-label="Talla" className="px-3 py-2 text-center">
                         <Input
                           value={item.talla}
                           onChange={(e) => updateItem(item.key, { talla: e.target.value })}
-                          className="h-8 w-14 rounded-lg text-center text-xs"
+                          aria-label="Talla" className="h-8 w-14 rounded-lg text-center text-xs touch:h-11"
                         />
                       </td>
-                      <td className="px-3 py-2 text-right">{formatPrice(Math.round(item.costoSinIva * 100))}</td>
-                      <td className="px-3 py-2 text-center">
+                      <td data-label="Costo unit." className="px-3 py-2 text-right">{formatPrice(Math.round(item.costoSinIva * 100))}</td>
+                      <td data-label="Cantidad" className="px-3 py-2 text-center">
                         <Input
                           type="number"
                           min="1"
                           value={item.cantidad}
                           onChange={(e) => updateItem(item.key, { cantidad: parseInt(e.target.value) || 1 })}
-                          className="h-8 w-16 rounded-lg text-center text-xs"
+                          aria-label="Cantidad" className="h-8 w-16 rounded-lg text-center text-xs touch:h-11"
                         />
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td data-label="Código barras" className="px-3 py-2 text-center">
                         <code className="rounded bg-muted px-2 py-1 text-xs">{item.codigoBarrasSugerido || '—'}</code>
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(item.key)}>
+                      <td className="px-3 py-2 text-center max-md:text-right">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Quitar casco" onClick={() => removeItem(item.key)}>
                           <X className="h-3 w-3 text-red-500" />
                         </Button>
                       </td>
@@ -257,15 +258,15 @@ export default function CarguePedidosPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between border-t p-4">
+          <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
             <p className="text-xs text-muted-foreground">
               🟢 NUEVO PRODUCTO = se crea inactivo, revísalo en Productos · 🔵 NUEVA TALLA = se agrega al producto existente · 🩵 SUMA STOCK = se suma a la variante existente
             </p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="rounded-lg" onClick={() => { setItems([]); setFileName('') }}>
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+              <Button variant="outline" className="rounded-lg touch:h-11 max-sm:flex-1" onClick={() => { setItems([]); setFileName('') }}>
                 <Trash2 className="mr-2 h-4 w-4" /> Limpiar
               </Button>
-              <Button className="rounded-lg" onClick={handleConfirm} disabled={confirming}>
+              <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleConfirm} disabled={confirming}>
                 {confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                 Confirmar e Importar al Inventario
               </Button>
