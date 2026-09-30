@@ -2445,8 +2445,10 @@ export default function InventarioPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              {/* table-stack: en < md cada producto se ve como tarjeta (ver globals.css). */}
-              <table className="table-stack w-full">
+              {/* table-stack-xl: por debajo de xl cada producto se ve como tarjeta;
+                  table-compact-xl: entre xl y 2xl celdas más angostas para que
+                  quepan las 8 columnas (ver globals.css). Fase 7, aprobado. */}
+              <table className="table-stack-xl table-compact-xl w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
@@ -2767,7 +2769,7 @@ export default function InventarioPage() {
                                 </div>
                               ) : (
                                 <div className="overflow-x-auto rounded-lg border bg-card">
-                                  <table className="table-stack w-full text-sm">
+                                  <table className="table-stack-xl w-full text-sm">
                                     <thead>
                                       <tr className="border-b">
                                         <th className="px-4 py-2 text-left font-medium text-muted-foreground">Talla</th>

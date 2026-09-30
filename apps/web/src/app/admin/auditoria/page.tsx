@@ -144,61 +144,61 @@ export default function AuditoriaPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Auditoría</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-bold sm:text-3xl">Auditoría</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Registro de todas las acciones realizadas en el sistema
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-muted">
               <Activity className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{logs.length}</p>
+              <p className="text-lg font-bold sm:text-2xl">{logs.length}</p>
               <p className="text-sm text-muted-foreground">Total registros</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-green-500/10">
               <FileText className="h-5 w-5 text-green-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-lg font-bold sm:text-2xl">
                 {logs.filter((l) => l.action === 'create').length}
               </p>
               <p className="text-sm text-muted-foreground">Creaciones</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-blue-500/10">
               <FileText className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-lg font-bold sm:text-2xl">
                 {logs.filter((l) => l.action === 'update').length}
               </p>
               <p className="text-sm text-muted-foreground">Actualizaciones</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-muted">
               <User className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-lg font-bold sm:text-2xl">
                 {new Set(logs.map((l) => l.actor_email)).size}
               </p>
               <p className="text-sm text-muted-foreground">Usuarios activos</p>
@@ -208,20 +208,20 @@ export default function AuditoriaPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+        <div className="relative min-w-0 basis-full sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por usuario, acción o registro..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-xl pl-10"
+            className="rounded-xl pl-10 touch:h-11"
           />
         </div>
         <select
           value={selectedAction}
           onChange={(e) => setSelectedAction(e.target.value)}
-          className="rounded-xl border bg-background px-4 py-2 text-sm"
+          aria-label="Acción" className="min-w-0 rounded-xl border bg-background px-4 py-2 text-sm touch:h-11 max-sm:flex-1"
         >
           <option value="all">Todas las acciones</option>
           {uniqueActions.map((action) => (
@@ -233,7 +233,7 @@ export default function AuditoriaPage() {
         <select
           value={selectedTable}
           onChange={(e) => setSelectedTable(e.target.value)}
-          className="rounded-xl border bg-background px-4 py-2 text-sm"
+          aria-label="Tabla" className="min-w-0 rounded-xl border bg-background px-4 py-2 text-sm touch:h-11 max-sm:flex-1"
         >
           <option value="all">Todas las tablas</option>
           {uniqueTables.map((table) => (
@@ -257,9 +257,10 @@ export default function AuditoriaPage() {
             <div key={log.id} className="rounded-xl border bg-card">
               <button
                 onClick={() => toggleExpand(log.id)}
-                className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-muted/50"
+                aria-expanded={isExpanded}
+                className="flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-muted/50 max-sm:gap-2 max-sm:p-3"
               >
-                <div className="flex h-8 w-8 items-center justify-center">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center">
                   {isExpanded ? (
                     <ChevronDown className="h-5 w-5 text-muted-foreground" />
                   ) : (
@@ -267,8 +268,8 @@ export default function AuditoriaPage() {
                   )}
                 </div>
 
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-3">
+                <div className="flex-1 space-y-1 max-sm:min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
                     <Badge variant="outline" className={actionInfo.color}>
                       {actionInfo.label}
                     </Badge>
@@ -277,12 +278,12 @@ export default function AuditoriaPage() {
                       {tableConfig[log.table_name] || log.table_name}
                     </Badge>
                     {log.record_id && (
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground max-sm:basis-full max-sm:break-all max-sm:text-xs">
                         ID: {log.record_id}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground sm:flex-nowrap">
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
                       {log.actor_email || 'Sistema'}
@@ -303,7 +304,7 @@ export default function AuditoriaPage() {
                         <h4 className="mb-2 text-sm font-medium text-muted-foreground">
                           Datos anteriores
                         </h4>
-                        <pre className="rounded-lg bg-muted p-3 text-xs">
+                        <pre className="rounded-lg bg-muted p-3 text-xs max-md:overflow-x-auto">
                           {JSON.stringify(log.old_data, null, 2)}
                         </pre>
                       </div>
@@ -313,14 +314,14 @@ export default function AuditoriaPage() {
                         <h4 className="mb-2 text-sm font-medium text-muted-foreground">
                           Datos nuevos
                         </h4>
-                        <pre className="rounded-lg bg-muted p-3 text-xs">
+                        <pre className="rounded-lg bg-muted p-3 text-xs max-md:overflow-x-auto">
                           {JSON.stringify(log.new_data, null, 2)}
                         </pre>
                       </div>
                     )}
                   </div>
                   {(log.ip_address || log.user_agent) && (
-                    <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
+                    <div className="mt-4 flex gap-4 text-xs text-muted-foreground max-sm:flex-col max-sm:gap-1">
                       {log.ip_address && <span>IP: {log.ip_address}</span>}
                       {log.user_agent && (
                         <span className="truncate">

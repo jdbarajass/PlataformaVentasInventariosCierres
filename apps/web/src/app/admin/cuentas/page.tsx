@@ -561,16 +561,16 @@ export default function CuentasPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Cuentas</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-bold sm:text-3xl">Cuentas</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Saldo por medio de pago, movimientos y cierre mensual
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      {/* Tabs — < sm: desplazamiento horizontal (Fase 7) */}
+      <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0">
         {[
           { id: 'resumen', label: 'Resumen', icon: Wallet },
           // Admin de solo lectura: sin acceso a Movimientos (a pedido del
@@ -584,7 +584,7 @@ export default function CuentasPage() {
             key={t.id}
             onClick={() => setTab(t.id as typeof tab)}
             className={cn(
-              'flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors',
+              'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors',
               tab === t.id
                 ? 'border-cyan-500 text-cyan-500'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -754,7 +754,7 @@ export default function CuentasPage() {
                     <select
                       value={adjustAccount}
                       onChange={(e) => setAdjustAccount(e.target.value)}
-                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
                       <option value="">Selecciona una cuenta...</option>
                       {accounts.map((a) => (
@@ -809,7 +809,7 @@ export default function CuentasPage() {
                     <select
                       value={fromAccount}
                       onChange={(e) => setFromAccount(e.target.value)}
-                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
                       <option value="">Cuenta origen...</option>
                       {accounts.map((a) => (
@@ -822,7 +822,7 @@ export default function CuentasPage() {
                     <select
                       value={toAccount}
                       onChange={(e) => setToAccount(e.target.value)}
-                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                     >
                       <option value="">Cuenta destino...</option>
                       {accounts.map((a) => (
@@ -862,7 +862,7 @@ export default function CuentasPage() {
                 <select
                   value={movementAccountFilter}
                   onChange={(e) => setMovementAccountFilter(e.target.value)}
-                  className="rounded-lg border bg-background px-3 py-2 text-sm"
+                  className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
                 >
                   <option value="">Todas las cuentas</option>
                   {accounts.map((a) => (

@@ -156,29 +156,29 @@ export default function CategoriasPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Categorías</h1>
-        <p className="text-muted-foreground">Organiza los productos del catálogo por categoría</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">Categorías</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">Organiza los productos del catálogo por categoría</p>
       </div>
 
       {isAdmin && (
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Nueva categoría</h2>
           <div className="flex flex-wrap items-center gap-2">
             <Input
               placeholder="Ej: Cascos"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="min-w-[200px] flex-1 rounded-lg"
+              className="min-w-[200px] flex-1 rounded-lg touch:h-11 max-sm:min-w-full"
             />
             <Input
               placeholder="Descripción (opcional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-w-[240px] flex-[2] rounded-lg"
+              className="min-w-[240px] flex-[2] rounded-lg touch:h-11 max-sm:min-w-full"
             />
-            <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
+            <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleCreate} disabled={saving}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Agregar
             </Button>
@@ -201,19 +201,19 @@ export default function CategoriasPage() {
             if (editingId === category.id) {
               return (
                 <div key={category.id} data-testid={`category-row-${category.slug}`} className="space-y-2 rounded-xl border bg-card p-4">
-                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="rounded-lg" placeholder="Nombre" />
+                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="rounded-lg touch:h-11" placeholder="Nombre" />
                   <Input
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
-                    className="rounded-lg"
+                    className="rounded-lg touch:h-11"
                     placeholder="Descripción (opcional)"
                   />
                   <div className="flex items-center gap-2">
-                    <Button size="sm" className="rounded-lg" onClick={() => handleSaveEdit(category.id)} disabled={savingEdit}>
+                    <Button size="sm" className="rounded-lg touch:h-11" onClick={() => handleSaveEdit(category.id)} disabled={savingEdit}>
                       {savingEdit ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
                       Guardar
                     </Button>
-                    <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditingId(null)}>
+                    <Button size="sm" variant="ghost" className="rounded-lg touch:h-11" onClick={() => setEditingId(null)}>
                       <X className="mr-1 h-3 w-3" /> Cancelar
                     </Button>
                   </div>
@@ -221,9 +221,9 @@ export default function CategoriasPage() {
               )
             }
             return (
-              <div key={category.id} data-testid={`category-row-${category.slug}`} className="flex items-center justify-between rounded-xl border bg-card p-4">
-                <div>
-                  <div className="flex items-center gap-2">
+              <div key={category.id} data-testid={`category-row-${category.slug}`} className="flex items-center justify-between rounded-xl border bg-card p-4 max-sm:gap-2">
+                <div className="max-sm:min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 sm:flex-nowrap">
                     <p className={cn('font-medium', !category.active && 'text-muted-foreground')}>{category.name}</p>
                     <span className="text-xs text-muted-foreground">/{category.slug}</span>
                     {!category.active && (
@@ -233,7 +233,7 @@ export default function CategoriasPage() {
                   {category.description && <p className="text-sm text-muted-foreground">{category.description}</p>}
                 </div>
                 {isAdmin && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 max-sm:shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -243,10 +243,10 @@ export default function CategoriasPage() {
                     >
                       {category.active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(category)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Editar categoría" onClick={() => startEdit(category)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(category)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar categoría" onClick={() => handleDelete(category)}>
                       <Trash2 className="h-3.5 w-3.5 text-red-500" />
                     </Button>
                   </div>

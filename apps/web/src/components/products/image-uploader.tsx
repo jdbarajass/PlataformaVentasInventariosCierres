@@ -276,7 +276,7 @@ export function ImageUploader({ images, onChange, maxImages = 5 }: ImageUploader
                   <button
                     type="button"
                     onClick={handleBrowse}
-                    className="text-primary underline"
+                    className="text-primary underline touch:inline-flex touch:min-h-11 touch:items-center touch:px-1"
                   >
                     examina
                   </button>

@@ -271,17 +271,17 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Usuarios</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Usuarios</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Gestiona los usuarios y sus permisos
           </p>
         </div>
         {isAdmin && (
-          <Button className="rounded-xl" onClick={() => setShowCreateForm((v) => !v)}>
+          <Button className="rounded-xl touch:h-11" onClick={() => setShowCreateForm((v) => !v)}>
             <Plus className="mr-2 h-4 w-4" /> Nuevo usuario
           </Button>
         )}
@@ -291,14 +291,14 @@ export default function UsuariosPage() {
         <div className="rounded-xl border bg-card p-6">
           <h2 className="mb-4 text-lg font-semibold">Crear usuario</h2>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Input placeholder="Nombre" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="rounded-lg" />
-            <Input type="email" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="rounded-lg" autoComplete="off" name="new-user-email" />
-            <Input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="rounded-lg" autoComplete="new-password" name="new-user-password" />
-            <Input placeholder="Teléfono (opcional)" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} className="rounded-lg" />
+            <Input placeholder="Nombre" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="rounded-lg touch:h-11" />
+            <Input type="email" placeholder="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="rounded-lg touch:h-11" autoComplete="off" name="new-user-email" />
+            <Input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="rounded-lg touch:h-11" autoComplete="new-password" name="new-user-password" />
+            <Input placeholder="Teléfono (opcional)" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} className="rounded-lg touch:h-11" />
             <select
               value={createForm.role}
               onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as 'admin' | 'seller' | 'viewer' | 'admin_readonly' })}
-              className="rounded-lg border bg-background px-3 py-2 text-sm"
+              aria-label="Rol" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
             >
               {roles.map((r) => (
                 <option key={r} value={r}>{roleConfig[r].label}</option>
@@ -313,14 +313,14 @@ export default function UsuariosPage() {
       )}
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg bg-muted sm:flex">
               <Users className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{users.length}</p>
+              <p className="text-lg font-bold sm:text-2xl">{users.length}</p>
               <p className="text-sm text-muted-foreground">Total usuarios</p>
             </div>
           </div>
@@ -329,13 +329,13 @@ export default function UsuariosPage() {
           const count = roleCounts[role as keyof typeof roleCounts]
           const Icon = config.icon
           return (
-            <div key={role} className="rounded-xl border bg-card p-4">
+            <div key={role} className="rounded-xl border bg-card p-3 sm:p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <div className="hidden h-10 w-10 items-center justify-center rounded-lg bg-muted sm:flex">
                   <Icon className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{count}</p>
+                  <p className="text-lg font-bold sm:text-2xl">{count}</p>
                   <p className="text-sm text-muted-foreground">{config.label}s</p>
                 </div>
               </div>
@@ -345,24 +345,24 @@ export default function UsuariosPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+        <div className="relative min-w-0 basis-full sm:flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar por nombre o email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-xl pl-10"
+            className="rounded-xl pl-10 touch:h-11"
             autoComplete="off"
             name="users-table-search"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant={selectedRole === 'all' ? 'default' : 'outline'}
             onClick={() => setSelectedRole('all')}
-            className="rounded-xl"
+            className="rounded-xl touch:h-11"
           >
             Todos
           </Button>
@@ -371,7 +371,7 @@ export default function UsuariosPage() {
               key={role}
               variant={selectedRole === role ? 'default' : 'outline'}
               onClick={() => setSelectedRole(role)}
-              className="rounded-xl"
+              className="rounded-xl touch:h-11"
             >
               {config.label}s
             </Button>
@@ -389,7 +389,7 @@ export default function UsuariosPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="table-stack w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
@@ -433,7 +433,7 @@ export default function UsuariosPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td data-label="Contacto" className="px-6 py-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-sm">
                               <Mail className="h-3 w-3 text-muted-foreground" />
@@ -447,13 +447,13 @@ export default function UsuariosPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td data-label="Rol" className="px-6 py-4">
                           {isEditing ? (
                             <div className="flex items-center gap-2">
                               <select
                                 value={editRole}
                                 onChange={(e) => setEditRole(e.target.value as 'admin' | 'seller' | 'viewer' | 'admin_readonly')}
-                                className="rounded-lg border bg-background px-2 py-1 text-sm"
+                                aria-label="Nuevo rol" className="rounded-lg border bg-background px-2 py-1 text-sm touch:h-11"
                               >
                                 {roles.map((r) => (
                                   <option key={r} value={r}>
@@ -465,7 +465,7 @@ export default function UsuariosPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => handleSaveRole(user.id)}
+                                aria-label="Guardar rol" onClick={() => handleSaveRole(user.id)}
                                 disabled={saving}
                               >
                                 {saving ? (
@@ -478,7 +478,7 @@ export default function UsuariosPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => setEditingUser(null)}
+                                aria-label="Cancelar cambio de rol" onClick={() => setEditingUser(null)}
                               >
                                 <X className="h-3 w-3 text-red-500" />
                               </Button>
@@ -493,7 +493,7 @@ export default function UsuariosPage() {
                             </Badge>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                        <td data-label="Creado" className="px-6 py-4 text-sm text-muted-foreground">
                           {formatDate(user.created_at)}
                         </td>
                         <td className="px-6 py-4">
@@ -504,14 +504,14 @@ export default function UsuariosPage() {
                                 placeholder="Nueva contraseña"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                className="h-8 w-40 rounded-lg text-xs"
+                                aria-label="Nueva contraseña" className="h-8 w-40 rounded-lg text-xs touch:h-11 max-md:min-w-0 max-md:flex-1"
                                 autoComplete="new-password"
                                 name={`new-password-${user.id}`}
                               />
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleResetPassword(user.id)} disabled={savingReset}>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Guardar contraseña" onClick={() => handleResetPassword(user.id)} disabled={savingReset}>
                                 {savingReset ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-500" />}
                               </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setResettingId(null); setNewPassword('') }}>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Cancelar" onClick={() => { setResettingId(null); setNewPassword('') }}>
                                 <X className="h-3 w-3 text-red-500" />
                               </Button>
                             </div>

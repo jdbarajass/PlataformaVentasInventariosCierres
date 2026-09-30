@@ -118,7 +118,7 @@ function AlertsPanel({ alerts }: { alerts: BusinessAlerts }) {
         <div className="flex flex-wrap gap-2">
           {alerts.dueInvoicesCount > 0 && (
             <Link href="/admin/facturas">
-              <Badge variant="warning" className="gap-1.5 px-3 py-1.5">
+              <Badge variant="warning" className="gap-1.5 px-3 py-1.5 touch:min-h-11">
                 <FileText className="h-3.5 w-3.5" />
                 {alerts.dueInvoicesCount} factura{alerts.dueInvoicesCount === 1 ? '' : 's'} por vencer
               </Badge>
@@ -126,7 +126,7 @@ function AlertsPanel({ alerts }: { alerts: BusinessAlerts }) {
           )}
           {alerts.urgentNotesCount > 0 && (
             <Link href="/admin/notas">
-              <Badge variant="warning" className="gap-1.5 px-3 py-1.5">
+              <Badge variant="warning" className="gap-1.5 px-3 py-1.5 touch:min-h-11">
                 <StickyNote className="h-3.5 w-3.5" />
                 {alerts.urgentNotesCount} nota{alerts.urgentNotesCount === 1 ? '' : 's'} con fecha límite próxima
               </Badge>
@@ -134,7 +134,7 @@ function AlertsPanel({ alerts }: { alerts: BusinessAlerts }) {
           )}
           {alerts.oldCreditsCount > 0 && (
             <Link href="/admin/fiado">
-              <Badge variant="warning" className="gap-1.5 px-3 py-1.5">
+              <Badge variant="warning" className="gap-1.5 px-3 py-1.5 touch:min-h-11">
                 <CreditCard className="h-3.5 w-3.5" />
                 {alerts.oldCreditsCount} fiado{alerts.oldCreditsCount === 1 ? '' : 's'} con más de 30 días
               </Badge>
@@ -364,7 +364,7 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
               </CardTitle>
               <Link
                 href="/admin/inventario?stockBajo=1"
-                className="text-sm font-medium text-cyan-600 hover:underline"
+                className="text-sm font-medium text-cyan-600 hover:underline touch:inline-flex touch:min-h-11 touch:items-center"
               >
                 Ver todos ({stats.lowStockProducts.length})
               </Link>
@@ -579,7 +579,7 @@ export function DashboardTabs({
                       <Link
                         key={d.date}
                         href={`/admin/ventas-dia?date=${d.date}`}
-                        className="flex items-center gap-4 rounded-lg p-1 -m-1 transition-colors hover:bg-secondary"
+                        className="flex items-center gap-4 rounded-lg p-1 -m-1 transition-colors hover:bg-secondary touch:min-h-11"
                       >
                         <span className="w-16 text-xs text-muted-foreground">
                           {/* "YYYY-MM-DD" sin hora se interpreta como medianoche

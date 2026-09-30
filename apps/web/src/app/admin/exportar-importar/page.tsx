@@ -142,14 +142,14 @@ export default function ExportarImportarPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Exportar / Importar</h1>
-        <p className="text-muted-foreground">Respaldo maestro en Excel de 18 hojas, igual que el software local</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">Exportar / Importar</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">Respaldo maestro en Excel de 18 hojas, igual que el software local</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border bg-card p-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="h-8 w-8 text-cyan-500" />
             <div>
@@ -157,18 +157,18 @@ export default function ExportarImportarPage() {
               <p className="text-sm text-muted-foreground">Descarga las 18 hojas completas (respaldo de solo lectura)</p>
             </div>
           </div>
-          <Button className="mt-4 w-full rounded-lg" onClick={handleExport} disabled={exporting}>
+          <Button className="mt-4 w-full rounded-lg touch:h-11" onClick={handleExport} disabled={exporting}>
             {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Descargar respaldo (.xlsx)
           </Button>
-          <Button variant="outline" className="mt-2 w-full rounded-lg" onClick={handleDownloadTemplate} disabled={downloadingTemplate}>
+          <Button variant="outline" className="mt-2 w-full rounded-lg touch:h-11 max-sm:h-auto max-sm:min-h-11 max-sm:whitespace-normal max-sm:py-2" onClick={handleDownloadTemplate} disabled={downloadingTemplate}>
             {downloadingTemplate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Descargar plantilla vacía (para llenar a mano)
           </Button>
         </div>
 
         {isAdmin && (
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <Upload className="h-8 w-8 text-cyan-500" />
             <div>
@@ -180,7 +180,8 @@ export default function ExportarImportarPage() {
             ref={fileInputRef}
             type="file"
             accept=".xlsx"
-            className="mt-4 w-full text-sm"
+            aria-label="Archivo .xlsx a importar"
+            className="mt-4 w-full text-sm touch:min-h-11"
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) handleImportFile(file)
@@ -196,7 +197,7 @@ export default function ExportarImportarPage() {
         )}
       </div>
 
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-3 text-sm font-semibold">Qué hojas se pueden reimportar</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           Por seguridad, la importación <strong>nunca</strong> escribe en productos/catálogo, órdenes/pagos,
@@ -220,11 +221,11 @@ export default function ExportarImportarPage() {
       )}
 
       {results && (
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Resultado de la importación</h2>
           <div className="space-y-2">
             {results.map((r) => (
-              <div key={r.sheet} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+              <div key={r.sheet} className="flex items-center justify-between rounded-lg border p-3 text-sm max-sm:flex-col max-sm:items-start max-sm:gap-1">
                 <div className="flex items-center gap-2">
                   {r.error ? (
                     <XCircle className="h-4 w-4 text-red-500" />

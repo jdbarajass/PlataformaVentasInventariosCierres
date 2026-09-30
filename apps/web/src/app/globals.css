@@ -482,6 +482,60 @@ a, button, input, select, textarea, label, summary, [role="button"] {
   }
 }
 
+/* Variante para tablas muy anchas (p. ej. Detalle de Inventario, 1.180px
+   mínimo): se apilan por debajo de xl (tablet y portátil de 1024), no solo
+   en celular. Mismas reglas que .table-stack (duplicadas: CSS sin
+   anidamiento no permite compartir un bloque entre dos media queries).
+   Fase 7 — arreglo de portátil aprobado por el usuario. */
+@media (max-width: 1279px) {
+  .table-stack-xl,
+  .table-stack-xl > tbody,
+  .table-stack-xl > tbody > tr,
+  .table-stack-xl > tbody > tr > td {
+    display: block;
+    width: 100%;
+  }
+  .table-stack-xl > thead {
+    display: none;
+  }
+  .table-stack-xl > tbody > tr {
+    padding: 0.75rem 1rem;
+  }
+  .table-stack-xl > tbody > tr > td {
+    padding: 0.25rem 0;
+  }
+  .table-stack-xl > tbody > tr > td[data-label] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    column-gap: 0.375rem;
+    row-gap: 0.25rem;
+    text-align: right;
+  }
+  .table-stack-xl > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    margin-right: auto;
+    padding-right: 0.75rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+  }
+}
+
+/* Entre xl y 2xl (1280–1535, p. ej. portátil de 1366) la tabla ancha sigue
+   siendo tabla pero con menos relleno horizontal en las celdas, para que
+   quepan todas las columnas sin scroll lateral. Desde 2xl, como siempre. */
+@media (min-width: 1280px) and (max-width: 1535px) {
+  .table-compact-xl > thead > tr > th,
+  .table-compact-xl > tbody > tr > td {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
 /* ═══════════════════════════════════════
    SCROLLBAR
 ═══════════════════════════════════════ */

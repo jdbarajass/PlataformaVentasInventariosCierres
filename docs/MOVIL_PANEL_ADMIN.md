@@ -43,7 +43,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | ✅ Hecha |
 | 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
 | 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | ✅ Hecha (6a · 6b · 6c) |
-| 7 | Páginas solo-admin + tabla de Inventario en portátil | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. **Además (pedido del usuario, 2026-09-30)**: la tabla Detalle de Inventario en 1024–1366 (la columna de acciones queda cortada dentro del scroll horizontal) — se permite cambiar cómo se ve en escritorio. | En curso |
+| 7 | Páginas solo-admin + tabla de Inventario en portátil | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. **Además (pedido del usuario, 2026-09-30)**: la tabla Detalle de Inventario en 1024–1366 (la columna de acciones queda cortada dentro del scroll horizontal) — se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
 | 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
 
 ## Bitácora
@@ -201,3 +201,22 @@ La Fase 6 se dividió en 6a / 6b / 6c (ver tabla) para seguir comprobando por pa
 - 360/390/768: las 7 páginas modificadas con ancho = dispositivo y **0 controles < 40 px**.
 - **Escritorio píxel a píxel** (1366 y 1024, página completa): 13/14 idénticas; en Mi Cuadre solo cambia el texto "Actualizado HH:MM:SS" (hora distinta entre corridas).
 - `tsc` OK · `next lint` sin warnings.
+
+### Fase 7 — Páginas solo-admin + tabla de Inventario en portátil (2026-09-30) — aprobada
+
+**Diagnóstico antes** (390 px): Usuarios 617 px (filtros por rol), Auditoría 543 px (ID y fila de insignias de cada registro), Cuentas 507 px (pestañas), Categorías 473 px (botones de cada fila, 24 controles pequeños), Exportar/Importar 426 px (cuadrícula sin `grid-cols-1` y botón de texto largo), Configuración 396 px (botón Guardar del encabezado). Controles pequeños en Dashboard (9 enlaces de 28–30 px) y Nuevo producto ("examina", 20 px). Ya estaban bien: Comisiones y Gastos Fijos, Rendimiento, Órdenes, Cupones, Reseñas.
+
+**Cambios** — solo presentación:
+- `cuentas`: encabezado responsive; pestañas con desplazamiento horizontal; selectores a 44 px en táctil.
+- `usuarios`: encabezado apilado; formulario táctil; resumen en 2 columnas; filtros por rol que se acomodan; tabla de usuarios con `table-stack`; ✓/✕ de rol y contraseña con nombre accesible (→ 44 px).
+- `auditoria`: resumen en 2 columnas; filtros a todo el ancho; cada registro con insignias que se acomodan, ID partido en celular y JSON del detalle con scroll propio (< md).
+- `categorias`: formulario apilado; filas con nombre/slug que se acomodan; activar/editar/eliminar a 44 px con nombre accesible (se conservan los `data-testid` de E2E).
+- `configuracion`: encabezado apilado; nombre accesible en el botón flotante de guardar (ya existía para móvil).
+- `exportar-importar`: `grid-cols-1`; botón de plantilla con texto que baja de línea en celular; selector de archivo táctil; resultados apilados.
+- `components/admin/dashboard-tabs.tsx` y `components/products/image-uploader.tsx`: enlaces de alertas, días de venta, "Ver todos" y "examina" a 44 px en táctil.
+- **Tabla Detalle de Inventario en portátil (aprobado)**: medía 1.180 px mínimo contra 702 (1024), 958 (1280), 1.044 (1366), 1.118 (1440). Nuevas utilidades en `globals.css`: `table-stack-xl` (apilado como tarjetas por debajo de xl, 1280) y `table-compact-xl` (entre 1280 y 1535, relleno horizontal de celdas de 24 → 8 px). Aplicadas a la tabla Detalle y a su tabla de tallas. Resultado: cabe en 768, 1024 (menú expandido y colapsado), 1279, 1280, 1366, 1440, 1535, 1536 y 1920; en 1366 se ven las 8 columnas con acciones. El modal "Nuevo ajuste" se dejó con `table-stack` (fuera de lo aprobado).
+
+**Verificación**
+- 360/390/768: las 8 páginas con ancho = dispositivo y **0 controles < 40 px**.
+- **Escritorio píxel a píxel** (página completa): las 8 páginas en 1366 y 1024 idénticas (única diferencia en Cuentas: la insignia de desarrollo de Next.js); Inventario en 1600 y 1920 (4 pestañas) idéntico — el arreglo aprobado solo actúa por debajo de 1536.
+- `tsc` OK · `next lint` sin warnings · `vitest` 132/132 · **`next build` OK** (la portada de la tienda tardó por la red y Next la reintentó sola).

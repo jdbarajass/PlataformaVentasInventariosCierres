@@ -203,19 +203,19 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Configuración</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Configuración</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Gestiona la configuración general de la tienda
           </p>
         </div>
         <Button
           onClick={handleSave}
           disabled={saving || !isAdmin}
-          className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600"
+          className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 touch:h-11"
         >
           {saving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -555,6 +555,7 @@ export default function ConfiguracionPage() {
           onClick={handleSave}
           disabled={saving || !isAdmin}
           size="lg"
+          aria-label="Guardar cambios"
           className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg"
         >
           {saving ? (
