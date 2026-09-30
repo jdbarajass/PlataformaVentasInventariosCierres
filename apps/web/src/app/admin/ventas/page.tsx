@@ -260,6 +260,20 @@ export default function VentasPage() {
   // se expande solo si el vendedor necesita registrar los datos.
   const [showCustomerFields, setShowCustomerFields] = useState(false)
 
+  // Celular: la grilla de productos puede ser larga (hasta 60) y la factura
+  // queda debajo. Una barra fija abajo muestra el total y baja a la factura;
+  // se esconde cuando la factura ya está en pantalla para no duplicar el
+  // botón "Vender". Solo presentación. Ver docs/MOVIL_PANEL_ADMIN.md (Fase 3).
+  const facturaRef = useRef<HTMLDivElement>(null)
+  const [facturaVisible, setFacturaVisible] = useState(false)
+  useEffect(() => {
+    const el = facturaRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([entry]) => setFacturaVisible(entry.isIntersecting), { threshold: 0.15 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
   // Modal de pago (se abre al presionar "Vender", igual que "Pagar factura"
   // en Alegra): primero se eligen tiles de método, o "Combinado" para el
   // editor de pagos divididos que ya existía.
@@ -533,6 +547,22 @@ export default function VentasPage() {
   const subtotal = cart.reduce((sum, l) => sum + l.qty * l.price_cents, 0)
   const totalDiscount = cart.reduce((sum, l) => sum + l.discount_cents, 0)
   const total = subtotal - totalDiscount
+  // Barra fija del carrito en celular (ver facturaRef).
+  const cartItemCount = cart.reduce((n, l) => n + l.qty, 0)
+  const cartBarVisible = cart.length > 0 && !facturaVisible && !showPaymentModal
+
+  // Con la barra visible, lo que el navegador desplaza a la vista (campo
+  // enfocado, tarjeta con Tab/teclado) debe quedar por encima de ella y no
+  // escondido detrás. Solo en < lg, donde existe la barra.
+  useEffect(() => {
+    if (!cartBarVisible || window.matchMedia('(min-width: 1024px)').matches) return
+    const root = document.documentElement
+    const prev = root.style.scrollPaddingBottom
+    root.style.scrollPaddingBottom = '5.5rem'
+    return () => {
+      root.style.scrollPaddingBottom = prev
+    }
+  }, [cartBarVisible])
   const paymentsTotal = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0) * 100, 0)
 
   // Costo/ganancia/comisión estimados del carrito actual — solo Admin (ver
@@ -791,10 +821,10 @@ export default function VentasPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className={`space-y-6 sm:space-y-8 ${cart.length > 0 ? 'pb-20 lg:pb-0' : ''}`}>
       <div>
-        <h1 className="text-3xl font-bold">Registrar Venta</h1>
-        <p className="text-muted-foreground">Venta de mostrador — carrito, tallas y pagos combinados</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">Registrar Venta</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">Venta de mostrador — carrito, tallas y pagos combinados</p>
       </div>
 
       {/* Pestañas de venta en paralelo (estilo Alegra) */}
@@ -803,7 +833,7 @@ export default function VentasPage() {
           <button
             key={s.id}
             onClick={() => setActiveSessionId(s.id)}
-            className={`group flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            className={`group flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition-colors touch:min-h-11 ${
               s.id === activeSessionId
                 ? 'border-primary bg-card text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -816,7 +846,9 @@ export default function VentasPage() {
             )}
             {sessions.length > 1 && (
               <X
-                className="h-3 w-3 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                // touch: el ícono sigue viéndose de 12px, pero el área que
+                // responde al dedo crece a ~36px (padding + margen negativo).
+                className="h-3 w-3 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100 [@media(hover:none)]:opacity-100 touch:-m-3 touch:box-content touch:p-3"
                 onClick={(e) => {
                   e.stopPropagation()
                   closeSessionTab(s.id)
@@ -828,24 +860,28 @@ export default function VentasPage() {
         <button
           onClick={addSessionTab}
           title="Nueva venta en paralelo"
-          className="flex items-center gap-1 rounded-t-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-1 rounded-t-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground touch:min-h-11 touch:min-w-11 touch:justify-center"
         >
           <Plus className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Búsqueda + grilla de productos */}
         <div className="space-y-4 lg:col-span-3">
+          {/* Celular: buscador a todo el ancho y categorías debajo (antes el
+              select tomaba el ancho de la categoría más larga y empujaba la
+              página más allá de la pantalla). sm+: en la misma fila, como antes. */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1">
+            <div className="relative min-w-0 basis-full sm:flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                enterKeyHint="search"
                 placeholder="Buscar por nombre/SKU o escanear código de barras..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleBarcodeEnter}
-                className="rounded-xl pl-10"
+                className="rounded-xl pl-10 touch:h-11"
                 autoFocus
               />
               {searching && (
@@ -855,7 +891,8 @@ export default function VentasPage() {
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="rounded-xl border bg-background px-3 py-2 text-sm"
+              aria-label="Filtrar por categoría"
+              className="w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm sm:w-auto touch:h-11"
             >
               <option value="">Categorías</option>
               {categories.map((c) => (
@@ -879,7 +916,7 @@ export default function VentasPage() {
                       type="button"
                       variant="secondary"
                       size="sm"
-                      className="rounded-lg"
+                      className="rounded-lg touch:h-11"
                       onClick={() => {
                         setManualTitle(preset.title)
                         setManualPrice(preset.price)
@@ -901,16 +938,16 @@ export default function VentasPage() {
                   <MoneyInput placeholder="Costo (opcional)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="rounded-lg" onClick={addManualItem}>
+                  <Button size="sm" className="rounded-lg touch:h-11 max-sm:flex-1" onClick={addManualItem}>
                     <Plus className="mr-1 h-3 w-3" /> Agregar al carrito
                   </Button>
-                  <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setShowManualForm(false)}>
+                  <Button size="sm" variant="ghost" className="rounded-lg touch:h-11" onClick={() => setShowManualForm(false)}>
                     Cancelar
                   </Button>
                 </div>
               </div>
             ) : (
-              <Button variant="outline" size="sm" className="rounded-lg" onClick={() => setShowManualForm(true)}>
+              <Button variant="outline" size="sm" className="rounded-lg touch:h-11" onClick={() => setShowManualForm(true)}>
                 <Plus className="mr-1 h-3 w-3" /> Producto fuera de catálogo
               </Button>
             )}
@@ -921,7 +958,7 @@ export default function VentasPage() {
             <div className="rounded-xl border-2 border-primary bg-card p-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-medium">Elige la talla de &quot;{pickingVariantsFor.title}&quot;</p>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPickingVariantsFor(null)}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Cerrar selección de talla" onClick={() => setPickingVariantsFor(null)}>
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -931,7 +968,7 @@ export default function VentasPage() {
                     key={v.id}
                     size="sm"
                     variant="outline"
-                    className={v.stock_qty === 0 ? 'rounded-lg border-amber-500/40 text-amber-600' : 'rounded-lg'}
+                    className={`${v.stock_qty === 0 ? 'rounded-lg border-amber-500/40 text-amber-600' : 'rounded-lg'} touch:h-11 touch:min-w-[3.5rem]`}
                     // No se deshabilita aunque esté en 0: bloquear aquí le
                     // quitaba al vendedor la opción de forzar la venta (ej.
                     // "CASCO SHAFT 560 NEGRO MATE" sin unidades) — el
@@ -953,7 +990,9 @@ export default function VentasPage() {
           )}
 
           {/* Grilla de productos (estilo Alegra) */}
-          <div className="max-h-[42rem] overflow-y-auto rounded-xl border bg-card p-3">
+          {/* < lg: sin scroll interno (un scroll dentro de otro atrapa el dedo
+              en celular); la página baja normal y la barra fija lleva a la factura. */}
+          <div className="rounded-xl border bg-card p-2 sm:p-3 lg:max-h-[42rem] lg:overflow-y-auto">
             {searching && results.length === 0 ? (
               <div className="flex items-center justify-center p-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -961,7 +1000,7 @@ export default function VentasPage() {
             ) : results.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">No se encontraron productos</div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
                 {results.map((product) => {
                   const totalStock =
                     product.variants.length > 0
@@ -993,8 +1032,8 @@ export default function VentasPage() {
                           {insignia}
                         </span>
                       )}
-                      <div className="flex h-16 items-center justify-center">
-                        <Package className="h-9 w-9 text-muted-foreground/30" />
+                      <div className="flex h-10 items-center justify-center sm:h-16">
+                        <Package className="h-7 w-7 text-muted-foreground/30 sm:h-9 sm:w-9" />
                       </div>
                       <p
                         className={`text-center text-xs font-medium ${
@@ -1014,9 +1053,9 @@ export default function VentasPage() {
         </div>
 
         {/* Factura de venta */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-xl border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
+        <div ref={facturaRef} id="factura-venta" className="scroll-mt-20 space-y-4 lg:col-span-2">
+          <div className="rounded-xl border bg-card p-3 sm:p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
               <h2 className="text-base font-semibold">Factura de venta</h2>
               <div className="flex items-center gap-2">
                 <Input
@@ -1024,9 +1063,10 @@ export default function VentasPage() {
                   value={activeSession.saleDate}
                   onChange={(e) => setSaleDate(e.target.value)}
                   title="Fecha de la venta — se puede cambiar para registrar ventas de días anteriores"
-                  className="h-8 w-auto rounded-lg text-xs"
+                  aria-label="Fecha de la venta"
+                  className="h-8 w-auto rounded-lg text-xs touch:h-11"
                 />
-                <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg text-xs font-normal" onClick={limpiarVenta}>
+                <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg text-xs font-normal touch:h-11" onClick={limpiarVenta}>
                   <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
                 </Button>
               </div>
@@ -1034,7 +1074,8 @@ export default function VentasPage() {
 
             <button
               onClick={() => setShowCustomerFields((v) => !v)}
-              className="mb-3 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm"
+              aria-expanded={showCustomerFields}
+              className="mb-3 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm touch:min-h-11"
             >
               <span>Cliente: {activeSession.customerName || 'Consumidor final'}</span>
               <ChevronDown className={`h-4 w-4 transition-transform ${showCustomerFields ? 'rotate-180' : ''}`} />
@@ -1048,7 +1089,7 @@ export default function VentasPage() {
                     <span className="flex items-center gap-1.5">
                       <Star className="h-3.5 w-3.5 text-primary" /> {activeSession.customerUserLabel}
                     </span>
-                    <button type="button" onClick={clearSelectedCustomer} className="text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={clearSelectedCustomer} aria-label="Quitar cliente registrado" className="text-muted-foreground hover:text-foreground">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -1069,7 +1110,7 @@ export default function VentasPage() {
                             <button
                               key={c.id}
                               type="button"
-                              className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                              className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
                               onClick={() => selectCustomer(c)}
                             >
                               {c.name || c.email} <span className="text-xs text-muted-foreground">— {c.loyalty_points_balance} pts</span>
@@ -1102,7 +1143,7 @@ export default function VentasPage() {
                   Busca un producto para agregarlo a la venta
                 </div>
               ) : (
-                <div className="max-h-80 divide-y overflow-y-auto">
+                <div className="divide-y lg:max-h-80 lg:overflow-y-auto">
                   {cart.map((line) => (
                     <div key={line.key} className="p-3">
                       <div className="flex items-start justify-between gap-2">
@@ -1117,16 +1158,19 @@ export default function VentasPage() {
                             )}
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeCartLine(line.key)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" aria-label={`Quitar ${line.title} de la venta`} onClick={() => removeCartLine(line.key)}>
                           <Trash2 className="h-3.5 w-3.5 text-red-500" />
                         </Button>
                       </div>
-                      <div className="mt-2 flex items-center justify-between gap-2">
+                      {/* < sm: fila 1 = cantidad + total de la línea; fila 2 =
+                          precio (con order), igual que la fila de descuento. */}
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
                         <div className="flex items-center gap-1 rounded-lg border">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
+                            aria-label="Restar una unidad"
                             onClick={() => updateCartLine(line.key, { qty: Math.max(1, line.qty - 1) })}
                           >
                             <Minus className="h-3 w-3" />
@@ -1141,35 +1185,38 @@ export default function VentasPage() {
                                 qty: Math.min(line.max_stock, Math.max(1, parseInt(e.target.value) || 1)),
                               })
                             }
+                            aria-label="Cantidad"
+                            inputMode="numeric"
                             className="w-10 border-0 bg-transparent text-center text-sm font-medium focus:outline-none"
                           />
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
+                            aria-label="Sumar una unidad"
                             onClick={() => updateCartLine(line.key, { qty: Math.min(line.max_stock, line.qty + 1) })}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground max-sm:order-last max-sm:basis-full max-sm:justify-end">
                           <span>Precio</span>
                           <MoneyInput
                             value={String(line.price_cents / 100)}
                             onChange={(v) => updateCartLine(line.key, { price_cents: (parseInt(v) || 0) * 100 })}
-                            className="h-7 w-24 rounded-lg text-right text-xs"
+                            className="h-7 w-24 rounded-lg text-right text-xs touch:h-10 max-sm:w-32"
                           />
-                        </div>
+                        </label>
                         <p className="font-medium">{formatPrice(line.qty * line.price_cents - line.discount_cents)}</p>
                       </div>
-                      <div className="mt-1 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                      <label className="mt-1 flex items-center justify-end gap-2 text-xs text-muted-foreground">
                         <span>Descuento</span>
                         <MoneyInput
                           value={String(line.discount_cents / 100)}
                           onChange={(v) => updateCartLine(line.key, { discount_cents: (parseInt(v) || 0) * 100 })}
-                          className="h-7 w-24 rounded-lg text-right text-xs"
+                          className="h-7 w-24 rounded-lg text-right text-xs touch:h-10 max-sm:w-32"
                         />
-                      </div>
+                      </label>
                     </div>
                   ))}
                 </div>
@@ -1223,6 +1270,31 @@ export default function VentasPage() {
               </a>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Barra fija del carrito — solo < lg, con productos en el carrito y
+          mientras la factura no esté a la vista. Solo lleva a la factura: el
+          cobro sigue siendo con el botón "Vender" de siempre. */}
+      <div
+        aria-hidden={!cartBarVisible}
+        className={`fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 px-4 py-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur transition-transform duration-200 ease-out motion-reduce:transition-none supports-[backdrop-filter]:bg-card/85 lg:hidden ${cartBarVisible ? 'translate-y-0' : 'pointer-events-none translate-y-full'}`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">
+              {cartItemCount} producto{cartItemCount !== 1 ? 's' : ''} · {activeSession.label}
+            </p>
+            <p className="text-lg font-bold leading-tight">{formatPrice(total)}</p>
+          </div>
+          <Button
+            className="h-11 shrink-0 rounded-xl px-5"
+            tabIndex={cartBarVisible ? undefined : -1}
+            onClick={() => document.getElementById('factura-venta')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            Ver factura
+            <ChevronDown className="ml-1 h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -1411,7 +1483,7 @@ export default function VentasPage() {
       )}
 
       {/* Ventas de hoy */}
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-4 text-lg font-semibold">Ventas de hoy</h2>
         {loadingSales ? (
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -1426,8 +1498,8 @@ export default function VentasPage() {
               )
               const saleProfit = sale.total_cents - saleCost
               return (
-              <div key={sale.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
+              <div key={sale.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <p className="font-medium">
                     {sale.order_number} — {sale.customer_name || 'Cliente de mostrador'}
                   </p>
@@ -1442,8 +1514,8 @@ export default function VentasPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
-                  <p className="font-bold">{formatPrice(sale.total_cents)}</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="font-bold max-sm:mr-auto">{formatPrice(sale.total_cents)}</p>
                   {sale.status === 'cancelled' ? (
                     <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Cancelada</Badge>
                   ) : (
@@ -1452,7 +1524,7 @@ export default function VentasPage() {
                         href={`/api/orders/${sale.id}/invoice`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-cyan-500 hover:underline"
+                        className="text-sm text-cyan-500 hover:underline touch:inline-flex touch:min-h-11 touch:items-center"
                       >
                         Recibo
                       </a>
@@ -1465,7 +1537,7 @@ export default function VentasPage() {
                       >
                         (clásico)
                       </a>
-                      <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleCancelSale(sale.id)}>
+                      <Button variant="ghost" size="sm" className="text-red-500 touch:h-11" onClick={() => handleCancelSale(sale.id)}>
                         Cancelar
                       </Button>
                     </>

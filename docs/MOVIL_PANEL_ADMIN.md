@@ -39,9 +39,9 @@ Documento vivo. Leer primero si se retoma este trabajo.
 |---|------|-------------|--------|
 | 1 | Capa global táctil | `globals.css`: inputs a 16 px en < 640 px (evita el zoom de iOS), `touch-action: manipulation` (sin retardo de doble toque), resaltado de toque discreto, botones de ícono a 44 px en pantallas táctiles. `tailwind.config.ts`: `hoverOnlyWhenSupported` (el hover solo existe donde hay mouse). Sin cambios en escritorio. | ✅ Hecha |
 | 2 | Estructura del admin | Barra superior compacta con botón de menú en < 1024 px; el sidebar actual pasa a cajón lateral que se abre/cierra (se cierra al navegar); contenido con `p-4` / `sm:p-6` / `lg:p-8`. En ≥ 1024 px todo igual, incluido el colapso guardado. | ✅ Hecha |
-| 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | Pendiente |
+| 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | ✅ Hecha |
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | Pendiente |
-| 5 | Modales y avisos | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. | Pendiente |
+| 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | Pendiente |
 | 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. | Pendiente |
 | 7 | Páginas solo-admin | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. | Pendiente |
 | 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
@@ -89,3 +89,28 @@ Documento vivo. Leer primero si se retoma este trabajo.
 - Recorrido de las 35 rutas del admin (390 y 1366): todas cargan, sin errores de JavaScript, con el título correcto en la barra. En 390, **18/35 ya caben exactas en la pantalla** (antes de esta fase ninguna medía menos de 660 px). Siguen más anchas que el celular: Ventas del Día 855, Inventario 716, Presupuesto 637, Usuarios 617, Historial Mensual 570, Auditoría 543, Préstamos 514, Cuentas 507, Facturas 492, Cargue de pedidos 477, Categorías 473, Registrar Venta 441, Cierres 431, Exportar/Importar 426, Notas 413, Configuración 396, Reportes 394 → se tratan en las Fases 3, 4, 6 y 7.
 - `tsc --noEmit` OK · `next lint` sin warnings.
 - Pendiente conocido: el **contenido** de algunas páginas todavía es más ancho que el celular (Registrar Venta ~441 px en un teléfono de 390; el encabezado de Ventas del Día queda apretado). Se resuelve en las Fases 3 y 4. Mientras tanto la barra superior se extiende a ese ancho (el logo de la derecha queda fuera de la vista en esas dos páginas).
+
+### Fase 3 — Registrar Venta (2026-09-29) — aprobada
+
+**Problema principal encontrado**: sin filtro la búsqueda trae hasta 60 productos; en celular (2 columnas) eran ~5.000 px de grilla **antes** de llegar al carrito y al botón "Vender". Además la página medía 441 px en un teléfono de 390.
+
+**Cambios** (`admin/ventas/page.tsx`, `tailwind.config.ts`) — solo presentación; cálculos, estados y llamadas intactos:
+- `tailwind.config.ts`: variante nueva **`touch:`** = `@media (pointer: coarse)`. Da tamaño de dedo (44 px) a controles compactos sin tocar nada con mouse. Se reutiliza en las fases siguientes.
+- **Barra fija del carrito** (< lg, solo con productos): cantidad de productos, pestaña, total y botón "Ver factura" que baja a la factura. Se esconde sola cuando la factura está en pantalla (IntersectionObserver) o con el modal de pago abierto — nunca duplica "Vender" ni cobra por su cuenta. Mientras está visible, `scroll-padding-bottom` en `<html>` para que lo que el navegador desplace a la vista (campo enfocado, tarjeta) no quede escondido detrás de ella.
+- **Causa del desborde**: la cuadrícula `lg:grid-cols-5` en celular era una sola columna de ancho automático, que se estiraba al contenido más ancho. `grid-cols-1` (= `minmax(0,1fr)`) la limita a la pantalla. Escritorio igual.
+- Buscador a todo el ancho y categorías debajo en celular (en sm+ en la misma fila, como antes); `enterKeyHint="search"` (solo cambia la tecla Enter del teclado del celular). **Descartado a propósito** `type="search"`: en escritorio agregaba una ✕ y hacía que Escape vaciara el campo (cambio de comportamiento).
+- Grilla de productos y carrito sin scroll interno en < lg (un scroll dentro de otro atrapa el dedo); tarjetas más compactas en celular.
+- Carrito en celular: fila 1 = −/cantidad/+ y total de la línea; fila 2 = Precio; fila 3 = Descuento. Botones −, +, eliminar con nombre accesible (→ 44 px táctil por la regla de la Fase 1); Precio/Descuento como `<label>` (tocar la palabra enfoca el campo) y 40 px de alto en táctil.
+- Táctil (44 px): pestañas, "+ nueva venta", área de la ✕ de cerrar pestaña (el ícono se ve igual), fecha, Limpiar, cliente, resultados de cliente, tallas, botones del formulario "fuera de catálogo", Recibo/Cancelar en "Ventas de hoy". Nombres accesibles nuevos: cerrar tallas, quitar cliente, fecha, categorías.
+- Encabezado más compacto en celular; "Ventas de hoy" apilada en celular.
+
+**Verificación**
+- Prueba automática en 360/390/430/768 (táctil) y 1024/1366, agregando 2 productos al carrito (solo estado del navegador; **nunca** se pulsó Vender/Confirmar): ancho = dispositivo; nada se sale de la tarjeta de la factura; barra visible con "2 productos · $306.000"; botones de la factura 44 px; campos 16 px en celular; "Ver factura" lleva a la factura y la barra se esconde; sin errores JS. Todo OK.
+- Selector de tallas y formulario "fuera de catálogo" en 390: botones 44 px, sin desborde.
+- **Escritorio píxel a píxel** contra la versión anterior (git stash) con el carrito lleno: 1366 y 1024 **idénticos**. (La única diferencia fue la animación del foco del buscador en la captura vacía.)
+- `tsc` OK · `next lint` sin warnings · `vitest` 132/132.
+- Nota: la red de la oficina a veces hace fallar la validación del token (401 tras ~10 s) — la prueba reintenta; no es de la app ni de estos cambios.
+
+**Pendiente preexistente (no se tocó, para no cambiar escritorio sin permiso — el usuario aprobó arreglarlo en la Fase 5)**: a 1024 px (portátil pequeño con el menú expandido) la columna de la factura es angosta y el botón "Limpiar" y los campos de Precio se salen de la tarjeta (la página mide 1.046 px). Ya pasaba antes de estas fases.
+
+**Queda para la Fase 5**: el modal de pago ("Pagar factura" / "Confirmar venta") todavía es el diálogo centrado de escritorio.
