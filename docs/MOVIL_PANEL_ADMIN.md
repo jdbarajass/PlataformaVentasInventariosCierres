@@ -40,7 +40,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 1 | Capa global táctil | `globals.css`: inputs a 16 px en < 640 px (evita el zoom de iOS), `touch-action: manipulation` (sin retardo de doble toque), resaltado de toque discreto, botones de ícono a 44 px en pantallas táctiles. `tailwind.config.ts`: `hoverOnlyWhenSupported` (el hover solo existe donde hay mouse). Sin cambios en escritorio. | ✅ Hecha |
 | 2 | Estructura del admin | Barra superior compacta con botón de menú en < 1024 px; el sidebar actual pasa a cajón lateral que se abre/cierra (se cierra al navegar); contenido con `p-4` / `sm:p-6` / `lg:p-8`. En ≥ 1024 px todo igual, incluido el colapso guardado. | ✅ Hecha |
 | 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | ✅ Hecha |
-| 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | Pendiente |
+| 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | ✅ Hecha |
 | 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | Pendiente |
 | 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. | Pendiente |
 | 7 | Páginas solo-admin | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. | Pendiente |
@@ -114,3 +114,22 @@ Documento vivo. Leer primero si se retoma este trabajo.
 **Pendiente preexistente (no se tocó, para no cambiar escritorio sin permiso — el usuario aprobó arreglarlo en la Fase 5)**: a 1024 px (portátil pequeño con el menú expandido) la columna de la factura es angosta y el botón "Limpiar" y los campos de Precio se salen de la tarjeta (la página mide 1.046 px). Ya pasaba antes de estas fases.
 
 **Queda para la Fase 5**: el modal de pago ("Pagar factura" / "Confirmar venta") todavía es el diálogo centrado de escritorio.
+
+### Fase 4 — Ventas del Día (2026-09-30) — aprobada
+
+**Cambios** (solo `admin/ventas-dia/page.tsx`) — presentación; cálculos, consultas y acciones intactos:
+- **Encabezado**: en < lg el título arriba y debajo los controles (fecha, formato, Exportar) a 44 px en táctil; en lg+ la misma fila de antes (`lg:flex-row`, `lg:flex-nowrap`).
+- **Resumen**: 2 columnas compactas en celular (antes 4 tarjetas grandes apiladas); en sm+ igual que antes.
+- **Ventas como tarjetas en < md**: cada línea muestra producto (talla, ×cantidad), precio, método, factura · hora y — solo admin — costo y G. Neta; abajo las 4 acciones (editar, recibo, recibo clásico, cancelar) a 44 px, con cancelar separado a la derecha para evitar toques accidentales; casilla de selección de 20 px. Mismos datos y mismas funciones que la tabla; en md+ se ve la tabla de siempre.
+- **Exportar PNG/JPG/PDF** (html2canvas captura al ancho actual): desde el PC sale igual que antes; desde el celular ahora sale la versión en tarjetas con todas las ventas completas (antes salía la tabla recortada por el scroll horizontal). En modo exportación las tarjetas ocultan casilla y acciones, igual que la tabla.
+- Préstamos, cambios, gastos y notas: relleno `p-4 sm:p-6`; formulario de gastos apilado en celular con controles de 44 px; nombres accesibles en selects.
+- `grid-cols-1` en las cuadrículas de 3 y 2 columnas (mismo motivo que en la Fase 3).
+
+**Verificación**
+- Prueba automática en 360/390/430/768/1024/1366 con la fecha 29/09 (12 líneas de venta): ancho = dispositivo; en celular 12 tarjetas y acciones de 44 px; en 768+ tabla; sin errores JS.
+- Exportación PNG real desde 390 (716×6.432, todas las ventas legibles) y desde 1366 (mismo tamaño de archivo que antes: 995 KB).
+- **Escritorio píxel a píxel** contra la versión anterior (git stash): 1366 y 1024 idénticos salvo la insignia de desarrollo de Next.js (esquina inferior izquierda, no existe en producción). La primera comparación detectó que `flex-wrap` bajaba "Exportar" a otra línea en escritorio → corregido con `lg:flex-nowrap` antes de dar la fase por buena.
+- `tsc` OK · `next lint` sin warnings.
+- La red de la oficina siguió rechazando peticiones de forma intermitente (401 tras ~11 s, p. ej. préstamos o gastos que aparecen vacíos); la prueba recarga hasta que todo carga. No es de la app ni de estos cambios.
+
+**Queda para la Fase 5**: el modal "Editar factura completa" de esta página todavía es el diálogo de escritorio.

@@ -700,30 +700,33 @@ function VentasDiaContent() {
   })
 
   return (
-    <div className="space-y-8" ref={captureRef}>
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8" ref={captureRef}>
+      {/* < lg: título arriba y controles debajo (antes todo en una fila y el
+          subtítulo quedaba en una columna angosta). lg+: igual que antes. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Ventas del Día</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Ventas del Día</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Ver, editar y cancelar ventas de mostrador por fecha · {formattedDateLong}
           </p>
         </div>
         {!exportMode && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto rounded-lg" />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha" className="w-auto rounded-lg touch:h-11 max-lg:min-w-[9rem] max-lg:flex-1" />
             <select
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value as typeof exportFormat)}
-              className="rounded-lg border bg-background px-2 py-2 text-sm"
+              className="rounded-lg border bg-background px-2 py-2 text-sm touch:h-11"
               title="Formato de exportación"
+              aria-label="Formato de exportación"
             >
               <option value="excel">Excel</option>
               <option value="pdf">PDF</option>
               <option value="png">Imagen PNG</option>
               <option value="jpg">Imagen JPG</option>
             </select>
-            <Button variant="outline" className="rounded-lg" onClick={handleExport} disabled={exporting}>
+            <Button variant="outline" className="rounded-lg touch:h-11" onClick={handleExport} disabled={exporting}>
               {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               Exportar
             </Button>
@@ -737,41 +740,43 @@ function VentasDiaContent() {
           <select
             value={bulkMethod}
             onChange={(e) => setBulkMethod(e.target.value as PaymentSplit['method'])}
-            className="rounded-lg border bg-background px-2 py-1 text-sm"
+            aria-label="Nuevo método de pago"
+            className="rounded-lg border bg-background px-2 py-1 text-sm touch:h-11"
           >
             {Object.entries(methodLabels).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <Button size="sm" className="rounded-lg" onClick={handleBulkMethod} disabled={applyingBulk}>
+          <Button size="sm" className="rounded-lg touch:h-11" onClick={handleBulkMethod} disabled={applyingBulk}>
             {applyingBulk ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Cambiar método de pago
           </Button>
-          <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => setSelectedIds(new Set())}>
+          <Button variant="ghost" size="sm" className="rounded-lg touch:h-11" onClick={() => setSelectedIds(new Set())}>
             Cancelar selección
           </Button>
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4">
+      {/* Celular: 2 columnas compactas en vez de 4 tarjetas grandes apiladas. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">Total del día ({activeSales.length} ventas)</p>
-          <p className="text-2xl font-bold">{formatPrice(totalDia)}</p>
+          <p className="text-lg font-bold sm:text-2xl">{formatPrice(totalDia)}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">Gastos operativos del día</p>
-          <p className="text-2xl font-bold text-red-500">{formatPrice(totalGastos)}</p>
+          <p className="text-lg font-bold text-red-500 sm:text-2xl">{formatPrice(totalGastos)}</p>
         </div>
         {canViewProfit && (
           <>
-            <div className="rounded-xl border bg-card p-4">
+            <div className="rounded-xl border bg-card p-3 sm:p-4">
               <p className="text-sm text-muted-foreground">Ganancia neta ({netProfitPct.toFixed(1)}%)</p>
-              <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(netProfit)}</p>
+              <p className={`text-lg font-bold sm:text-2xl ${netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(netProfit)}</p>
               <p className="text-xs text-muted-foreground">Costo {formatPrice(totalCost)} · Comisión {formatPrice(totalCommission)}</p>
             </div>
-            <div className="rounded-xl border bg-card p-4">
+            <div className="rounded-xl border bg-card p-3 sm:p-4">
               <p className="text-sm text-muted-foreground">Utilidad real del día</p>
-              <p className={`text-2xl font-bold ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
+              <p className={`text-lg font-bold sm:text-2xl ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
               <p className="text-xs text-muted-foreground">Ganancia neta − gastos del día − gasto fijo diario ({formatPrice(dailyFixedExpense)})</p>
             </div>
           </>
@@ -801,7 +806,7 @@ function VentasDiaContent() {
           (1/3) en paralelo — igual que Vista del Día del software local —
           para que ambos quepan en una sola captura de pantalla en vez de
           apilados uno debajo del otro. */}
-      <div className="grid gap-6 lg:grid-cols-3 items-start">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {loading ? (
             <div className="flex items-center justify-center p-12">
@@ -814,7 +819,73 @@ function VentasDiaContent() {
             </div>
           ) : (
             <div className="rounded-xl border bg-card">
-              <div className="overflow-x-auto">
+              {/* Celular (< md): cada línea de venta como tarjeta — mismos
+                  datos y mismas acciones que la tabla, sin scroll horizontal
+                  (la tabla necesita ~700px). Al exportar desde el celular sale
+                  esta versión completa en vez de la tabla recortada. */}
+              <ul className="divide-y md:hidden">
+                {saleLines.map(({ item, sale }) => {
+                  const gananciaNeta = item.total_cents - item.qty * (item.cost_cents || 0)
+                  return (
+                    <li key={item.id} className="flex gap-3 p-3">
+                      {!exportMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(sale.id)}
+                          onChange={() => toggleSelect(sale.id)}
+                          aria-label={`Seleccionar venta ${sale.order_number}`}
+                          className="mt-0.5 h-5 w-5 shrink-0 rounded"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 font-medium">
+                            {item.product_title}
+                            {item.product_talla && <Badge variant="outline" className="ml-1">{item.product_talla}</Badge>}
+                            {item.qty > 1 && <span className="ml-1 text-xs text-muted-foreground">×{item.qty}</span>}
+                          </p>
+                          <p className="shrink-0 font-semibold">{formatPrice(item.total_cents)}</p>
+                        </div>
+                        <p className="text-sm">{methodSummary(sale)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sale.order_number} · {formatBogotaTime(sale.created_at)}
+                        </p>
+                        {canViewProfit && (
+                          <p className="text-xs text-muted-foreground">
+                            Costo {formatPrice(item.qty * (item.cost_cents || 0))} · G. Neta{' '}
+                            <span className={gananciaNeta >= 0 ? 'text-green-600' : 'text-red-600'}>{formatPrice(gananciaNeta)}</span>
+                          </p>
+                        )}
+                        {!exportMode && (
+                          <div className="-ml-2 flex items-center gap-1 pt-1">
+                            <Button variant="ghost" size="icon" className="h-9 w-9" title="Editar factura completa" onClick={() => startEdit(sale)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <a
+                              href={`/api/orders/${sale.id}/invoice`} target="_blank" rel="noopener noreferrer"
+                              title="Ver recibo (térmico 80mm)" aria-label="Ver recibo (térmico 80mm)"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg text-cyan-500 hover:bg-muted touch:h-11 touch:w-11"
+                            >
+                              <Receipt className="h-4 w-4" />
+                            </a>
+                            <a
+                              href={`/api/orders/${sale.id}/invoice?formato=clasico`} target="_blank" rel="noopener noreferrer"
+                              title="Ver recibo clásico (tamaño carta)" aria-label="Ver recibo clásico (tamaño carta)"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted touch:h-11 touch:w-11"
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                            </a>
+                            <Button variant="ghost" size="icon" className="ml-auto h-9 w-9 text-red-500" title="Cancelar venta" onClick={() => handleCancelSale(sale.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
@@ -923,7 +994,7 @@ function VentasDiaContent() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-xl border bg-card p-4 sm:p-6">
             <h2 className="mb-3 text-lg font-semibold">Préstamos pendientes ({pendingLoans.length})</h2>
             <p className="mb-3 text-xs text-muted-foreground">
               Toda la mercancía prestada que aún no se ha devuelto, sin importar la fecha.
@@ -956,7 +1027,7 @@ function VentasDiaContent() {
             )}
           </div>
 
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-xl border bg-card p-4 sm:p-6">
             <h2 className="mb-3 text-lg font-semibold">Cambios de producto ({exchanges.length})</h2>
             <p className="mb-3 text-xs text-muted-foreground">
               Cambios físicos registrados este día en Inventario → Cambios (el cliente devuelve un artículo y se lleva otro).
@@ -1182,8 +1253,8 @@ function VentasDiaContent() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2 items-start">
-        <div className="rounded-xl border bg-card p-6">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Gastos operativos del día</h2>
           {/* Formulario oculto durante la exportación: html2canvas no rasteriza
               bien el texto de <input>/<select> nativos (el placeholder queda
@@ -1192,18 +1263,18 @@ function VentasDiaContent() {
               falta que aparezca en el PDF/imagen que se comparte. */}
           <div className={exportMode ? 'hidden' : 'mb-4 flex flex-wrap gap-2'}>
             <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
-            <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+            <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} aria-label="Categoría del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
               <option value="">Categoría...</option>
               {EXPENSE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
             <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg" />
-            <select value={expenseForm.account_id} onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+            <select value={expenseForm.account_id} onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })} aria-label="Cuenta del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
               <option value="">Sin cuenta</option>
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-            <Button className="rounded-lg" onClick={handleAddExpense} disabled={savingExpense}>
+            <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleAddExpense} disabled={savingExpense}>
               {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Registrar
             </Button>
@@ -1222,7 +1293,7 @@ function VentasDiaContent() {
           )}
         </div>
 
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <h2 className="mb-1 text-lg font-semibold">Notas del día</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             Cualquier cosa que haya pasado hoy y quieras dejar registrada (sin monto, sin categoría).
@@ -1235,7 +1306,7 @@ function VentasDiaContent() {
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddNote() }}
               className="flex-1 rounded-lg"
             />
-            <Button className="rounded-lg" onClick={handleAddNote} disabled={savingNote || !noteText.trim()}>
+            <Button className="rounded-lg touch:h-11" onClick={handleAddNote} disabled={savingNote || !noteText.trim()}>
               {savingNote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Agregar
             </Button>
