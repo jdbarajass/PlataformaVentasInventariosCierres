@@ -241,3 +241,14 @@ Hecha con red a GitHub (wifi del celular del usuario: `raw.githubusercontent.com
 
 **Barrido final de regresión**: las 35 rutas del admin en 390 y 1366 → **70/70 OK**: todas cargan, sin errores de JavaScript, con el título correcto en la barra y con ancho exactamente igual a la pantalla (antes de la Fase 1 ninguna ruta cabía en 390; al terminar la Fase 2, 18/35). Verificación puntual de los arreglos de esta fase: PC con el buscador enfocado al abrir, celular sin teclado automático, menú con scroll contenido, "reducir movimiento" respetado. `tsc` OK · `next lint` sin warnings.
 - `next build` OK antes del commit.
+
+
+## Replicado en YBMOTOCOM (2026-09-30)
+
+Decisión del usuario: replicar todo al final, ya probado. Hecho en `C:\Users\JJBarajas\Pictures\YOJAN` (repo `ybmotocom/ybmotocom-web`) con `git cherry-pick -x` de los 10 commits (fases 1–8), en el mismo orden. Las dos historias no tienen base común (YBMOTOCOM nació con su propio commit inicial), así que cada commit se mezcló en tres vías.
+
+- Fases 1–6c y 7 (salvo un archivo) entraron sin conflictos, incluidas Registrar Venta y Cuentas pese a los cambios propios de YBMOTOCOM (notas por cuenta, desembolso Addi, botón de lavado de cascos).
+- Conflictos resueltos a mano: `docs/README.md` (YBMOTOCOM no tiene `CLAUDE_SKILLS.md`; se dejó solo la fila de este documento) y `admin/usuarios/page.tsx` en las fases 7 y 8: YJBMOTOCOM tenía atributos propios (`autoComplete`, `name`, `type="search"`) que YBMOTOCOM no; se conservó la versión de YBMOTOCOM y se le aplicaron solo los cambios de presentación.
+- **Verificación de exactitud**: para los 42 archivos tocados, las diferencias entre los dos proyectos son las mismas antes y después del traslado (41 idénticas; en Usuarios quedan solo esos atributos propios de YJBMOTOCOM, que ya existían antes).
+- YBMOTOCOM: `tsc` OK · `next lint` sin warnings · `vitest` 132/132 · `next build` OK (con variables de entorno de prueba: en esta máquina YBMOTOCOM no tiene `.env.local`; sin ellas el build compila pero falla al recopilar datos por `supabaseUrl is required`, que es de entorno, no de código). Sin migraciones SQL ni variables de entorno nuevas.
+- No se probó YBMOTOCOM en el navegador con sesión: sus credenciales y su Supabase son distintos. Conviene que el usuario revise Registrar Venta y Ventas del Día en su celular tras el despliegue.
