@@ -261,21 +261,22 @@ export default function PresupuestoPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      {/* < lg: título arriba y controles debajo (móvil, Fase 6c). */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Presupuesto Mensual</h1>
-          <p className="text-muted-foreground">Comparativo de presupuesto vs. gasto real por categoría</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">Presupuesto Mensual</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Comparativo de presupuesto vs. gasto real por categoría</p>
         </div>
-        <div className="flex gap-2">
-          <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} className="rounded-lg border bg-background px-3 py-2 text-sm">
+        <div className="flex flex-wrap gap-2 lg:flex-nowrap">
+          <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} aria-label="Mes" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:flex-1">
             {monthNames.map((name, i) => (
               <option key={i} value={i + 1}>{name}</option>
             ))}
           </select>
-          <Input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || year)} className="w-24 rounded-lg" />
+          <Input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value) || year)} aria-label="Año" className="w-24 rounded-lg touch:h-11" />
           {tab === 'presupuesto' && (
-            <Button variant="outline" className="rounded-lg" onClick={handleCopyPrevMonth} disabled={copyingPrevMonth}>
+            <Button variant="outline" className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleCopyPrevMonth} disabled={copyingPrevMonth}>
               {copyingPrevMonth ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
               Copiar mes anterior
             </Button>
@@ -308,14 +309,14 @@ export default function PresupuestoPage() {
         </div>
       ) : tab === 'presupuesto' ? (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="rounded-xl border bg-card p-4">
               <p className="text-sm text-muted-foreground">Presupuestado</p>
-              <p className="text-2xl font-bold">{formatPrice(totalBudgeted)}</p>
+              <p className="text-lg font-bold sm:text-2xl">{formatPrice(totalBudgeted)}</p>
             </div>
             <div className="rounded-xl border bg-card p-4">
               <p className="text-sm text-muted-foreground">Gastado (todas las categorías)</p>
-              <p className="text-2xl font-bold">{formatPrice(totalSpent)}</p>
+              <p className="text-lg font-bold sm:text-2xl">{formatPrice(totalSpent)}</p>
             </div>
           </div>
 
@@ -338,17 +339,17 @@ export default function PresupuestoPage() {
             </div>
           )}
 
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-xl border bg-card p-4 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold">Agregar/actualizar categoría</h2>
             <div className="flex flex-wrap gap-2">
-              <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="rounded-lg border bg-background px-3 py-2 text-sm">
+              <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} aria-label="Categoría" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
                 <option value="">Categoría...</option>
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <MoneyInput placeholder="Monto presupuestado" value={newAmount} onChange={setNewAmount} className="rounded-lg" />
-              <Button className="rounded-lg" onClick={handleSaveBudget} disabled={savingBudget}>
+              <MoneyInput placeholder="Monto presupuestado" value={newAmount} onChange={setNewAmount} className="rounded-lg touch:h-11" />
+              <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleSaveBudget} disabled={savingBudget}>
                 {savingBudget ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 Guardar
               </Button>
@@ -390,7 +391,7 @@ export default function PresupuestoPage() {
                 const diff = b.budgeted_amount_cents - spent
                 return (
                   <div key={b.id} className="rounded-xl border bg-card p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 sm:flex-nowrap sm:gap-x-0">
                       <p className="font-medium">{b.category}</p>
                       <p className={cn('text-sm font-medium', over ? 'text-red-500' : nearLimit && 'text-amber-500')}>
                         {formatPrice(spent)} / {formatPrice(b.budgeted_amount_cents)} ({rawPct.toFixed(0)}%)
@@ -413,28 +414,29 @@ export default function PresupuestoPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-xl border bg-card p-4 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold">Nuevo gasto operativo</h2>
             <div className="flex flex-wrap gap-2">
-              <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg" />
-              <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} className="rounded-lg border bg-background px-3 py-2 text-sm">
+              <Input placeholder="Descripción" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} className="rounded-lg touch:h-11" />
+              <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} aria-label="Categoría del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
                 <option value="">Categoría...</option>
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg" />
+              <MoneyInput placeholder="Monto" value={expenseForm.amount} onChange={(v) => setExpenseForm({ ...expenseForm, amount: v })} className="rounded-lg touch:h-11" />
               <select
                 value={expenseForm.account_id}
                 onChange={(e) => setExpenseForm({ ...expenseForm, account_id: e.target.value })}
-                className="rounded-lg border bg-background px-3 py-2 text-sm"
+                aria-label="Cuenta"
+                className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full"
               >
                 <option value="">Sin cuenta</option>
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
-              <Button className="rounded-lg" onClick={handleAddExpense} disabled={savingExpense}>
+              <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleAddExpense} disabled={savingExpense}>
                 {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 Registrar
               </Button>
@@ -449,14 +451,14 @@ export default function PresupuestoPage() {
           ) : (
             <div className="space-y-2">
               {expenses.map((e) => (
-                <div key={e.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
+                <div key={e.id} className="flex items-center justify-between rounded-xl border bg-card p-4 max-sm:gap-3">
                   <div>
                     <p className="font-medium">{e.description}</p>
                     <p className="text-sm text-muted-foreground">{e.category} · {formatDate(e.date)}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="font-bold">{formatPrice(e.amount_cents)}</p>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteExpense(e)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar gasto" onClick={() => handleDeleteExpense(e)}>
                       <Trash2 className="h-3.5 w-3.5 text-red-500" />
                     </Button>
                   </div>

@@ -42,8 +42,8 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | ✅ Hecha |
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | ✅ Hecha |
 | 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
-| 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | 6a ✅ · 6b ✅ · 6c en curso |
-| 7 | Páginas solo-admin | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. | Pendiente |
+| 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | ✅ Hecha (6a · 6b · 6c) |
+| 7 | Páginas solo-admin + tabla de Inventario en portátil | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. **Además (pedido del usuario, 2026-09-30)**: la tabla Detalle de Inventario en 1024–1366 (la columna de acciones queda cortada dentro del scroll horizontal) — se permite cambiar cómo se ve en escritorio. | En curso |
 | 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
 
 ## Bitácora
@@ -185,3 +185,19 @@ La Fase 6 se dividió en 6a / 6b / 6c (ver tabla) para seguir comprobando por pa
 **Arreglo de portátil (aprobado por el usuario, 2026-09-30)**: en 1024 Inventario medía 1.063 px (ya pasaba antes). Se creía que eran los botones del encabezado, pero el diagnóstico mostró la causa real: la tarjeta "Valor en costo" ($ 61.343.912) no cabía en la 5.ª columna del resumen. Arreglo: 5 columnas solo desde xl (1280); entre sm y xl, 4 columnas y "Valor en costo" en su propia fila a lo ancho; entre xl y 2xl (1280–1535) esa tarjeta sin ícono y con la cifra un tamaño menor (en 1280/1366 la cifra tocaba el borde y el ícono quedaba aplastado — también preexistente). El encabezado se dejó como antes (sí cabía). Verificado: 1024 (menú expandido y colapsado), 1280, 1366, 1440, 1600, 1920 → ancho = ventana y nada se sale de las tarjetas del resumen. En 1366 lo único que cambia respecto a antes es esa tarjeta.
 
 **Pendiente preexistente (no incluido en lo aprobado)**: en 1024 y 1366 la tabla Detalle tiene más columnas de las que caben y la columna de acciones queda cortada dentro de su scroll horizontal.
+
+### Fase 6c — Historial Mensual, Presupuesto, Reportes + revisión táctil (2026-09-30) — aprobada
+
+**Diagnóstico antes** (390 px): Historial Mensual 570 px (filas de "Ventas por día" con anchos fijos w-20 + w-28 + w-48); Presupuesto 637 px (mes/año/"Copiar mes anterior" junto al título); Reportes 394 px (cuadrículas `lg:grid-cols-2` sin `grid-cols-1`). Ya cabían pero con controles pequeños: Calculadora (21), submenú de Cierre Alegra (5 enlaces en sus 5 páginas), Fiado (3), Mi Cuadre (1). Órdenes, Cupones y Reseñas ya estaban bien.
+
+**Cambios** — solo presentación:
+- `historial-mensual`: encabezado apilado (< lg); tarjetas de costo/comisiones/utilidad/días en 2 columnas compactas; cada día de "Ventas por día" en dos líneas en celular (fecha, barra y monto arriba; estado y utilidad a la derecha abajo) y filas de 44 px en táctil; `grid-cols-1`; relleno menor.
+- `presupuesto`: encabezado apilado; resumen en 2 columnas; formularios de presupuesto y de gasto apilados con controles de 44 px; eliminar gasto con nombre accesible.
+- `reportes`: encabezado apilado (< sm); rango de fechas táctil; las 10 tarjetas de estadísticas en 2 columnas con menos relleno en celular; `grid-cols-1` en las secciones de 2 columnas (causa del desborde).
+- Táctil (44 px): Calculadora (botones Limpiar, modos de margen, porcentajes rápidos, resultados de búsqueda, "Buscar otro producto", campo y selector), Cierre Alegra (submenú), Fiado (filtros), Mi Cuadre (Actualizar).
+- No tocado: la casilla de verificación de Productos (16 px, estándar de casilla; su etiqueta también responde al toque).
+
+**Verificación**
+- 360/390/768: las 7 páginas modificadas con ancho = dispositivo y **0 controles < 40 px**.
+- **Escritorio píxel a píxel** (1366 y 1024, página completa): 13/14 idénticas; en Mi Cuadre solo cambia el texto "Actualizado HH:MM:SS" (hora distinta entre corridas).
+- `tsc` OK · `next lint` sin warnings.

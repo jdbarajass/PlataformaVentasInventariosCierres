@@ -306,14 +306,14 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Reportes</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Reportes</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Analisis de ventas y rendimiento
           </p>
         </div>
-        <Button variant="outline" onClick={exportCSV}>
+        <Button variant="outline" onClick={exportCSV} className="touch:h-11">
           <Download className="mr-2 h-4 w-4" />
           Exportar CSV
         </Button>
@@ -331,7 +331,7 @@ export default function ReportsPage() {
       {/* Date Filter */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Rango:</span>
@@ -340,58 +340,58 @@ export default function ReportsPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-auto"
+              aria-label="Desde" className="w-auto touch:h-11 max-sm:min-w-0 max-sm:flex-1"
             />
             <span className="text-muted-foreground">a</span>
             <Input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-auto"
+              aria-label="Hasta" className="w-auto touch:h-11 max-sm:min-w-0 max-sm:flex-1"
             />
           </div>
         </CardContent>
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
             <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(totals.revenue)}</div>
+          <CardContent className="max-sm:p-3 max-sm:pt-0">
+            <div className="text-lg font-bold sm:text-2xl">{formatPrice(totals.revenue)}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
             <CardTitle className="text-sm font-medium">Total Ordenes</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.orders}</div>
+          <CardContent className="max-sm:p-3 max-sm:pt-0">
+            <div className="text-lg font-bold sm:text-2xl">{totals.orders}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
             <CardTitle className="text-sm font-medium">Orden Promedio</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(totals.avgOrder)}</div>
+          <CardContent className="max-sm:p-3 max-sm:pt-0">
+            <div className="text-lg font-bold sm:text-2xl">{formatPrice(totals.avgOrder)}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
             <CardTitle className="text-sm font-medium">Método más usado</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{mostUsedMethod ? (methodLabels[mostUsedMethod[0]] || mostUsedMethod[0]) : '—'}</div>
+          <CardContent className="max-sm:p-3 max-sm:pt-0">
+            <div className="text-lg font-bold sm:text-2xl">{mostUsedMethod ? (methodLabels[mostUsedMethod[0]] || mostUsedMethod[0]) : '—'}</div>
             {mostUsedMethod && <p className="text-xs text-muted-foreground">{mostUsedMethod[1]} pago(s)</p>}
           </CardContent>
         </Card>
@@ -399,63 +399,63 @@ export default function ReportsPage() {
 
       {/* Costo, comisión y ganancia — igual que en el software local, solo Admin las ve */}
       {canViewProfit && (
-        <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
               <CardTitle className="text-sm font-medium">Costo Total</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(profitTotals.cost)}</div>
+            <CardContent className="max-sm:p-3 max-sm:pt-0">
+              <div className="text-lg font-bold sm:text-2xl">{formatPrice(profitTotals.cost)}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
               <CardTitle className="text-sm font-medium">Comisiones</CardTitle>
               <Wallet className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(profitTotals.commission)}</div>
+            <CardContent className="max-sm:p-3 max-sm:pt-0">
+              <div className="text-lg font-bold sm:text-2xl">{formatPrice(profitTotals.commission)}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
               <CardTitle className="text-sm font-medium">Ganancia Neta</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">{formatPrice(profitTotals.grossProfit)}</div>
+            <CardContent className="max-sm:p-3 max-sm:pt-0">
+              <div className="text-lg font-bold text-green-500 sm:text-2xl">{formatPrice(profitTotals.grossProfit)}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
               <CardTitle className="text-sm font-medium">Utilidad Real</CardTitle>
               <PiggyBank className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(profitTotals.netProfit)}</div>
+            <CardContent className="max-sm:p-3 max-sm:pt-0">
+              <div className="text-lg font-bold sm:text-2xl">{formatPrice(profitTotals.netProfit)}</div>
               <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos del periodo y gasto fijo mensual completo ({formatPrice(profitTotals.expenses)})</p>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
               <CardTitle className="text-sm font-medium">Día más rentable</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="max-sm:p-3 max-sm:pt-0">
+              <div className="text-lg font-bold sm:text-2xl">
                 {mostProfitableDay ? formatDiaCorto(mostProfitableDay.date) : '—'}
               </div>
               {mostProfitableDay && <p className="text-xs text-muted-foreground">Ganancia: {formatPrice(mostProfitableDay.profit)}</p>}
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 max-sm:gap-2 max-sm:p-3 max-sm:pb-1">
               <CardTitle className="text-sm font-medium">Días sin venta</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${noSalesDaysCount > 0 ? 'text-red-500' : ''}`}>{noSalesDaysCount}</div>
+            <CardContent className="max-sm:p-3 max-sm:pt-0">
+              <div className={`text-lg font-bold sm:text-2xl ${noSalesDaysCount > 0 ? 'text-red-500' : ''}`}>{noSalesDaysCount}</div>
               <p className="text-xs text-muted-foreground">No se vendió nada ese día</p>
             </CardContent>
           </Card>
@@ -464,7 +464,7 @@ export default function ReportsPage() {
 
       {/* Comisión por método y horas pico — completamente ausentes antes
           (sección 12 de la auditoría, nunca cerrado) */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {canViewProfit && Object.keys(commissionByMethod).length > 0 && (
           <Card>
             <CardHeader><CardTitle>Comisión por método de pago</CardTitle></CardHeader>
@@ -500,7 +500,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Sales Chart */}
         <Card>
           <CardHeader>

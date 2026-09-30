@@ -599,21 +599,22 @@ export default function HistorialMensualPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      {/* < lg: título arriba y controles debajo (móvil, Fase 6c). */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Historial Mensual</h1>
-          <p className="text-muted-foreground">Ventas del mes, con comisiones acumuladas</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">Historial Mensual</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Ventas del mes, con comisiones acumuladas</p>
         </div>
-        <div className="flex items-center gap-2">
-          <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} className="rounded-lg border bg-background px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+          <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} aria-label="Mes" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:flex-1">
             {monthNames.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
           </select>
-          <select value={year} onChange={(e) => setYear(parseInt(e.target.value))} className="w-24 rounded-lg border bg-background px-3 py-2 text-sm">
+          <select value={year} onChange={(e) => setYear(parseInt(e.target.value))} aria-label="Año" className="w-24 rounded-lg border bg-background px-3 py-2 text-sm touch:h-11">
             {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           {canViewProfit && (
-            <Button variant="outline" className="rounded-lg" onClick={handlePrint} disabled={exporting}>
+            <Button variant="outline" className="rounded-lg touch:h-11 max-sm:w-full" onClick={handlePrint} disabled={exporting}>
               {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
               Exportar / Imprimir
             </Button>
@@ -657,7 +658,7 @@ export default function HistorialMensualPage() {
               </div>
             </div>
             {canViewProfit && (
-              <div className="rounded-xl border bg-card p-4">
+              <div className="rounded-xl border bg-card p-3 sm:p-4">
                 <div className="flex items-center gap-3">
                   <TrendingUp className="h-5 w-5 text-green-500" />
                   <div>
@@ -676,14 +677,14 @@ export default function HistorialMensualPage() {
           </div>
 
           {canViewProfit && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="rounded-xl border bg-card p-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+              <div className="rounded-xl border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Costo total</p>
-                <p className="text-xl font-bold">{formatPrice(totalCost)}</p>
+                <p className="text-lg font-bold sm:text-xl">{formatPrice(totalCost)}</p>
               </div>
-              <div className="rounded-xl border bg-card p-4">
+              <div className="rounded-xl border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Comisiones acumuladas</p>
-                <p className="text-xl font-bold">{formatPrice(totalCommission)}</p>
+                <p className="text-lg font-bold sm:text-xl">{formatPrice(totalCommission)}</p>
                 {Object.keys(commissionByMethod).length > 0 && (
                   <div className="mt-2 space-y-0.5">
                     {Object.entries(commissionByMethod)
@@ -697,28 +698,28 @@ export default function HistorialMensualPage() {
                   </div>
                 )}
               </div>
-              <div className="rounded-xl border bg-card p-4">
+              <div className="rounded-xl border bg-card p-3 sm:p-4">
                 <div className="flex items-center gap-2">
                   <PiggyBank className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Utilidad real del mes</p>
                 </div>
-                <p className={`text-xl font-bold ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
+                <p className={`text-lg font-bold sm:text-xl ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
               </div>
-              <div className="rounded-xl border bg-card p-4">
+              <div className="rounded-xl border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Días positivos / negativos</p>
-                <p className="text-xl font-bold">{positiveDays} / {negativeDays}</p>
+                <p className="text-lg font-bold sm:text-xl">{positiveDays} / {negativeDays}</p>
               </div>
-              <div className="rounded-xl border bg-card p-4">
+              <div className="rounded-xl border bg-card p-3 sm:p-4">
                 <p className="text-sm text-muted-foreground">Días sin venta</p>
-                <p className={`text-xl font-bold ${noSalesDays > 0 ? 'text-red-500' : ''}`}>{noSalesDays}</p>
+                <p className={`text-lg font-bold sm:text-xl ${noSalesDays > 0 ? 'text-red-500' : ''}`}>{noSalesDays}</p>
                 <p className="text-xs text-muted-foreground">No se vendió nada ese día</p>
               </div>
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border bg-card p-6">
-              <div className="mb-4 flex items-center justify-between">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-xl border bg-card p-4 sm:p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 sm:flex-nowrap sm:gap-x-0">
                 <h2 className="text-lg font-semibold">Ventas por día</h2>
                 <p className="text-xs text-muted-foreground">Haz clic en un día para ver el detalle</p>
               </div>
@@ -730,13 +731,16 @@ export default function HistorialMensualPage() {
                     <Link
                       key={d.day}
                       href={`/admin/ventas-dia?date=${d.day}`}
-                      className="flex items-center gap-4 rounded-lg p-1 -m-1 hover:bg-muted"
+                      // < sm: dos líneas — fecha, barra y monto arriba; estado y
+                      // utilidad abajo a la derecha (antes w-20 + w-28 + w-48 fijos
+                      // no cabían en el celular). sm+: una fila como siempre. Fase 6c.
+                      className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg p-1 -m-1 hover:bg-muted touch:min-h-11 max-sm:gap-x-3 max-sm:py-2 sm:flex-nowrap"
                     >
-                      <span className="w-20 text-sm text-muted-foreground">{d.day.slice(8, 10)}/{d.day.slice(5, 7)}</span>
+                      <span className="w-20 text-sm text-muted-foreground max-sm:w-11">{d.day.slice(8, 10)}/{d.day.slice(5, 7)}</span>
                       <div className="flex-1"><div className="h-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600" style={{ width: `${(d.revenue / maxDaily) * 100}%` }} /></div>
-                      <span className="w-28 text-right text-sm font-medium">{formatPrice(d.revenue)}</span>
+                      <span className="w-28 text-right text-sm font-medium max-sm:w-auto">{formatPrice(d.revenue)}</span>
                       {canViewProfit && (
-                        <div className="flex w-48 shrink-0 flex-col items-end justify-center gap-0.5">
+                        <div className="flex w-48 shrink-0 flex-col items-end justify-center gap-0.5 max-sm:w-full max-sm:flex-row max-sm:items-center max-sm:justify-end max-sm:gap-2">
                           <Badge
                             variant="outline"
                             className={
@@ -768,7 +772,7 @@ export default function HistorialMensualPage() {
               )}
             </div>
 
-            <div className="rounded-xl border bg-card p-6">
+            <div className="rounded-xl border bg-card p-4 sm:p-6">
               <h2 className="mb-4 text-lg font-semibold">Top 10 Productos del mes</h2>
               {topProducts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay ventas este mes.</p>
@@ -786,7 +790,7 @@ export default function HistorialMensualPage() {
             </div>
 
             {canViewProfit && (
-              <div className="rounded-xl border bg-card p-6 lg:col-span-2">
+              <div className="rounded-xl border bg-card p-4 sm:p-6 lg:col-span-2">
                 <h2 className="mb-4 text-lg font-semibold">Rentabilidad por producto (top 10 por ganancia neta)</h2>
                 {mostProfitableProducts.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No hay ventas este mes.</p>

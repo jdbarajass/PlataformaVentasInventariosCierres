@@ -84,7 +84,7 @@ export default function MiCuadrePage() {
             <RefreshCw className="h-3.5 w-3.5" />
             {lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString('es-CO')}` : 'Cargando...'}
           </div>
-          <Button variant="outline" size="sm" className="rounded-lg" onClick={handleManualRefresh} disabled={refreshing}>
+          <Button variant="outline" size="sm" className="rounded-lg touch:h-11" onClick={handleManualRefresh} disabled={refreshing}>
             <RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>

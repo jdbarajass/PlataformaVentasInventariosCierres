@@ -50,7 +50,7 @@ export default function CierreAlegraLayout({
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors touch:min-h-11',
                 isActive
                   ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground'

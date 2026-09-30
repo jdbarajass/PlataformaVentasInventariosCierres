@@ -321,7 +321,7 @@ export default function FiadoPage() {
             key={s}
             variant={statusFilter === s ? 'default' : 'outline'}
             size="sm"
-            className="rounded-lg"
+            className="rounded-lg touch:h-11"
             onClick={() => setStatusFilter(s)}
           >
             {s === 'pending' ? 'Pendientes' : s === 'paid' ? 'Pagados' : 'Todos'}

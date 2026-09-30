@@ -291,7 +291,7 @@ export default function CalculadoraPage() {
                   <button
                     key={p.id}
                     type="button"
-                    className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                    className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
                     onClick={() => selectMinPrice(p.title, null, (p.minMargen30 ?? 0) / 100, (p.minMarkup30 ?? 0) / 100)}
                   >
                     {p.title}
@@ -301,7 +301,7 @@ export default function CalculadoraPage() {
                     <button
                       key={v.id}
                       type="button"
-                      className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                      className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
                       onClick={() => selectMinPrice(p.title, v.talla, v.minMargen30 / 100, v.minMarkup30 / 100)}
                     >
                       {p.title} {v.talla ? `— Talla ${v.talla}` : ''}
@@ -322,7 +322,7 @@ export default function CalculadoraPage() {
               </p>
               <button
                 type="button"
-                className="shrink-0 text-xs text-muted-foreground underline"
+                className="shrink-0 text-xs text-muted-foreground underline touch:min-h-11"
                 onClick={() => setMinPriceSelected(null)}
               >
                 Buscar otro producto
@@ -354,7 +354,7 @@ export default function CalculadoraPage() {
         <div className="rounded-xl border bg-card p-6">
           <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
             <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Precio → Margen y comisión</span>
-            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal" onClick={limpiarCostoPrecio}>
+            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarCostoPrecio}>
               <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
             </Button>
           </h2>
@@ -375,12 +375,12 @@ export default function CalculadoraPage() {
                   <div className="absolute z-10 mt-1 max-h-48 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
                     {results.map((p) =>
                       p.variants.length === 0 ? (
-                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => selectFromSearch(p.cost_cents)}>
+                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => selectFromSearch(p.cost_cents)}>
                           {p.title}
                         </button>
                       ) : (
                         p.variants.map((v) => (
-                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted" onClick={() => selectFromSearch(v.cost_cents)}>
+                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => selectFromSearch(v.cost_cents)}>
                             {p.title} {v.talla ? `(${v.talla})` : ''}
                           </button>
                         ))
@@ -403,7 +403,7 @@ export default function CalculadoraPage() {
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                aria-label="Método de pago" className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
               >
                 {Object.entries(methodLabels).map(([value, label]) => (
                   <option key={value} value={value}>{label} {rates[value] ? `(${rates[value]}%)` : ''}</option>
@@ -424,7 +424,7 @@ export default function CalculadoraPage() {
           <div className="mt-6 border-t pt-4">
             <div className="mb-1 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Calculadora Rápida</h3>
-              <Button type="button" variant="outline" size="sm" className="h-7 rounded-lg px-2 text-xs font-normal" onClick={limpiarRapida}>
+              <Button type="button" variant="outline" size="sm" className="h-7 rounded-lg px-2 text-xs font-normal touch:h-11" onClick={limpiarRapida}>
                 <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
               </Button>
             </div>
@@ -447,7 +447,7 @@ export default function CalculadoraPage() {
         <div className="rounded-xl border bg-card p-6">
           <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
             <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Margen deseado → Precio sugerido</span>
-            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal" onClick={limpiarMargenDeseado}>
+            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarMargenDeseado}>
               <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
             </Button>
           </h2>
@@ -457,7 +457,7 @@ export default function CalculadoraPage() {
                 type="button"
                 variant={mode === 'real' ? 'default' : 'outline'}
                 size="sm"
-                className="flex-1 rounded-lg"
+                className="flex-1 rounded-lg touch:h-11"
                 onClick={() => setMode('real')}
               >
                 % Margen real
@@ -466,7 +466,7 @@ export default function CalculadoraPage() {
                 type="button"
                 variant={mode === 'sobre_costo' ? 'default' : 'outline'}
                 size="sm"
-                className="flex-1 rounded-lg"
+                className="flex-1 rounded-lg touch:h-11"
                 onClick={() => setMode('sobre_costo')}
               >
                 % Sobre costo
@@ -486,7 +486,7 @@ export default function CalculadoraPage() {
                     key={g}
                     type="button"
                     onClick={() => setMargenDeseado(String(g))}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium ${margenDeseado === String(g) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${margenDeseado === String(g) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
                   >
                     {g}%
                   </button>
@@ -499,7 +499,7 @@ export default function CalculadoraPage() {
                   min="1"
                   value={margenDeseado}
                   onChange={(e) => setMargenDeseado(e.target.value)}
-                  className="h-8 w-24 rounded-lg text-sm"
+                  className="h-8 w-24 rounded-lg text-sm touch:h-11"
                 />
               </div>
             </div>
@@ -531,7 +531,7 @@ export default function CalculadoraPage() {
                     <button
                       key={d}
                       onClick={() => setDctoCliente(dctoCliente === String(d) ? '' : String(d))}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium ${dctoCliente === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${dctoCliente === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
                     >
                       {d}%
                     </button>
@@ -552,7 +552,7 @@ export default function CalculadoraPage() {
       <div className="rounded-xl border bg-card p-6">
         <h2 className="mb-1 flex items-center justify-between gap-2 text-lg font-semibold">
           <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Calculadora de Cascos (Factura proveedor)</span>
-          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal" onClick={limpiarCascos}>
+          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarCascos}>
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
           </Button>
         </h2>
@@ -573,7 +573,7 @@ export default function CalculadoraPage() {
                     <button
                       key={d}
                       onClick={() => setDctoProveedor(String(d))}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium ${dctoProveedor === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${dctoProveedor === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
                     >
                       {d}%
                     </button>
