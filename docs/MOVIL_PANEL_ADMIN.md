@@ -42,7 +42,7 @@ Documento vivo. Leer primero si se retoma este trabajo.
 | 3 | Registrar Venta | `/admin/ventas`: buscador, carrito, formas de pago y botón de cobrar cómodos a una mano; cuadrículas que se apilan; acciones principales siempre alcanzables. | ✅ Hecha |
 | 4 | Ventas del Día | `/admin/ventas-dia`: resumen arriba, tablas anchas → tarjetas o scroll horizontal controlado sin perder columnas; filtros y acciones táctiles. | ✅ Hecha |
 | 5 | Modales y avisos + portátil 1024 | Los modales/diálogos que usan Registrar Venta y Ventas del Día → hoja inferior o pantalla completa en celular; `SessionAlerts` y toasts sin tapar acciones. **Además (pedido del usuario, 2026-09-30)**: arreglar Registrar Venta en portátil pequeño (~1024 px con el menú expandido), donde "Limpiar" y los campos de Precio se salen de la tarjeta de la factura — aquí SÍ se permite cambiar cómo se ve en escritorio. | ✅ Hecha |
-| 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. | Pendiente |
+| 6 | Resto de páginas del vendedor | Mi Cuadre, Calculadora, Cierres, Fiado, Préstamos, Facturas, Inventario (consulta), Notas, Productos. Dividida en 3 partes (2026-09-30): **6a** Cierres, Préstamos, Facturas, Notas · **6b** Inventario (+ Cambios, Cargue de pedidos) · **6c** Historial Mensual, Presupuesto, Reportes + revisión táctil de las que ya caben (Mi Cuadre, Calculadora, Fiado, Órdenes, Productos, Cupones, Reseñas, Cierre Alegra). | 6a ✅ · 6b en curso |
 | 7 | Páginas solo-admin | Cuentas, Reportes, Rendimiento, Auditoría, Usuarios, Configuración, Cierre Alegra, etc. | Pendiente |
 | 8 | Auditoría final | `impeccable audit` + `web-design-guidelines` (necesita red a GitHub) sobre el admin en celular; `prefers-reduced-motion`; registro final. | Pendiente |
 
@@ -148,3 +148,20 @@ Documento vivo. Leer primero si se retoma este trabajo.
 - Celular 360/390 (sin pulsar nunca Confirmar venta / Guardar cambios): cobro, cobro en Efectivo, cobro Combinado, editar factura y recordatorios → hoja pegada abajo y a todo el ancho, sin desborde, todos los controles ≥ 44 px, se cierran con la ✕, sin errores JS.
 - Escritorio 1366 píxel a píxel: modal de edición **idéntico**; modal de cobro idéntico (la única diferencia es la factura de fondo, que es el arreglo del portátil).
 - `tsc` OK · `next lint` sin warnings · `vitest` 132/132 · **`next build` OK** (123 páginas; los "Connect Timeout" del log son la red intermitente al leer la configuración de la tienda, no detienen el build).
+
+### Fase 6a — Cierres, Préstamos, Facturas, Notas (2026-09-30) — aprobada
+
+La Fase 6 se dividió en 6a / 6b / 6c (ver tabla) para seguir comprobando por partes.
+
+**Diagnóstico antes** (390 px): Cierres 431 px de ancho (botón "Nuevo Arqueo"); Préstamos 511 px (selector de estado y botones de ícono de cada fila, 20 controles pequeños); Facturas 492 px (insignias y montos de cada factura); Notas 413 px (pestañas; 29 controles pequeños).
+
+**Cambios** — solo presentación:
+- `cierres`: encabezado título/botones apilado en < lg; historial como tarjetas en < md (fecha, estado, total, diferencia y desglose efectivo/tarjeta/transf./wallet); botones del formulario táctiles.
+- `prestamos`: pestañas y filtros que se acomodan (`flex-wrap`); cada préstamo en dos filas en < sm (datos arriba; días, estado, selector y acciones abajo, con editar+eliminar agrupados a la derecha); selector y botones a 44 px con nombre accesible; formulario con relleno menor.
+- `facturas`: encabezado apilado en < sm; resumen en 2 columnas compactas; cada factura con descripción arriba e insignias/montos abajo en < sm; ítems y abonos con controles de 44 px y campos a todo el ancho en celular.
+- `notas`: pestañas con desplazamiento horizontal en < sm (llegan al borde); formulario y filtros táctiles; botones completar/editar/eliminar con nombre accesible (→ 44 px).
+
+**Verificación**
+- Diagnóstico después en 360/390/768: las 4 páginas con ancho = dispositivo y **0 controles < 40 px** (en Notas solo la fila de pestañas desplaza, a propósito).
+- **Escritorio píxel a píxel** (1366 y 1024, página completa) contra la versión anterior: las 8 capturas **idénticas**. La primera comparación detectó 3 diferencias en 1024 causadas por `shrink-0`/`min-w-0`/`gap`/`flex-wrap` que también actuaban con columna angosta → se limitaron a celular (`max-sm:` / `sm:flex-nowrap` / `sm:gap-0`) antes de dar la parte por buena.
+- `tsc` OK · `next lint` sin warnings.

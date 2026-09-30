@@ -302,18 +302,18 @@ export default function PrestamosPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Préstamos</h1>
-        <p className="text-muted-foreground">Control de productos prestados entre locales — lo que nos deben y lo que debemos</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">Préstamos</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">Control de productos prestados entre locales — lo que nos deben y lo que debemos</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['lent', 'borrowed'] as const).map((d) => (
           <Button
             key={d}
             variant={direction === d ? 'default' : 'outline'}
-            className="rounded-lg"
+            className="rounded-lg touch:h-11 max-sm:flex-1"
             onClick={() => {
               setDirection(d)
               setStatusFilter('pending')
@@ -330,7 +330,7 @@ export default function PrestamosPage() {
       </div>
       <p className="text-sm text-muted-foreground">{cfg.pageDescription}</p>
 
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-4 text-lg font-semibold">{cfg.formTitle}</h2>
         <div className="space-y-3">
           {!selectedProduct && manualMode ? (
@@ -342,7 +342,7 @@ export default function PrestamosPage() {
                 className="rounded-lg"
                 autoFocus
               />
-              <Button variant="ghost" size="sm" onClick={() => { setManualMode(false); setManualTitle('') }}>Cancelar</Button>
+              <Button variant="ghost" size="sm" className="touch:h-11" onClick={() => { setManualMode(false); setManualTitle('') }}>Cancelar</Button>
             </div>
           ) : !selectedProduct ? (
             <>
@@ -360,7 +360,7 @@ export default function PrestamosPage() {
                       product.variants.length === 0 ? (
                         <button
                           key={product.id}
-                          className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                          className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
                           onClick={() => {
                             setSelectedProduct({ id: product.id, title: product.title, variantId: null, talla: null })
                             setResults([])
@@ -372,7 +372,7 @@ export default function PrestamosPage() {
                         product.variants.map((v) => (
                           <button
                             key={v.id}
-                            className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted"
+                            className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
                             onClick={() => {
                               setSelectedProduct({ id: product.id, title: product.title, variantId: v.id, talla: v.talla })
                               setResults([])
@@ -390,7 +390,7 @@ export default function PrestamosPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-lg"
+                className="rounded-lg touch:h-11"
                 onClick={() => {
                   if (confirm(cfg.manualConfirm)) {
                     setManualMode(true)
@@ -405,7 +405,7 @@ export default function PrestamosPage() {
               <p className="text-sm font-medium">
                 {selectedProduct.talla ? `${selectedProduct.title} (${selectedProduct.talla})` : selectedProduct.title}
               </p>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedProduct(null)}>Cambiar</Button>
+              <Button variant="ghost" size="sm" className="touch:h-11" onClick={() => setSelectedProduct(null)}>Cambiar</Button>
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -421,7 +421,7 @@ export default function PrestamosPage() {
             <Input placeholder={cfg.warehousePlaceholder} value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="rounded-lg self-end" />
           </div>
           <Input placeholder="Observaciones (opcional)" value={observations} onChange={(e) => setObservations(e.target.value)} className="rounded-lg" />
-          <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
+          <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleCreate} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
             {cfg.submitLabel}
           </Button>
@@ -438,13 +438,13 @@ export default function PrestamosPage() {
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['pending', 'returned', 'charged', 'all'] as const).map((s) => (
           <Button
             key={s}
             variant={statusFilter === s ? 'default' : 'outline'}
             size="sm"
-            className="rounded-lg"
+            className="rounded-lg touch:h-11"
             onClick={() => setStatusFilter(s)}
           >
             {s === 'all' ? 'Todos' : cfg.statusLabels[s]}
@@ -505,25 +505,26 @@ export default function PrestamosPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" className="rounded-lg" onClick={() => handleSaveEdit(loan.id)} disabled={savingEdit}>
+                  <Button size="sm" className="rounded-lg touch:h-11" onClick={() => handleSaveEdit(loan.id)} disabled={savingEdit}>
                     {savingEdit ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
                     Guardar
                   </Button>
-                  <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditingId(null)}>
+                  <Button size="sm" variant="ghost" className="rounded-lg touch:h-11" onClick={() => setEditingId(null)}>
                     <X className="mr-1 h-3 w-3" /> Cancelar
                   </Button>
                 </div>
               </div>
             ) : (
-              <div key={loan.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
-                <div>
+              // < sm: datos arriba y estado/acciones abajo (antes se salían a la derecha). Fase 6a.
+              <div key={loan.id} className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="max-sm:min-w-0">
                   <p className="font-medium">{loan.product_title}</p>
                   <p className="text-sm text-muted-foreground">
                     {loan.warehouse} · {formatDateTime(loan.created_at)}
                     {loan.observations ? ` · ${loan.observations}` : ''}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                   <Badge variant="outline" className={diasBadgeColor(diasPendientes(loan.created_at), loan.status)}>
                     {diasPendientes(loan.created_at)}d
                   </Badge>
@@ -531,18 +532,22 @@ export default function PrestamosPage() {
                   <select
                     value={loan.status}
                     onChange={(e) => handleStatusChange(loan, e.target.value as Loan['status'])}
-                    className="rounded-lg border bg-background px-2 py-1 text-xs"
+                    aria-label="Cambiar estado"
+                    className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
                   >
                     <option value="pending">{cfg.statusLabels.pending}</option>
                     <option value="returned">{cfg.statusLabels.returned}</option>
                     <option value="charged">{cfg.statusLabels.charged}</option>
                   </select>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(loan)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(loan)}>
-                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                  </Button>
+                  {/* Editar y eliminar juntos: en celular bajan como grupo a la derecha. */}
+                  <div className="flex items-center gap-2 max-sm:ml-auto">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Editar préstamo" onClick={() => startEdit(loan)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar préstamo" onClick={() => handleDelete(loan)}>
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )

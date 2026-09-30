@@ -177,13 +177,15 @@ export default function NotasPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Notas y Pendientes</h1>
-        <p className="text-muted-foreground">Tareas y recordatorios de resurtido</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">Notas y Pendientes</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">Tareas y recordatorios de resurtido</p>
       </div>
 
-      <div className="flex gap-2 border-b">
+      {/* < sm: las pestañas se desplazan en horizontal en vez de salirse de
+          la pantalla (llegan al borde, como es usual en celular). Fase 6a. */}
+      <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0">
         {(
           [
             { key: 'restock' as const, label: 'Por Pedir / Resurtido', icon: PackageSearch },
@@ -201,7 +203,7 @@ export default function NotasPage() {
               setShowCompleted(false)
             }}
             className={cn(
-              'flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+              'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors touch:min-h-11',
               activeTab === key
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -213,7 +215,7 @@ export default function NotasPage() {
         ))}
       </div>
 
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-4 text-lg font-semibold">
           {activeTab === 'restock' ? 'Nuevo pendiente por pedir' : activeTab === 'admin_task' ? 'Nuevo pendiente general admin' : 'Nueva tarea'}
         </h2>
@@ -228,22 +230,22 @@ export default function NotasPage() {
             }
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="min-w-[240px] flex-1 rounded-lg"
+            className="min-w-[240px] flex-1 rounded-lg touch:h-11 max-sm:min-w-full"
           />
-          <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="rounded-lg" />
-          <Button className="rounded-lg" onClick={handleCreate} disabled={saving}>
+          <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} aria-label="Fecha límite" className="rounded-lg touch:h-11 max-sm:flex-1" />
+          <Button className="rounded-lg touch:h-11" onClick={handleCreate} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
             Agregar
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex gap-2">
-          <Button variant={!showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg" onClick={() => setShowCompleted(false)}>
+          <Button variant={!showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg touch:h-11" onClick={() => setShowCompleted(false)}>
             Pendientes
           </Button>
-          <Button variant={showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg" onClick={() => setShowCompleted(true)}>
+          <Button variant={showCompleted ? 'default' : 'outline'} size="sm" className="rounded-lg touch:h-11" onClick={() => setShowCompleted(true)}>
             Completadas
           </Button>
         </div>
@@ -270,13 +272,13 @@ export default function NotasPage() {
               return (
                 <div key={note.id} className="space-y-2 rounded-xl border bg-card p-4">
                   <Input value={editText} onChange={(e) => setEditText(e.target.value)} className="rounded-lg" placeholder="Texto de la nota" />
-                  <div className="flex items-center gap-2">
-                    <Input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="rounded-lg" />
-                    <Button size="sm" className="rounded-lg" onClick={() => handleSaveEdit(note.id)} disabled={savingEdit}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} aria-label="Fecha límite" className="rounded-lg touch:h-11 max-sm:basis-full" />
+                    <Button size="sm" className="rounded-lg touch:h-11" onClick={() => handleSaveEdit(note.id)} disabled={savingEdit}>
                       {savingEdit ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
                       Guardar
                     </Button>
-                    <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => setEditingId(null)}>
+                    <Button size="sm" variant="ghost" className="rounded-lg touch:h-11" onClick={() => setEditingId(null)}>
                       <X className="mr-1 h-3 w-3" /> Cancelar
                     </Button>
                   </div>
@@ -284,12 +286,13 @@ export default function NotasPage() {
               )
             }
             return (
-              <div key={note.id} className="flex items-center justify-between rounded-xl border bg-card p-4">
-                <div className="flex items-center gap-3">
+              <div key={note.id} className="flex items-center justify-between rounded-xl border bg-card p-4 max-sm:gap-2">
+                <div className="flex items-center gap-3 max-sm:min-w-0">
                   <Button
                     variant="outline"
                     size="icon"
-                    className={cn('h-7 w-7 rounded-full', note.completed && 'bg-green-500/10 text-green-500 border-green-500/30')}
+                    className={cn('h-7 w-7 rounded-full max-sm:shrink-0', note.completed && 'bg-green-500/10 text-green-500 border-green-500/30')}
+                    aria-label={note.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
                     onClick={() => handleToggleCompleted(note)}
                   >
                     <Check className="h-3.5 w-3.5" />
@@ -303,11 +306,11 @@ export default function NotasPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(note)}>
+                <div className="flex items-center gap-1 max-sm:shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Editar nota" onClick={() => startEdit(note)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(note)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar nota" onClick={() => handleDelete(note)}>
                     <Trash2 className="h-3.5 w-3.5 text-red-500" />
                   </Button>
                 </div>

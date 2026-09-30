@@ -314,44 +314,45 @@ export default function FacturasPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      {/* < sm: título arriba y botón debajo; resumen en 2 columnas. Fase 6a. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Facturas</h1>
-          <p className="text-muted-foreground">Facturas a proveedores, con abonos parciales</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">Facturas</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Facturas a proveedores, con abonos parciales</p>
         </div>
-        <Button className="rounded-xl" onClick={() => setShowForm((v) => !v)}>
+        <Button className="rounded-xl touch:h-11" onClick={() => setShowForm((v) => !v)}>
           <Plus className="mr-2 h-4 w-4" /> Nueva factura
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">Total pendiente</p>
-          <p className="text-2xl font-bold">{formatPrice(totalPending)}</p>
+          <p className="text-lg font-bold sm:text-2xl">{formatPrice(totalPending)}</p>
         </div>
-        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 sm:p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-red-500" />
             <p className="text-sm text-muted-foreground">Vencidas</p>
           </div>
-          <p className="text-2xl font-bold text-red-500">{formatPrice(overdueAmount)}</p>
+          <p className="text-lg font-bold text-red-500 sm:text-2xl">{formatPrice(overdueAmount)}</p>
         </div>
-        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-3 sm:p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-orange-500" />
             <p className="text-sm text-muted-foreground">Vencen en ≤7 días ({dueSoonCount})</p>
           </div>
-          <p className="text-2xl font-bold text-orange-500">{formatPrice(dueSoon7Amount)}</p>
+          <p className="text-lg font-bold text-orange-500 sm:text-2xl">{formatPrice(dueSoon7Amount)}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3 sm:p-4">
           <p className="text-sm text-muted-foreground">Vencen en ≤30 días</p>
-          <p className="text-2xl font-bold">{formatPrice(dueSoon30Amount)}</p>
+          <p className="text-lg font-bold sm:text-2xl">{formatPrice(dueSoon30Amount)}</p>
         </div>
       </div>
 
       {showForm && (
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-xl border bg-card p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Nueva factura</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-lg" />
@@ -361,20 +362,20 @@ export default function FacturasPage() {
             <Input type="date" placeholder="Fecha de vencimiento" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="rounded-lg" />
             <Input placeholder="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-lg" />
           </div>
-          <Button className="mt-4 rounded-lg" onClick={handleCreate} disabled={saving}>
+          <Button className="mt-4 rounded-lg touch:h-11 max-sm:w-full" onClick={handleCreate} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Guardar factura
           </Button>
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['pending', 'paid', 'all'] as const).map((s) => (
           <Button
             key={s}
             variant={statusFilter === s ? 'default' : 'outline'}
             size="sm"
-            className="rounded-lg"
+            className="rounded-lg touch:h-11"
             onClick={() => setStatusFilter(s)}
           >
             {s === 'pending' ? 'Pendientes' : s === 'paid' ? 'Pagadas' : 'Todas'}
@@ -399,18 +400,20 @@ export default function FacturasPage() {
             const isExpanded = expanded === invoice.id
             return (
               <div key={invoice.id} className="rounded-xl border bg-card">
+                {/* < sm: descripción arriba; insignias y montos abajo (antes se
+                    salían a la derecha). sm+: una fila como siempre. Fase 6a. */}
                 <div
-                  className="flex cursor-pointer items-center justify-between p-4"
+                  className="flex cursor-pointer flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0"
                   onClick={() => setExpanded(isExpanded ? null : invoice.id)}
                 >
-                  <div className="flex items-center gap-2">
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <div>
+                  <div className="flex items-center gap-2 max-sm:min-w-0">
+                    {isExpanded ? <ChevronDown className="h-4 w-4 max-sm:shrink-0" /> : <ChevronRight className="h-4 w-4 max-sm:shrink-0" />}
+                    <div className="max-sm:min-w-0">
                       <p className="font-medium">{invoice.description}</p>
                       <p className="text-sm text-muted-foreground">{invoice.supplier}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 max-sm:pl-6 sm:flex-nowrap sm:gap-3">
                     {isOverdue(invoice.due_date, invoice.status) && (
                       <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Vencida</Badge>
                     )}
@@ -420,7 +423,7 @@ export default function FacturasPage() {
                     <Badge variant="outline" className={invoice.status === 'paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
                       {invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}
                     </Badge>
-                    <div className="text-right">
+                    <div className="max-sm:basis-full sm:text-right">
                       <p className="text-xs text-muted-foreground">
                         Total factura: <span className="font-medium text-foreground">{formatPrice(invoice.amount_cents)}</span>
                       </p>
@@ -454,34 +457,37 @@ export default function FacturasPage() {
                                   <Input
                                     value={editItem.description}
                                     onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}
-                                    className="h-7 flex-1 rounded-lg text-xs"
+                                    aria-label="Descripción del ítem"
+                                    className="h-7 flex-1 rounded-lg text-xs touch:h-11 max-sm:basis-full"
                                   />
                                   <Input
                                     type="number" min="1" value={editItem.qty}
                                     onChange={(e) => setEditItem({ ...editItem, qty: e.target.value })}
-                                    className="h-7 w-14 rounded-lg text-xs"
+                                    aria-label="Cantidad"
+                                    className="h-7 w-14 rounded-lg text-xs touch:h-11 max-sm:w-16"
                                   />
                                   <MoneyInput
                                     value={editItem.unit_price}
                                     onChange={(v) => setEditItem({ ...editItem, unit_price: v })}
-                                    className="h-7 w-24 rounded-lg text-xs"
+                                    aria-label="Precio unitario"
+                                    className="h-7 w-24 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                                   />
-                                  <Button size="sm" className="h-7 rounded-lg" onClick={() => handleSaveEditItem(item.id)} disabled={savingItem}>
+                                  <Button size="sm" className="h-7 rounded-lg" aria-label="Guardar ítem" onClick={() => handleSaveEditItem(item.id)} disabled={savingItem}>
                                     <CheckCircle2 className="h-3 w-3" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 rounded-lg" onClick={() => setEditingItemId(null)}>
+                                  <Button size="sm" variant="ghost" className="h-7 rounded-lg touch:h-11" onClick={() => setEditingItemId(null)}>
                                     Cancelar
                                   </Button>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-between">
-                                  <span>{item.description} — {item.qty} x {formatPrice(item.unit_price_cents)}</span>
-                                  <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center justify-between gap-x-2">
+                                  <span className="min-w-0">{item.description} — {item.qty} x {formatPrice(item.unit_price_cents)}</span>
+                                  <div className="flex items-center gap-2 max-sm:ml-auto">
                                     <span className="font-medium">{formatPrice(item.subtotal_cents)}</span>
-                                    <button onClick={() => startEditItem(item)} className="text-muted-foreground hover:text-foreground">
+                                    <button onClick={() => startEditItem(item)} className="text-muted-foreground hover:text-foreground touch:min-h-11 touch:px-2">
                                       Editar
                                     </button>
-                                    <button onClick={() => handleDeleteItem(item.id)} className="text-red-500 hover:underline">
+                                    <button onClick={() => handleDeleteItem(item.id)} className="text-red-500 hover:underline touch:min-h-11 touch:px-2">
                                       Quitar
                                     </button>
                                   </div>
@@ -496,19 +502,19 @@ export default function FacturasPage() {
                           placeholder="Descripción del ítem"
                           value={newItem.description}
                           onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                          className="h-8 flex-1 rounded-lg text-xs"
+                          className="h-8 flex-1 rounded-lg text-xs touch:h-11 max-sm:basis-full"
                         />
                         <Input
                           type="number" min="1" placeholder="Cant." value={newItem.qty}
                           onChange={(e) => setNewItem({ ...newItem, qty: e.target.value })}
-                          className="h-8 w-16 rounded-lg text-xs"
+                          className="h-8 w-16 rounded-lg text-xs touch:h-11"
                         />
                         <MoneyInput
                           placeholder="Precio unit." value={newItem.unit_price}
                           onChange={(v) => setNewItem({ ...newItem, unit_price: v })}
-                          className="h-8 w-28 rounded-lg text-xs"
+                          className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                         />
-                        <Button size="sm" className="h-8 rounded-lg" onClick={() => handleAddItem(invoice.id)} disabled={savingItem}>
+                        <Button size="sm" className="h-8 rounded-lg touch:h-11" onClick={() => handleAddItem(invoice.id)} disabled={savingItem}>
                           <Plus className="mr-1 h-3 w-3" /> Agregar
                         </Button>
                       </div>
@@ -530,41 +536,41 @@ export default function FacturasPage() {
 
                     {invoice.status === 'pending' && (
                       <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
-                        <div>
-                          <label className="text-xs text-muted-foreground">Monto</label>
+                        <label className="block max-sm:flex-1">
+                          <span className="text-xs text-muted-foreground">Monto</span>
                           <MoneyInput
                             value={payAmount}
                             onChange={setPayAmount}
-                            className="h-8 w-28 rounded-lg text-xs"
+                            className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:w-full"
                           />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground">Cuenta</label>
+                        </label>
+                        <label className="block max-sm:flex-1">
+                          <span className="text-xs text-muted-foreground">Cuenta</span>
                           <select
                             value={payAccount}
                             onChange={(e) => setPayAccount(e.target.value)}
-                            className="h-8 rounded-lg border bg-background px-2 text-xs"
+                            className="h-8 rounded-lg border bg-background px-2 text-xs touch:h-11 max-sm:block max-sm:w-full"
                           >
                             <option value="">Sin cuenta</option>
                             {accounts.map((a) => (
                               <option key={a.id} value={a.id}>{a.name}</option>
                             ))}
                           </select>
-                        </div>
+                        </label>
                         <Input
                           placeholder="Notas"
                           value={payNotes}
                           onChange={(e) => setPayNotes(e.target.value)}
-                          className="h-8 w-40 rounded-lg text-xs"
+                          className="h-8 w-40 rounded-lg text-xs touch:h-11 max-sm:w-full"
                         />
-                        <Button size="sm" className="h-8 rounded-lg" onClick={() => handlePay(invoice)} disabled={payingId === invoice.id}>
+                        <Button size="sm" className="h-8 rounded-lg touch:h-11 max-sm:flex-1" onClick={() => handlePay(invoice)} disabled={payingId === invoice.id}>
                           {payingId === invoice.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
                           Abonar
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 rounded-lg"
+                          className="h-8 rounded-lg touch:h-11 max-sm:flex-1"
                           onClick={() => setPayAmount((remaining / 100).toString())}
                         >
                           Usar saldo restante
@@ -575,7 +581,7 @@ export default function FacturasPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-red-500"
+                      className="text-red-500 touch:h-11"
                       onClick={() => handleDelete(invoice)}
                     >
                       <Trash2 className="mr-1 h-3 w-3" /> Eliminar factura

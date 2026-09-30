@@ -189,20 +189,20 @@ export default function DailyClosuresPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header — < lg: título arriba y botones debajo (móvil, Fase 6a) */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
         <div>
-          <h1 className="text-3xl font-bold">Cierres Diarios</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl">Cierres Diarios</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Arqueo físico de caja: cuenta el efectivo real y compáralo con lo que el sistema esperaba
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV}>
+          <Button variant="outline" onClick={exportCSV} className="touch:h-11 max-sm:flex-1">
             <Download className="mr-2 h-4 w-4" />
             Exportar CSV
           </Button>
-          <Button onClick={() => setShowForm(!showForm)}>
+          <Button onClick={() => setShowForm(!showForm)} className="touch:h-11 max-sm:flex-1">
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Arqueo
           </Button>
@@ -348,10 +348,11 @@ export default function DailyClosuresPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setShowForm(false)}
+                  className="touch:h-11"
                 >
                   Cancelar
                 </Button>
-                <Button type="submit">Guardar Arqueo</Button>
+                <Button type="submit" className="touch:h-11">Guardar Arqueo</Button>
               </div>
             </form>
           </CardContent>
@@ -372,7 +373,47 @@ export default function DailyClosuresPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
           ) : closures.length > 0 ? (
-            <div className="overflow-x-auto">
+            <>
+            {/* < md: cada cierre como tarjeta (la tabla tiene 8 columnas);
+                mismos datos. Fase 6a. */}
+            <ul className="divide-y md:hidden">
+              {closures.map((closure) => (
+                <li key={closure.id} className="space-y-2 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{formatDate(closure.date)}</p>
+                    <Badge variant={closure.verified ? 'success' : 'warning'}>
+                      {closure.verified ? (
+                        <>
+                          <Check className="mr-1 h-3 w-3" /> Verificado
+                        </>
+                      ) : (
+                        'Pendiente'
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-lg font-semibold">{formatPrice(closure.total_amount_cents)}</p>
+                    {closure.cash_difference_cents === null || closure.cash_difference_cents === undefined ? (
+                      <span className="text-sm text-muted-foreground">Diferencia —</span>
+                    ) : closure.cash_difference_cents === 0 ? (
+                      <Badge variant="success">Cuadra</Badge>
+                    ) : (
+                      <Badge variant={closure.cash_difference_cents < 0 ? 'error' : 'warning'}>
+                        {closure.cash_difference_cents < 0 ? 'Faltante' : 'Sobrante'}{' '}
+                        {formatPrice(Math.abs(closure.cash_difference_cents))}
+                      </Badge>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Efectivo</dt><dd>{formatPrice(closure.cash_amount_cents)}</dd></div>
+                    <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Tarjeta</dt><dd>{formatPrice(closure.card_amount_cents)}</dd></div>
+                    <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Transf.</dt><dd>{formatPrice(closure.transfer_amount_cents)}</dd></div>
+                    <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Wallet</dt><dd>{formatPrice(closure.wallet_amount_cents)}</dd></div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full">
                 <thead>
                   <tr className="border-b text-left text-sm text-muted-foreground">
@@ -435,6 +476,7 @@ export default function DailyClosuresPage() {
                 </tbody>
               </table>
             </div>
+            </>
           ) : (
             <p className="py-8 text-center text-muted-foreground">
               No hay cierres registrados
