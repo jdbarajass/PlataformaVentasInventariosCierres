@@ -4,6 +4,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Card, CardContent } from '@/components/ui/card'
 import { HelpCircle, Package, CreditCard, Truck, RotateCcw, Shield } from 'lucide-react'
 import Link from 'next/link'
+import { BRAND } from '@/config/brand'
 
 export const metadata: Metadata = {
   title: 'Preguntas Frecuentes (FAQ) | YJBMOTOCOM',
@@ -21,7 +22,7 @@ const faqCategories = [
       },
       {
         question: '¿Puedo modificar mi pedido después de realizarlo?',
-        answer: 'Puedes modificar tu pedido contactándonos inmediatamente a yjbmotocom@gmail.com o al +57 321 411 1371. Sin embargo, si el pedido ya ha sido procesado y enviado, no podremos realizar cambios.',
+        answer: `Puedes modificar tu pedido contactándonos inmediatamente a ${BRAND.supportEmail} o al +57 321 411 1371. Sin embargo, si el pedido ya ha sido procesado y enviado, no podremos realizar cambios.`,
       },
       {
         question: '¿Cómo puedo rastrear mi pedido?',

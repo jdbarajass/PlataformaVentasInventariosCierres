@@ -111,7 +111,7 @@ export async function GET(
     <div class="brand">
       <h1>${BRAND.name}</h1>
       <p>Accesorios para Motociclistas</p>
-      <p>${BRAND.receipt.nit}</p>
+      <p>${BRAND.receipt.nit || 'NIT: Pendiente de registro'}</p>
     </div>
     <div class="invoice-info">
       <h2>${isPos ? 'RECIBO DE VENTA' : 'FACTURA'}</h2>

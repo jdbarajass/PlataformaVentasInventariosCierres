@@ -36,7 +36,7 @@ export default async function NosotrosPage() {
   const stats = [
     baseStats[0],
     { value: `+${activeProductCount}`, label: 'Productos en catálogo' },
-    { value: '15', label: 'Años de experiencia' },
+    { value: BRAND.heroYearsStat.value, label: 'Años de experiencia' },
     baseStats[1],
   ]
 
@@ -149,7 +149,7 @@ export default async function NosotrosPage() {
         <div className="container">
           <div className="mb-12 text-center space-y-3">
             <p className="text-xs font-semibold tracking-[0.18em] uppercase text-primary">Nuestra historia</p>
-            <h2 className="text-2xl sm:text-3xl font-black">9 años equipando a Colombia</h2>
+            <h2 className="text-2xl sm:text-3xl font-black">{BRAND.heroYearsStat.value} años equipando a Colombia</h2>
           </div>
 
           <div className="relative max-w-3xl mx-auto">

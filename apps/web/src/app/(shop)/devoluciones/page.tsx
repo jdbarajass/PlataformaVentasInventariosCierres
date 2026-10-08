@@ -137,7 +137,7 @@ export default function DevolucionesPage() {
                 <div>
                   <h3 className="font-semibold mb-1">Contacta con nosotros</h3>
                   <p className="text-sm text-muted-foreground">
-                    Envía un email a <strong>yjbmotocom@gmail.com</strong> con tu número de orden
+                    Envía un email a <strong>{BRAND.supportEmail}</strong> con tu número de orden
                     y el motivo de la devolución
                   </p>
                 </div>

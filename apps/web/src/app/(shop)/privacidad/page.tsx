@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Shield, Lock, Eye, UserCheck, Database, Mail } from 'lucide-react'
+import { BRAND } from '@/config/brand'
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad | YJBMOTOCOM',
@@ -154,7 +155,7 @@ Puedes controlar las cookies desde la configuración de tu navegador. Ten en cue
 - Transferir tus datos a otro servicio
 
 **Cómo Ejercer tus Derechos:**
-Envía un correo a **yjbmotocom@gmail.com** con tu solicitud. Responderemos en un plazo máximo de 15 días hábiles.`,
+Envía un correo a **${BRAND.supportEmail}** con tu solicitud. Responderemos en un plazo máximo de 15 días hábiles.`,
   },
   {
     title: '7. Retención de Datos',
@@ -197,7 +198,7 @@ Estos proveedores cumplen con estándares internacionales de protección de dato
 
 No recopilamos intencionalmente información de menores de edad. Si descubrimos que hemos recopilado datos de un menor sin consentimiento parental, eliminaremos esa información de inmediato.
 
-Si eres padre/madre y crees que tu hijo ha proporcionado información personal, contáctanos en yjbmotocom@gmail.com.`,
+Si eres padre/madre y crees que tu hijo ha proporcionado información personal, contáctanos en ${BRAND.supportEmail}.`,
   },
   {
     title: '10. Cambios a esta Política',
@@ -216,7 +217,7 @@ Si eres padre/madre y crees que tu hijo ha proporcionado información personal, 
     icon: Mail,
     content: `Si tienes preguntas sobre esta Política de Privacidad o sobre cómo manejamos tus datos personales, contáctanos:
 
-**Email:** yjbmotocom@gmail.com
+**Email:** ${BRAND.supportEmail}
 **Teléfono:** +57 321 411 1371 / +57 314 406 5520
 **Dirección:** Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2, Bogotá, Colombia
 **Horario de Atención:** Lunes a Viernes 8:00 AM - 6:00 PM, Sábados 9:00 AM - 2:00 PM
