@@ -13,6 +13,7 @@ import { CompareButton } from '@/components/products/compare-button'
 import { Product, ProductVariant } from '@/types/database'
 import { ProductSchema, BreadcrumbSchema } from '@/components/seo/structured-data'
 import { BRAND } from '@/config/brand'
+import { ordenarPorTalla } from '@/lib/tallas'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,7 +33,9 @@ async function getProduct(slug: string): Promise<ProductWithCategory | null> {
       .single()
 
     if (error || !product) return null
-    return product as unknown as ProductWithCategory
+    // Tallas de menor a mayor (selector de talla y aviso de reposición).
+    const p = product as unknown as ProductWithCategory
+    return { ...p, product_variants: ordenarPorTalla(p.product_variants || []) }
   } catch {
     return null
   }

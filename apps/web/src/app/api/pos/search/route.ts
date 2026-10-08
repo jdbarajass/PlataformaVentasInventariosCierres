@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { ordenarPorTalla } from '@/lib/tallas'
 
 // GET - Buscar productos (con sus variantes) para el carrito de Registrar Venta.
 // Soporta búsqueda por nombre/SKU (?q=) o por código de barras exacto (?barcode=),
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
           .eq('active', true)
 
         return NextResponse.json({
-          data: [{ ...product, variants: variants || [], matched_variant_id: (variant as any).id }],
+          data: [{ ...product, variants: ordenarPorTalla(variants || []), matched_variant_id: (variant as any).id }],
         })
       }
 
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json({
-        data: [{ ...product, variants: ((product as any).variants || []).filter((v: any) => v.active) }],
+        data: [{ ...product, variants: ordenarPorTalla(((product as any).variants || []).filter((v: any) => v.active)) }],
       })
     }
 
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
 
     const data = (products || []).map((p: any) => ({
       ...p,
-      variants: (p.variants || []).filter((v: any) => v.active),
+      variants: ordenarPorTalla((p.variants || []).filter((v: any) => v.active)),
     }))
 
     return NextResponse.json({ data })

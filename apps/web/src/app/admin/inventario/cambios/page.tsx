@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { TALLAS_DISPONIBLES } from '@/lib/inventario-barcode'
+import { compararTallas } from '@/lib/tallas'
 
 // Tallas estándar que se ofrecen como opción en "Producto que ENTRA" aunque
 // el producto todavía no tenga esa talla registrada en inventario (ej. el
@@ -206,17 +207,30 @@ export default function CambiosPage() {
                 onChange={(e) => setSide((prev) => ({ ...prev, selectedVariantId: e.target.value }))}
                 aria-label="Talla" className="w-full rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
               >
-                {side.selectedProduct.variants.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    Talla {v.talla || '-'} · Stock {v.stock_qty}
-                  </option>
-                ))}
-                {key === 'entra' &&
-                  TALLAS_ENTRA_EXTRA.filter(
-                    (t) => !side.selectedProduct!.variants.some((v) => (v.talla || '').trim().toUpperCase() === t)
-                  ).map((t) => (
-                    <option key={`new-${t}`} value={`${NEW_TALLA_PREFIX}${t}`}>
-                      Talla {t} · Sin stock aún
+                {/* Tallas existentes y (en "entra") las estándar aún no
+                    registradas, mezcladas en un solo orden de menor a mayor. */}
+                {[
+                  ...side.selectedProduct.variants.map((v) => ({
+                    key: v.id,
+                    value: v.id,
+                    talla: v.talla,
+                    label: `Talla ${v.talla || '-'} · Stock ${v.stock_qty}`,
+                  })),
+                  ...(key === 'entra'
+                    ? TALLAS_ENTRA_EXTRA.filter(
+                        (t) => !side.selectedProduct!.variants.some((v) => (v.talla || '').trim().toUpperCase() === t)
+                      ).map((t) => ({
+                        key: `new-${t}`,
+                        value: `${NEW_TALLA_PREFIX}${t}`,
+                        talla: t,
+                        label: `Talla ${t} · Sin stock aún`,
+                      }))
+                    : []),
+                ]
+                  .sort((a, b) => compararTallas(a.talla, b.talla))
+                  .map((o) => (
+                    <option key={o.key} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
               </select>

@@ -3,6 +3,7 @@ import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { productVariantSchema } from '@/lib/validations/product'
 import { variantConflictMessage } from '@/lib/variant-conflict-message'
+import { ordenarPorTalla } from '@/lib/tallas'
 
 // GET - Listar variantes (tallas/código de barras) de un producto
 export async function GET(
@@ -22,13 +23,13 @@ export async function GET(
       .from('product_variants')
       .select('*')
       .eq('product_id', id)
-      .order('talla', { ascending: true })
 
     if (error) {
       throw error
     }
 
-    return NextResponse.json({ data })
+    // De menor a mayor (XS, S, M, L, XL, 2XL), no alfabético — ver lib/tallas.ts
+    return NextResponse.json({ data: ordenarPorTalla(data || []) })
   } catch (error) {
     console.error('Error fetching product variants:', error)
     return NextResponse.json(

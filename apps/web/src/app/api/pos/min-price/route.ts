@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { ordenarPorTalla } from '@/lib/tallas'
 
 // Precios mínimos sugeridos a partir del costo — mismas fórmulas que la
 // columna "Costo" de Productos (admin/productos/page.tsx) y el panel
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
           return {
             id: p.id,
             title: p.title,
-            variants: activeVariants.map((v: any) => ({
+            variants: ordenarPorTalla(activeVariants).map((v: any) => ({
               id: v.id,
               talla: v.talla,
               ...preciosMinimos(v.cost_cents),

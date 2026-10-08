@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { compararTallas } from '@/lib/tallas'
 
 // Definición central de las 18 hojas del Excel maestro (equivalente al
 // YJBMOTOCOM_Historial.xlsx del software local). Cada hoja declara cómo se
@@ -72,7 +73,11 @@ export const sheetDefinitions: SheetDefinition[] = [
         .from('product_variants')
         .select('*, product:products(title)')
         .order('created_at', { ascending: false })
-      return data || []
+      // Agrupado por producto y, dentro de cada uno, tallas de menor a mayor.
+      return (data || []).sort(
+        (a: any, b: any) =>
+          (a.product?.title || '').localeCompare(b.product?.title || '') || compararTallas(a.talla, b.talla)
+      )
     },
     toRow: (r) => [
       r.id, r.product_id, r.product?.title || '', r.talla || '', r.barcode || '',

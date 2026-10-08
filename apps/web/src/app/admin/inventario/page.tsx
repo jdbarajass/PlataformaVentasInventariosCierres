@@ -33,6 +33,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
+import { compararTallas, ordenarPorTalla } from '@/lib/tallas'
 import { BOGOTA_TZ, bogotaDateStr, formatBogotaTime } from '@/lib/bogota-time'
 import {
   TALLAS_DISPONIBLES,
@@ -447,7 +448,7 @@ export default function InventarioPage() {
         const categoria = p.categories?.name?.trim() ? p.categories.name.trim().toUpperCase() : inferCategoria(p.title)
         const variants = variantsByProduct.get(p.id)
         if (variants && variants.length > 0) {
-          for (const v of variants) {
+          for (const v of ordenarPorTalla(variants)) {
             items.push({
               productId: p.id,
               variantId: v.id,
@@ -1448,7 +1449,7 @@ export default function InventarioPage() {
   const categoriasDisponibles = Array.from(new Set(itemsInventario.map((i) => i.categoria))).sort()
   const tallasDisponiblesExport = Array.from(
     new Set(itemsInventario.filter((i) => i.talla).map((i) => i.talla as string))
-  ).sort()
+  ).sort(compararTallas)
 
   const esBajoStock = (i: ItemInventario) =>
     (i.lowStockThreshold > 0 && i.stockQty < i.lowStockThreshold) ||
@@ -1463,10 +1464,12 @@ export default function InventarioPage() {
     else if (exportTalla) items = items.filter((i) => i.talla === exportTalla)
 
     const ordenadores: Record<string, (a: ItemInventario, b: ItemInventario) => number> = {
-      nombre: (a, b) => a.title.localeCompare(b.title),
-      categoria: (a, b) => a.categoria.localeCompare(b.categoria) || a.title.localeCompare(b.title),
-      stock_desc: (a, b) => b.stockQty - a.stockQty || a.title.localeCompare(b.title),
-      stock_asc: (a, b) => a.stockQty - b.stockQty || a.title.localeCompare(b.title),
+      // Desempate por talla de menor a mayor (XS → 2XL) dentro del mismo producto.
+      nombre: (a, b) => a.title.localeCompare(b.title) || compararTallas(a.talla, b.talla),
+      categoria: (a, b) =>
+        a.categoria.localeCompare(b.categoria) || a.title.localeCompare(b.title) || compararTallas(a.talla, b.talla),
+      stock_desc: (a, b) => b.stockQty - a.stockQty || a.title.localeCompare(b.title) || compararTallas(a.talla, b.talla),
+      stock_asc: (a, b) => a.stockQty - b.stockQty || a.title.localeCompare(b.title) || compararTallas(a.talla, b.talla),
     }
     return items.sort(ordenadores[exportOrden])
   }
