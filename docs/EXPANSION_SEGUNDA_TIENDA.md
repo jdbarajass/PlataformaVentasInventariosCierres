@@ -7,7 +7,15 @@
 
 **Corrección importante (2026-09-15, ver sección 11)**: el auto-deploy de YBMOTOCOM **no estaba funcionando desde el 2026-09-04** — todo lo de las secciones 8, 9 y 10 se pusheó a GitHub pero nunca llegó realmente a producción hasta que se diagnosticó y corrigió esto. Ya está resuelto; detalle completo abajo.
 
-**Pendiente urgente de acción del usuario**: las migraciones `00056_addi_pending_releases.sql` y `00057_addi_backfill_sept12.sql` (sección 12) ya están en el código de YBMOTOCOM y pusheadas, pero **las migraciones de Supabase son independientes por tienda** — hay que correrlas también en el Supabase propio de YBMOTOCOM. La `00057` es un no-op ahí (la factura específica que corrige no existe en esa base), pero la `00056` sí es necesaria: sin ella, cualquier venta por Addi en YBMOTOCOM fallará (falta la tabla `addi_pending_releases`).
+**⚠️ RECORDATORIO PENDIENTE — migraciones en el Supabase de YBMOTOCOM (confirmado por el usuario el 2026-10-08: "aún no las voy a hacer")**. Recordárselo en cada sesión hasta que confirme que las corrió. Las tres ya están en el código de YBMOTOCOM, pero **las migraciones de Supabase son independientes por tienda**: hay que correrlas también en el Supabase propio de YBMOTOCOM, en el SQL Editor y en este orden:
+
+| Migración | Qué hace | Qué pasa si no se corre |
+|---|---|---|
+| `supabase/migrations/00056_addi_pending_releases.sql` | Tabla `addi_pending_releases` + funciones del desembolso diferido de Addi (sección 12) | **Cualquier venta por Addi en YBMOTOCOM falla.** |
+| `supabase/migrations/00057_addi_backfill_sept12.sql` | Corrección puntual de una venta de YJBMOTOCOM (`YJBM-20260913-7237`) | Nada — en YBMOTOCOM es un no-op (busca esa factura, no la encuentra y no hace nada). Se corre igual para no divergir el historial. |
+| `supabase/migrations/00058_account_notes.sql` | Columna de notas/observaciones por cuenta (Cuentas → Resumen) | Guardar notas de una cuenta en YBMOTOCOM falla (la columna no existe). |
+
+Cuando el usuario confirme que las corrió, borrar este recordatorio y anotarlo en la sección 13.
 
 ## 13. Orden de tallas replicado + comparación completa YJBMOTOCOM vs YBMOTOCOM (2026-10-08)
 
@@ -22,8 +30,20 @@
   3. **"Nosotros" con cifras de YJBMOTOCOM**: muestra fijo "+500 productos" y "9 años" (y "YB 2.0"); en YJBMOTOCOM esas cifras ya salen del conteo real de productos / dato real del negocio (`getActiveProductCount` en `lib/inventory.ts`, auditoría de la sección 6, que no se había replicado).
 - **Mejoras técnicas de YJBMOTOCOM no replicadas (sin efecto visible fuerte)**: `getStoreSettings` con `React.cache()` (evita consultar 2 veces por página), `escapeRegExp(BRAND.name)` en el parser de PDF XTRONG, atributos `autoComplete`/`name` en Usuarios (evitan que el navegador autollene la contraseña del admin al crear usuarios — sección 86 de UNIFICACION), nombre de descarga en Exportar/Importar y títulos SEO de `productos`/`categorias`/`ofertas`/`devoluciones` con `BRAND.name` en vez del literal.
 - **Pendientes de datos/marca de YBMOTOCOM (operativos, no código)**: no tiene favicon (`src/app/icon.png`/`apple-icon.png` — el de YJBMOTOCOM es su propio logo, no se debe copiar; hace falta el logo de YBMOTOCOM); la factura online dice "NIT: Pendiente de registro" y `brand.ts` tiene vacíos dirección, NIT del recibo, redes, cuenta bancaria y ubicación del mapa; `schema.sql` (solo archivo de referencia, no migración) aún tiene nombre/dirección de YJBMOTOCOM.
-- **Base de datos — por confirmar con el usuario**: el código de YBMOTOCOM tiene las migraciones `00056`, `00057` y `00058`, pero no hay constancia de que se hayan corrido en su Supabase (la sección 12 las dejó como "pendiente urgente"; `00058` es la de notas por cuenta). No se pudo verificar desde aquí: YBMOTOCOM no tiene `.env.local` en esta máquina.
+- **Base de datos**: el código de YBMOTOCOM tiene las migraciones `00056`, `00057` y `00058`, pero el usuario confirmó que **todavía no las ha corrido** en su Supabase y que las hará más adelante — ver el recordatorio al inicio de este documento.
 - **Diferencia intencional, no tocar**: `api/orders/[id]/invoice/route.ts` de YBMOTOCOM conserva `mostrador@yjbmotocom.com` porque debe coincidir con la función SQL `create_pos_sale` (ver Fase 1). Las claves internas `yjb_*` de `sessionStorage` tampoco afectan nada.
+
+### 13.1 Mejoras y correcciones llevadas a YBMOTOCOM (2026-10-08, commit `4dac40c` en YBMOTOCOM / `477d241` en YJBMOTOCOM)
+
+El usuario pidió pasar todo lo anterior; sobre los teléfonos aclaró que **ambos números pueden ir en las páginas de las dos tiendas**, así que no se tocaron.
+- **Los 3 bugs, corregidos**: (1) Devoluciones, FAQ y Privacidad usan `BRAND.supportEmail` (en YBMOTOCOM, `ybmotocom.cc.megacentro@gmail.com`); (2) `api/users` acepta `admin_readonly`; (3) Nosotros con conteo real de productos (`getActiveProductCount`) y años desde `BRAND.heroYearsStat`.
+- **Mejoras técnicas, todas llevadas**: `React.cache()` en `getStoreSettings`, `escapeRegExp` en el parser XTRONG, `autoComplete`/`name` en Usuarios, `BRAND.name` en Exportar/Importar y en los títulos SEO de productos, categorías, ofertas, envíos, devoluciones y la página de producto.
+- **Factura online**: en las dos tiendas, `${BRAND.receipt.nit || 'NIT: Pendiente de registro'}` — en YJBMOTOCOM sale igual que antes; en YBMOTOCOM sigue diciendo "Pendiente de registro" hasta que se llene su NIT en `brand.ts`, y entonces aparece solo.
+- **Bug encontrado de paso en YJBMOTOCOM**: Nosotros decía "15" años en la cifra y "9 años equipando a Colombia" en el título de la historia. Ambos salen ahora de `BRAND.heroYearsStat` (15 en las dos tiendas, dato confirmado antes por el usuario).
+- **Método**: los archivos que solo diferían por mejoras se copiaron de YJBMOTOCOM (cambiando el literal YJBMOTOCOM→YBMOTOCOM en textos internos); FAQ, Privacidad y la factura se editaron a mano en YBMOTOCOM porque tienen contenido propio (dirección "Puerta 1", textos). En YJBMOTOCOM se hicieron los mismos cambios (correo y años desde `brand.ts`) para que el código quede igual en ambos repos y los próximos cherry-picks no choquen.
+- **Resultado de la nueva comparación**: solo 6 archivos difieren, todos por datos propios de cada tienda — `config/brand.ts`, `contacto`, `faq` y `privacidad` (dirección), `terminos` (correo), y `schema.sql` (archivo de referencia).
+- **Verificado en ambos repos**: `tsc` limpio, `next lint` sin warnings, vitest 136/136. No se probó en navegador (Playwright MCP sin conexión en esa sesión; YBMOTOCOM tampoco tiene `.env.local` aquí). Sin migraciones SQL nuevas ni variables de entorno.
+- **Sigue pendiente (operativo, de Yojan)**: favicon propio de YBMOTOCOM y los `TODO` de su `brand.ts` (dirección, NIT, redes, cuenta bancaria, ubicación del mapa).
 
 ## 12. Sexto precedente de sincronización: atajo de lavado de cascos + desembolso real de Addi (2026-09-15)
 

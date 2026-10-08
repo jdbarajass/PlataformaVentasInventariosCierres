@@ -2864,3 +2864,11 @@ El usuario pidió crear "PASAMONTAÑAS LYCRADO" con cantidad 0 — antes de crea
 - Cambios: las tallas existentes y las "Sin stock aún" (solo en "entra") ahora van mezcladas en un solo orden, antes eran dos bloques.
 - Solo cambia el orden de presentación — no toca stock, costo, códigos ni datos. Verificado: `tsc` limpio, eslint limpio, vitest 136/136 (4 pruebas nuevas en `__tests__/lib/tallas.test.ts`). No se probó en navegador (Playwright MCP no conectó en esa sesión).
 - **Replicado en YBMOTOCOM** (`861efec`) — ver `docs/EXPANSION_SEGUNDA_TIENDA.md` sección 13.
+
+## 90. Correo de soporte y años desde `brand.ts` + bug "9 vs 15 años" en Nosotros (2026-10-08)
+
+Parte de la sincronización con YBMOTOCOM (detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` sección 13.1). Commit `477d241`.
+- Devoluciones, FAQ y Privacidad tenían `yjbmotocom@gmail.com` escrito a mano (5 lugares); ahora usan `BRAND.supportEmail`. **En esta tienda se ve exactamente igual** (es el mismo valor); el cambio es para que el código quede idéntico al de YBMOTOCOM, donde ese literal sí era un bug (sus clientes escribían a este correo).
+- **Bug corregido**: Nosotros mostraba "15" en la cifra de años de experiencia y "9 años equipando a Colombia" en el título de la historia. Ambos salen ahora de `BRAND.heroYearsStat` (15).
+- Factura online: `${BRAND.receipt.nit || 'NIT: Pendiente de registro'}` — sin cambio visible aquí (el NIT está lleno).
+- Verificado: `tsc` limpio, `next lint` sin warnings, vitest 136/136.
