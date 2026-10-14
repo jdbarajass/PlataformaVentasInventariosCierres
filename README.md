@@ -47,8 +47,11 @@ PROYECTO_YB_MOTOCOM/
 │       │   ├── emails/               # Plantillas React Email (6)
 │       │   └── types/               # Tipos TypeScript
 │       └── e2e/                      # Tests E2E con Playwright
-├── infra/
-│   └── supabase/                     # Migraciones SQL
+├── supabase/
+│   ├── migrations/                   # Migraciones SQL numeradas (fuente de verdad)
+│   ├── bootstrap_all_migrations.sql  # Todas las migraciones juntas, para un Supabase nuevo
+│   └── seed.sql                      # Datos demo iniciales
+├── schema.sql                        # Schema consolidado de referencia
 ├── scripts/
 │   └── convert-images-webp.js        # Conversión de imágenes a WebP
 ├── docs/                             # Documentación del proyecto
@@ -57,7 +60,6 @@ PROYECTO_YB_MOTOCOM/
 │   ├── INTEGRACION_PAGOS_STRIPE.md
 │   ├── STRIPE_QUICK_START.md
 │   └── UX/guide.md                   # Design system Racing Dark
-├── ImágenesDeReferenciaPagina/       # Referencias visuales del rediseño
 ├── CHANGELOG.md                      # Historial de versiones
 └── README.md
 ```
@@ -112,14 +114,10 @@ NEXT_PUBLIC_TAWK_PROPERTY_ID=xxx
 ### 3. Crear tablas en Supabase
 
 ```bash
-# Ejecutar en Supabase Dashboard > SQL Editor:
-infra/supabase/migrations.sql          # Schema principal (ejecutar primero)
-infra/supabase/migrations_fix.sql      # Fix inicial
-infra/supabase/fix-images-and-user.sql # Fix de imágenes y usuarios
-infra/supabase/add_store_settings.sql  # Tabla configuración de tienda
-infra/supabase/rls_policies.sql        # Row Level Security (26 políticas)
-infra/supabase/fase8_mejoras.sql       # Mejoras fase 8
-infra/supabase/fase10_restock.sql      # Notificaciones restock (pendiente)
+# Ejecutar en Supabase Dashboard > SQL Editor, en orden:
+supabase/migrations/00001_*.sql ... 000NN_*.sql   # Migraciones numeradas
+# En un proyecto Supabase NUEVO Y VACÍO se puede pegar todo de una vez:
+supabase/bootstrap_all_migrations.sql             # (regenerarlo si hay migraciones nuevas)
 ```
 
 ### 4. Iniciar desarrollo

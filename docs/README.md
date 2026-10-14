@@ -35,8 +35,6 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 ### 📦 Otros Recursos
 
 - **[README.md principal](../README.md)** - Descripción general del proyecto
-- **[SOLUCION_IMAGENES_Y_LOGIN.md](../SOLUCION_IMAGENES_Y_LOGIN.md)** - Solución a problemas comunes
-- **[IMPLEMENTACION_STRIPE_COMPLETADA.md](../IMPLEMENTACION_STRIPE_COMPLETADA.md)** - Resumen de implementación
 
 ## 🚀 Quick Links
 
@@ -52,7 +50,6 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 
 3. **Troubleshooting?**
    - Stripe: [INTEGRACION_PAGOS_STRIPE.md#troubleshooting](INTEGRACION_PAGOS_STRIPE.md#🔍-troubleshooting)
-   - Imágenes/Login: [SOLUCION_IMAGENES_Y_LOGIN.md](../SOLUCION_IMAGENES_Y_LOGIN.md)
 
 4. **Deploy a producción?**
    - Stripe: [INTEGRACION_PAGOS_STRIPE.md#despliegue](INTEGRACION_PAGOS_STRIPE.md#🚀-próximos-pasos)

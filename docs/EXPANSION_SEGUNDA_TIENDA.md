@@ -200,7 +200,7 @@ No se alteró ningún valor (se centralizaron tal cual estaban, como se pidió),
 
 Verificación de seguridad hecha antes de recomendar compartir el historial completo de git: se revisó `git log --all -p` buscando claves reales (Stripe `sk_live_`, JWT de Supabase, tokens de Alegra) — **no se encontró ningún secreto real filtrado**, solo placeholders de `.env.example` (`sk_test_xxx`, `tu_service_role_key_aqui`, JWT de ejemplo truncado). El historial completo es seguro de compartir. Tampoco hay ningún `.env` real trackeado (`.gitignore` ya los excluye). `supabase/seed.sql` solo tiene categorías/productos demo genéricos, sin datos reales. `scripts/` solo tiene una utilidad genérica de conversión de imágenes.
 
-**Ojo**: hoy en la raíz del repo hay varios `.xlsx` reales del negocio sueltos **sin trackear** (`Categorias_Tienda_YJBMOTOCOM_2026-08-21.xlsx`, `INVENTARIO-1.xlsx`, 2 de `YJBMOTOCOM_Historial_*.xlsx`) — como no están en git, un `git clone`/`git push` a un repo nuevo NO los arrastra. Pero si en algún momento se decide copiar la carpeta completa a mano (en vez de vía git) para armar el repo nuevo, hay que excluirlos a propósito.
+**Ojo** (actualizado 2026-10-14): los `.xlsx` reales del negocio que estaban sueltos en la raíz (`Categorias_Tienda_*`, `INVENTARIO-1`, `YJBMOTOCOM_Historial_*`) se sacaron del proyecto en la limpieza de archivos innecesarios. Si vuelve a aparecer alguno, nunca se trackea y, si se copia la carpeta a mano (en vez de vía git) para armar el repo nuevo, hay que excluirlo a propósito.
 
 ### 4.1 Cuentas que debe crear el otro dueño (con su propio correo, no el del usuario)
 

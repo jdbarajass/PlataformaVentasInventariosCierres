@@ -17,6 +17,8 @@ build
 dist
 
 # Misc
+# Carpeta temporal de archivos a eliminar a mano (limpieza 2026-10-14)
+borrar/
 .DS_Store
 *.pem
 Thumbs.db
