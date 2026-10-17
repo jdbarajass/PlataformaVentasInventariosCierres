@@ -2,7 +2,7 @@
 
 > **Este documento es el estado vivo de este proyecto.** Si retomas este trabajo en una sesión nueva, léelo completo antes de tocar código.
 
-**Última actualización**: 2026-10-08 (entrada 10 — ver sección 13: orden de tallas replicado + comparación completa YJBMOTOCOM vs YBMOTOCOM)
+**Última actualización**: 2026-10-17 (entrada 11 — ver sección 14: Ventas del Día con préstamos separados en "Nos deben" / "Debemos")
 **Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones + la 00055 ya aplicadas, Vercel propio (`ybmotocom-web.vercel.app`), usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. El modelo de "franquicia" (Fase 3, sección 5) ya tiene seis casos reales probados con éxito (secciones 7-12) — cherry-pick sin conflictos "de fondo" en todos (el conflicto de `docs/UNIFICACION_YJBMOTOCOM.md`, que no existe en YBMOTOCOM, se repite en cada caso que toca docs, pero es trivial de resolver con `git rm` — ver sección 11).
 
 **Corrección importante (2026-09-15, ver sección 11)**: el auto-deploy de YBMOTOCOM **no estaba funcionando desde el 2026-09-04** — todo lo de las secciones 8, 9 y 10 se pusheó a GitHub pero nunca llegó realmente a producción hasta que se diagnosticó y corrigió esto. Ya está resuelto; detalle completo abajo.
@@ -16,6 +16,14 @@
 | `supabase/migrations/00058_account_notes.sql` | Columna de notas/observaciones por cuenta (Cuentas → Resumen) | Guardar notas de una cuenta en YBMOTOCOM falla (la columna no existe). |
 
 Cuando el usuario confirme que las corrió, borrar este recordatorio y anotarlo en la sección 13.
+
+## 14. Ventas del Día: préstamos separados en "Nos deben" y "Debemos" (2026-10-17)
+
+Commit `4550848` en YJBMOTOCOM → `3ed9caf` en YBMOTOCOM (cherry-pick `--no-commit` + commit con el autor local de YB). Detalle técnico en `docs/UNIFICACION_YJBMOTOCOM.md` sección 91.
+- La tarjeta "Préstamos pendientes" mezclaba ambos sentidos porque no filtraba por `direction`. Ahora son dos tarjetas, "Nos deben" y "Debemos", cada una con un enlace a su pestaña en `/admin/prestamos` (`?tab=debemos`).
+- Conflictos triviales: `docs/UNIFICACION_YJBMOTOCOM.md` (no existe en YB, `git rm`) y un comentario de `ventas-dia/page.tsx` que en YB apunta a `docs/UNIFICACION_YBMOTOCOM.md` (se conservó esa referencia).
+- Sin migración nueva: depende solo de la 00052 (`loans.direction`), que YB ya tiene desde el bootstrap inicial. Las 00056–00058 siguen pendientes en YB, pero no afectan este cambio.
+- Verificado en YB: `tsc` limpio, eslint limpio, vitest de `loans` 9/9.
 
 ## 13. Orden de tallas replicado + comparación completa YJBMOTOCOM vs YBMOTOCOM (2026-10-08)
 
