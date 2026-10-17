@@ -2880,3 +2880,13 @@ La tarjeta "Préstamos pendientes" de `/admin/ventas-dia` pedía `/api/loans?sta
 - Cada tarjeta tiene el enlace "Ver en Préstamos". `/admin/prestamos?tab=debemos` abre directo la pestaña "Debemos"; para eso la página se envolvió en `Suspense` por `useSearchParams`, igual que Ventas del Día.
 - Integralidad: ningún otro consumidor usa `/api/loans` con este filtro. El cierre Alegra maneja `prestamos` como un monto manual, no lee `loans`. La exportación PDF/PNG de Ventas del Día captura el DOM, así que incluye las dos tarjetas sin cambios. Excel/backup exporta la tabla completa con `direction`. No requiere migración nueva (solo que la 00052 esté corrida).
 - Verificado: `tsc` limpio, eslint limpio, vitest de `loans` 9/9.
+
+## 92. No dejar cuentas en negativo: validación de saldo en abonos, gastos y ajustes (2026-10-17)
+
+El usuario abonó $1.070.000 desde NEQUI. a una factura de proveedor cuando la cuenta solo tenía $914.051, y quedó en -$155.949. Las funciones SQL que debitan (`pay_supplier_invoice`, `record_operating_expense`, `adjust_account_balance`) restan sin validar el saldo. Solo `transfer_between_accounts` validaba.
+- Nuevo `lib/account-balance.ts` → `checkSufficientBalance(supabase, accountId, debitCents)`: lee el saldo actual y devuelve un 400 con *"Saldo insuficiente en X: tiene $A y se intenta descontar $B"*, o `null` si alcanza.
+- Se usa en tres rutas, antes de llamar a la función SQL: abonos a facturas (`supplier-invoices/[id]/payments`, solo si hay cuenta), gastos operativos (`operating-expenses` POST, solo si hay cuenta) y ajustes manuales (`account-movements` POST, solo salidas, monto < 0).
+- Facturas: el selector de cuenta muestra el saldo de cada una, la pantalla avisa antes de enviar y los saldos se recargan después de cada abono. Ventas del Día (gastos) y Cuentas (ajustes) ya mostraban el `error` del API en un toast.
+- Se hizo en el API y no en SQL para no sumar una migración más (YBMOTOCOM ya tiene 00056–00058 pendientes). Queda una carrera teórica entre la lectura y el débito, aceptable para el volumen de una sola tienda.
+- La reversa del abono erróneo (pago `87db85b1…` de la factura INTERCOMUNICADORES `91c41cbc…`) se preparó como SQL de una sola transacción, con chequeo previo y movimiento `expense_reversal` para dejar rastro. No se aplicó desde Claude Code porque el sistema de permisos bloquea escrituras a producción; la corre el usuario en el SQL Editor.
+- Verificado: `tsc` limpio, eslint limpio, vitest 142/142 (6 pruebas nuevas en `insufficient-balance.test.ts` y `accounts.test.ts`).

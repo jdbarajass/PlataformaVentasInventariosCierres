@@ -135,7 +135,9 @@ describe('POST /api/account-movements (ajuste manual)', () => {
 
   it('un ajuste negativo (salida de caja) se manda tal cual a la función atómica de la BD', async () => {
     requireAuthMock.mockResolvedValue(ADMIN_AUTH)
-    const { client, calls } = createSupabaseMock({}, {
+    const { client, calls } = createSupabaseMock({
+      accounts: { data: { name: 'Caja', balance_cents: 100_000 }, error: null },
+    }, {
       adjust_account_balance: { data: { id: 'mov-1', amount_cents: -50_000 }, error: null },
     })
     getServiceSupabaseMock.mockReturnValue(client)
@@ -154,6 +156,43 @@ describe('POST /api/account-movements (ajuste manual)', () => {
       p_account_id: '11111111-1111-1111-1111-111111111111',
       p_amount_cents: -50_000,
     })
+  })
+})
+
+describe('POST /api/account-movements — saldo insuficiente', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('rechaza con 400 una salida mayor al saldo de la cuenta, sin tocar la BD', async () => {
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+    const { client } = createSupabaseMock({
+      accounts: { data: { name: 'NEQUI', balance_cents: 30_000 }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/account-movements/route')
+    const res = await POST(
+      buildRequest({ account_id: '11111111-1111-1111-1111-111111111111', amount_cents: -50_000 })
+    )
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('Saldo insuficiente en NEQUI')
+    expect(client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('una entrada (monto positivo) no consulta el saldo', async () => {
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+    const { client } = createSupabaseMock({}, {
+      adjust_account_balance: { data: { id: 'mov-2', amount_cents: 50_000 }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/account-movements/route')
+    const res = await POST(
+      buildRequest({ account_id: '11111111-1111-1111-1111-111111111111', amount_cents: 50_000 })
+    )
+
+    expect(res.status).toBe(201)
+    expect(client.from).not.toHaveBeenCalledWith('accounts')
   })
 })
 

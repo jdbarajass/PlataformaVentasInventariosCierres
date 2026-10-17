@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { checkSufficientBalance } from '@/lib/account-balance'
 import { z } from 'zod'
 
 const paymentSchema = z.object({
@@ -38,30 +39,11 @@ export async function POST(
 
     const supabase = getServiceSupabase()
 
-    // No dejar la cuenta en negativo: si el abono sale de una cuenta, su
-    // saldo actual debe alcanzar para cubrirlo (pay_supplier_invoice resta
-    // sin validar). Sin cuenta ("Sin cuenta") no se toca ningún saldo.
+    // No dejar la cuenta en negativo (pay_supplier_invoice resta sin
+    // validar). Sin cuenta ("Sin cuenta") no se toca ningún saldo.
     if (account_id) {
-      const { data: account, error: accountError } = await supabase
-        .from('accounts')
-        .select('name, balance_cents')
-        .eq('id', account_id)
-        .single()
-
-      if (accountError || !account) {
-        return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 })
-      }
-
-      if (account.balance_cents < amount_cents) {
-        const fmt = (cents: number) =>
-          `$ ${Math.round(cents / 100).toLocaleString('es-CO')}`
-        return NextResponse.json(
-          {
-            error: `Saldo insuficiente en ${account.name}: tiene ${fmt(account.balance_cents)} y el abono es de ${fmt(amount_cents)}`,
-          },
-          { status: 400 }
-        )
-      }
+      const insufficient = await checkSufficientBalance(supabase, account_id, amount_cents)
+      if (insufficient) return insufficient
     }
 
     const { data: invoice, error } = await (supabase.rpc as any)('pay_supplier_invoice', {

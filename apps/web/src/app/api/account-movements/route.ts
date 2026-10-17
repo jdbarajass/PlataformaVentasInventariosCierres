@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
+import { checkSufficientBalance } from '@/lib/account-balance'
 import { z } from 'zod'
 
 const manualAdjustmentSchema = z.object({
@@ -95,6 +96,13 @@ export async function POST(request: NextRequest) {
     // La función RPC actualiza el saldo e inserta el movimiento en una sola
     // transacción (supabase/migrations/00011_account_balance_functions.sql).
     const supabase = getServiceSupabase()
+
+    // Solo las salidas pueden dejar la cuenta en negativo; las entradas no se validan.
+    if (amount_cents < 0) {
+      const insufficient = await checkSufficientBalance(supabase, account_id, -amount_cents)
+      if (insufficient) return insufficient
+    }
+
     const { data: movement, error } = await (supabase.rpc as any)(
       'adjust_account_balance',
       {

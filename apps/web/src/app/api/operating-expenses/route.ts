@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
+import { checkSufficientBalance } from '@/lib/account-balance'
 import { z } from 'zod'
 
 const expenseSchema = z.object({
@@ -80,6 +81,12 @@ export async function POST(request: NextRequest) {
     const { date, description, amount_cents, category, account_id, created_by } = validation.data
 
     const supabase = getServiceSupabase()
+
+    if (account_id) {
+      const insufficient = await checkSufficientBalance(supabase, account_id, amount_cents)
+      if (insufficient) return insufficient
+    }
+
     const { data: expense, error } = await (supabase.rpc as any)('record_operating_expense', {
       p_date: date || null,
       p_description: description,
