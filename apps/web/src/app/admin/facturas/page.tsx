@@ -435,13 +435,34 @@ export default function FacturasPage() {
                     <Badge variant="outline" className={invoice.status === 'paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}>
                       {invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}
                     </Badge>
+                    {/* Lo que se debe va primero y resaltado (rojo si está
+                        vencida, ámbar si no); el total de la factura queda
+                        abajo como referencia, solo cuando ya hubo abonos. */}
                     <div className="max-sm:basis-full sm:text-right">
-                      <p className="text-xs text-muted-foreground">
-                        Total factura: <span className="font-medium text-foreground">{formatPrice(invoice.amount_cents)}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Saldo pendiente por pagar: <span className="font-bold text-foreground">{formatPrice(remaining)}</span>
-                      </p>
+                      {invoice.status === 'paid' ? (
+                        <p className="text-sm font-medium text-muted-foreground">{formatPrice(invoice.amount_cents)}</p>
+                      ) : (
+                        <>
+                          <div
+                            className={cn(
+                              'inline-flex flex-col rounded-lg border px-3 py-1 sm:items-end',
+                              isOverdue(invoice.due_date, invoice.status)
+                                ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                            )}
+                          >
+                            <span className="text-[11px] font-medium uppercase tracking-wide">
+                              {paid > 0 ? 'Saldo pendiente' : 'Por pagar'}
+                            </span>
+                            <span className="text-lg font-bold leading-tight tabular-nums">{formatPrice(remaining)}</span>
+                          </div>
+                          {paid > 0 && (
+                            <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                              Total factura {formatPrice(invoice.amount_cents)} · Abonado {formatPrice(paid)}
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
