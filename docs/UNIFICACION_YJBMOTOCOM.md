@@ -2890,3 +2890,12 @@ El usuario abonó $1.070.000 desde NEQUI. a una factura de proveedor cuando la c
 - Se hizo en el API y no en SQL para no sumar una migración más (YBMOTOCOM ya tiene 00056–00058 pendientes). Queda una carrera teórica entre la lectura y el débito, aceptable para el volumen de una sola tienda.
 - La reversa del abono erróneo (pago `87db85b1…` de la factura INTERCOMUNICADORES `91c41cbc…`) se preparó como SQL de una sola transacción, con chequeo previo y movimiento `expense_reversal` para dejar rastro. No se aplicó desde Claude Code porque el sistema de permisos bloquea escrituras a producción; la corre el usuario en el SQL Editor.
 - Verificado: `tsc` limpio, eslint limpio, vitest 142/142 (6 pruebas nuevas en `insufficient-balance.test.ts` y `accounts.test.ts`).
+
+## 93. Investigación de los cascos ICH + alta de CASCO ICH con curva completa en 0 (2026-10-17)
+
+El usuario no encontraba los cascos ICH en Inventario, aunque se siguen vendiendo. Investigación (solo lectura):
+- 2026-07-22: se crearon 6 productos "CASCO ICH 501 <color>" al importar del local. El 2026-08-11 el usuario los eliminó (sección 72) y creó un único "CASCO ICH 501" (sku `2`).
+- 2026-08-21: simplificación de Cascos según el Excel de conteo físico (sección 81.13). ICH **no estaba en el Excel** (stock 0), así que "CASCO ICH 501" se desactivó con los cascos viejos y el 2026-08-24 se le puso `deleted_at` (sección 81.16).
+- Desde 2026-09-08 hubo 8 ventas de "ICH 501" y una de "VISOR ICH", todas como ítem fuera de catálogo (`product_id` nulo). Dinero y ganancia correctos, sin descuento de stock. Ninguna venta se borró.
+
+Alta, a pedido del usuario (escritura directa con la misma lógica de "Ingresar": `generarSiguienteSerial` / `generarCodigoBarrasAuto`): **CASCO ICH**, sku `41`, categoría Cascos, costo $95.000, precio $140.000, `active=false` como todo lo que entra por Ingresar. Tallas XS, S, M, L, XL y 2XL (curva completa, igual que el XTRONG R1), todas con stock 0 y códigos de barras de familia `1106045011`…`1106045016`. Se buscaron colisiones contra todos los códigos y SKUs, incluidos los productos eliminados. No se tocaron los productos ICH viejos ni las ventas fuera de catálogo.
