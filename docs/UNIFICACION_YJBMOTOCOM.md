@@ -2872,3 +2872,11 @@ Parte de la sincronización con YBMOTOCOM (detalle en `docs/EXPANSION_SEGUNDA_TI
 - **Bug corregido**: Nosotros mostraba "15" en la cifra de años de experiencia y "9 años equipando a Colombia" en el título de la historia. Ambos salen ahora de `BRAND.heroYearsStat` (15).
 - Factura online: `${BRAND.receipt.nit || 'NIT: Pendiente de registro'}` — sin cambio visible aquí (el NIT está lleno).
 - Verificado: `tsc` limpio, `next lint` sin warnings, vitest 136/136.
+
+## 91. Ventas del Día: préstamos separados en "Nos deben" y "Debemos" (2026-10-17)
+
+La tarjeta "Préstamos pendientes" de `/admin/ventas-dia` pedía `/api/loans?status=pending` **sin filtrar por `direction`** (columna agregada en la migración 00052). Por eso las deudas pendientes ("Debemos": mercancía que otros locales nos prestaron) salían mezcladas con lo que nosotros prestamos, sin forma de distinguirlas.
+- Ahora son dos tarjetas con los mismos nombres de las pestañas de `/admin/prestamos`: **"Nos deben"** (`direction='lent'`, columna "Almacén") y **"Debemos"** (`direction='borrowed'`, columna "Local que nos prestó"). Se sigue haciendo una sola petición y se separa en el cliente. Las dos siguen sin filtrar por fecha (son un recordatorio persistente, ver sección 21).
+- Cada tarjeta tiene el enlace "Ver en Préstamos". `/admin/prestamos?tab=debemos` abre directo la pestaña "Debemos"; para eso la página se envolvió en `Suspense` por `useSearchParams`, igual que Ventas del Día.
+- Integralidad: ningún otro consumidor usa `/api/loans` con este filtro. El cierre Alegra maneja `prestamos` como un monto manual, no lee `loans`. La exportación PDF/PNG de Ventas del Día captura el DOM, así que incluye las dos tarjetas sin cambios. Excel/backup exporta la tabla completa con `direction`. No requiere migración nueva (solo que la 00052 esté corrida).
+- Verificado: `tsc` limpio, eslint limpio, vitest de `loans` 9/9.

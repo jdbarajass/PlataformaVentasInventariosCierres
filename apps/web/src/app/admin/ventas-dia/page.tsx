@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { flushSync } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import {
   Calendar, Search, Plus, Trash2, Loader2, Receipt, Pencil, X, CheckCircle2, Download,
 } from 'lucide-react'
@@ -78,13 +79,58 @@ interface ProductResult {
 }
 interface Expense { id: string; description: string; amount_cents: number; category: string }
 interface DailyNote { id: string; text: string; created_at: string }
-interface Loan { id: string; product_title: string; warehouse: string; status: string; created_at: string }
+interface Loan { id: string; product_title: string; warehouse: string; status: string; direction: 'lent' | 'borrowed'; created_at: string }
 interface ExchangeItem { title: string; talla: string | null; qty: number }
 interface ExchangeMovement { id: string; created_at: string; delivered: ExchangeItem | null; returned: ExchangeItem | null }
 
 const methodLabels: Record<PaymentSplit['method'], string> = {
   cash: 'Efectivo', card: 'Datáfono', nequi: 'Nequi', nu: 'NU', qr: 'QR/Bancolombia',
   daviplata: 'Daviplata', addi: 'Addi', sistecredito: 'SisteCrédito', other: 'Otro',
+}
+
+function PendingLoansCard({ title, description, warehouseLabel, emptyLabel, href, loans }: {
+  title: string
+  description: string
+  warehouseLabel: string
+  emptyLabel: string
+  href: string
+  loans: Loan[]
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-4 sm:p-6">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">{title} ({loans.length})</h2>
+        <Link href={href} className="shrink-0 text-xs text-primary hover:underline">Ver en Préstamos</Link>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">{description}</p>
+      {loans.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="py-2 pr-2">Fecha</th>
+                <th className="py-2 pr-2">Producto</th>
+                <th className="py-2">{warehouseLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loans.map((loan) => (
+                <tr key={loan.id} className="border-b last:border-0">
+                  <td className="py-2 pr-2 text-muted-foreground">
+                    {new Date(loan.created_at).toLocaleDateString('es-CO')}
+                  </td>
+                  <td className="py-2 pr-2">{loan.product_title}</td>
+                  <td className="py-2">{loan.warehouse}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function VentasDiaContent() {
@@ -104,8 +150,12 @@ function VentasDiaContent() {
   // la fecha — igual que la Vista del Día del software local
   // (obtener_prestamos_pendientes no filtra por fecha; funciona como
   // recordatorio persistente de mercancía prestada, ver
-  // docs/UNIFICACION_YJBMOTOCOM.md sección 21).
+  // docs/UNIFICACION_YJBMOTOCOM.md sección 21). Se separan por sentido en
+  // dos tarjetas, con los mismos nombres de las pestañas de /admin/prestamos:
+  // "Nos deben" (lo que prestamos) y "Debemos" (lo que nos prestaron).
   const [pendingLoans, setPendingLoans] = useState<Loan[]>([])
+  const loansOwedToUs = pendingLoans.filter((l) => l.direction !== 'borrowed')
+  const loansWeOwe = pendingLoans.filter((l) => l.direction === 'borrowed')
   // Cambios de producto (Inventario → Cambios) del día seleccionado — a
   // diferencia de los préstamos pendientes, esto SÍ se filtra por `date`
   // porque el usuario comparte esta pantalla como pantallazo diario y
@@ -994,38 +1044,23 @@ function VentasDiaContent() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border bg-card p-4 sm:p-6">
-            <h2 className="mb-3 text-lg font-semibold">Préstamos pendientes ({pendingLoans.length})</h2>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Toda la mercancía prestada que aún no se ha devuelto, sin importar la fecha.
-            </p>
-            {pendingLoans.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay préstamos pendientes.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="py-2 pr-2">Fecha</th>
-                      <th className="py-2 pr-2">Producto</th>
-                      <th className="py-2">Almacén</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingLoans.map((loan) => (
-                      <tr key={loan.id} className="border-b last:border-0">
-                        <td className="py-2 pr-2 text-muted-foreground">
-                          {new Date(loan.created_at).toLocaleDateString('es-CO')}
-                        </td>
-                        <td className="py-2 pr-2">{loan.product_title}</td>
-                        <td className="py-2">{loan.warehouse}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <PendingLoansCard
+            title="Nos deben"
+            description="Mercancía que prestamos a otros locales y aún no la devuelven ni la pagan, sin importar la fecha."
+            warehouseLabel="Almacén"
+            emptyLabel="No hay préstamos pendientes."
+            href="/admin/prestamos"
+            loans={loansOwedToUs}
+          />
+
+          <PendingLoansCard
+            title="Debemos"
+            description="Mercancía que otros locales nos prestaron y aún no hemos devuelto ni pagado, sin importar la fecha."
+            warehouseLabel="Local que nos prestó"
+            emptyLabel="No hay deudas pendientes."
+            href="/admin/prestamos?tab=debemos"
+            loans={loansWeOwe}
+          />
 
           <div className="rounded-xl border bg-card p-4 sm:p-6">
             <h2 className="mb-3 text-lg font-semibold">Cambios de producto ({exchanges.length})</h2>

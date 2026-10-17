@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PackageOpen, PackageMinus, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,11 +95,14 @@ function diasBadgeColor(dias: number, status: Loan['status']): string {
   return 'bg-red-500/10 text-red-600 border-red-500/20'
 }
 
-export default function PrestamosPage() {
+function PrestamosContent() {
+  // ?tab=debemos abre directo la pestaña "Debemos" (enlace desde la tarjeta
+  // del mismo nombre en Ventas del Día); sin el parámetro, "Nos deben".
+  const searchParams = useSearchParams()
   const [loans, setLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<'all' | Loan['status']>('pending')
-  const [direction, setDirection] = useState<Direction>('lent')
+  const [direction, setDirection] = useState<Direction>(() => (searchParams.get('tab') === 'debemos' ? 'borrowed' : 'lent'))
   const cfg = directionConfig[direction]
 
   const [query, setQuery] = useState('')
@@ -555,5 +559,19 @@ export default function PrestamosPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PrestamosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-40 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <PrestamosContent />
+    </Suspense>
   )
 }
