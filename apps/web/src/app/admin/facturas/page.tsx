@@ -52,6 +52,7 @@ interface SupplierInvoice {
 interface Account {
   id: string
   name: string
+  balance_cents: number
 }
 
 export default function FacturasPage() {
@@ -198,6 +199,17 @@ export default function FacturasPage() {
       toast({ title: 'Error', description: 'El monto debe ser mayor a 0', variant: 'destructive' })
       return
     }
+    // Aviso inmediato con el saldo ya cargado; el API vuelve a validar con
+    // el saldo real del momento (puede haber cambiado desde que se cargó).
+    const account = accounts.find((a) => a.id === payAccount)
+    if (account && account.balance_cents < amount) {
+      toast({
+        title: 'Saldo insuficiente',
+        description: `${account.name} tiene ${formatPrice(account.balance_cents)} y el abono es de ${formatPrice(amount)}`,
+        variant: 'destructive',
+      })
+      return
+    }
     try {
       setPayingId(invoice.id)
       const res = await fetch(`/api/supplier-invoices/${invoice.id}/payments`, {
@@ -218,7 +230,7 @@ export default function FacturasPage() {
       setPayAmount('')
       setPayAccount('')
       setPayNotes('')
-      await fetchInvoices()
+      await Promise.all([fetchInvoices(), fetchAccounts()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
@@ -553,7 +565,7 @@ export default function FacturasPage() {
                           >
                             <option value="">Sin cuenta</option>
                             {accounts.map((a) => (
-                              <option key={a.id} value={a.id}>{a.name}</option>
+                              <option key={a.id} value={a.id}>{a.name} ({formatPrice(a.balance_cents)})</option>
                             ))}
                           </select>
                         </label>
