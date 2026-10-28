@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Calculator, Search, RotateCcw } from 'lucide-react'
+import { Calculator, Search, RotateCcw, Banknote } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
+import { ConteoEfectivo } from '@/components/admin/conteo-efectivo'
 import { useAuth } from '@/lib/auth-context'
 
 type MarginMode = 'real' | 'sobre_costo'
+type CalcTab = 'precios' | 'efectivo'
 
 const methodLabels: Record<string, string> = {
   cash: 'Efectivo', transfer: 'Transferencia', wallet: 'Billetera',
@@ -54,6 +56,8 @@ interface MinPriceSelection {
 }
 
 export default function CalculadoraPage() {
+  const [tab, setTab] = useState<CalcTab>('precios')
+  const [conteoAbierto, setConteoAbierto] = useState(false)
   const [rates, setRates] = useState<Record<string, number>>({})
   const [mode, setMode] = useState<MarginMode>('real')
   const [costo, setCosto] = useState('')
@@ -262,385 +266,417 @@ export default function CalculadoraPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Calculadora</h1>
-        <p className="text-muted-foreground">Precio de venta, margen y comisión — no guarda nada, solo calcula</p>
+        <p className="text-muted-foreground">Precio de venta, margen, comisión y conteo de efectivo — no guarda nada, solo calcula</p>
       </div>
 
-      {/* Precio Mínimo para Vender — para admin Y vendedor. El vendedor
-          nunca ve el costo (ver /api/pos/min-price): solo estos dos
-          precios mínimos, para poder cotizarle un descuento al cliente
-          en el momento sin tener que llamar al admin. */}
-      <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-6">
-        <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
-          <Calculator className="h-5 w-5" /> Precio Mínimo para Vender
-        </h2>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Busca el producto para ver hasta cuánto le puedes bajar sin perder margen — no muestra el costo, solo el precio mínimo.
-        </p>
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Nombre o SKU del producto…"
-            value={minPriceQuery}
-            onChange={(e) => setMinPriceQuery(e.target.value)}
-            className="rounded-lg pl-10"
-          />
-          {minPriceResults.length > 0 && (
-            <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
-              {minPriceResults.map((p) =>
-                p.variants.length === 0 ? (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
-                    onClick={() => selectMinPrice(p.title, null, (p.minMargen30 ?? 0) / 100, (p.minMarkup30 ?? 0) / 100)}
-                  >
-                    {p.title}
-                  </button>
-                ) : (
-                  p.variants.map((v) => (
+      <div role="tablist" aria-label="Secciones de la calculadora" className="flex gap-2 border-b">
+        {([
+          ['precios', Calculator, 'Precios y margen'],
+          ['efectivo', Banknote, 'Conteo de efectivo'],
+        ] as const).map(([value, Icon, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            onClick={() => {
+              setTab(value)
+              if (value === 'efectivo') setConteoAbierto(true)
+            }}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors touch:min-h-11 ${tab === value ? 'border-cyan-500 text-cyan-500' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            <Icon className="h-4 w-4" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {/* El conteo se monta la primera vez que se abre su pestaña y desde
+          ahí ambas quedan montadas (solo se ocultan), para que cambiar de
+          pestaña no borre lo que se lleva calculado o contado. */}
+      {conteoAbierto && (
+        <div hidden={tab !== 'efectivo'}>
+          <ConteoEfectivo />
+        </div>
+      )}
+
+      <div hidden={tab !== 'precios'} className="space-y-8">
+        {/* Precio Mínimo para Vender — para admin Y vendedor. El vendedor
+            nunca ve el costo (ver /api/pos/min-price): solo estos dos
+            precios mínimos, para poder cotizarle un descuento al cliente
+            en el momento sin tener que llamar al admin. */}
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-6">
+          <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold">
+            <Calculator className="h-5 w-5" /> Precio Mínimo para Vender
+          </h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Busca el producto para ver hasta cuánto le puedes bajar sin perder margen — no muestra el costo, solo el precio mínimo.
+          </p>
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Nombre o SKU del producto…"
+              value={minPriceQuery}
+              onChange={(e) => setMinPriceQuery(e.target.value)}
+              className="rounded-lg pl-10"
+            />
+            {minPriceResults.length > 0 && (
+              <div className="absolute z-10 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+                {minPriceResults.map((p) =>
+                  p.variants.length === 0 ? (
                     <button
-                      key={v.id}
+                      key={p.id}
                       type="button"
                       className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
-                      onClick={() => selectMinPrice(p.title, v.talla, v.minMargen30 / 100, v.minMarkup30 / 100)}
+                      onClick={() => selectMinPrice(p.title, null, (p.minMargen30 ?? 0) / 100, (p.minMarkup30 ?? 0) / 100)}
                     >
-                      {p.title} {v.talla ? `— Talla ${v.talla}` : ''}
+                      {p.title}
                     </button>
-                  ))
-                )
-              )}
+                  ) : (
+                    p.variants.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3"
+                        onClick={() => selectMinPrice(p.title, v.talla, v.minMargen30 / 100, v.minMarkup30 / 100)}
+                      >
+                        {p.title} {v.talla ? `— Talla ${v.talla}` : ''}
+                      </button>
+                    ))
+                  )
+                )}
+              </div>
+            )}
+          </div>
+
+          {minPriceSelected && (
+            <div className="mt-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  {minPriceSelected.title}
+                  {minPriceSelected.talla && <span className="text-muted-foreground"> — Talla {minPriceSelected.talla}</span>}
+                </p>
+                <button
+                  type="button"
+                  className="shrink-0 text-xs text-muted-foreground underline touch:min-h-11"
+                  onClick={() => setMinPriceSelected(null)}
+                >
+                  Buscar otro producto
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+                  <p className="text-xs text-muted-foreground">Mínimo — margen real 30%</p>
+                  <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+                    {formatPrice(minPriceSelected.minMargen30)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
+                  <p className="text-xs text-muted-foreground">Mínimo — +30% sobre costo</p>
+                  <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
+                    {formatPrice(minPriceSelected.minMarkup30)}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                No bajes de estos valores sin autorización — son el punto mínimo antes de perder margen real.
+              </p>
             </div>
           )}
         </div>
 
-        {minPriceSelected && (
-          <div className="mt-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="text-sm font-medium">
-                {minPriceSelected.title}
-                {minPriceSelected.talla && <span className="text-muted-foreground"> — Talla {minPriceSelected.talla}</span>}
-              </p>
-              <button
-                type="button"
-                className="shrink-0 text-xs text-muted-foreground underline touch:min-h-11"
-                onClick={() => setMinPriceSelected(null)}
-              >
-                Buscar otro producto
-              </button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-                <p className="text-xs text-muted-foreground">Mínimo — margen real 30%</p>
-                <p className="text-2xl font-bold text-green-700 dark:text-green-400">
-                  {formatPrice(minPriceSelected.minMargen30)}
-                </p>
-              </div>
-              <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
-                <p className="text-xs text-muted-foreground">Mínimo — +30% sobre costo</p>
-                <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatPrice(minPriceSelected.minMarkup30)}
-                </p>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              No bajes de estos valores sin autorización — son el punto mínimo antes de perder margen real.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Costo + Precio -> margen/ganancia/comisión */}
-        <div className="rounded-xl border bg-card p-6">
-          <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
-            <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Precio → Margen y comisión</span>
-            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarCostoPrecio}>
-              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
-            </Button>
-          </h2>
-          <div className="space-y-3">
-            {isAdmin && (
-              <div className="relative">
-                <label className="text-sm text-muted-foreground">Buscar producto en inventario (autocompleta el costo)</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Nombre o SKU…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="rounded-lg pl-10"
-                  />
-                </div>
-                {results.length > 0 && (
-                  <div className="absolute z-10 mt-1 max-h-48 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
-                    {results.map((p) =>
-                      p.variants.length === 0 ? (
-                        <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => selectFromSearch(p.cost_cents)}>
-                          {p.title}
-                        </button>
-                      ) : (
-                        p.variants.map((v) => (
-                          <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => selectFromSearch(v.cost_cents)}>
-                            {p.title} {v.talla ? `(${v.talla})` : ''}
-                          </button>
-                        ))
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            <div>
-              <label className="text-sm text-muted-foreground">Costo</label>
-              <MoneyInput value={costo} onChange={setCosto} className="rounded-lg" />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground">Precio de venta</label>
-              <MoneyInput value={precio} onChange={setPrecio} className="rounded-lg" />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground">Método de pago (para la comisión)</label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                aria-label="Método de pago" className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
-              >
-                {Object.entries(methodLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label} {rates[value] ? `(${rates[value]}%)` : ''}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-4 space-y-2 rounded-lg border p-4">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Ganancia</span><span className="font-medium">{formatPrice(ganancia)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">% Margen real (sobre precio)</span><span className="font-medium">{margenReal.toFixed(1)}%</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">% Sobre costo (markup)</span><span className="font-medium">{margenSobreCosto.toFixed(1)}%</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Comisión ({commissionRate}%)</span><span className="font-medium">{formatPrice(comision)}</span></div>
-              <div className="flex justify-between border-t pt-2 text-base font-bold"><span>Total que paga el cliente</span><span>{formatPrice(totalConComision)}</span></div>
-              <p className="text-xs text-muted-foreground">La comisión se traslada al cliente como sobreprecio — no reduce la ganancia registrada.</p>
-            </div>
-          </div>
-
-          <div className="mt-6 border-t pt-4">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Calculadora Rápida</h3>
-              <Button type="button" variant="outline" size="sm" className="h-7 rounded-lg px-2 text-xs font-normal touch:h-11" onClick={limpiarRapida}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Costo + Precio -> margen/ganancia/comisión */}
+          <div className="rounded-xl border bg-card p-6">
+            <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
+              <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Precio → Margen y comisión</span>
+              <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarCostoPrecio}>
                 <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
               </Button>
+            </h2>
+            <div className="space-y-3">
+              {isAdmin && (
+                <div className="relative">
+                  <label className="text-sm text-muted-foreground">Buscar producto en inventario (autocompleta el costo)</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Nombre o SKU…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="rounded-lg pl-10"
+                    />
+                  </div>
+                  {results.length > 0 && (
+                    <div className="absolute z-10 mt-1 max-h-48 w-full space-y-1 overflow-y-auto rounded-lg border bg-card p-2 shadow-lg">
+                      {results.map((p) =>
+                        p.variants.length === 0 ? (
+                          <button key={p.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => selectFromSearch(p.cost_cents)}>
+                            {p.title}
+                          </button>
+                        ) : (
+                          p.variants.map((v) => (
+                            <button key={v.id} className="block w-full rounded-lg p-2 text-left text-sm hover:bg-muted touch:py-3" onClick={() => selectFromSearch(v.cost_cents)}>
+                              {p.title} {v.talla ? `(${v.talla})` : ''}
+                            </button>
+                          ))
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div>
+                <label className="text-sm text-muted-foreground">Costo</label>
+                <MoneyInput value={costo} onChange={setCosto} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Precio de venta</label>
+                <MoneyInput value={precio} onChange={setPrecio} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Método de pago (para la comisión)</label>
+                <select
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value)}
+                  aria-label="Método de pago" className="w-full rounded-lg border bg-background px-3 py-2 text-sm touch:h-11"
+                >
+                  {Object.entries(methodLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label} {rates[value] ? `(${rates[value]}%)` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4 space-y-2 rounded-lg border p-4">
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Ganancia</span><span className="font-medium">{formatPrice(ganancia)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">% Margen real (sobre precio)</span><span className="font-medium">{margenReal.toFixed(1)}%</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">% Sobre costo (markup)</span><span className="font-medium">{margenSobreCosto.toFixed(1)}%</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Comisión ({commissionRate}%)</span><span className="font-medium">{formatPrice(comision)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-base font-bold"><span>Total que paga el cliente</span><span>{formatPrice(totalConComision)}</span></div>
+                <p className="text-xs text-muted-foreground">La comisión se traslada al cliente como sobreprecio — no reduce la ganancia registrada.</p>
+              </div>
             </div>
-            <p className="mb-3 text-xs text-muted-foreground">Costo + precio → ganancia instantánea</p>
-            <div className="flex gap-2">
-              <MoneyInput placeholder="Costo" value={rapCosto} onChange={setRapCosto} className="rounded-lg" />
-              <MoneyInput placeholder="Precio venta" value={rapPrecio} onChange={setRapPrecio} className="rounded-lg" />
+
+            <div className="mt-6 border-t pt-4">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Calculadora Rápida</h3>
+                <Button type="button" variant="outline" size="sm" className="h-7 rounded-lg px-2 text-xs font-normal touch:h-11" onClick={limpiarRapida}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+                </Button>
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">Costo + precio → ganancia instantánea</p>
+              <div className="flex gap-2">
+                <MoneyInput placeholder="Costo" value={rapCosto} onChange={setRapCosto} className="rounded-lg" />
+                <MoneyInput placeholder="Precio venta" value={rapPrecio} onChange={setRapPrecio} className="rounded-lg" />
+              </div>
+              {rapActivo && (
+                <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${rapGanancia >= 0 ? 'border-green-500/30 bg-green-500/10 text-green-600' : 'border-red-500/30 bg-red-500/10 text-red-600'}`}>
+                  {rapGanancia >= 0
+                    ? `Ganancia: ${formatPrice(rapGanancia)} · ${rapPctCosto.toFixed(1)}% sobre costo · ${rapPctVenta.toFixed(1)}% margen`
+                    : `Pérdida: ${formatPrice(Math.abs(rapGanancia))} — estás vendiendo por debajo del costo`}
+                </p>
+              )}
             </div>
-            {rapActivo && (
-              <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${rapGanancia >= 0 ? 'border-green-500/30 bg-green-500/10 text-green-600' : 'border-red-500/30 bg-red-500/10 text-red-600'}`}>
-                {rapGanancia >= 0
-                  ? `Ganancia: ${formatPrice(rapGanancia)} · ${rapPctCosto.toFixed(1)}% sobre costo · ${rapPctVenta.toFixed(1)}% margen`
-                  : `Pérdida: ${formatPrice(Math.abs(rapGanancia))} — estás vendiendo por debajo del costo`}
-              </p>
-            )}
+          </div>
+
+          {/* Costo + Margen deseado -> precio sugerido */}
+          <div className="rounded-xl border bg-card p-6">
+            <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
+              <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Margen deseado → Precio sugerido</span>
+              <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarMargenDeseado}>
+                <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
+              </Button>
+            </h2>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={mode === 'real' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1 rounded-lg touch:h-11"
+                  onClick={() => setMode('real')}
+                >
+                  % Margen real
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === 'sobre_costo' ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1 rounded-lg touch:h-11"
+                  onClick={() => setMode('sobre_costo')}
+                >
+                  % Sobre costo
+                </Button>
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Costo</label>
+                <MoneyInput value={costo} onChange={setCosto} className="rounded-lg" />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">
+                  % Ganancia deseada {mode === 'real' ? '— sobre el precio de venta' : '— sobre el costo'}
+                </label>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {GANANCIAS.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setMargenDeseado(String(g))}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${margenDeseado === String(g) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                    >
+                      {g}%
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">% manual:</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={margenDeseado}
+                    onChange={(e) => setMargenDeseado(e.target.value)}
+                    className="h-8 w-24 rounded-lg text-sm touch:h-11"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+                <div className="flex justify-between text-lg font-bold text-green-700 dark:text-green-400">
+                  <span>Precio de venta</span>
+                  <span>{precioSugerido > 0 ? formatPrice(precioSugerido) : '—'}</span>
+                </div>
+                {precioSugerido > 0 && (
+                  <>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Ganancia: {formatPrice(gananciaSugerida)} · {margenDeseadoNum}% {mode === 'real' ? 'margen real' : 'sobre costo'}
+                    </p>
+                    {equivalenteOtroModo && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Equivale a {equivalenteOtroModo.pct.toFixed(1)}% {equivalenteOtroModo.label} · Con el {mode === 'real' ? 'método tradicional' : 'margen real'} ({margenDeseadoNum}%): {formatPrice(equivalenteOtroModo.precioAlternativo)}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {precioSugerido > 0 && (
+                <div>
+                  <label className="text-sm text-muted-foreground">% Descuento al cliente</label>
+                  <div className="flex gap-1.5">
+                    {DCTOS_CLIENTE.map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setDctoCliente(dctoCliente === String(d) ? '' : String(d))}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${dctoCliente === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                      >
+                        {d}%
+                      </button>
+                    ))}
+                  </div>
+                  {dctoClienteNum > 0 && (
+                    <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${gananciaConDcto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      Con {dctoClienteNum}% dcto: {formatPrice(precioConDcto)} — Ganancia {formatPrice(gananciaConDcto)} · Margen {margenConDcto.toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Costo + Margen deseado -> precio sugerido */}
+        {/* Calculadora de Cascos (Factura proveedor) */}
         <div className="rounded-xl border bg-card p-6">
-          <h2 className="mb-4 flex items-center justify-between gap-2 text-lg font-semibold">
-            <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Costo + Margen deseado → Precio sugerido</span>
-            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarMargenDeseado}>
+          <h2 className="mb-1 flex items-center justify-between gap-2 text-lg font-semibold">
+            <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Calculadora de Cascos (Factura proveedor)</span>
+            <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarCascos}>
               <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
             </Button>
           </h2>
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={mode === 'real' ? 'default' : 'outline'}
-                size="sm"
-                className="flex-1 rounded-lg touch:h-11"
-                onClick={() => setMode('real')}
-              >
-                % Margen real
-              </Button>
-              <Button
-                type="button"
-                variant={mode === 'sobre_costo' ? 'default' : 'outline'}
-                size="sm"
-                className="flex-1 rounded-lg touch:h-11"
-                onClick={() => setMode('sobre_costo')}
-              >
-                % Sobre costo
-              </Button>
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground">Costo</label>
-              <MoneyInput value={costo} onChange={setCosto} className="rounded-lg" />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground">
-                % Ganancia deseada {mode === 'real' ? '— sobre el precio de venta' : '— sobre el costo'}
-              </label>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {GANANCIAS.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setMargenDeseado(String(g))}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${margenDeseado === String(g) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
-                  >
-                    {g}%
-                  </button>
-                ))}
+          <p className="mb-4 text-xs text-muted-foreground">
+            Ingresa el precio que aparece en la factura del proveedor (columna PRECIO, con IVA) para calcular el costo real.
+          </p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-muted-foreground">Precio en factura por unidad</label>
+                <MoneyInput placeholder="ej. 302.500" value={precioFactura} onChange={setPrecioFactura} className="rounded-lg" />
               </div>
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">% manual:</span>
-                <Input
-                  type="number"
-                  min="1"
-                  value={margenDeseado}
-                  onChange={(e) => setMargenDeseado(e.target.value)}
-                  className="h-8 w-24 rounded-lg text-sm touch:h-11"
-                />
+              <div className="flex flex-wrap items-end gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">% Descuento proveedor</label>
+                  <div className="flex gap-1.5">
+                    {DCTOS_PROVEEDOR.map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setDctoProveedor(String(d))}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${dctoProveedor === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
+                      >
+                        {d}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={incluyeIva} onChange={(e) => setIncluyeIva(e.target.checked)} />
+                  Precio incluye IVA 19%
+                </label>
+              </div>
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
+                <p className="text-xs text-muted-foreground">Costo real por casco</p>
+                <p className="text-xl font-bold text-orange-600">{costoRealCasco > 0 ? formatPrice(costoRealCasco) : '—'}</p>
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-              <div className="flex justify-between text-lg font-bold text-green-700 dark:text-green-400">
-                <span>Precio de venta</span>
-                <span>{precioSugerido > 0 ? formatPrice(precioSugerido) : '—'}</span>
-              </div>
-              {precioSugerido > 0 && (
-                <>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Ganancia: {formatPrice(gananciaSugerida)} · {margenDeseadoNum}% {mode === 'real' ? 'margen real' : 'sobre costo'}
-                  </p>
-                  {equivalenteOtroModo && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Equivale a {equivalenteOtroModo.pct.toFixed(1)}% {equivalenteOtroModo.label} · Con el {mode === 'real' ? 'método tradicional' : 'margen real'} ({margenDeseadoNum}%): {formatPrice(equivalenteOtroModo.precioAlternativo)}
-                    </p>
-                  )}
-                </>
+            <div>
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                Tabla de precios de venta según {mode === 'real' ? '% margen real' : '% ganancia'}:
+              </p>
+              {tablaCascos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Ingresa el precio de factura para ver la tabla.</p>
+              ) : (
+                <div className="overflow-hidden rounded-lg border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-secondary">
+                        <th className="px-3 py-1.5 text-left">{mode === 'real' ? '% Margen' : '% Ganancia'}</th>
+                        <th className="px-3 py-1.5 text-right">Precio de venta</th>
+                        <th className="px-3 py-1.5 text-right">Ganancia $</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tablaCascos.map((row) => (
+                        <tr
+                          key={row.pct}
+                          className={`border-t ${row.pct >= 45 ? 'text-green-600' : row.pct >= 35 ? 'text-cyan-600' : ''}`}
+                        >
+                          <td className="px-3 py-1 font-medium">{row.pct}%</td>
+                          <td className="px-3 py-1 text-right">{formatPrice(row.pv)}</td>
+                          <td className="px-3 py-1 text-right">{formatPrice(row.ganancia)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-
-            {precioSugerido > 0 && (
-              <div>
-                <label className="text-sm text-muted-foreground">% Descuento al cliente</label>
-                <div className="flex gap-1.5">
-                  {DCTOS_CLIENTE.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setDctoCliente(dctoCliente === String(d) ? '' : String(d))}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${dctoCliente === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
-                    >
-                      {d}%
-                    </button>
-                  ))}
-                </div>
-                {dctoClienteNum > 0 && (
-                  <p className={`mt-2 rounded-lg border p-2 text-sm font-medium ${gananciaConDcto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    Con {dctoClienteNum}% dcto: {formatPrice(precioConDcto)} — Ganancia {formatPrice(gananciaConDcto)} · Margen {margenConDcto.toFixed(1)}%
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Calculadora de Cascos (Factura proveedor) */}
-      <div className="rounded-xl border bg-card p-6">
-        <h2 className="mb-1 flex items-center justify-between gap-2 text-lg font-semibold">
-          <span className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Calculadora de Cascos (Factura proveedor)</span>
-          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs font-normal touch:h-11" onClick={limpiarCascos}>
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpiar
-          </Button>
-        </h2>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Ingresa el precio que aparece en la factura del proveedor (columna PRECIO, con IVA) para calcular el costo real.
-        </p>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm text-muted-foreground">Precio en factura por unidad</label>
-              <MoneyInput placeholder="ej. 302.500" value={precioFactura} onChange={setPrecioFactura} className="rounded-lg" />
-            </div>
-            <div className="flex flex-wrap items-end gap-4">
-              <div>
-                <label className="text-sm text-muted-foreground">% Descuento proveedor</label>
-                <div className="flex gap-1.5">
-                  {DCTOS_PROVEEDOR.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setDctoProveedor(String(d))}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium touch:min-h-11 touch:px-4 ${dctoProveedor === String(d) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-input'}`}
-                    >
-                      {d}%
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={incluyeIva} onChange={(e) => setIncluyeIva(e.target.checked)} />
-                Precio incluye IVA 19%
-              </label>
-            </div>
-            <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3">
-              <p className="text-xs text-muted-foreground">Costo real por casco</p>
-              <p className="text-xl font-bold text-orange-600">{costoRealCasco > 0 ? formatPrice(costoRealCasco) : '—'}</p>
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-semibold text-muted-foreground">
-              Tabla de precios de venta según {mode === 'real' ? '% margen real' : '% ganancia'}:
-            </p>
-            {tablaCascos.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Ingresa el precio de factura para ver la tabla.</p>
-            ) : (
-              <div className="overflow-hidden rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-secondary">
-                      <th className="px-3 py-1.5 text-left">{mode === 'real' ? '% Margen' : '% Ganancia'}</th>
-                      <th className="px-3 py-1.5 text-right">Precio de venta</th>
-                      <th className="px-3 py-1.5 text-right">Ganancia $</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tablaCascos.map((row) => (
-                      <tr
-                        key={row.pct}
-                        className={`border-t ${row.pct >= 45 ? 'text-green-600' : row.pct >= 35 ? 'text-cyan-600' : ''}`}
-                      >
-                        <td className="px-3 py-1 font-medium">{row.pct}%</td>
-                        <td className="px-3 py-1 text-right">{formatPrice(row.pv)}</td>
-                        <td className="px-3 py-1 text-right">{formatPrice(row.ganancia)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+        {/* Fórmulas y por qué usar margen real — mismo contenido explicativo
+            que ui/calculadora_panel.py del software local, que la nube no
+            tenía (Fase 5/hallazgo reportado por una vendedora, 2026-07-29). */}
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-6">
+          <h2 className="mb-2 text-base font-semibold text-blue-700 dark:text-blue-400">
+            📐 Fórmulas y por qué usar margen real
+          </h2>
+          <p className="text-sm text-blue-900 dark:text-blue-300">
+            <strong>% Margen real</strong> (sobre el precio de venta): Precio = Costo ÷ (1 − %margen / 100) → %margen = Ganancia ÷ Precio
+            <br />
+            <strong>% Sobre costo</strong> (markup tradicional): Precio = Costo × (1 + %costo / 100) → %costo = Ganancia ÷ Costo
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            El margen sobre costo siempre parece más alto que el margen real porque se calcula sobre un número más pequeño (el costo) en vez del precio que realmente se cobra. Por ejemplo, un 50% &quot;sobre costo&quot; equivale a solo 33,3% de margen real — la misma ganancia en pesos, pero un porcentaje que engaña sobre qué tan rentable es la venta. El margen real (ganancia ÷ precio de venta) es el que coincide con cómo se mide la rentabilidad en el resto del sistema (Dashboard, Historial Mensual, Reportes), por eso es el más confiable para decidir si un precio deja la ganancia que el negocio realmente necesita.
+          </p>
         </div>
-      </div>
-
-      {/* Fórmulas y por qué usar margen real — mismo contenido explicativo
-          que ui/calculadora_panel.py del software local, que la nube no
-          tenía (Fase 5/hallazgo reportado por una vendedora, 2026-07-29). */}
-      <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-6">
-        <h2 className="mb-2 text-base font-semibold text-blue-700 dark:text-blue-400">
-          📐 Fórmulas y por qué usar margen real
-        </h2>
-        <p className="text-sm text-blue-900 dark:text-blue-300">
-          <strong>% Margen real</strong> (sobre el precio de venta): Precio = Costo ÷ (1 − %margen / 100) → %margen = Ganancia ÷ Precio
-          <br />
-          <strong>% Sobre costo</strong> (markup tradicional): Precio = Costo × (1 + %costo / 100) → %costo = Ganancia ÷ Costo
-        </p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          El margen sobre costo siempre parece más alto que el margen real porque se calcula sobre un número más pequeño (el costo) en vez del precio que realmente se cobra. Por ejemplo, un 50% &quot;sobre costo&quot; equivale a solo 33,3% de margen real — la misma ganancia en pesos, pero un porcentaje que engaña sobre qué tan rentable es la venta. El margen real (ganancia ÷ precio de venta) es el que coincide con cómo se mide la rentabilidad en el resto del sistema (Dashboard, Historial Mensual, Reportes), por eso es el más confiable para decidir si un precio deja la ganancia que el negocio realmente necesita.
-        </p>
       </div>
     </div>
   )

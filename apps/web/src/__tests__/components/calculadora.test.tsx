@@ -143,3 +143,47 @@ describe('Calculadora — Calculadora de Cascos (factura proveedor)', () => {
     expect(screen.getByText('$ 371.526')).toBeInTheDocument()
   })
 })
+
+describe('Calculadora — Conteo de efectivo', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {} }) }) as any
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('suma cantidad × denominación de monedas y billetes en el total', async () => {
+    const user = userEvent.setup()
+    render(<CalculadoraPage />)
+
+    await user.click(screen.getByRole('tab', { name: /Conteo de efectivo/ }))
+    await user.type(screen.getByLabelText(/Cantidad de monedas de \$\s?500$/), '4')
+    await user.type(screen.getByLabelText(/Cantidad de billetes de \$\s?50\.000$/), '3')
+    await user.type(screen.getByLabelText(/Cantidad de billetes de \$\s?2\.000$/), '1')
+
+    // 4 × 500 + 3 × 50.000 + 1 × 2.000 = 154.000
+    expect(screen.getByTestId('total-efectivo')).toHaveTextContent(/154\.000/)
+  })
+
+  it('ignora caracteres no numéricos en las cantidades', async () => {
+    const user = userEvent.setup()
+    render(<CalculadoraPage />)
+
+    await user.click(screen.getByRole('tab', { name: /Conteo de efectivo/ }))
+    const input = screen.getByLabelText(/Cantidad de billetes de \$\s?100\.000$/)
+    await user.type(input, '2a-')
+
+    expect(input).toHaveValue('2')
+    expect(screen.getByTestId('total-efectivo')).toHaveTextContent(/200\.000/)
+  })
+
+  it('conserva el conteo al cambiar de pestaña y volver', async () => {
+    const user = userEvent.setup()
+    render(<CalculadoraPage />)
+
+    await user.click(screen.getByRole('tab', { name: /Conteo de efectivo/ }))
+    await user.type(screen.getByLabelText(/Cantidad de billetes de \$\s?20\.000$/), '5')
+    await user.click(screen.getByRole('tab', { name: /Precios y margen/ }))
+    await user.click(screen.getByRole('tab', { name: /Conteo de efectivo/ }))
+
+    expect(screen.getByTestId('total-efectivo')).toHaveTextContent(/100\.000/)
+  })
+})

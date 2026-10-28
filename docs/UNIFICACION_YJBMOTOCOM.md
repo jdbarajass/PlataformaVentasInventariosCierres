@@ -437,6 +437,8 @@ Pantalla `/admin/calculadora` (100% cliente, no persiste nada): Costo + Precio �
 
 Pendiente documentado: "Cascos desde Factura" (extracción de PDFs de proveedores) no se replicó por no tener muestras reales de esos PDFs.
 
+**Pestaña "Conteo de efectivo" (2026-10-28)**: la Calculadora ahora tiene dos pestañas — "Precios y margen" (todo lo anterior, sin cambios) y "Conteo de efectivo" (`components/admin/conteo-efectivo.tsx`). Se escribe la cantidad de monedas ($50–$1.000) y billetes ($2.000–$100.000) y calcula subtotales por denominación, total monedas, total billetes y total general. Copiado del paso "Efectivo contado" del cierre de caja de KOAJ (`CIERRE_KOAJ/Cierre-Caja-Puerto-Carreno-Frontend/src/components/Dashboard.jsx`), sin su Excel, borrador en localStorage ni escena 3D. No persiste nada; el conteo se monta al abrir su pestaña por primera vez y no se borra al cambiar de pestaña.
+
 ### 10.2 Sub-fase 3.12 — Mi Cuadre
 
 Pantalla `/admin/mi-cuadre`: unidades vendidas, total recaudado y desglose por método de pago del día, auto-refresh cada 60s, sin costos ni márgenes — accesible a `admin` y `seller` por igual (como en el local). Reutiliza `/api/pos/sales`, sin API nueva.
