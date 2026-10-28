@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
 import { bogotaDateStr, bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
 
 interface SaleItem {
   id: string
@@ -143,7 +144,11 @@ function VentasDiaContent() {
   // medianoche en Colombia, la fecha UTC ya es el día siguiente, así que
   // esta página (usada a diario para el cuadre de caja) mostraría el día
   // equivocado (vacío) en la noche si se usara ese patrón.
-  const [date, setDate] = useState(() => searchParams.get('date') || bogotaDateStr(new Date()))
+  const [dateInput, setDateInput] = useState(() => searchParams.get('date') || bogotaDateStr(new Date()))
+  // Fecha "asentada": se actualiza medio segundo después de dejar de digitar,
+  // para no buscar (ni mostrar) las fechas intermedias mientras se escribe.
+  // Todo lo demás (consultas, título, exportar, registrar gasto/nota) usa esta.
+  const date = useDebouncedValue(dateInput)
   const [sales, setSales] = useState<Sale[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -850,7 +855,7 @@ function VentasDiaContent() {
         {!exportMode && (
           <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha" className="w-auto rounded-lg touch:h-11 max-lg:min-w-[9rem] max-lg:flex-1" />
+            <Input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} aria-label="Fecha" className="w-auto rounded-lg touch:h-11 max-lg:min-w-[9rem] max-lg:flex-1" />
             <select
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value as typeof exportFormat)}

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { bogotaDateStr, bogotaDayRange } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
 
 interface SellerPerformance {
   seller_id: string | null
@@ -18,12 +19,16 @@ interface SellerPerformance {
 export default function RendimientoVendedoresPage() {
   // "Hoy"/"día 1 del mes" en hora de Bogotá, no vía `toISOString()` — de
   // 7pm a medianoche en Colombia, la fecha UTC ya es el día siguiente.
-  const [dateFrom, setDateFrom] = useState(() => {
+  const [dateFromInput, setDateFromInput] = useState(() => {
     const date = new Date()
     date.setDate(1)
     return bogotaDateStr(date)
   })
-  const [dateTo, setDateTo] = useState(() => bogotaDateStr(new Date()))
+  const [dateToInput, setDateToInput] = useState(() => bogotaDateStr(new Date()))
+  // Rango "asentado" medio segundo después de dejar de digitar (no se busca
+  // con fechas intermedias mientras se escribe).
+  const dateFrom = useDebouncedValue(dateFromInput)
+  const dateTo = useDebouncedValue(dateToInput)
   const [data, setData] = useState<SellerPerformance[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -84,9 +89,9 @@ export default function RendimientoVendedoresPage() {
 
       <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-card p-4">
         <span className="text-sm font-medium">Rango:</span>
-        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-auto rounded-lg" />
+        <Input type="date" value={dateFromInput} onChange={(e) => setDateFromInput(e.target.value)} className="w-auto rounded-lg" />
         <span className="text-muted-foreground">a</span>
-        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-auto rounded-lg" />
+        <Input type="date" value={dateToInput} onChange={(e) => setDateToInput(e.target.value)} className="w-auto rounded-lg" />
       </div>
 
       {loading ? (

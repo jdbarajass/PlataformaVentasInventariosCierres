@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { bogotaDateStr, bogotaDayRange } from '@/lib/bogota-time'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { useAuth } from '@/lib/auth-context'
 import { DailyClosure, Inserts } from '@/types/database'
 
@@ -62,6 +63,13 @@ export default function DailyClosuresPage() {
   const [expectedTotal, setExpectedTotal] = useState<number | null>(null)
   const [expectedByMethod, setExpectedByMethod] = useState<Record<string, number>>({})
   const [loadingExpected, setLoadingExpected] = useState(false)
+  // Fecha con la que se calcula el esperado: se asienta medio segundo después
+  // de dejar de digitar. Mientras no coincida con la del formulario (o se
+  // esté calculando), el esperado en pantalla no es el de esa fecha: se
+  // muestra "Calculando…" y no se deja guardar, porque el cierre guarda una
+  // foto del efectivo esperado (cash_expected_cents).
+  const expectedDate = useDebouncedValue(formData.date)
+  const expectedPending = loadingExpected || expectedDate !== formData.date
 
   useEffect(() => {
     fetchClosures()
@@ -76,7 +84,7 @@ export default function DailyClosuresPage() {
       if (!showForm || !session?.access_token) return
       setLoadingExpected(true)
       try {
-        const { from, to } = bogotaDayRange(formData.date)
+        const { from, to } = bogotaDayRange(expectedDate)
         const res = await fetch(`/api/pos/sales?from=${from}&to=${to}`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         })
@@ -101,7 +109,7 @@ export default function DailyClosuresPage() {
     }
     fetchExpected()
     return () => { cancelled = true }
-  }, [showForm, formData.date, session?.access_token])
+  }, [showForm, expectedDate, session?.access_token])
 
   // Envuelto en un límite de tiempo: supabaseBrowser puede colgarse
   // indefinidamente al refrescar la sesión tras un rato de inactividad de
@@ -126,6 +134,8 @@ export default function DailyClosuresPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // El esperado aún no corresponde a la fecha elegida (ver expectedPending).
+    if (expectedPending) return
 
     const cash = parseInt(formData.cash_amount || '0') * 100
     const card = parseInt(formData.card_amount || '0') * 100
@@ -235,7 +245,7 @@ export default function DailyClosuresPage() {
                 día — para reconciliar el conteo manual, no reemplazarlo. */}
             <div className="mb-4 rounded-xl border border-dashed bg-muted/30 p-4">
               <p className="text-sm font-medium">Total esperado según Ventas de mostrador</p>
-              {loadingExpected ? (
+              {expectedPending ? (
                 <p className="mt-1 text-sm text-muted-foreground">Calculando…</p>
               ) : expectedTotal !== null ? (
                 <>
@@ -358,7 +368,7 @@ export default function DailyClosuresPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" className="touch:h-11">Guardar Arqueo</Button>
+                <Button type="submit" className="touch:h-11" disabled={expectedPending}>Guardar Arqueo</Button>
               </div>
             </form>
           </CardContent>

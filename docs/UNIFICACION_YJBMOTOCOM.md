@@ -2929,3 +2929,13 @@ El usuario reportó, con capturas, que buscando el 21/10/2026 dos veces le salí
 - No afectadas: las pantallas de Cierre Alegra (solo consultan con el botón "Consultar") y los formularios con fecha que no buscan nada (Facturas, Notas, Cupones, Préstamos).
 
 **Verificado**: `tsc` y eslint limpios; vitest 147/149 (2 pruebas nuevas en `__tests__/lib/use-latest-request.test.ts`; las 2 fallas son las de `loans.test.ts`, previas y no relacionadas). Sin migración. Replicar en YBMOTOCOM.
+
+### 95.1 Esperar a que se termine de digitar la fecha (2026-10-28)
+
+Con la sección 95 la pantalla ya terminaba siempre en la fecha correcta, pero mientras se digitaba se veían por un instante los datos de la fecha intermedia (ej. 21/01). El usuario propuso un botón "Consultar"; se descartó por ahora porque en Ventas del Día permitiría ver una fecha en el campo y datos de otra si se olvida oprimirlo (el mismo tipo de confusión que se acababa de corregir).
+
+**Implementación**: nuevo `lib/use-debounced-value.ts` (`useDebouncedValue`, 500 ms). Cada pantalla separa el valor del campo (`dateInput`, `dateFromInput`, `movementFromInput`…) del valor "asentado" que se consulta; el asentado solo cambia medio segundo después de dejar de digitar. Aplicado en Ventas del Día (título, exportar y registrar gasto/nota usan la fecha asentada, así siempre coinciden con los datos en pantalla), Reportes, Rendimiento Vendedores y Cuentas → Movimientos. `useLatestRequest` se mantiene como respaldo.
+
+**Cierres (dinero)**: el cierre guarda una foto del efectivo esperado (`cash_expected_cents`) tomada de lo que se calculó para la fecha. Antes se podía guardar mientras ese cálculo estaba en curso o era de otra fecha. Ahora `expectedPending` (cargando, o fecha asentada ≠ fecha del formulario) muestra "Calculando…" y deshabilita "Guardar Arqueo"; `handleSubmit` también lo verifica (por si se envía con Enter).
+
+**Verificado**: `tsc` y eslint limpios; vitest 148/150 (prueba nueva `__tests__/lib/use-debounced-value.test.ts`; las 2 fallas son las previas de `loans.test.ts`). Sin migración.

@@ -10,6 +10,7 @@ import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser
 import { useAuth } from '@/lib/auth-context'
 import { bogotaDateStr, bogotaDayRange, bogotaHour, BOGOTA_TZ } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
 
 // "YYYY-MM-DD" sin hora se interpreta como medianoche UTC — formatearlo
 // con new Date(str).toLocaleDateString() sin fijar la zona horaria usa la
@@ -62,12 +63,16 @@ export default function ReportsPage() {
   // "Hoy" y "hace 30 días" en hora de Bogotá, no la fecha UTC de
   // `toISOString()` — de 7pm a medianoche en Colombia, la fecha UTC ya es
   // el día siguiente, lo que dejaría el rango por defecto corrido un día.
-  const [dateFrom, setDateFrom] = useState(() => {
+  const [dateFromInput, setDateFromInput] = useState(() => {
     const date = new Date()
     date.setDate(date.getDate() - 30)
     return bogotaDateStr(date)
   })
-  const [dateTo, setDateTo] = useState(() => bogotaDateStr(new Date()))
+  const [dateToInput, setDateToInput] = useState(() => bogotaDateStr(new Date()))
+  // Rango "asentado" medio segundo después de dejar de digitar (no se busca
+  // con fechas intermedias mientras se escribe).
+  const dateFrom = useDebouncedValue(dateFromInput)
+  const dateTo = useDebouncedValue(dateToInput)
   const [salesData, setSalesData] = useState<SalesData[]>([])
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [totals, setTotals] = useState({ revenue: 0, orders: 0, avgOrder: 0 })
@@ -347,15 +352,15 @@ export default function ReportsPage() {
             </div>
             <Input
               type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              value={dateFromInput}
+              onChange={(e) => setDateFromInput(e.target.value)}
               aria-label="Desde" className="w-auto touch:h-11 max-sm:min-w-0 max-sm:flex-1"
             />
             <span className="text-muted-foreground">a</span>
             <Input
               type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              value={dateToInput}
+              onChange={(e) => setDateToInput(e.target.value)}
               aria-label="Hasta" className="w-auto touch:h-11 max-sm:min-w-0 max-sm:flex-1"
             />
           </div>

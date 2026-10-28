@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { bogotaDayRange, bogotaToISO } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
 
 interface Account {
   id: string
@@ -160,8 +161,11 @@ export default function CuentasPage() {
   // Filtros de la pestaña Movimientos (la API ya los soportaba, faltaba el
   // control en la UI — ver docs/UNIFICACION_YJBMOTOCOM.md sección 13.4, ítem 4.4.8).
   const [movementAccountFilter, setMovementAccountFilter] = useState('')
-  const [movementFrom, setMovementFrom] = useState('')
-  const [movementTo, setMovementTo] = useState('')
+  const [movementFromInput, setMovementFromInput] = useState('')
+  const [movementToInput, setMovementToInput] = useState('')
+  // Filtro "asentado" medio segundo después de dejar de digitar.
+  const movementFrom = useDebouncedValue(movementFromInput)
+  const movementTo = useDebouncedValue(movementToInput)
 
   // Ajuste manual
   const [adjustAccount, setAdjustAccount] = useState('')
@@ -874,15 +878,15 @@ export default function CuentasPage() {
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </select>
-                <Input type="date" value={movementFrom} onChange={(e) => setMovementFrom(e.target.value)} className="w-auto rounded-lg" />
+                <Input type="date" value={movementFromInput} onChange={(e) => setMovementFromInput(e.target.value)} className="w-auto rounded-lg" />
                 <span className="text-sm text-muted-foreground">a</span>
-                <Input type="date" value={movementTo} onChange={(e) => setMovementTo(e.target.value)} className="w-auto rounded-lg" />
-                {(movementAccountFilter || movementFrom || movementTo) && (
+                <Input type="date" value={movementToInput} onChange={(e) => setMovementToInput(e.target.value)} className="w-auto rounded-lg" />
+                {(movementAccountFilter || movementFromInput || movementToInput) && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="rounded-lg"
-                    onClick={() => { setMovementAccountFilter(''); setMovementFrom(''); setMovementTo('') }}
+                    onClick={() => { setMovementAccountFilter(''); setMovementFromInput(''); setMovementToInput('') }}
                   >
                     Limpiar filtros
                   </Button>
