@@ -4,6 +4,8 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 
 ## 🗂️ Índice de Documentación
 
+> ⚠️ **[PENDIENTES.md](PENDIENTES.md)** — lista viva de lo que sigue abierto (migraciones de YBMOTOCOM, seguridad). Revisarla al empezar.
+
 ### 🔍 Auditoría técnica
 
 | Documento | Descripción | Para quién |

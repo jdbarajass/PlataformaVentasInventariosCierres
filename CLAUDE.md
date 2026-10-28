@@ -2,6 +2,10 @@
 
 Ver `README.md` para la visión general del proyecto y `docs/README.md` para el índice de documentación.
 
+## Pendientes por recordar
+
+`docs/PENDIENTES.md` tiene lo que sigue abierto (migraciones sin correr en YBMOTOCOM, pendientes de seguridad). **En cada sesión, recuérdale al usuario lo que siga abierto ahí**, en un punto aparte. Antes de decir que algo sigue pendiente, verifícalo en el código. Cuando algo se resuelva, pásalo a la sección "Resueltos" con la fecha.
+
 ## Skills y MCP de diseño (`.claude/skills/`, `.mcp.json`)
 
 Este repo trae 6 skills de diseño/UX de Claude Code y 2 servidores MCP (Playwright, 21st.dev). Detalle completo, con tabla de dependencia de GitHub, en `docs/CLAUDE_SKILLS.md` — léelo si hace falta más contexto.
