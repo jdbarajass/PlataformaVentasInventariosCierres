@@ -68,6 +68,10 @@ export default function DailyClosuresPage() {
   }, [])
 
   useEffect(() => {
+    // Si la fecha cambia antes de que responda (fecha digitada a mano pasa
+    // por fechas intermedias), se descarta esta respuesta para no precargar
+    // el total esperado de otro día.
+    let cancelled = false
     const fetchExpected = async () => {
       if (!showForm || !session?.access_token) return
       setLoadingExpected(true)
@@ -78,6 +82,7 @@ export default function DailyClosuresPage() {
         })
         if (!res.ok) return
         const { data } = await res.json()
+        if (cancelled) return
         const sales = (data || []).filter((s: any) => s.status !== 'cancelled')
         const total = sales.reduce((sum: number, s: any) => sum + s.total_cents, 0)
         const byMethod: Record<string, number> = {}
@@ -91,10 +96,11 @@ export default function DailyClosuresPage() {
       } catch (error) {
         console.error('Error fetching expected total:', error)
       } finally {
-        setLoadingExpected(false)
+        if (!cancelled) setLoadingExpected(false)
       }
     }
     fetchExpected()
+    return () => { cancelled = true }
   }, [showForm, formData.date, session?.access_token])
 
   // Envuelto en un límite de tiempo: supabaseBrowser puede colgarse

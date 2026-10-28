@@ -2915,3 +2915,17 @@ El usuario registró dos veces el mismo gasto el 21/10 ("VARSOL Y VUELTAS · Otr
 - **Repercusión revisada**: Reportes, Historial Mensual y Presupuesto leen `operating_expenses` en vivo; los cierres diarios no guardan copia de los gastos → todo se recalcula solo. El Excel de importación solo crea gastos.
 - **Pruebas**: `__tests__/api/operating-expenses-edit.test.ts` (5 casos, uno verifica el rol admin). Se agregó `maybeSingle` al mock de Supabase. `tsc` y eslint limpios; vitest 144/146 — las 2 fallas son de `loans.test.ts` y ya fallaban sin este cambio (no relacionadas).
 - **Pendiente del usuario**: tras el deploy, en Ventas del Día → fecha 21/10/2026, eliminar uno de los dos "VARSOL Y VUELTAS" con la papelera. Replicar en YBMOTOCOM (sin migración).
+
+## 95. Bug: al digitar la fecha a mano, Ventas del Día mostraba datos de otro día (2026-10-27)
+
+El usuario reportó, con capturas, que buscando el 21/10/2026 dos veces le salían datos distintos. En una de las capturas el título decía "21 de octubre" pero la única venta era `YJBM-20261002-9823` (del **2 de octubre**).
+
+**Causa raíz**: condición de carrera. Al escribir la fecha en el `<input type="date">`, el valor pasa por fechas intermedias válidas (ej. 21/01 → 21/10); cada cambio dispara una búsqueda nueva (efectos que dependen de `date`) y ninguna descartaba su respuesta si mientras tanto se había pedido otra fecha. Si la respuesta de la fecha intermedia llegaba de última, pisaba la buena. El encabezado (que sale del estado `date`, no de la respuesta) sí mostraba la fecha correcta, y por eso el error no era evidente.
+
+**Fix**: nuevo `lib/use-latest-request.ts` (`useLatestRequest`): cada búsqueda toma un turno y, después de cada `await`, revisa `isStale()` antes de pintar; si ya hay una búsqueda más nueva, se descarta. Aplicado en todas las pantallas que buscan solas al cambiar una fecha:
+- **Ventas del Día**: ventas, gastos operativos, notas del día y cambios de producto.
+- **Cierres**: precarga del total esperado al elegir la fecha del cierre (aquí con la bandera `cancelled` en la limpieza del `useEffect`, porque la carga vive dentro del efecto). Era el caso más delicado: podía precargar los montos esperados de otro día.
+- **Cuentas → Movimientos** (filtro desde/hasta), **Reportes** y **Rendimiento Vendedores**.
+- No afectadas: las pantallas de Cierre Alegra (solo consultan con el botón "Consultar") y los formularios con fecha que no buscan nada (Facturas, Notas, Cupones, Préstamos).
+
+**Verificado**: `tsc` y eslint limpios; vitest 147/149 (2 pruebas nuevas en `__tests__/lib/use-latest-request.test.ts`; las 2 fallas son las de `loans.test.ts`, previas y no relacionadas). Sin migración. Replicar en YBMOTOCOM.

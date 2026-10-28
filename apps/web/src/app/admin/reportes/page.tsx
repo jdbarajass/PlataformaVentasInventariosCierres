@@ -9,6 +9,7 @@ import { formatPrice } from '@/lib/utils'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
 import { bogotaDateStr, bogotaDayRange, bogotaHour, BOGOTA_TZ } from '@/lib/bogota-time'
+import { useLatestRequest } from '@/lib/use-latest-request'
 
 // "YYYY-MM-DD" sin hora se interpreta como medianoche UTC — formatearlo
 // con new Date(str).toLocaleDateString() sin fijar la zona horaria usa la
@@ -85,7 +86,11 @@ export default function ReportsPage() {
   // Todo el fetch va envuelto en un límite de tiempo único: supabaseBrowser
   // puede colgarse indefinidamente al refrescar la sesión tras un rato de
   // inactividad de la pestaña (ver comentario en lib/supabase-browser.ts).
+  // Descarta respuestas de rangos viejos (fecha digitada a mano): `run`
+  // revisa isStale() después de cada consulta, antes de pintar.
+  const beginRequest = useLatestRequest()
   const fetchReports = useCallback(async () => {
+    const isStale = beginRequest()
     setIsLoading(true)
     setLoadError(null)
 
@@ -175,6 +180,8 @@ export default function ReportsPage() {
         }
       }
 
+      if (isStale()) return
+
       // Convert to arrays
       const salesArray = Object.entries(dailySales)
         .map(([date, data]) => ({ date, ...data }))
@@ -255,6 +262,7 @@ export default function ReportsPage() {
         : 0
       const totalExpenses = totalOperatingExpenses + totalFixedExpenses
 
+      if (isStale()) return
       setProfitTotals({
         cost: totalCost,
         commission: totalCommission,
@@ -269,11 +277,12 @@ export default function ReportsPage() {
       await withTimeout(run(), 12000, 'Reportes')
     } catch (error) {
       console.error('Error loading reportes:', error)
+      if (isStale()) return
       setLoadError('No se pudo cargar el reporte. Puede ser un problema temporal de la sesión — intenta de nuevo.')
     } finally {
-      setIsLoading(false)
+      if (!isStale()) setIsLoading(false)
     }
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, beginRequest])
 
   useEffect(() => {
     fetchReports()

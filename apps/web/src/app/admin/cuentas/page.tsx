@@ -25,6 +25,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { bogotaDayRange, bogotaToISO } from '@/lib/bogota-time'
+import { useLatestRequest } from '@/lib/use-latest-request'
 
 interface Account {
   id: string
@@ -205,11 +206,14 @@ export default function CuentasPage() {
     }
   }, [session?.access_token, authHeaders])
 
+  // Descarta respuestas de filtros viejos (fecha digitada a mano).
+  const beginMovements = useLatestRequest()
   const fetchMovements = useCallback(async () => {
     // Admin de solo lectura: sin acceso a Movimientos (la API también lo
     // rechaza, ver /api/account-movements) — se evita la llamada para no
     // dejar un 403 innecesario en la consola.
     if (!session?.access_token || isReadOnlyAdmin) return
+    const isStale = beginMovements()
     try {
       const params = new URLSearchParams({ limit: '50' })
       if (movementAccountFilter) params.set('account_id', movementAccountFilter)
@@ -220,11 +224,12 @@ export default function CuentasPage() {
       const res = await fetch(`/api/account-movements?${params.toString()}`, { headers: authHeaders() })
       if (!res.ok) throw new Error('Error fetching movements')
       const { data } = await res.json()
+      if (isStale()) return
       setMovements(data || [])
     } catch (error) {
       console.error('Error fetching account movements:', error)
     }
-  }, [session?.access_token, isReadOnlyAdmin, authHeaders, movementAccountFilter, movementFrom, movementTo])
+  }, [session?.access_token, isReadOnlyAdmin, authHeaders, movementAccountFilter, movementFrom, movementTo, beginMovements])
 
   const fetchClosures = useCallback(async () => {
     if (!session?.access_token || !canView) return

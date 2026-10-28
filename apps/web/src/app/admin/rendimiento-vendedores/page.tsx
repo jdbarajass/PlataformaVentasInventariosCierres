@@ -5,6 +5,7 @@ import { Trophy, Loader2, Lock } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/lib/auth-context'
 import { bogotaDateStr, bogotaDayRange } from '@/lib/bogota-time'
+import { useLatestRequest } from '@/lib/use-latest-request'
 
 interface SellerPerformance {
   seller_id: string | null
@@ -30,8 +31,11 @@ export default function RendimientoVendedoresPage() {
   const isAdmin = userProfile?.role === 'admin'
   const canView = isAdmin || userProfile?.role === 'admin_readonly'
 
+  // Descarta respuestas de rangos viejos (fecha digitada a mano).
+  const beginRequest = useLatestRequest()
   const fetchData = useCallback(async () => {
     if (!session?.access_token || !canView) return
+    const isStale = beginRequest()
     setLoading(true)
     try {
       // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
@@ -44,13 +48,14 @@ export default function RendimientoVendedoresPage() {
       )
       if (!res.ok) return
       const { data } = await res.json()
+      if (isStale()) return
       setData(data || [])
     } catch (error) {
       console.error('Error fetching seller performance:', error)
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
-  }, [session?.access_token, canView, dateFrom, dateTo])
+  }, [session?.access_token, canView, dateFrom, dateTo, beginRequest])
 
   useEffect(() => {
     fetchData()

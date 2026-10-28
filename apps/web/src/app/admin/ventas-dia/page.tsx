@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
 import { bogotaDateStr, bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
+import { useLatestRequest } from '@/lib/use-latest-request'
 
 interface SaleItem {
   id: string
@@ -218,8 +219,16 @@ function VentasDiaContent() {
     [session?.access_token]
   )
 
+  // Cada carga por fecha descarta su respuesta si mientras tanto se pidió
+  // otra (fecha digitada a mano → búsquedas de fechas intermedias).
+  const beginSales = useLatestRequest()
+  const beginExpenses = useLatestRequest()
+  const beginNotes = useLatestRequest()
+  const beginExchanges = useLatestRequest()
+
   const fetchSales = useCallback(async () => {
     if (!session?.access_token) return
+    const isStale = beginSales()
     setLoading(true)
     try {
       // Límites explícitos en hora de Bogotá (no naive `${date}T00:00:00`,
@@ -229,37 +238,42 @@ function VentasDiaContent() {
       const res = await fetch(`/api/pos/sales?from=${from}&to=${to}&limit=200`, { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
+      if (isStale()) return
       setSales(data || [])
     } catch (error) {
       console.error('Error fetching sales:', error)
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
-  }, [session?.access_token, authHeaders, date])
+  }, [session?.access_token, authHeaders, date, beginSales])
 
   const fetchExpenses = useCallback(async () => {
     if (!session?.access_token) return
+    const isStale = beginExpenses()
     try {
       const res = await fetch(`/api/operating-expenses?from=${date}&to=${date}`, { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
+      if (isStale()) return
       setExpenses(data || [])
     } catch (error) {
       console.error('Error fetching expenses:', error)
     }
-  }, [session?.access_token, authHeaders, date])
+  }, [session?.access_token, authHeaders, date, beginExpenses])
 
   const fetchDailyNotes = useCallback(async () => {
     if (!session?.access_token) return
+    const isStale = beginNotes()
     try {
       const res = await fetch(`/api/daily-notes?from=${date}&to=${date}`, { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
+      if (isStale()) return
       setDailyNotes(data || [])
     } catch (error) {
       console.error('Error fetching daily notes:', error)
     }
-  }, [session?.access_token, authHeaders, date])
+  }, [session?.access_token, authHeaders, date, beginNotes])
 
   const fetchAccounts = useCallback(async () => {
     if (!session?.access_token) return
@@ -287,11 +301,13 @@ function VentasDiaContent() {
 
   const fetchExchanges = useCallback(async () => {
     if (!session?.access_token) return
+    const isStale = beginExchanges()
     try {
       const { from, to } = bogotaDayRange(date)
       const res = await fetch(`/api/inventory/adjust?type=exchange&from=${from}&to=${to}&limit=200`, { headers: authHeaders() })
       if (!res.ok) return
       const { data } = await res.json()
+      if (isStale()) return
       // El endpoint devuelve 2 filas por cambio (una negativa — lo que se
       // entregó al cliente — y una positiva — lo que devolvió), unidas por
       // `reference_id` (ver POST /api/inventory/exchange). Se agrupan aquí
@@ -315,7 +331,7 @@ function VentasDiaContent() {
     } catch (error) {
       console.error('Error fetching exchanges:', error)
     }
-  }, [session?.access_token, authHeaders, date])
+  }, [session?.access_token, authHeaders, date, beginExchanges])
 
   useEffect(() => { fetchSales() }, [fetchSales])
   useEffect(() => { fetchExpenses() }, [fetchExpenses])
