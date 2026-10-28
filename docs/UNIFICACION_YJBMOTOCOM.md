@@ -2,7 +2,7 @@
 
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
-**Última actualización**: 2026-08-19 (entrada 79)
+**Última actualización**: 2026-10-27 (entrada 94 — editar/eliminar gastos operativos en Ventas del Día)
 **Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas**, más una **segunda auditoría exhaustiva sección-por-sección (sección 15/16) también completa** — las 19 secciones del panel admin fueron comparadas contra el software local módulo por módulo y se corrigieron 15 hallazgos reales adicionales que la Fase 4 no había cerrado (ver sección 16 para el resumen ejecutivo). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00025 pendientes de aplicar/confirmar por el usuario en Supabase real (la `00025` es nueva, de esta ronda). Se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, sección 14). Queda documentado un candidato claro para una futura Fase 5: ampliar la cobertura de `audit_logs` a ~8 módulos que hoy no registran nada (sección 15.17).
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
@@ -2899,3 +2899,19 @@ El usuario no encontraba los cascos ICH en Inventario, aunque se siguen vendiend
 - Desde 2026-09-08 hubo 8 ventas de "ICH 501" y una de "VISOR ICH", todas como ítem fuera de catálogo (`product_id` nulo). Dinero y ganancia correctos, sin descuento de stock. Ninguna venta se borró.
 
 Alta, a pedido del usuario (escritura directa con la misma lógica de "Ingresar": `generarSiguienteSerial` / `generarCodigoBarrasAuto`): **CASCO ICH**, sku `41`, categoría Cascos, costo $95.000, precio $140.000, `active=false` como todo lo que entra por Ingresar. Tallas XS, S, M, L, XL y 2XL (curva completa, igual que el XTRONG R1), todas con stock 0 y códigos de barras de familia `1106045011`…`1106045016`. Se buscaron colisiones contra todos los códigos y SKUs, incluidos los productos eliminados. No se tocaron los productos ICH viejos ni las ventas fuera de catálogo.
+
+## 94. Ventas del Día: editar y eliminar gastos operativos (2026-10-27)
+
+El usuario registró dos veces el mismo gasto el 21/10 ("VARSOL Y VUELTAS · Otro", $12.000 c/u) y no tenía cómo corregirlo: la lista de "Gastos operativos del día" era solo lectura, aunque el API ya tenía `DELETE /api/operating-expenses/[id]` (función SQL `delete_operating_expense`, 00016, que revierte el débito a la cuenta con un movimiento `expense_reversal`).
+
+- **UI** (`admin/ventas-dia/page.tsx`): cada gasto tiene lápiz (edición en línea: descripción, categoría, monto, cuenta) y papelera (con `confirm`). Ocultos en modo exportación, igual que el formulario. La fila muestra además la cuenta de la que salió el gasto.
+- **Solo admin** (pedido del usuario): `PATCH` y `DELETE /api/operating-expenses/[id]` exigen `requireAuth(['admin'])`; `seller` y `admin_readonly` reciben 403. Los botones se ocultan a quien no es admin en Ventas del Día **y en Presupuesto**, que también borraba gastos con el mismo endpoint y antes se lo permitía al vendedor. Registrar gastos (POST) sigue abierto a `admin`/`seller`.
+- **API** (`PATCH /api/operating-expenses/[id]`):
+  - Si solo cambia descripción/categoría → `UPDATE` directo (no toca dinero, conserva el id).
+  - Si cambia el monto o la cuenta → `delete_operating_expense` + `record_operating_expense` con la misma fecha y `created_by`. Sin migración nueva (mismo criterio que la sección 92). El gasto queda con id nuevo y la cuenta muestra la reversa + el débito corregido.
+  - Saldo validado **antes** de revertir con `checkSufficientBalance`: con la misma cuenta solo se exige la diferencia (si aumenta); con cuenta nueva, el monto completo.
+  - Riesgo aceptado: si la reversa pasa pero el re-registro falla, el gasto queda eliminado (saldos consistentes) y el API devuelve un error que pide registrarlo de nuevo. Se ordenó así (reversa primero) porque el orden inverso podría dejar un gasto duplicado.
+  - Auditoría: `operating_expense_updated` con datos anteriores y nuevos.
+- **Repercusión revisada**: Reportes, Historial Mensual y Presupuesto leen `operating_expenses` en vivo; los cierres diarios no guardan copia de los gastos → todo se recalcula solo. El Excel de importación solo crea gastos.
+- **Pruebas**: `__tests__/api/operating-expenses-edit.test.ts` (5 casos, uno verifica el rol admin). Se agregó `maybeSingle` al mock de Supabase. `tsc` y eslint limpios; vitest 144/146 — las 2 fallas son de `loans.test.ts` y ya fallaban sin este cambio (no relacionadas).
+- **Pendiente del usuario**: tras el deploy, en Ventas del Día → fecha 21/10/2026, eliminar uno de los dos "VARSOL Y VUELTAS" con la papelera. Replicar en YBMOTOCOM (sin migración).

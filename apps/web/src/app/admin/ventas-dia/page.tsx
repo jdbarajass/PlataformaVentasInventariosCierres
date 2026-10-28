@@ -77,7 +77,7 @@ interface ProductResult {
   price_cents: number
   variants: { id: string; talla: string | null }[]
 }
-interface Expense { id: string; description: string; amount_cents: number; category: string }
+interface Expense { id: string; description: string; amount_cents: number; category: string; account_id: string | null }
 interface DailyNote { id: string; text: string; created_at: string }
 interface Loan { id: string; product_title: string; warehouse: string; status: string; direction: 'lent' | 'borrowed'; created_at: string }
 interface ExchangeItem { title: string; talla: string | null; qty: number }
@@ -176,6 +176,13 @@ function VentasDiaContent() {
   // Gasto form
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
   const [savingExpense, setSavingExpense] = useState(false)
+  // Edición en línea de un gasto ya registrado (corregir un error de
+  // digitación o un gasto duplicado sin tener que ir a la base de datos).
+  // Solo admin: el vendedor registra gastos pero no los corrige ni borra
+  // (el API también lo exige, esto solo oculta los botones).
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
+  const [editExpenseForm, setEditExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
+  const [savingEditExpense, setSavingEditExpense] = useState(false)
 
   // Notas del día — junto a Gastos operativos, para dejar registrado algo
   // que haya pasado ese día (no es un gasto ni un pendiente con fecha de
@@ -204,6 +211,7 @@ function VentasDiaContent() {
   const { toast } = useToast()
   // Igual que en el software local: solo Admin ve costo/ganancia/comisión/utilidad.
   const canViewProfit = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
+  const canManageExpenses = userProfile?.role === 'admin'
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -675,6 +683,8 @@ function VentasDiaContent() {
     return handleExportImage(exportFormat)
   }
 
+  const accountName = (id: string | null) => (id ? accounts.find((a) => a.id === id)?.name : undefined)
+
   const handleAddExpense = async () => {
     const amount = Math.round((parseFloat(expenseForm.amount) || 0) * 100)
     if (!expenseForm.description.trim() || !expenseForm.category.trim() || amount <= 0) {
@@ -703,6 +713,67 @@ function VentasDiaContent() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setSavingExpense(false)
+    }
+  }
+
+  const startEditExpense = (e: Expense) => {
+    setEditingExpenseId(e.id)
+    setEditExpenseForm({
+      description: e.description,
+      amount: String(Math.round(e.amount_cents / 100)),
+      category: e.category,
+      account_id: e.account_id || '',
+    })
+  }
+
+  const handleUpdateExpense = async () => {
+    if (!editingExpenseId) return
+    const amount = Math.round((parseFloat(editExpenseForm.amount) || 0) * 100)
+    if (!editExpenseForm.description.trim() || !editExpenseForm.category.trim() || amount <= 0) {
+      toast({ title: 'Error', description: 'Descripción, categoría y monto son obligatorios', variant: 'destructive' })
+      return
+    }
+    try {
+      setSavingEditExpense(true)
+      const res = await fetch(`/api/operating-expenses/${editingExpenseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          description: editExpenseForm.description.trim(), amount_cents: amount,
+          category: editExpenseForm.category, account_id: editExpenseForm.account_id || null,
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al editar el gasto')
+      }
+      toast({ title: 'Gasto actualizado' })
+      setEditingExpenseId(null)
+      await fetchExpenses()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+      // Si el API revirtió el gasto pero falló al re-registrarlo, la lista
+      // debe reflejarlo; recargar no hace daño en los demás casos.
+      await fetchExpenses()
+    } finally {
+      setSavingEditExpense(false)
+    }
+  }
+
+  const handleDeleteExpense = async (e: Expense) => {
+    const refund = e.account_id ? ' El dinero se devuelve a su cuenta.' : ''
+    if (!confirm(`¿Eliminar el gasto "${e.description}" por ${formatPrice(e.amount_cents)}?${refund}`)) return
+    try {
+      const res = await fetch(`/api/operating-expenses/${e.id}`, { method: 'DELETE', headers: authHeaders() })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Error al eliminar el gasto')
+      }
+      toast({ title: 'Gasto eliminado' })
+      if (editingExpenseId === e.id) setEditingExpenseId(null)
+      await fetchExpenses()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
   }
 
@@ -1380,10 +1451,53 @@ function VentasDiaContent() {
             <p className="text-sm text-muted-foreground">No hay gastos registrados en esta fecha.</p>
           ) : (
             <div className="space-y-1">
-              {expenses.map((e) => (
-                <div key={e.id} className="flex justify-between rounded-lg border px-3 py-2 text-sm">
-                  <span>{e.description} · {e.category}</span>
-                  <span className="font-medium">{formatPrice(e.amount_cents)}</span>
+              {expenses.map((e) => editingExpenseId === e.id && !exportMode && canManageExpenses ? (
+                <div key={e.id} className="flex flex-wrap gap-2 rounded-lg border border-primary/50 p-2">
+                  <Input placeholder="Descripción" value={editExpenseForm.description} onChange={(ev) => setEditExpenseForm({ ...editExpenseForm, description: ev.target.value })} className="rounded-lg" />
+                  <select value={editExpenseForm.category} onChange={(ev) => setEditExpenseForm({ ...editExpenseForm, category: ev.target.value })} aria-label="Categoría del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
+                    {/* Un gasto viejo puede tener una categoría fuera de la lista cerrada: se conserva como opción. */}
+                    {!(EXPENSE_CATEGORIES as readonly string[]).includes(editExpenseForm.category) && (
+                      <option value={editExpenseForm.category}>{editExpenseForm.category}</option>
+                    )}
+                    {EXPENSE_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <MoneyInput placeholder="Monto" value={editExpenseForm.amount} onChange={(v) => setEditExpenseForm({ ...editExpenseForm, amount: v })} className="rounded-lg" />
+                  <select value={editExpenseForm.account_id} onChange={(ev) => setEditExpenseForm({ ...editExpenseForm, account_id: ev.target.value })} aria-label="Cuenta del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
+                    <option value="">Sin cuenta</option>
+                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                  <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleUpdateExpense} disabled={savingEditExpense}>
+                    {savingEditExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                    Guardar
+                  </Button>
+                  <Button variant="ghost" className="rounded-lg touch:h-11 max-sm:w-full" onClick={() => setEditingExpenseId(null)} disabled={savingEditExpense}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                  <span>
+                    {e.description} · {e.category}
+                    {accountName(e.account_id) && (
+                      <span className="text-xs text-muted-foreground"> · {accountName(e.account_id)}</span>
+                    )}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="font-medium">{formatPrice(e.amount_cents)}</span>
+                    {!exportMode && canManageExpenses && (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 touch:h-11 touch:w-11" title="Editar gasto" aria-label="Editar gasto" onClick={() => startEditExpense(e)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 touch:h-11 touch:w-11" title="Eliminar gasto" aria-label="Eliminar gasto" onClick={() => handleDeleteExpense(e)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

@@ -458,9 +458,12 @@ export default function PresupuestoPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="font-bold">{formatPrice(e.amount_cents)}</p>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar gasto" onClick={() => handleDeleteExpense(e)}>
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                    </Button>
+                    {/* Borrar gastos es solo de admin (el API también lo exige). */}
+                    {userProfile?.role === 'admin' && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar gasto" onClick={() => handleDeleteExpense(e)}>
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

@@ -50,6 +50,10 @@ export function createSupabaseMock(
       record(`${table}.single`, [])
       return Promise.resolve(response)
     })
+    chain.maybeSingle = vi.fn(() => {
+      record(`${table}.maybeSingle`, [])
+      return Promise.resolve(response)
+    })
     // Allows `await serviceSupabase.from(x).insert(y)` without `.single()`
     chain.then = (resolve: any, reject: any) => Promise.resolve(response).then(resolve, reject)
     return chain
