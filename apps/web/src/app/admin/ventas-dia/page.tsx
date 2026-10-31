@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
+import { AdminAuthorizationDialog } from '@/components/admin/admin-authorization-dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
 import { bogotaDateStr, bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
@@ -173,6 +174,9 @@ function VentasDiaContent() {
   // Edit form state
   const [editCart, setEditCart] = useState<CartLine[]>([])
   const [editPayments, setEditPayments] = useState<PaymentSplit[]>([])
+  const [cancellingSaleId, setCancellingSaleId] = useState<string | null>(null)
+  const [authorizingEditId, setAuthorizingEditId] = useState<string | null>(null)
+  const [authorizingBulk, setAuthorizingBulk] = useState(false)
   const [editCustomerName, setEditCustomerName] = useState('')
   const [editCustomerPhone, setEditCustomerPhone] = useState('')
   const [editQuery, setEditQuery] = useState('')
@@ -481,8 +485,9 @@ function VentasDiaContent() {
   const editDiscount = editCart.reduce((sum, l) => sum + l.discount_cents, 0)
   const editTotal = editSubtotal - editDiscount
   const editPaymentsTotal = editPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0) * 100, 0)
+  const validEditPayments = editPayments.filter((p) => parseFloat(p.amount) > 0)
 
-  const saveEdit = async (saleId: string, force = false) => {
+  const saveEdit = async (saleId: string) => {
     if (editCart.length === 0) {
       toast({ title: 'Error', description: 'La venta debe tener al menos un producto', variant: 'destructive' })
       return
@@ -491,8 +496,7 @@ function VentasDiaContent() {
       toast({ title: 'Error', description: 'Los ítems fuera de catálogo necesitan un nombre', variant: 'destructive' })
       return
     }
-    const validPayments = editPayments.filter((p) => parseFloat(p.amount) > 0)
-    if (validPayments.length === 0) {
+    if (validEditPayments.length === 0) {
       toast({ title: 'Error', description: 'Ingresa al menos un método de pago', variant: 'destructive' })
       return
     }
@@ -506,45 +510,15 @@ function VentasDiaContent() {
       })
       return
     }
+    // Un vendedor necesita la autorización de un admin (el servidor la exige
+    // igual, esto es solo el flujo en pantalla).
+    if (userProfile?.role !== 'admin') {
+      setAuthorizingEditId(saleId)
+      return
+    }
     try {
       setSaving(true)
-      const res = await fetch(`/api/pos/sales/${saleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          customer_name: editCustomerName || null,
-          customer_phone: editCustomerPhone || null,
-          // Ítem fuera de catálogo (product_id null): manda manual_title/
-          // manual_cost_cents, que es lo que resolveSale exige en ese caso
-          // (antes esto no se mandaba nunca y guardar una factura con un
-          // ítem manual fallaba con "Los ítems fuera de catálogo requieren
-          // un nombre", sin importar qué se hubiera editado).
-          items: editCart.map((l) =>
-            l.product_id
-              ? { product_id: l.product_id, variant_id: l.variant_id, qty: l.qty, price_cents: l.price_cents, discount_cents: l.discount_cents }
-              : { product_id: null, variant_id: null, manual_title: l.title.trim(), manual_cost_cents: l.cost_cents, qty: l.qty, price_cents: l.price_cents, discount_cents: l.discount_cents }
-          ),
-          payments: validPayments.map((p) => ({
-            method: p.method, method_detail: p.method_detail || null,
-            account_id: p.account_id || null, amount_cents: Math.round(parseFloat(p.amount) * 100),
-          })),
-          force,
-        }),
-      })
-      if (!res.ok) {
-        const error = await res.json()
-        if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
-          setSaving(false)
-          if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
-            await saveEdit(saleId, true)
-          }
-          return
-        }
-        throw new Error(error.error || 'Error al editar la venta')
-      }
-      toast({ title: 'Venta actualizada' })
-      cancelEdit()
-      await fetchSales()
+      await submitEdit(saleId)
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
@@ -552,16 +526,77 @@ function VentasDiaContent() {
     }
   }
 
+  const submitEdit = async (saleId: string, credentials?: { adminEmail: string; adminPassword: string }, force = false) => {
+    const res = await fetch(`/api/pos/sales/${saleId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        ...credentials,
+        customer_name: editCustomerName || null,
+        customer_phone: editCustomerPhone || null,
+        // Ítem fuera de catálogo (product_id null): manda manual_title/
+        // manual_cost_cents, que es lo que resolveSale exige en ese caso
+        // (antes esto no se mandaba nunca y guardar una factura con un
+        // ítem manual fallaba con "Los ítems fuera de catálogo requieren
+        // un nombre", sin importar qué se hubiera editado).
+        items: editCart.map((l) =>
+          l.product_id
+            ? { product_id: l.product_id, variant_id: l.variant_id, qty: l.qty, price_cents: l.price_cents, discount_cents: l.discount_cents }
+            : { product_id: null, variant_id: null, manual_title: l.title.trim(), manual_cost_cents: l.cost_cents, qty: l.qty, price_cents: l.price_cents, discount_cents: l.discount_cents }
+        ),
+        payments: validEditPayments.map((p) => ({
+          method: p.method, method_detail: p.method_detail || null,
+          account_id: p.account_id || null, amount_cents: Math.round(parseFloat(p.amount) * 100),
+        })),
+        force,
+      }),
+    })
+    if (!res.ok) {
+      const error = await res.json()
+      if (!force && typeof error.error === 'string' && error.error.includes('Stock insuficiente')) {
+        if (confirm(`${error.error}\n\n¿Continuar de todas formas?`)) {
+          await submitEdit(saleId, credentials, true)
+        } else {
+          setAuthorizingEditId(null)
+        }
+        return
+      }
+      throw new Error(error.error || 'Error al editar la venta')
+    }
+    setAuthorizingEditId(null)
+    toast({ title: 'Venta actualizada' })
+    cancelEdit()
+    await fetchSales()
+  }
+
+  // Admin confirma y cancela; un vendedor necesita la autorización de un admin
+  // (el servidor la exige igual, esto es solo el flujo en pantalla).
   const handleCancelSale = async (id: string) => {
+    if (userProfile?.role !== 'admin') {
+      setCancellingSaleId(id)
+      return
+    }
     if (!confirm('¿Cancelar esta venta? Se restaura el stock y el saldo de las cuentas.')) return
     try {
-      const res = await fetch(`/api/pos/sales/${id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) throw new Error('Error al cancelar la venta')
-      toast({ title: 'Venta cancelada' })
-      await fetchSales()
+      await cancelSale(id)
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
+  }
+
+  const cancelSale = async (id: string, credentials?: { adminEmail: string; adminPassword: string }) => {
+    const res = await fetch(`/api/pos/sales/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: credentials ? JSON.stringify(credentials) : undefined,
+    })
+    if (!res.ok) {
+      const error = await res.json()
+      throw new Error(error.error || 'Error al cancelar la venta')
+    }
+    setCancellingSaleId(null)
+    toast({ title: 'Venta cancelada' })
+    await fetchSales()
   }
 
   const toggleSelect = (id: string) => {
@@ -575,29 +610,38 @@ function VentasDiaContent() {
 
   const handleBulkMethod = async () => {
     if (selectedIds.size < 2 || !session?.access_token) return
+    if (userProfile?.role !== 'admin') {
+      setAuthorizingBulk(true)
+      return
+    }
     try {
       setApplyingBulk(true)
-      const res = await fetch('/api/pos/sales/bulk-method', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ orderIds: Array.from(selectedIds), method: bulkMethod }),
-      })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Error al cambiar el método de pago')
-      }
-      const { data } = await res.json()
-      toast({
-        title: 'Método de pago actualizado',
-        description: `${data.updated} venta(s) actualizada(s)${data.excluded ? ` · ${data.excluded} con pago combinado se excluyeron` : ''}`,
-      })
-      setSelectedIds(new Set())
-      await fetchSales()
+      await applyBulkMethod()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setApplyingBulk(false)
     }
+  }
+
+  const applyBulkMethod = async (credentials?: { adminEmail: string; adminPassword: string }) => {
+    const res = await fetch('/api/pos/sales/bulk-method', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ...credentials, orderIds: Array.from(selectedIds), method: bulkMethod }),
+    })
+    if (!res.ok) {
+      const error = await res.json()
+      throw new Error(error.error || 'Error al cambiar el método de pago')
+    }
+    const { data } = await res.json()
+    setAuthorizingBulk(false)
+    toast({
+      title: 'Método de pago actualizado',
+      description: `${data.updated} venta(s) actualizada(s)${data.excluded ? ` · ${data.excluded} con pago combinado se excluyeron` : ''}`,
+    })
+    setSelectedIds(new Set())
+    await fetchSales()
   }
 
   const handleExportExcel = async () => {
@@ -843,6 +887,25 @@ function VentasDiaContent() {
 
   return (
     <div className="space-y-6 sm:space-y-8" ref={captureRef}>
+      {cancellingSaleId && (
+        <AdminAuthorizationDialog
+          title="Autorización de admin"
+          description="Cancelar una venta requiere que un admin la autorice. Se restaura el stock y el saldo de las cuentas."
+          confirmLabel="Cancelar venta"
+          onAuthorize={(credentials) => cancelSale(cancellingSaleId, credentials)}
+          onClose={() => setCancellingSaleId(null)}
+        />
+      )}
+      {authorizingBulk && (
+        <AdminAuthorizationDialog
+          title="Autorización de admin"
+          description="Cambiar el método de pago de varias ventas requiere que un admin lo autorice."
+          confirmLabel="Cambiar método de pago"
+          onAuthorize={(credentials) => applyBulkMethod(credentials)}
+          onClose={() => setAuthorizingBulk(false)}
+        />
+      )}
+
       {/* < lg: título arriba y controles debajo (antes todo en una fila y el
           subtítulo quedaba en una columna angosta). lg+: igual que antes. */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0">
@@ -1440,6 +1503,17 @@ function VentasDiaContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Va después del formulario de edición para quedar por encima de él. */}
+      {authorizingEditId && (
+        <AdminAuthorizationDialog
+          title="Autorización de admin"
+          description="Editar una venta requiere que un admin lo autorice. Se ajustan el stock y el saldo de las cuentas."
+          confirmLabel="Guardar cambios"
+          onAuthorize={(credentials) => submitEdit(authorizingEditId, credentials)}
+          onClose={() => setAuthorizingEditId(null)}
+        />
       )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">

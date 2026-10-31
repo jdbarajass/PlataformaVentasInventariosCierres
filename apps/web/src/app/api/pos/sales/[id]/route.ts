@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
-import { resolveSale } from '@/lib/pos-sale'
+import { authorizeSaleChange, resolveSale } from '@/lib/pos-sale'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -71,6 +71,7 @@ export async function GET(
 // PUT - Editar una venta de mostrador ya registrada: revierte por completo
 // el stock/saldo de cuentas de la venta actual y vuelve a aplicarlos con los
 // datos nuevos, conservando el mismo id/order_number (función edit_pos_sale).
+// Igual que al cancelar, un vendedor necesita la autorización de un admin.
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -90,6 +91,11 @@ export async function PUT(
         { error: 'Datos inválidos', details: validation.error.errors },
         { status: 400 }
       )
+    }
+
+    const authorization = await authorizeSaleChange(auth.user, body, 'Editar una venta')
+    if (authorization.error !== undefined) {
+      return NextResponse.json({ error: authorization.error }, { status: 403 })
     }
 
     const { customer_name, customer_phone, notes, items, payments, force } = validation.data
@@ -133,7 +139,7 @@ export async function PUT(
       action: 'pos_sale_edited',
       tableName: 'orders',
       recordId: id,
-      newData: orderPayload,
+      newData: { ...orderPayload, authorized_by: authorization.authorizedBy },
     })
 
     return NextResponse.json({ data: order })
@@ -152,7 +158,8 @@ export async function PUT(
 }
 
 // DELETE - Cancelar una venta de mostrador: revierte stock y saldo de
-// cuentas (función atómica cancel_pos_sale).
+// cuentas (función atómica cancel_pos_sale). Un vendedor necesita que un admin
+// lo autorice con sus credenciales, verificadas aquí en el servidor.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -162,6 +169,12 @@ export async function DELETE(
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) {
       return auth.response
+    }
+
+    const body = await request.json().catch(() => null)
+    const authorization = await authorizeSaleChange(auth.user, body, 'Cancelar una venta')
+    if (authorization.error !== undefined) {
+      return NextResponse.json({ error: authorization.error }, { status: 403 })
     }
 
     const supabase = getServiceSupabase()
@@ -182,6 +195,7 @@ export async function DELETE(
       action: 'pos_sale_cancelled',
       tableName: 'orders',
       recordId: id,
+      newData: { authorized_by: authorization.authorizedBy },
     })
 
     return NextResponse.json({ message: 'Venta cancelada exitosamente', id: id })

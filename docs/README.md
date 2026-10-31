@@ -11,6 +11,7 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 | Documento | Descripción | Para quién |
 |-----------|-------------|------------|
 | **[AUDITORIA_2026-06.md](AUDITORIA_2026-06.md)** | Auditoría integral (seguridad, pagos, BD, SEO, tests, deuda técnica) y bitácora completa de las 4 fases de remediación. Incluye qué hacía Prisma (eliminado) y cómo retomarlo si se necesita. | 👨‍💻 Desarrolladores + 🔐 Seguridad |
+| **[AUDITORIA_VENTAS_INVENTARIO_2026-10.md](AUDITORIA_VENTAS_INVENTARIO_2026-10.md)** | Auditoría del flujo de ventas, cuentas e inventario: pruebas contra las migraciones reales, causas de faltantes, fallas de plata y plan de corrección. | 👨‍💻 Desarrolladores + 🧑‍💼 Dueño del negocio |
 
 ### 💳 Integración de Pagos (Stripe)
 

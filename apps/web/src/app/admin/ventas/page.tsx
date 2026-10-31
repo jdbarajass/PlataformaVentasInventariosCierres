@@ -29,6 +29,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
+import { AdminAuthorizationDialog } from '@/components/admin/admin-authorization-dialog'
 import { bogotaDateStr, bogotaDayRange, bogotaTimeStr, bogotaToISO, formatBogotaTime } from '@/lib/bogota-time'
 
 interface ProductVariant {
@@ -194,6 +195,7 @@ export default function VentasPage() {
   const [searching, setSearching] = useState(false)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [saving, setSaving] = useState(false)
+  const [cancellingSaleId, setCancellingSaleId] = useState<string | null>(null)
   const [todaySales, setTodaySales] = useState<any[]>([])
   const [loadingSales, setLoadingSales] = useState(true)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -816,23 +818,48 @@ export default function VentasPage() {
     }
   }
 
+  // Admin confirma y cancela; un vendedor necesita la autorización de un admin
+  // (el servidor la exige igual, esto es solo el flujo en pantalla).
   const handleCancelSale = async (id: string) => {
+    if (userProfile?.role !== 'admin') {
+      setCancellingSaleId(id)
+      return
+    }
     if (!confirm('¿Cancelar esta venta? Se restaura el stock y el saldo de las cuentas.')) return
     try {
-      const res = await fetch(`/api/pos/sales/${id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Error al cancelar la venta')
-      }
-      toast({ title: 'Venta cancelada' })
-      await fetchTodaySales()
+      await cancelSale(id)
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
   }
 
+  const cancelSale = async (id: string, credentials?: { adminEmail: string; adminPassword: string }) => {
+    const res = await fetch(`/api/pos/sales/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: credentials ? JSON.stringify(credentials) : undefined,
+    })
+    if (!res.ok) {
+      const error = await res.json()
+      throw new Error(error.error || 'Error al cancelar la venta')
+    }
+    setCancellingSaleId(null)
+    toast({ title: 'Venta cancelada' })
+    await fetchTodaySales()
+  }
+
   return (
     <div className={`space-y-6 sm:space-y-8 ${cart.length > 0 ? 'pb-20 lg:pb-0' : ''}`}>
+      {cancellingSaleId && (
+        <AdminAuthorizationDialog
+          title="Autorización de admin"
+          description="Cancelar una venta requiere que un admin la autorice. Se restaura el stock y el saldo de las cuentas."
+          confirmLabel="Cancelar venta"
+          onAuthorize={(credentials) => cancelSale(cancellingSaleId, credentials)}
+          onClose={() => setCancellingSaleId(null)}
+        />
+      )}
+
       <div>
         <h1 className="text-2xl font-bold sm:text-3xl">Registrar Venta</h1>
         <p className="text-sm text-muted-foreground sm:text-base">Venta de mostrador — carrito, tallas y pagos combinados</p>

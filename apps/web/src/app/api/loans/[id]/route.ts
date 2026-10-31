@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthenticatedClient } from '@/lib/supabase'
+import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
@@ -34,16 +34,36 @@ export async function PUT(
     const body = await request.json()
     const validatedData = loanUpdateSchema.parse(body)
 
-    const { data: loan, error } = await supabase
-      .from('loans')
-      // @ts-ignore - Supabase type inference issue
-      .update({ ...validatedData, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single()
+    const { status, ...fields } = validatedData
+    let loan: unknown = null
 
-    if (error) {
-      throw error
+    // El estado va por función atómica: devolver un préstamo regresa la unidad
+    // al inventario (ver migración 00059).
+    if (status) {
+      const { data, error } = await (getServiceSupabase().rpc as any)('set_loan_status', {
+        p_loan_id: id,
+        p_status: status,
+        p_actor: auth.user.id,
+      })
+      if (error) {
+        throw error
+      }
+      loan = data
+    }
+
+    if (Object.keys(fields).length > 0) {
+      const { data, error } = await supabase
+        .from('loans')
+        // @ts-ignore - Supabase type inference issue
+        .update({ ...fields, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        throw error
+      }
+      loan = data
     }
 
     await logAudit(supabase, {
@@ -87,10 +107,11 @@ export async function DELETE(
 
     const supabase = createAuthenticatedClient(auth.token)
 
-    const { error } = await supabase
-      .from('loans')
-      .delete()
-      .eq('id', id)
+    // Borrar un préstamo pendiente devuelve la unidad al inventario.
+    const { error } = await (getServiceSupabase().rpc as any)('delete_loan', {
+      p_loan_id: id,
+      p_actor: auth.user.id,
+    })
 
     if (error) {
       throw error
