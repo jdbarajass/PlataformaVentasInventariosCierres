@@ -332,3 +332,47 @@ export function cashFlowReport(d: CashFlowReportInput, brand: string): ReportDoc
   }
 }
 
+
+// ---------- Ventas por día ----------
+
+export interface SalesMonthReportInput {
+  year: number
+  month: number
+  days: { date: string; weekday: string; byColumn: Record<string, number>; total: number; rating: string }[]
+  columns: { key: string; label: string }[]
+  totals: Record<string, number> & { total: number; orders: number }
+  halves: { label: string; byColumn: Record<string, number>; total: number }[]
+  ratingCounts: Record<string, { days: number; cents: number }>
+  commissions: { total: number }
+}
+
+const RATING_LABEL: Record<string, string> = { mala: 'Mala', media: 'Media', normal: 'Normal', buena: 'Buena', sin_venta: 'Sin venta' }
+
+export function salesMonthReport(d: SalesMonthReportInput, brand: string): ReportDoc {
+  const cols = d.columns
+  const line = (label: string, by: Record<string, number>, total: number, extra: Cell = null): Cell[] => [label, ...cols.map((c) => by[c.key] || null), total, extra]
+  return {
+    title: `${brand} — Ventas por día`,
+    subtitle: mm(d.year, d.month),
+    filename: `ventas_por_dia_${d.year}_${String(d.month).padStart(2, '0')}`,
+    sections: [
+      {
+        title: 'Ventas diarias por medio de pago',
+        columns: [{ header: 'Día' }, ...cols.map((c) => ({ header: c.label, kind: 'money' as const })), { header: 'Total', kind: 'money' }, { header: 'Venta' }],
+        rows: d.days.map((day) => line(`${day.weekday} ${Number(day.date.slice(8, 10))}`, day.byColumn, day.total, RATING_LABEL[day.rating] || day.rating)),
+        totals: line('Total', d.totals, d.totals.total, `${d.totals.orders} ventas`),
+        afterTotals: d.halves.map((h) => line(h.label, h.byColumn, h.total)),
+      },
+      {
+        title: 'Calificación de los días',
+        columns: [{ header: 'Calificación' }, { header: 'Días', kind: 'number' }, { header: 'Ventas', kind: 'money' }],
+        rows: ['buena', 'normal', 'media', 'mala', 'sin_venta'].map((k) => [RATING_LABEL[k], d.ratingCounts[k]?.days ?? 0, d.ratingCounts[k]?.cents ?? 0]),
+      },
+    ],
+    notes: [
+      'Calificación: Mala menos de $300.000 · Media hasta $599.999 · Normal hasta $1.499.999 · Buena desde $1.500.000.',
+      `Comisiones de los medios de pago en el mes: ${fmtMoney(d.commissions.total)} (se le cobran al cliente como recargo).`,
+      'Las ventas de la tienda en línea van en su propia columna. "Sin medio" son ventas sin el pago registrado.',
+    ],
+  }
+}

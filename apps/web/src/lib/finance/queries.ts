@@ -38,3 +38,26 @@ export function fetchPeriodExpenses(supabase: SupabaseClient, p: Pick<MonthPerio
     supabase.from('operating_expenses').select('amount_cents, category').gte('date', p.fromDate).lt('date', p.toDate).order('date', { ascending: true }).range(a, b)
   )
 }
+
+/**
+ * Ventas por Datáfono, Addi y SisteCrédito que todavía no llegan a las cuentas
+ * (released_at vacío). SisteCrédito llega con su margen: base × (1 + margen %).
+ */
+export async function fetchPendingReleases(supabase: SupabaseClient): Promise<Record<string, { amount_cents: number; release_date: string }[]>> {
+  const [card, addi, siste] = await Promise.all([
+    fetchAll<{ amount_cents: number; release_date: string }>((a, b) =>
+      supabase.from('card_pending_releases').select('amount_cents, release_date').is('released_at', null).order('id').range(a, b)
+    ),
+    fetchAll<{ amount_cents: number; release_date: string }>((a, b) =>
+      supabase.from('addi_pending_releases').select('amount_cents, release_date').is('released_at', null).order('id').range(a, b)
+    ),
+    fetchAll<{ base_amount_cents: number; margin_pct: number; release_date: string }>((a, b) =>
+      supabase.from('sistecredito_pending_releases').select('base_amount_cents, margin_pct, release_date').is('released_at', null).order('id').range(a, b)
+    ),
+  ])
+  return {
+    datafono: card.map((r) => ({ amount_cents: Number(r.amount_cents), release_date: r.release_date })),
+    addi: addi.map((r) => ({ amount_cents: Number(r.amount_cents), release_date: r.release_date })),
+    sistecredito: siste.map((s) => ({ amount_cents: Math.round(Number(s.base_amount_cents) * (1 + Number(s.margin_pct) / 100)), release_date: s.release_date })),
+  }
+}

@@ -3,10 +3,10 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { bogotaDateStr } from '@/lib/bogota-time'
 import { monthPeriod } from '@/lib/finance/periods'
-import { fetchAll, fetchPeriodExpenses, fetchPeriodOrders } from '@/lib/finance/queries'
+import { fetchAll, fetchPendingReleases, fetchPeriodExpenses, fetchPeriodOrders } from '@/lib/finance/queries'
 import { buildIncomeStatement } from '@/lib/finance/income-statement'
 import { fixedMonthlyTotalCents, type FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
-import { buildCashFlow, buildPayables, buildReceivables, withdrawable, type CashMovement, type PendingRelease } from '@/lib/finance/cash-flow'
+import { buildCashFlow, buildPayables, buildReceivables, withdrawable, type CashMovement } from '@/lib/finance/cash-flow'
 
 // GET /api/finance/cash-flow?year=YYYY&month=M
 // Flujo de caja del mes + por cobrar / por pagar de hoy + cuánto se puede
@@ -38,9 +38,7 @@ export async function GET(request: NextRequest) {
       receivables,
       invoices,
       invoicePayments,
-      card,
-      addi,
-      siste,
+      pending,
       orders,
       expenses,
     ] = await Promise.all([
@@ -71,11 +69,7 @@ export async function GET(request: NextRequest) {
       fetchAll<{ invoice_id: string; amount_cents: number }>((a, b) =>
         supabase.from('supplier_invoice_payments').select('invoice_id, amount_cents').order('id').range(a, b)
       ),
-      fetchAll<PendingRelease>((a, b) => supabase.from('card_pending_releases').select('amount_cents, release_date').is('released_at', null).order('id').range(a, b)),
-      fetchAll<PendingRelease>((a, b) => supabase.from('addi_pending_releases').select('amount_cents, release_date').is('released_at', null).order('id').range(a, b)),
-      fetchAll<{ base_amount_cents: number; margin_pct: number; release_date: string }>((a, b) =>
-        supabase.from('sistecredito_pending_releases').select('base_amount_cents, margin_pct, release_date').is('released_at', null).order('id').range(a, b)
-      ),
+      fetchPendingReleases(supabase),
       fetchPeriodOrders(supabase, period),
       fetchPeriodExpenses(supabase, period),
     ])
@@ -105,11 +99,7 @@ export async function GET(request: NextRequest) {
     const receivablesSummary = buildReceivables({
       credits: credits.map((c) => ({ total_amount_cents: Number(c.total_amount_cents), paid_cents: paidByCredit.get(c.id) || 0 })),
       receivables,
-      pending: {
-        datafono: card,
-        addi,
-        sistecredito: siste.map((s) => ({ amount_cents: Math.round(Number(s.base_amount_cents) * (1 + Number(s.margin_pct) / 100)), release_date: s.release_date })),
-      },
+      pending,
       today,
     })
     const payables = buildPayables(
