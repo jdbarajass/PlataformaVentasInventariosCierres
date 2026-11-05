@@ -4,6 +4,21 @@ Historial completo de versiones y cambios del proyecto.
 
 ---
 
+## [v11.0] — Control financiero (2026-11-05)
+
+Detalle completo en `docs/PLAN_CONTROL_FINANCIERO.md`.
+
+- **Finanzas → Estado de resultados** (`/admin/finanzas`): pestañas Mes (estado de resultados con comparación, punto
+  de equilibrio y ventas para una utilidad deseada), Año (cierre general mes a mes con compras, "lo que quedó" e
+  inventario de fin de mes), Inventario (rotación, productos quietos, rentabilidad por categoría y producto) y Flujo de
+  caja (entradas y salidas, por cobrar, por pagar y cuánto se puede retirar). Exportar a Excel y PDF en cada una.
+- Clasificación de salidas de plata (operativo, financiero, inversión, retiro del dueño) y sin doble conteo de gastos
+  fijos en la utilidad real de Historial Mensual, Reportes y Ventas del Día.
+- Migración `00059_inventory_snapshots.sql` y tarea diaria `/api/cron/inventory-snapshot`.
+- Registrar Venta: los productos fuera de catálogo exigen costo.
+
+---
+
 ## [v10.1] — Fix: carga infinita en Mi Cuenta (2026-06-25)
 
 ### Bug fix

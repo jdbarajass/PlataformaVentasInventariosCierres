@@ -2,7 +2,7 @@
 
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
-**Última actualización**: 2026-10-27 (entrada 94 — editar/eliminar gastos operativos en Ventas del Día)
+**Última actualización**: 2026-11-05 (entrada 96 — control financiero, detalle en `docs/PLAN_CONTROL_FINANCIERO.md`)
 **Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas**, más una **segunda auditoría exhaustiva sección-por-sección (sección 15/16) también completa** — las 19 secciones del panel admin fueron comparadas contra el software local módulo por módulo y se corrigieron 15 hallazgos reales adicionales que la Fase 4 no había cerrado (ver sección 16 para el resumen ejecutivo). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00025 pendientes de aplicar/confirmar por el usuario en Supabase real (la `00025` es nueva, de esta ronda). Se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, sección 14). Queda documentado un candidato claro para una futura Fase 5: ampliar la cobertura de `audit_logs` a ~8 módulos que hoy no registran nada (sección 15.17).
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
@@ -2941,3 +2941,21 @@ Con la sección 95 la pantalla ya terminaba siempre en la fecha correcta, pero m
 **Cierres (dinero)**: el cierre guarda una foto del efectivo esperado (`cash_expected_cents`) tomada de lo que se calculó para la fecha. Antes se podía guardar mientras ese cálculo estaba en curso o era de otra fecha. Ahora `expectedPending` (cargando, o fecha asentada ≠ fecha del formulario) muestra "Calculando…" y deshabilita "Guardar Arqueo"; `handleSubmit` también lo verifica (por si se envía con Enter).
 
 **Verificado**: `tsc` y eslint limpios; vitest 148/150 (prueba nueva `__tests__/lib/use-debounced-value.test.ts`; las 2 fallas son las previas de `loans.test.ts`). Sin migración.
+
+## 96. Control financiero: estado de resultados, año, inventario, flujo de caja y exportar (2026-11-05)
+
+Plan completo, fórmulas, decisiones y verificación por fase en **`docs/PLAN_CONTROL_FINANCIERO.md`** (no se repite aquí).
+Reemplaza el control que el usuario llevaba en el Excel `KOAJ_CARRENO2026.xlsx` (hoja CierreGeneral), tomando del
+"prompt maestro" de CFO solo lo que el sistema puede calcular con datos reales.
+
+- Página nueva **Finanzas → Estado de resultados** (`/admin/finanzas`, solo admin; el admin de solo lectura la ve) con
+  4 pestañas: Mes, Año, Inventario y Flujo de caja, cada una con exportar a Excel y PDF.
+- Fórmulas centralizadas en `apps/web/src/lib/finance/` (con pruebas); APIs en `apps/web/src/app/api/finance/*`.
+- **Cambio de regla en la utilidad real** (Historial Mensual, Reportes, Ventas del Día): retiros del dueño e
+  inversiones no restan, y los pagos de Arriendo/Sueldo/Luz/Servicios que ya están en Gastos Fijos no se cuentan dos
+  veces. 7 categorías de gasto nuevas.
+- Migración `00059_inventory_snapshots.sql` (foto mensual del inventario) + tarea diaria `/api/cron/inventory-snapshot`.
+- Registrar Venta exige el costo de los productos fuera de catálogo (ventas nuevas).
+- Limpieza de datos en producción (con auditoría): productos de demostración eliminados; categoría y costo de dos
+  chaquetas doble faz.
+- Replicado en YBMOTOCOM (`docs/EXPANSION_SEGUNDA_TIENDA.md`, secciones 17-21).
