@@ -11,6 +11,7 @@ import { EXPENSE_CLASS_LABEL, type FixedMonthlyExpenses } from '@/lib/finance/ex
 import { formatPrice, formatPct, MONTH_NAMES } from '@/lib/finance/format'
 import { YearView } from '@/components/finanzas/year-view'
 import { InventoryView } from '@/components/finanzas/inventory-view'
+import { CashFlowView } from '@/components/finanzas/cash-flow-view'
 import { cn } from '@/lib/utils'
 
 // Finanzas → Estado de resultados (docs/PLAN_CONTROL_FINANCIERO.md, Fase 2).
@@ -59,7 +60,7 @@ export default function FinanzasPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [target, setTarget] = useState('')
-  const [tab, setTab] = useState<'mes' | 'ano' | 'inventario'>('mes')
+  const [tab, setTab] = useState<'mes' | 'ano' | 'inventario' | 'flujo'>('mes')
 
   const { session, userProfile } = useAuth()
   const canView = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
@@ -136,13 +137,13 @@ export default function FinanzasPage() {
     <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">{tab === 'mes' ? 'Estado de resultados' : tab === 'ano' ? 'Resumen del año' : 'Inventario y rentabilidad'}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{tab === 'mes' ? 'Estado de resultados' : tab === 'ano' ? 'Resumen del año' : tab === 'flujo' ? 'Flujo de caja' : 'Inventario y rentabilidad'}</h1>
           <p className="text-sm text-muted-foreground sm:text-base">
-            {tab === 'mes' ? 'Cuánto se vendió, cuánto costó, cuánto se gastó y cuánto se ganó en el mes' : tab === 'ano' ? 'El cierre general mes a mes: ventas, compras, gastos, utilidad e inventario' : 'Qué tan rápido sale la mercancía, dónde hay plata parada y qué deja más utilidad'}
+            {tab === 'mes' ? 'Cuánto se vendió, cuánto costó, cuánto se gastó y cuánto se ganó en el mes' : tab === 'ano' ? 'El cierre general mes a mes: ventas, compras, gastos, utilidad e inventario' : tab === 'flujo' ? 'Cuánta plata entró y salió, cuánto nos deben, cuánto debemos y cuánto se puede retirar' : 'Qué tan rápido sale la mercancía, dónde hay plata parada y qué deja más utilidad'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {tab === 'mes' && (
+          {(tab === 'mes' || tab === 'flujo') && (
             <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} aria-label="Mes" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:flex-1">
               {monthNames.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
             </select>
@@ -157,7 +158,7 @@ export default function FinanzasPage() {
 
       {/* Pestañas — mismo estilo que Cuentas */}
       <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0" role="tablist">
-        {([['mes', 'Mes'], ['ano', 'Año'], ['inventario', 'Inventario']] as const).map(([id, label]) => (
+        {([['mes', 'Mes'], ['ano', 'Año'], ['inventario', 'Inventario'], ['flujo', 'Flujo de caja']] as const).map(([id, label]) => (
           <button
             key={id}
             role="tab"
@@ -173,7 +174,9 @@ export default function FinanzasPage() {
         ))}
       </div>
 
-      {tab === 'inventario' ? (
+      {tab === 'flujo' ? (
+        <CashFlowView year={year} month={month} accessToken={session?.access_token} />
+      ) : tab === 'inventario' ? (
         <InventoryView accessToken={session?.access_token} />
       ) : tab === 'ano' ? (
         <YearView year={year} accessToken={session?.access_token} canEdit={userProfile?.role === 'admin'} />

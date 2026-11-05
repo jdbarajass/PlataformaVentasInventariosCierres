@@ -7,8 +7,8 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 | 1 Clasificar salidas + sin doble conteo de fijos | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 2 Finanzas → Mes (Estado de resultados) | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 3 Finanzas → Año + foto de inventario | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. 00059 corrida en YJBMOTOCOM; **falta en YBMOTOCOM**. |
-| 4 Inventario y rentabilidad | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. |
-| 5 Flujo de caja, por cobrar / por pagar | Pendiente |
+| 4 Inventario y rentabilidad | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
+| 5 Flujo de caja, por cobrar / por pagar | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. |
 | 6 Exportar Excel / PDF | Pendiente |
 
 ### Fase 2 — cómo quedó (2026-11-05)
@@ -31,6 +31,24 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   - Los meses pasados usan los gastos fijos configurados hoy (no hay historial): la pantalla lo advierte.
   - Aviso de ventas sin costo: oct-2026 tiene 11 líneas ($1.205.000) con costo $0.
 - Verificado en Chromium con datos reales (sesión creada por script): 1366 px y 390 px, sin desborde ni errores.
+
+### Fase 5 — cómo quedó (2026-11-05)
+- `lib/finance/cash-flow.ts` (`buildCashFlow`, `movementConcept`, `buildReceivables`, `buildPayables`, `withdrawable`) +
+  `GET /api/finance/cash-flow?year&month` → pestaña **Flujo de caja** de Finanzas (`components/finanzas/cash-flow-view.tsx`).
+  Sin migración. Pruebas: `cash-flow.test.ts` (5). Suite 194/194.
+- Consultas compartidas en `lib/finance/queries.ts` (`fetchAll`, `fetchPeriodOrders`, `fetchPeriodExpenses`); la API del
+  mes ya las usa (mismo resultado).
+- Flujo del mes: saldo final = saldo de hoy − movimientos posteriores; saldo inicial = final − movimientos del mes
+  (verificado: el inicial de noviembre es el final de octubre). Conceptos: ventas cobradas, llegadas de Addi/datáfono/
+  SisteCrédito, abonos de fiado, ajustes, gastos del negocio, pagos a proveedores, retiros del dueño, inversiones (los
+  gastos se clasifican por la categoría del gasto ligado al movimiento). Los traslados entre cuentas propias se muestran
+  aparte y no cuentan como entrada ni salida.
+- Utilidad vs. plata del mes, lado a lado, con la explicación de por qué no coinciden.
+- Por cobrar (hoy): fiado (saldo de Apartados y Abonos), Cuentas → Por Cobrar y ventas por llegar de Addi, datáfono y
+  SisteCrédito (con margen), con lo que ya debió llegar aparte (aviso si la tarea automática no las aplicó).
+- Por pagar (hoy): facturas pendientes (monto − abonos) por vencimiento: vencidas, próximos 30 días, después, sin fecha.
+- **¿Cuánto puedo retirar? (estimado)** = plata en las cuentas activas − proveedores (vencido + sin fecha + 30 días) − un
+  mes de gastos fijos. Lo por llegar y el fiado no cuentan hasta que entren.
 
 ### Fase 4 — cómo quedó (2026-11-05)
 - `lib/finance/inventory-insights.ts` (`buildInventoryInsights`) + `GET /api/finance/inventory?window=30|90|180|365&quiet=60|90|180`

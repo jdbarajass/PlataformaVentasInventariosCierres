@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
-import { buildIncomeStatement, type StatementOrder, type StatementExpense } from '@/lib/finance/income-statement'
-import { monthPeriod, shiftMonth, truncatePeriod, type MonthPeriod } from '@/lib/finance/periods'
+import { buildIncomeStatement } from '@/lib/finance/income-statement'
+import { fetchPeriodOrders, fetchPeriodExpenses } from '@/lib/finance/queries'
+import { monthPeriod, shiftMonth, truncatePeriod } from '@/lib/finance/periods'
 import type { FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
 
 // GET /api/finance/month?year=YYYY&month=M
@@ -10,45 +11,6 @@ import type { FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
 // año anterior (docs/PLAN_CONTROL_FINANCIERO.md, Fase 2). Solo admin (el
 // admin de solo lectura también puede leer: requireAuth lo deja pasar en GET).
 // Solo lectura: no escribe nada.
-
-const PAGE = 1000
-
-async function fetchOrders(supabase: ReturnType<typeof getServiceSupabase>, p: MonthPeriod): Promise<StatementOrder[]> {
-  const rows: StatementOrder[] = []
-  for (let offset = 0; ; offset += PAGE) {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('total_cents, discount_cents, order_items(qty, price_cents, total_cents, cost_cents, discount_cents), payments(commission_cents)')
-      .eq('payment_status', 'paid')
-      .gte('created_at', p.fromISO)
-      .lt('created_at', p.toISO)
-      .order('created_at', { ascending: true })
-      .range(offset, offset + PAGE - 1)
-    if (error) throw error
-    const page = (data as unknown as StatementOrder[]) || []
-    rows.push(...page)
-    if (page.length < PAGE) break
-  }
-  return rows
-}
-
-async function fetchExpenses(supabase: ReturnType<typeof getServiceSupabase>, p: MonthPeriod): Promise<StatementExpense[]> {
-  const rows: StatementExpense[] = []
-  for (let offset = 0; ; offset += PAGE) {
-    const { data, error } = await supabase
-      .from('operating_expenses')
-      .select('amount_cents, category')
-      .gte('date', p.fromDate)
-      .lt('date', p.toDate)
-      .order('date', { ascending: true })
-      .range(offset, offset + PAGE - 1)
-    if (error) throw error
-    const page = (data as StatementExpense[]) || []
-    rows.push(...page)
-    if (page.length < PAGE) break
-  }
-  return rows
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -87,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     const statements = await Promise.all(
       periods.map(async (p) => {
-        const [orders, expenses] = await Promise.all([fetchOrders(supabase, p), fetchExpenses(supabase, p)])
+        const [orders, expenses] = await Promise.all([fetchPeriodOrders(supabase, p), fetchPeriodExpenses(supabase, p)])
         return {
           year: p.year,
           month: p.month,
