@@ -376,3 +376,54 @@ export function salesMonthReport(d: SalesMonthReportInput, brand: string): Repor
     ],
   }
 }
+
+// ---------- Gastos del mes ----------
+
+export interface ExpensesMonthReportInput {
+  year: number
+  month: number
+  rows: { date: string; description: string; category: string; cls: string; counted: boolean; coveredByFixed: boolean; account_name: string | null; amount_cents: number }[]
+  totals: { out: number; counted: number; notCounted: number; count: number }
+  byCategory: { category: string; cls: string; cents: number; count: number }[]
+  fixed: { items: { label: string; configured: number; registered: number; status: string }[] }
+}
+
+const FIXED_STATUS_LABEL: Record<string, string> = { pagado: 'Pagado', parcial: 'Parcial', pendiente: 'Pendiente', sin_valor: 'Sin valor configurado', sin_seguimiento: 'Sin categoría para revisar' }
+const CLASS_LABEL: Record<string, string> = { operativo: 'Gasto operativo', financiero: 'Gasto financiero', inversion: 'Inversión', retiro: 'Retiro del dueño' }
+
+export function expensesMonthReport(d: ExpensesMonthReportInput, brand: string): ReportDoc {
+  return {
+    title: `${brand} — Gastos del mes`,
+    subtitle: mm(d.year, d.month),
+    filename: `gastos_${d.year}_${String(d.month).padStart(2, '0')}`,
+    sections: [
+      {
+        title: 'Gastos',
+        columns: [{ header: 'Fecha' }, { header: 'Descripción' }, { header: 'Categoría' }, { header: 'Tipo' }, { header: '¿Resta utilidad?' }, { header: 'Cuenta' }, { header: 'Monto', kind: 'money' }],
+        rows: d.rows.map((r) => [
+          r.date,
+          r.description,
+          r.category,
+          CLASS_LABEL[r.cls] || r.cls,
+          r.counted ? 'Sí' : r.coveredByFixed ? 'No: ya está en gastos fijos' : 'No',
+          r.account_name || 'Sin cuenta',
+          r.amount_cents,
+        ]),
+        totals: ['Total', `${d.totals.count} gastos`, '', '', '', '', d.totals.out],
+      },
+      {
+        title: 'Por categoría',
+        columns: [{ header: 'Categoría' }, { header: 'Tipo' }, { header: 'Gastos', kind: 'number' }, { header: 'Monto', kind: 'money' }],
+        rows: d.byCategory.map((c) => [c.category, CLASS_LABEL[c.cls] || c.cls, c.count, c.cents]),
+        totals: ['Total', '', d.totals.count, d.totals.out],
+        afterTotals: [['Restan utilidad', '', null, d.totals.counted], ['No restan utilidad', '', null, d.totals.notCounted]],
+      },
+      {
+        title: 'Gastos fijos',
+        columns: [{ header: 'Gasto fijo' }, { header: 'Configurado', kind: 'money' }, { header: 'Registrado en el mes', kind: 'money' }, { header: 'Estado' }],
+        rows: d.fixed.items.map((i) => [i.label, i.configured, i.registered, FIXED_STATUS_LABEL[i.status] || i.status]),
+      },
+    ],
+    notes: ['Retiros del dueño, inversiones y los pagos de gastos ya configurados como fijos sacan plata de las cuentas pero no restan la utilidad.'],
+  }
+}

@@ -13,6 +13,7 @@ import { YearView } from '@/components/finanzas/year-view'
 import { InventoryView } from '@/components/finanzas/inventory-view'
 import { CashFlowView } from '@/components/finanzas/cash-flow-view'
 import { SalesMonthView } from '@/components/finanzas/sales-month-view'
+import { ExpensesMonthView } from '@/components/finanzas/expenses-month-view'
 import { ExportButtons } from '@/components/finanzas/export-buttons'
 import { monthReport } from '@/lib/finance/report-builders'
 import { BRAND } from '@/config/brand'
@@ -28,6 +29,7 @@ const monthNames = MONTH_NAMES
 const TABS = [
   { id: 'mes', label: 'Mes', title: 'Estado de resultados', subtitle: 'Cuánto se vendió, cuánto costó, cuánto se gastó y cuánto se ganó en el mes', month: true, year: true },
   { id: 'ventas', label: 'Ventas por día', title: 'Ventas por día', subtitle: 'Lo vendido cada día por medio de pago, la calificación del día y lo que está por llegar', month: true, year: true },
+  { id: 'gastos', label: 'Gastos', title: 'Gastos del mes', subtitle: 'Todo lo que salió en el mes, por categoría y cuenta, y si los gastos fijos ya se pagaron', month: true, year: true },
   { id: 'ano', label: 'Año', title: 'Resumen del año', subtitle: 'El cierre general mes a mes: ventas, compras, gastos, utilidad e inventario', month: false, year: true },
   { id: 'inventario', label: 'Inventario', title: 'Inventario y rentabilidad', subtitle: 'Qué tan rápido sale la mercancía, dónde hay plata parada y qué deja más utilidad', month: false, year: false },
   { id: 'flujo', label: 'Flujo de caja', title: 'Flujo de caja', subtitle: 'Cuánta plata entró y salió, cuánto nos deben, cuánto debemos y cuánto se puede retirar', month: true, year: true },
@@ -189,7 +191,9 @@ export default function FinanzasPage() {
         ))}
       </div>
 
-      {tab === 'ventas' ? (
+      {tab === 'gastos' ? (
+        <ExpensesMonthView year={year} month={month} accessToken={session?.access_token} canEdit={userProfile?.role === 'admin'} />
+      ) : tab === 'ventas' ? (
         <SalesMonthView year={year} month={month} accessToken={session?.access_token} />
       ) : tab === 'flujo' ? (
         <CashFlowView year={year} month={month} accessToken={session?.access_token} />

@@ -32,6 +32,24 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   - Aviso de ventas sin costo: oct-2026 tiene 11 líneas ($1.205.000) con costo $0.
 - Verificado en Chromium con datos reales (sesión creada por script): 1366 px y 390 px, sin desborde ni errores.
 
+### Extra (2026-11-05): Ventas por día y Gastos, como en KOAJ
+A pedido del usuario, para tener en YJBMOTOCOM las vistas "Hoja del mes" y "Cuentas → Gastos" de KOAJ. Sin migración.
+- **Finanzas → Ventas por día** (`lib/finance/sales-month.ts`, `GET /api/finance/sales-month`,
+  `components/finanzas/sales-month-view.tsx`): ventas de cada día por medio de pago (Efectivo, QR, Nequi, NU, Daviplata,
+  Datáfono, Addi, SisteCrédito…; la tienda online en su propia columna; ventas sin pago registrado en "Sin medio"),
+  total del día, quincenas, mejor día, promedio, comisiones y lo que está por llegar. Cada día lleva a Ventas del Día.
+  **Calificación del día (umbrales del usuario):** Mala < $300.000 · Media hasta $599.999 · Normal hasta $1.499.999 ·
+  Buena desde $1.500.000 (`DAY_RATINGS`). Verificado: oct-2026 $17.743.000 en 96 ventas = Estado de resultados.
+- **Finanzas → Gastos** (`lib/finance/expenses-month.ts`, `GET /api/finance/expenses-month`,
+  `components/finanzas/expenses-month-view.tsx`): gastos del mes con buscador y filtros (cuenta, categoría, tipo, fechas),
+  totales (salió / resta / no resta utilidad), por cuenta y por categoría, y **gastos fijos del mes** (Arriendo, Sueldo,
+  Servicios) con estado Pagado / Parcial / Pendiente comparando lo configurado contra lo registrado con esa categoría.
+  Registrar (con fecha), editar y eliminar usan `/api/operating-expenses` (mismas reglas de saldo y auditoría que Ventas
+  del Día; solo admin). Verificado: oct-2026 $372.000 = Estado de resultados.
+- Hallazgo: en oct y nov 2026 no hay gastos con categoría Arriendo, Sueldo ni Luz, así que salen "Pendiente". Si se
+  pagan, registrarlos con esa categoría (no bajan la utilidad otra vez: ya están en Gastos Fijos).
+- Pruebas: `sales-month.test.ts` (5) y `expenses-month.test.ts` (4). Suite 224/224, build OK.
+
 ### Fase 6 — cómo quedó (2026-11-05)
 - `lib/finance/report.ts`: un `ReportDoc` (secciones con columnas tipadas: texto, dinero en centavos, %, número) sale
   igual en **Excel** (`buildReportWorkbookBuffer` / `downloadReportExcel`: una hoja por sección + hoja de notas; dinero en

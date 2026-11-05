@@ -16,6 +16,8 @@ Detalle completo en `docs/PLAN_CONTROL_FINANCIERO.md`.
   fijos en la utilidad real de Historial Mensual, Reportes y Ventas del Día.
 - Migración `00060_inventory_snapshots.sql` y tarea diaria `/api/cron/inventory-snapshot`.
 - Registrar Venta: los productos fuera de catálogo exigen costo.
+- Finanzas → **Ventas por día** (ventas de cada día por medio de pago, con calificación del día) y **Gastos** (gastos del
+  mes con filtros, totales, registrar con fecha y estado de los gastos fijos), como la Hoja del mes y Gastos de KOAJ.
 
 ---
 
