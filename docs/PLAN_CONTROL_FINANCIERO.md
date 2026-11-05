@@ -5,8 +5,8 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 | Fase | Estado |
 |---|---|
 | 1 Clasificar salidas + sin doble conteo de fijos | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
-| 2 Finanzas → Mes (Estado de resultados) | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. |
-| 3 Finanzas → Año + foto de inventario | Pendiente |
+| 2 Finanzas → Mes (Estado de resultados) | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
+| 3 Finanzas → Año + foto de inventario | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. **Falta correr la migración 00059 en los dos Supabase** y que el usuario la pruebe. |
 | 4 Inventario y rentabilidad | Pendiente |
 | 5 Flujo de caja, por cobrar / por pagar | Pendiente |
 | 6 Exportar Excel / PDF | Pendiente |
@@ -31,6 +31,32 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   - Los meses pasados usan los gastos fijos configurados hoy (no hay historial): la pantalla lo advierte.
   - Aviso de ventas sin costo: oct-2026 tiene 11 líneas ($1.205.000) con costo $0.
 - Verificado en Chromium con datos reales (sesión creada por script): 1366 px y 390 px, sin desborde ni errores.
+
+### Fase 3 — cómo quedó (2026-11-05)
+- Migración `supabase/migrations/00059_inventory_snapshots.sql`: tabla `inventory_snapshots` (una foto por mes,
+  `UNIQUE(year, month)`; lectura admin / admin de solo lectura, escritura solo del servidor). **Correrla en el
+  Supabase de YJBMOTOCOM y en el de YBMOTOCOM.** Sin ella la pantalla funciona, pero solo muestra el inventario de hoy.
+- `lib/finance/inventory-value.ts`: valor del inventario a costo con la misma regla de /admin/inventario (sin
+  productos borrados; por variante si tiene tallas; el stock negativo no resta) y `takeInventorySnapshot` (reemplaza
+  la foto del mes en curso, hora de Bogotá).
+- Foto automática: `GET /api/cron/inventory-snapshot`, 11 pm de Bogotá (`vercel.json`, `0 4 * * *`). La última del
+  mes queda como cierre. **Necesita `CRON_SECRET` en Vercel** (pendiente 2.1 de `docs/PENDIENTES.md`). Foto manual:
+  botón "Guardar foto de hoy" (solo admin) → `POST /api/finance/inventory-snapshot` (queda en auditoría).
+- `lib/finance/year-summary.ts` (`buildYearSummary`) + `GET /api/finance/year?year` → pestaña **Año** de
+  Finanzas → Estado de resultados (`components/finanzas/year-view.tsx`): tarjetas del año, cierre general mes a
+  mes (ventas, utilidad bruta, gastos, utilidad neta, margen, compras, pagado a proveedores, lo que quedó,
+  inventario con variación), total y promedio; tarjetas en celular. Pruebas: `year-summary.test.ts` (6). Suite 181/181.
+- Equivalencias con el Excel: Recompras → compras a proveedores (Facturas por fecha de llegada); Ganancia real →
+  "Lo que quedó" = ventas − pagado a proveedores − gastos; Inventario 30|31 → foto de fin de mes.
+- Decisiones tomadas al probar con datos reales:
+  - **Pagado a proveedores** = abonos por fecha de pago **+ facturas marcadas pagadas sin abonos**, por su fecha de
+    pago o, si no tiene, de llegada. Las facturas de feb-jul 2026 se cargaron en julio ya pagadas y sin abonos (los
+    abonos se registran desde agosto): sin esta regla esos meses salían con $0 pagado.
+  - **Un mes solo cuenta si tiene ventas o gastos.** Febrero 2026 tiene facturas cargadas pero ninguna venta: se
+    muestran sus compras, pero no suma (si no, salía con una pérdida de $5,5 M por los gastos fijos).
+  - El inventario de meses pasados **no se reconstruye** (no hay costo histórico confiable); el mes en curso
+    muestra el valor de hoy, en vivo.
+- Verificado con datos reales en Chromium (1366 y 390 px, sin desborde): octubre cuadra con la pestaña Mes.
 
 Decisiones del usuario (2026-11-05):
 - Arriendo, sueldo y luz se registran como gasto en Ventas del Día **y** están en Gastos Fijos → deben contar

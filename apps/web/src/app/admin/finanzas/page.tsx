@@ -8,15 +8,15 @@ import { useAuth } from '@/lib/auth-context'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { salesForTargetProfit, percentChange, type IncomeStatement } from '@/lib/finance/income-statement'
 import { EXPENSE_CLASS_LABEL, type FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
+import { formatPrice, formatPct, MONTH_NAMES } from '@/lib/finance/format'
+import { YearView } from '@/components/finanzas/year-view'
+import { cn } from '@/lib/utils'
 
 // Finanzas → Estado de resultados (docs/PLAN_CONTROL_FINANCIERO.md, Fase 2).
 // Todo el cálculo vive en lib/finance/income-statement.ts y lo hace la API
 // /api/finance/month; esta pantalla solo lo muestra.
 
-const monthNames = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-]
+const monthNames = MONTH_NAMES
 
 interface PeriodStatement {
   year: number
@@ -35,10 +35,6 @@ interface MonthResponse {
   comparedSameDays: boolean
 }
 
-const formatPrice = (cents: number) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(cents / 100))
-
-const formatPct = (r: number | null, digits = 1) => (r === null ? '—' : `${(r * 100).toFixed(digits)}%`)
 
 function Delta({ current, base, goodWhenUp = true, label }: { current: number; base: number | null; goodWhenUp?: boolean; label: string }) {
   if (base === null) return <span className="text-xs text-muted-foreground">{label}: sin datos</span>
@@ -62,13 +58,14 @@ export default function FinanzasPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [target, setTarget] = useState('')
+  const [tab, setTab] = useState<'mes' | 'ano'>('mes')
 
   const { session, userProfile } = useAuth()
   const canView = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
 
   const beginRequest = useLatestRequest()
   const fetchData = useCallback(async () => {
-    if (!session?.access_token || !canView) return
+    if (!session?.access_token || !canView || tab !== 'mes') return
     const isStale = beginRequest()
     setLoading(true)
     setLoadError(null)
@@ -89,7 +86,7 @@ export default function FinanzasPage() {
     } finally {
       if (!isStale()) setLoading(false)
     }
-  }, [session?.access_token, canView, year, month, beginRequest])
+  }, [session?.access_token, canView, year, month, tab, beginRequest])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -138,20 +135,44 @@ export default function FinanzasPage() {
     <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">Estado de resultados</h1>
-          <p className="text-sm text-muted-foreground sm:text-base">Cuánto se vendió, cuánto costó, cuánto se gastó y cuánto se ganó en el mes</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">{tab === 'mes' ? 'Estado de resultados' : 'Resumen del año'}</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            {tab === 'mes' ? 'Cuánto se vendió, cuánto costó, cuánto se gastó y cuánto se ganó en el mes' : 'El cierre general mes a mes: ventas, compras, gastos, utilidad e inventario'}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} aria-label="Mes" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:flex-1">
-            {monthNames.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
-          </select>
+          {tab === 'mes' && (
+            <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} aria-label="Mes" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:flex-1">
+              {monthNames.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
+            </select>
+          )}
           <select value={year} onChange={(e) => setYear(parseInt(e.target.value))} aria-label="Año" className="w-24 rounded-lg border bg-background px-3 py-2 text-sm touch:h-11">
             {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear()].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
       </div>
 
-      {loading && !s ? (
+      {/* Pestañas — mismo estilo que Cuentas */}
+      <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto border-b px-4 sm:mx-0 sm:px-0" role="tablist">
+        {([['mes', 'Mes'], ['ano', 'Año']] as const).map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={cn(
+              'flex shrink-0 items-center whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors touch:min-h-11',
+              tab === id ? 'border-cyan-500 text-cyan-500' : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'ano' ? (
+        <YearView year={year} accessToken={session?.access_token} canEdit={userProfile?.role === 'admin'} />
+      ) : loading && !s ? (
         <div className="flex h-40 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>

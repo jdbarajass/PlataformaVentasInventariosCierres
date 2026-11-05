@@ -4,7 +4,7 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-10-28.
+> Última revisión: 2026-11-05.
 
 ## 1. Migraciones sin correr en el Supabase de YBMOTOCOM
 
@@ -17,6 +17,13 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00058_account_notes.sql` | Falla guardar notas de una cuenta |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
+
+## 1b. Migración 00059 sin correr en los DOS Supabase (YJBMOTOCOM y YBMOTOCOM)
+
+`supabase/migrations/00059_inventory_snapshots.sql` (control financiero, Fase 3): guarda la foto del inventario
+de fin de mes. Si no se corre, Finanzas → Año funciona pero solo muestra el inventario de hoy (sale un aviso),
+y la foto automática y el botón "Guardar foto de hoy" fallan. Para que la foto se tome sola cada noche también
+hace falta `CRON_SECRET` (punto 2.1).
 
 ## 2. Seguridad (las dos tiendas)
 
