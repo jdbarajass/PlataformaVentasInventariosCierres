@@ -49,7 +49,7 @@ describe('report', () => {
     const bytes = new Uint8Array(buf as ArrayBuffer)
     expect(bytes.length).toBeGreaterThan(1000)
     expect(String.fromCharCode(bytes[0], bytes[1])).toBe('PK') // zip
-  })
+  }, 30_000) // la primera carga de exceljs puede pasar de 5 s con toda la suite corriendo
 })
 
 describe('report-builders', () => {
