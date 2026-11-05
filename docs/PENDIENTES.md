@@ -48,6 +48,11 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 ## 1d. Después del push, revisar YBMOTOCOM
 
+- **⚠️ YBMOTOCOM no está publicando en Vercel (detectado 2026-11-05):** GitHub tiene todo (hasta `0d8dfa6`, autor
+  YBMOTOCOM correcto), pero ybmotocom-web.vercel.app no tiene ninguna ruta de Finanzas (`/api/finance/month` da 404).
+  El usuario debe revisar en Vercel (cuenta YBMOTOCOM → ybmotocom-web → Deployments) el estado del último despliegue
+  (Blocked / Error / no aparece) y mandar captura. Ver `docs/DESPLIEGUE_VERCEL.md` del repo de YBMOTOCOM.
+
 - Revisar allá Finanzas → Inventario (productos de demostración de `seed.sql`, productos sin categoría, costos en $0).
   La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
 - En YBMOTOCOM el código del control financiero ya está desplegado, pero Finanzas → Año no guarda el inventario de fin
