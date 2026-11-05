@@ -46,13 +46,13 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
   | 30-oct | YJBM-20261030-1142 | VISOR SHAFT 526 TORNASOL | $70.000 |
   | 31-oct | YJBM-20261031-8370 | CASCO DE NIÑA | $100.000 |
 
-## 1d. Subir los cambios (push) — las dos tiendas
+## 1d. Después del push, revisar YBMOTOCOM
 
-- Al 2026-11-05: **16 commits sin subir en YJBMOTOCOM** y **7 en YBMOTOCOM** (carpeta `Pictures/YOJAN`): el control
-  financiero completo (6 fases) y el costo obligatorio en ítems manuales. Hacer el push desde una red sin bloqueo de
-  GitHub. Al desplegar YJBMOTOCOM también se activa su `CRON_SECRET`.
-- **Después del push, en YBMOTOCOM:** revisar Finanzas → Inventario (productos de demostración de `seed.sql`, productos
-  sin categoría, costos en $0). La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
+- Revisar allá Finanzas → Inventario (productos de demostración de `seed.sql`, productos sin categoría, costos en $0).
+  La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
+- En YBMOTOCOM el código del control financiero ya está desplegado, pero Finanzas → Año no guarda el inventario de fin
+  de mes hasta correr `00060_inventory_snapshots.sql` (punto 1). La auditoría del 31-oct (`00059_loan_stock.sql`)
+  todavía no se ha llevado allá.
 
 ## 2. Seguridad (las dos tiendas)
 
@@ -84,6 +84,10 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **Push de las dos tiendas (2026-11-05):** YJBMOTOCOM `79cef2a..2e54c5f` (control financiero completo + merge con la
+  auditoría del 31-oct hecha en el otro PC) y YBMOTOCOM `6d91296..32e1b77`. La migración de la foto del inventario pasó
+  a llamarse `00060_inventory_snapshots.sql` para no chocar con `00059_loan_stock.sql`.
 
 - **Migración de la foto del inventario en el Supabase de YJBMOTOCOM:** corrida por el usuario el 2026-11-05 cuando se llamaba `00059_inventory_snapshots.sql` (verificado: la tabla `inventory_snapshots` existe). Ese mismo día se renombró a `00060_inventory_snapshots.sql` porque el 31-oct ya existía otra 00059 (`00059_loan_stock.sql`, también corrida en YJBMOTOCOM): **no hay que volver a correrla allá**. En YBMOTOCOM siguen pendientes las dos (punto 1).
 
