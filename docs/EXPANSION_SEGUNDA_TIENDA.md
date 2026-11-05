@@ -14,6 +14,7 @@
 | `supabase/migrations/00056_addi_pending_releases.sql` | Tabla `addi_pending_releases` + funciones del desembolso diferido de Addi (sección 12) | **Cualquier venta por Addi en YBMOTOCOM falla.** |
 | `supabase/migrations/00057_addi_backfill_sept12.sql` | Corrección puntual de una venta de YJBMOTOCOM (`YJBM-20260913-7237`) | Nada — en YBMOTOCOM es un no-op (busca esa factura, no la encuentra y no hace nada). Se corre igual para no divergir el historial. |
 | `supabase/migrations/00058_account_notes.sql` | Columna de notas/observaciones por cuenta (Cuentas → Resumen) | Guardar notas de una cuenta en YBMOTOCOM falla (la columna no existe). |
+| `supabase/migrations/00059_inventory_snapshots.sql` | Foto mensual del valor del inventario (control financiero, Fase 3, sección 18) | Finanzas → Año solo muestra el inventario de hoy; el botón y la tarea nocturna de la foto fallan. |
 
 Cuando el usuario confirme que las corrió, borrar este recordatorio y anotarlo en la sección 13.
 

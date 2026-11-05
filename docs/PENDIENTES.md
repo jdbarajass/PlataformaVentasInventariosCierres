@@ -15,15 +15,9 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00056_addi_pending_releases.sql` | Cualquier venta por Addi en YBMOTOCOM falla |
 | `00057_addi_backfill_sept12.sql` | Allá no cambia datos; se corre para no desordenar el historial de migraciones |
 | `00058_account_notes.sql` | Falla guardar notas de una cuenta |
+| `00059_inventory_snapshots.sql` | Finanzas → Año solo muestra el inventario de hoy (aviso amarillo); la foto de fin de mes (botón y tarea nocturna) falla |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
-
-## 1b. Migración 00059 sin correr en los DOS Supabase (YJBMOTOCOM y YBMOTOCOM)
-
-`supabase/migrations/00059_inventory_snapshots.sql` (control financiero, Fase 3): guarda la foto del inventario
-de fin de mes. Si no se corre, Finanzas → Año funciona pero solo muestra el inventario de hoy (sale un aviso),
-y la foto automática y el botón "Guardar foto de hoy" fallan. Para que la foto se tome sola cada noche también
-hace falta `CRON_SECRET` (punto 2.1).
 
 ## 2. Seguridad (las dos tiendas)
 
@@ -44,5 +38,7 @@ hace falta `CRON_SECRET` (punto 2.1).
 - Hoy depende solo del límite interno de Supabase Auth. Solo vale la pena si algún día se ven intentos de adivinar contraseñas.
 
 ## Resueltos
+
+- **Migración 00059 en el Supabase de YJBMOTOCOM:** corrida por el usuario el 2026-11-05 (verificado: la tabla `inventory_snapshots` existe). En YBMOTOCOM sigue pendiente (punto 1).
 
 - **CORS abierto en toda la API:** corregido el 2026-08-20; se quitó el bloque de `vercel.json`. Verificado de nuevo el 2026-10-28: no queda en ningún lado de la configuración.
