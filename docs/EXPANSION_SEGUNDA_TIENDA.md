@@ -2,7 +2,7 @@
 
 > **Este documento es el estado vivo de este proyecto.** Si retomas este trabajo en una sesión nueva, léelo completo antes de tocar código.
 
-**Última actualización**: 2026-11-05 (sección 19: control financiero, fase 4)
+**Última actualización**: 2026-11-05 (sección 20: control financiero, fase 5)
 **Estado actual**: **Fases 0-2 completas y verificadas en producción.** YBMOTOCOM ya está desplegado y funcionando de punta a punta: repo propio (`github.com/ybmotocom/ybmotocom-web`, 1 commit inicial limpio sin el historial de YJBMOTOCOM), Supabase propio con las 52 migraciones + la 00055 ya aplicadas, Vercel propio (`ybmotocom-web.vercel.app`), usuario admin creado y login confirmado funcionando por el usuario. La sección 3.1 (bug real de datos bancarios/NIT falsos en YJBMOTOCOM) quedó resuelta y cerrada. El modelo de "franquicia" (Fase 3, sección 5) ya tiene seis casos reales probados con éxito (secciones 7-12) — cherry-pick sin conflictos "de fondo" en todos (el conflicto de `docs/UNIFICACION_YJBMOTOCOM.md`, que no existe en YBMOTOCOM, se repite en cada caso que toca docs, pero es trivial de resolver con `git rm` — ver sección 11).
 
 **Corrección importante (2026-09-15, ver sección 11)**: el auto-deploy de YBMOTOCOM **no estaba funcionando desde el 2026-09-04** — todo lo de las secciones 8, 9 y 10 se pusheó a GitHub pero nunca llegó realmente a producción hasta que se diagnosticó y corrigió esto. Ya está resuelto; detalle completo abajo.
@@ -17,6 +17,11 @@
 | `supabase/migrations/00059_inventory_snapshots.sql` | Foto mensual del valor del inventario (control financiero, Fase 3, sección 18) | Finanzas → Año solo muestra el inventario de hoy; el botón y la tarea nocturna de la foto fallan. |
 
 Cuando el usuario confirme que las corrió, borrar este recordatorio y anotarlo en la sección 13.
+
+## 20. Control financiero, arreglo de categorías y fase 5 (2026-11-05)
+
+Commits `558ca05` (ventas de productos borrados en su categoría) y `ce8b3a4` (fase 5: flujo de caja, por cobrar, por pagar y retiro posible) → `1f271ca` y `8d3cd9e` en YBMOTOCOM (autor `YBMOTOCOM`, sin trailer). Único conflicto: la copia del plan en YB (se dejó sin los datos de YJB). Sin migración. Verificado en YB: vitest 194/194, `tsc` y eslint limpios. Sin push.
+- La **limpieza de datos** del 2026-11-05 (productos de demostración, categoría y costo de chaquetas) se hizo **solo en la base de YJBMOTOCOM**. En YBMOTOCOM hay que revisar Finanzas → Inventario por si tiene lo mismo.
 
 ## 19. Control financiero, fase 4 (2026-11-05)
 
