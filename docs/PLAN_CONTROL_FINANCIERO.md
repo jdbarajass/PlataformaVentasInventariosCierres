@@ -4,12 +4,33 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 
 | Fase | Estado |
 |---|---|
-| 1 Clasificar salidas + sin doble conteo de fijos | **Hecha 2026-11-05** (commit local, sin push). Falta que el usuario la pruebe. |
-| 2 Finanzas → Mes | Pendiente (después de probar la 1) |
+| 1 Clasificar salidas + sin doble conteo de fijos | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
+| 2 Finanzas → Mes (Estado de resultados) | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. |
 | 3 Finanzas → Año + foto de inventario | Pendiente |
 | 4 Inventario y rentabilidad | Pendiente |
 | 5 Flujo de caja, por cobrar / por pagar | Pendiente |
 | 6 Exportar Excel / PDF | Pendiente |
+
+### Fase 2 — cómo quedó (2026-11-05)
+- Fórmulas: `apps/web/src/lib/finance/income-statement.ts` (`buildIncomeStatement`, `salesForTargetProfit`,
+  `percentChange`, `ratio`) y `lib/finance/periods.ts` (`monthPeriod`, `shiftMonth`, `truncatePeriod`, en hora de
+  Bogotá). Pruebas: `income-statement.test.ts` (9) y `finance-periods.test.ts` (4). Suite completa 175/175.
+- API: `GET /api/finance/month?year&month` (solo admin; admin de solo lectura puede ver; no escribe). Devuelve el
+  mes pedido, el anterior y el mismo mes del año pasado. Pagina de a 1000 filas.
+- Pantalla: Finanzas → **Estado de resultados** (`/admin/finanzas`, menú solo admin). Tarjetas (ventas netas,
+  utilidad bruta, utilidad neta, punto de equilibrio con barra de avance), estado de resultados con la fórmula
+  de cada línea, % sobre ventas y comparación, indicadores (transacciones, ticket, markup, gastos/ventas,
+  nómina/ventas, retiros), gastos y salidas del mes con "¿resta utilidad?", y "¿cuánto hay que vender?"
+  (punto de equilibrio mensual y diario, ventas al ritmo actual marcadas ESTIMADO, ventas para una utilidad deseada).
+- Decisiones tomadas al probar con datos reales:
+  - **Utilidad neta = utilidad real de Historial Mensual** (verificado: oct-2026 $678.329 por las dos vías).
+  - **Mes en curso se compara contra los mismos días** del mes anterior y del año pasado (antes daba −82,9 % al
+    comparar 5 días de noviembre contra octubre completo).
+  - **Un mes sin ventas ni gastos ("sin datos") no se compara**: oct-2025 salía con −$5,5 M solo por los gastos
+    fijos, de antes de que el sistema existiera.
+  - Los meses pasados usan los gastos fijos configurados hoy (no hay historial): la pantalla lo advierte.
+  - Aviso de ventas sin costo: oct-2026 tiene 11 líneas ($1.205.000) con costo $0.
+- Verificado en Chromium con datos reales (sesión creada por script): 1366 px y 390 px, sin desborde ni errores.
 
 Decisiones del usuario (2026-11-05):
 - Arriendo, sueldo y luz se registran como gasto en Ventas del Día **y** están en Gastos Fijos → deben contar
@@ -31,7 +52,7 @@ Decisiones del usuario (2026-11-05):
   categoría es retiro, inversión o ya está en Gastos Fijos.
 - **No cambió**: lo que se descuenta de las cuentas, Presupuesto (gastado vs presupuestado por categoría),
   Exportar/Importar, Cierres ni Mi Cuadre.
-- YBMOTOCOM: solo código, sin migración. Replicar allá cuando el usuario lo apruebe.
+- YBMOTOCOM: solo código, sin migración. Replicada el 2026-11-05 junto con la Fase 2 (el usuario pidió llevar allá todo lo de este plan).
 
 Origen: el usuario quiere llevar en YJBMOTOCOM el control que llevaba en el Excel `KOAJ_CARRENO2026.xlsx`
 (y que el proyecto `CIERRE_KOAJ` ya reemplazó con Cuentas → Gastos / Mes / Año), complementado con un

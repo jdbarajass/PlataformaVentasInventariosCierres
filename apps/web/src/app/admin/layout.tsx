@@ -38,6 +38,7 @@ import {
   Layers,
   ChevronDown,
   X,
+  Scale,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -109,6 +110,7 @@ const navigation: NavEntry[] = [
     name: 'Finanzas',
     icon: Wallet,
     items: [
+      { name: 'Estado de resultados', href: '/admin/finanzas', icon: Scale, adminOnly: true },
       { name: 'Cuentas', href: '/admin/cuentas', icon: Wallet, adminOnly: true },
       { name: 'Facturas', href: '/admin/facturas', icon: FileStack },
       { name: 'Fiado', href: '/admin/fiado', icon: HandCoins },
