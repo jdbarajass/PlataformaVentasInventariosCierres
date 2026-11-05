@@ -116,7 +116,7 @@ export function YearView({ year, accessToken, canEdit }: { year: number; accessT
           {data.snapshotsMissing ? (
             <p className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-              Falta crear la tabla de las fotos del inventario (migración 00059 en Supabase). Mientras tanto solo se ve el inventario de hoy.
+              Falta crear la tabla de las fotos del inventario (migración 00060 en Supabase). Mientras tanto solo se ve el inventario de hoy.
             </p>
           ) : (
             <p className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm">

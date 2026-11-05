@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { z } from 'zod'
+import { verifyAdminAuthorization } from '@/lib/admin-authorization'
 
 export interface SaleItemInput {
   // Ausente/null = ítem manual fuera de catálogo (igual que el software
@@ -22,6 +24,32 @@ export interface SalePaymentInput {
 
 const defaultCommissionRates: Record<string, number> = {
   cash: 0, transfer: 0, wallet: 0, nequi: 0, daviplata: 0, addi: 0, card: 0, other: 0, nu: 0, qr: 0, sistecredito: 0,
+}
+
+const saleChangeAuthorizationSchema = z.object({
+  adminEmail: z.string().email(),
+  adminPassword: z.string().min(1),
+})
+
+/**
+ * Cancelar o editar una venta: un admin pasa directo; un vendedor necesita las
+ * credenciales de un admin en el cuerpo de la petición, verificadas en el
+ * servidor. Devuelve quién autorizó, o el mensaje de error para responder 403.
+ */
+export async function authorizeSaleChange(
+  user: { email: string; role: string },
+  body: unknown,
+  action: string
+): Promise<{ authorizedBy: string; error?: undefined } | { error: string; authorizedBy?: undefined }> {
+  if (user.role === 'admin') return { authorizedBy: user.email }
+
+  const authorization = saleChangeAuthorizationSchema.safeParse(body)
+  if (!authorization.success) {
+    return { error: `${action} requiere autorización de un admin` }
+  }
+  const adminEmail = await verifyAdminAuthorization(authorization.data.adminEmail, authorization.data.adminPassword)
+  if (!adminEmail) return { error: 'Credenciales de admin incorrectas' }
+  return { authorizedBy: adminEmail }
 }
 
 /**

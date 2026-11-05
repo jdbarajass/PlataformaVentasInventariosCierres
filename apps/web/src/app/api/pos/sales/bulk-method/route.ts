@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthenticatedClient } from '@/lib/supabase'
+import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { authorizeSaleChange } from '@/lib/pos-sale'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const bulkMethodSchema = z.object({
@@ -15,6 +17,7 @@ const bulkMethodSchema = z.object({
 // ui/ventas_dia_panel.py) — solo tiene sentido reasignar UN método cuando la
 // venta original tuvo uno solo. Recalcula la comisión con la tasa del nuevo
 // método; no toca cuentas/saldos (el dinero ya entró a la misma cuenta).
+// Un vendedor necesita la autorización de un admin, igual que al editar una venta.
 export async function PUT(request: NextRequest) {
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
@@ -27,6 +30,11 @@ export async function PUT(request: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: 'Datos inválidos', details: validation.error.errors }, { status: 400 })
     }
+    const authorization = await authorizeSaleChange(auth.user, body, 'Cambiar el método de pago')
+    if (authorization.error !== undefined) {
+      return NextResponse.json({ error: authorization.error }, { status: 403 })
+    }
+
     const { orderIds, method, methodDetail } = validation.data
 
     const supabase = createAuthenticatedClient(auth.token)
@@ -71,6 +79,14 @@ export async function PUT(request: NextRequest) {
       }
       updated++
     }
+
+    await logAudit(getServiceSupabase(), {
+      actorId: auth.user.id,
+      actorEmail: auth.user.email,
+      action: 'pos_sales_bulk_method_changed',
+      tableName: 'payments',
+      newData: { order_ids: orderIds, method, updated, excluded, authorized_by: authorization.authorizedBy },
+    })
 
     return NextResponse.json({ data: { updated, excluded } })
   } catch (error) {

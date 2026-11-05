@@ -835,6 +835,7 @@ export interface Database {
           observations: string | null
           status: 'pending' | 'returned' | 'charged'
           direction: 'lent' | 'borrowed'
+          stock_deducted: number | null
           created_at: string
           updated_at: string
         }

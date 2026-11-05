@@ -14,7 +14,7 @@ Detalle completo en `docs/PLAN_CONTROL_FINANCIERO.md`.
   caja (entradas y salidas, por cobrar, por pagar y cuánto se puede retirar). Exportar a Excel y PDF en cada una.
 - Clasificación de salidas de plata (operativo, financiero, inversión, retiro del dueño) y sin doble conteo de gastos
   fijos en la utilidad real de Historial Mensual, Reportes y Ventas del Día.
-- Migración `00059_inventory_snapshots.sql` y tarea diaria `/api/cron/inventory-snapshot`.
+- Migración `00060_inventory_snapshots.sql` y tarea diaria `/api/cron/inventory-snapshot`.
 - Registrar Venta: los productos fuera de catálogo exigen costo.
 
 ---

@@ -221,7 +221,20 @@ function PrestamosContent() {
         const error = await res.json()
         throw new Error(error.error || `Error al registrar la ${cfg.bannerNoun}`)
       }
-      toast({ title: direction === 'lent' ? 'Préstamo registrado' : 'Deuda registrada' })
+      const loan = await res.json()
+      if (direction === 'lent') {
+        toast({
+          title: 'Préstamo registrado',
+          description: !loan.product_id
+            ? `Se prestó "${loan.product_title}" a ${loan.warehouse}. Está fuera de catálogo: no descuenta inventario.`
+            : loan.stock_deducted > 0
+              ? `Se prestó "${loan.product_title}" a ${loan.warehouse}. Se descuenta del inventario hasta que se devuelva o el local lo pague.`
+              : `Se prestó "${loan.product_title}" a ${loan.warehouse}. El sistema lo tenía sin stock: no se descontó nada.`,
+          duration: 6000,
+        })
+      } else {
+        toast({ title: 'Deuda registrada' })
+      }
       setSelectedProduct(null)
       setManualMode(false)
       setManualTitle('')

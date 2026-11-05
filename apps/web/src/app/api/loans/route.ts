@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthenticatedClient } from '@/lib/supabase'
+import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
@@ -75,14 +75,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = loanSchema.parse(body)
 
-    const { data: loan, error } = await supabase
-      .from('loans')
-      // @ts-ignore - Supabase type inference issue
-      .insert(validatedData)
-      .select()
-      .single()
+    // Prestar un producto de catálogo lo descuenta del inventario hasta que
+    // se devuelva (función atómica, ver migración 00059). Lo que nos prestan
+    // a nosotros y lo que está fuera de catálogo no tocan stock.
+    const { data: loan, error } = validatedData.direction === 'lent' && validatedData.product_id
+      ? await (getServiceSupabase().rpc as any)('create_lent_loan', {
+          p_loan: validatedData,
+          p_actor: auth.user.id,
+        })
+      : await supabase
+          .from('loans')
+          // @ts-ignore - Supabase type inference issue
+          .insert(validatedData)
+          .select()
+          .single()
 
     if (error) {
+      if (error.message?.includes('talla')) {
+        return NextResponse.json({ error: error.message }, { status: 400 })
+      }
       throw error
     }
 

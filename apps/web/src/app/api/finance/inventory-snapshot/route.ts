@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     console.error('Error taking inventory snapshot:', error)
     const missing = error?.code === '42P01' || error?.code === 'PGRST205'
     return NextResponse.json(
-      { error: missing ? 'Falta correr la migración 00059_inventory_snapshots.sql en Supabase' : 'Error al guardar la foto del inventario' },
+      { error: missing ? 'Falta correr la migración 00060_inventory_snapshots.sql en Supabase' : 'Error al guardar la foto del inventario' },
       { status: 500 }
     )
   }

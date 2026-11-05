@@ -29,7 +29,7 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
 /** 'YYYY-MM' de un timestamp en hora de Bogotá. */
 const bogotaYearMonth = (iso: string) => bogotaDateStr(new Date(iso)).slice(0, 7)
 
-// Tabla de la migración 00059 todavía sin crear.
+// Tabla de la migración 00060 (inventory_snapshots) todavía sin crear.
 const isMissingTable = (error: any) => error?.code === '42P01' || error?.code === 'PGRST205' || /inventory_snapshots/.test(error?.message || '')
 
 export async function GET(request: NextRequest) {

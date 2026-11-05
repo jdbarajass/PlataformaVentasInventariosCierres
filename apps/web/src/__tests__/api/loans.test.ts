@@ -3,10 +3,12 @@ import { NextRequest } from 'next/server'
 import { createSupabaseMock } from '../helpers/supabase-mock'
 
 const createAuthenticatedClientMock = vi.fn()
+const getServiceSupabaseMock = vi.fn()
 const requireAuthMock = vi.fn()
 
 vi.mock('@/lib/supabase', () => ({
   createAuthenticatedClient: (...args: any[]) => createAuthenticatedClientMock(...args),
+  getServiceSupabase: () => getServiceSupabaseMock(),
 }))
 vi.mock('@/lib/auth-helpers', () => ({
   requireAuth: (...args: any[]) => requireAuthMock(...args),
@@ -100,6 +102,40 @@ describe('POST /api/loans', () => {
     expect(calls['loans.insert'][0][0]).toMatchObject({ direction: 'borrowed' })
   })
 
+  it('un préstamo de catálogo pasa por la función que descuenta inventario', async () => {
+    const { client } = createSupabaseMock()
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      create_lent_loan: { data: { id: 'loan-3', stock_deducted: 1 }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/route')
+    const res = await POST(
+      buildRequest({ product_id: '11111111-1111-4111-8111-111111111111', product_title: 'Casco', warehouse: 'Norte' })
+    )
+
+    expect(res.status).toBe(201)
+    expect(service.calls['rpc.create_lent_loan'][0][0].p_actor).toBe('u1')
+    expect(client.from).not.toHaveBeenCalledWith('loans')
+  })
+
+  it('un producto con tallas prestado sin talla responde 400', async () => {
+    const { client } = createSupabaseMock()
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      create_lent_loan: { data: null, error: { message: 'Elige la talla del producto prestado' } },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/route')
+    const res = await POST(
+      buildRequest({ product_id: '11111111-1111-4111-8111-111111111111', product_title: 'Casco', warehouse: 'Norte' })
+    )
+
+    expect(res.status).toBe(400)
+  })
+
   it('401 cuando no hay sesión autenticada', async () => {
     requireAuthMock.mockResolvedValue({
       success: false,
@@ -133,16 +169,18 @@ describe('PUT /api/loans/[id]', () => {
   })
 
   it('permite marcar un préstamo como devuelto', async () => {
-    const { client, calls } = createSupabaseMock({
-      loans: { data: { id: 'loan-1', status: 'returned' }, error: null },
-    })
+    const { client } = createSupabaseMock()
     createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      set_loan_status: { data: { id: 'loan-1', status: 'returned' }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
 
     const { PUT } = await import('@/app/api/loans/[id]/route')
     const res = await PUT(buildRequest({ status: 'returned' }, 'PUT'), { params: Promise.resolve({ id: 'loan-1' }) })
 
     expect(res.status).toBe(200)
-    expect(calls['loans.update'][0][0]).toMatchObject({ status: 'returned' })
+    expect(service.calls['rpc.set_loan_status'][0][0]).toMatchObject({ p_loan_id: 'loan-1', p_status: 'returned' })
   })
 
   it('permite corregir producto, almacén y fecha de un préstamo ya creado (fidelidad con EditPrestamoDialog del local)', async () => {
@@ -172,15 +210,15 @@ describe('PUT /api/loans/[id]', () => {
 describe('DELETE /api/loans/[id]', () => {
   it('elimina el préstamo y registra auditoría', async () => {
     requireAuthMock.mockResolvedValue(ADMIN_AUTH)
-    const { client, calls } = createSupabaseMock({
-      loans: { data: null, error: null },
-    })
+    const { client } = createSupabaseMock()
     createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock()
+    getServiceSupabaseMock.mockReturnValue(service.client)
 
     const { DELETE } = await import('@/app/api/loans/[id]/route')
     const res = await DELETE(buildRequest({}, 'DELETE'), { params: Promise.resolve({ id: 'loan-1' }) })
 
     expect(res.status).toBe(200)
-    expect(calls['loans.delete']).toBeTruthy()
+    expect(service.calls['rpc.delete_loan'][0][0]).toMatchObject({ p_loan_id: 'loan-1' })
   })
 })

@@ -6,7 +6,7 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 |---|---|
 | 1 Clasificar salidas + sin doble conteo de fijos | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 2 Finanzas → Mes (Estado de resultados) | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
-| 3 Finanzas → Año + foto de inventario | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. 00059 corrida en YJBMOTOCOM; **falta en YBMOTOCOM**. |
+| 3 Finanzas → Año + foto de inventario | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Migración `00060_inventory_snapshots.sql` (se llamó 00059 hasta el 2026-11-05) corrida en YJBMOTOCOM; **falta en YBMOTOCOM**. |
 | 4 Inventario y rentabilidad | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 5 Flujo de caja, por cobrar / por pagar | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 6 Exportar Excel / PDF | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. **Con esta fase el plan queda completo.** |
@@ -98,7 +98,7 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   (antes caían en una categoría inferida del nombre: "CASCO" aparte de "CASCOS").
 
 ### Fase 3 — cómo quedó (2026-11-05)
-- Migración `supabase/migrations/00059_inventory_snapshots.sql`: tabla `inventory_snapshots` (una foto por mes,
+- Migración `supabase/migrations/00060_inventory_snapshots.sql`: tabla `inventory_snapshots` (una foto por mes,
   `UNIQUE(year, month)`; lectura admin / admin de solo lectura, escritura solo del servidor). **Correrla en el
   Supabase de YJBMOTOCOM y en el de YBMOTOCOM.** Sin ella la pantalla funciona, pero solo muestra el inventario de hoy.
 - `lib/finance/inventory-value.ts`: valor del inventario a costo con la misma regla de /admin/inventario (sin

@@ -2954,7 +2954,7 @@ Reemplaza el control que el usuario llevaba en el Excel `KOAJ_CARRENO2026.xlsx` 
 - **Cambio de regla en la utilidad real** (Historial Mensual, Reportes, Ventas del Día): retiros del dueño e
   inversiones no restan, y los pagos de Arriendo/Sueldo/Luz/Servicios que ya están en Gastos Fijos no se cuentan dos
   veces. 7 categorías de gasto nuevas.
-- Migración `00059_inventory_snapshots.sql` (foto mensual del inventario) + tarea diaria `/api/cron/inventory-snapshot`.
+- Migración `00060_inventory_snapshots.sql` (foto mensual del inventario) + tarea diaria `/api/cron/inventory-snapshot`.
 - Registrar Venta exige el costo de los productos fuera de catálogo (ventas nuevas).
 - Limpieza de datos en producción (con auditoría): productos de demostración eliminados; categoría y costo de dos
   chaquetas doble faz.

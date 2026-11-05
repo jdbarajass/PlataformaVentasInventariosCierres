@@ -15,7 +15,8 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00056_addi_pending_releases.sql` | Cualquier venta por Addi en YBMOTOCOM falla |
 | `00057_addi_backfill_sept12.sql` | Allá no cambia datos; se corre para no desordenar el historial de migraciones |
 | `00058_account_notes.sql` | Falla guardar notas de una cuenta |
-| `00059_inventory_snapshots.sql` | Finanzas → Año solo muestra el inventario de hoy (aviso amarillo); la foto de fin de mes (botón y tarea nocturna) falla |
+| `00059_loan_stock.sql` | Al llevar allá el cambio de préstamos, prestar productos y cambiar estados falla. Correrla antes de desplegarlo en YBMOTOCOM |
+| `00060_inventory_snapshots.sql` | Finanzas → Año solo muestra el inventario de hoy (aviso amarillo); la foto de fin de mes (botón y tarea nocturna) falla |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
@@ -56,13 +57,14 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 ## 2. Seguridad (las dos tiendas)
 
 ### 2.1 `CRON_SECRET` sin configurar en Vercel
-- **Avance 2026-11-05:** YJBMOTOCOM ya la tiene en Vercel (Production, tipo Secret); se activa con el próximo despliegue (el push pendiente). **Falta YBMOTOCOM** (con otra clave distinta).
-- **Qué es:** una clave secreta que usan las tareas automáticas (`/api/cron/*`: avisos de restock, resumen diario, backup, pedir reseña, carrito abandonado).
-- **Estado real:** el código ya la exige (`apps/web/src/lib/cron-auth.ts`). Mientras no exista en Vercel, esas tareas **no corren** (responden error 500).
+- **Avance 2026-11-05:** YJBMOTOCOM ya la tiene en Vercel (Production, tipo Secret); se activa con el próximo despliegue. **Falta YBMOTOCOM** (con otra clave distinta).
+- **Qué es:** una clave secreta que usan las tareas automáticas (`/api/cron/*`: avisos de restock, resumen diario, backup, pedir reseña, carrito abandonado, foto mensual del inventario **y los desembolsos de Datáfono, Addi y SisteCrédito**).
+- **Estado real:** el código ya la exige (`apps/web/src/lib/cron-auth.ts`). Mientras no exista en Vercel, esas tareas **no corren** (responden error 500). Si falta, **la plata de Datáfono, Addi y SisteCrédito nunca llega a las cuentas**. La fila 1 de `scripts/auditoria-ventas/diagnostico.sql` lo confirma.
+- **YJBMOTOCOM (2026-10-31):** el diagnóstico no encontró desembolsos vencidos sin liberar, señal de que sus crons sí corren. No confirma la variable en Vercel y no dice nada de YBMOTOCOM.
 - **Cómo se arregla:** acción manual, sin código. Vercel → proyecto → Settings → Environment Variables → `CRON_SECRET` con un valor largo y aleatorio → volver a desplegar. Hacerlo en los dos proyectos de Vercel (YJBMOTOCOM y YBMOTOCOM).
 
 ### 2.2 `npm audit`: dependencias con avisos de seguridad
-- La última revisión (2026-08) encontró 1 crítica y 16 más, casi todas por un `uuid` vulnerable que traen `exceljs`, `mercadopago`, `svix` y `resend`.
+- La revisión de 2026-10-31 (`npm audit --omit=dev`) encontró 29: 3 críticas, 7 altas, 15 moderadas y 4 bajas. En 2026-08 eran 17, casi todas por un `uuid` vulnerable que traen `exceljs`, `mercadopago`, `svix` y `resend`.
 - **Cómo se arregla:** actualizar esas dependencias. Lo natural es hacerlo junto con la actualización de Next.js 14 → 15. Volver a correr `npm audit` en `apps/web` para ver el estado actual antes de empezar.
 
 ### 2.3 Sin verificación en dos pasos (2FA) para el admin
@@ -72,8 +74,17 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 ### 2.4 Sin límite de intentos propio en el inicio de sesión y el registro (prioridad baja)
 - Hoy depende solo del límite interno de Supabase Auth. Solo vale la pena si algún día se ven intentos de adivinar contraseñas.
 
+## 3. Auditoría de ventas e inventario (2026-10-31)
+
+Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada de esto está corregido todavía.
+
+- **Corregir en YJBMOTOCOM las filas 8 y 9 del diagnóstico** del 2026-10-31: 16 pagos sin cuenta por $4.198.000 y 2 con cuenta distinta por $350.000. El detalle y la causa están en la sección 9 de la auditoría. Antes de tocar saldos hay que confirmar que esa plata no se haya cuadrado ya con un ajuste manual.
+- **Verificar el despliegue en YJBMOTOCOM** del cambio de préstamos y de autorización de admin para cancelar, editar y cambiar método masivo (código enviado a GitHub el 2026-10-31). La migración `00059_loan_stock.sql` ya se corrió allá. Probarlo con un vendedor real en el navegador.
+- **Plata:** editar una venta ya desembolsada duplica el dinero; cancelarla no lo saca; se puede cancelar dos veces; el cambio masivo de método no mueve la plata; al editar se sigue aceptando un pago "Sin cuenta".
+- **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
+
 ## Resueltos
 
-- **Migración 00059 en el Supabase de YJBMOTOCOM:** corrida por el usuario el 2026-11-05 (verificado: la tabla `inventory_snapshots` existe). En YBMOTOCOM sigue pendiente (punto 1).
+- **Migración de la foto del inventario en el Supabase de YJBMOTOCOM:** corrida por el usuario el 2026-11-05 cuando se llamaba `00059_inventory_snapshots.sql` (verificado: la tabla `inventory_snapshots` existe). Ese mismo día se renombró a `00060_inventory_snapshots.sql` porque el 31-oct ya existía otra 00059 (`00059_loan_stock.sql`, también corrida en YJBMOTOCOM): **no hay que volver a correrla allá**. En YBMOTOCOM siguen pendientes las dos (punto 1).
 
 - **CORS abierto en toda la API:** corregido el 2026-08-20; se quitó el bloque de `vercel.json`. Verificado de nuevo el 2026-10-28: no queda en ningún lado de la configuración.

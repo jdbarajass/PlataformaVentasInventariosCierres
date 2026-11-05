@@ -1,5 +1,5 @@
 -- =====================================================
--- YJBMOTOCOM — Migración 059: foto mensual del valor del inventario
+-- YJBMOTOCOM — Migración 060: foto mensual del valor del inventario
 -- =====================================================
 -- docs/PLAN_CONTROL_FINANCIERO.md, Fase 3 (Finanzas → Año).
 --
