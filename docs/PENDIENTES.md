@@ -22,6 +22,7 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 ## 2. Seguridad (las dos tiendas)
 
 ### 2.1 `CRON_SECRET` sin configurar en Vercel
+- **Avance 2026-11-05:** YJBMOTOCOM ya la tiene en Vercel (Production, tipo Secret); se activa con el próximo despliegue (el push pendiente). **Falta YBMOTOCOM** (con otra clave distinta).
 - **Qué es:** una clave secreta que usan las tareas automáticas (`/api/cron/*`: avisos de restock, resumen diario, backup, pedir reseña, carrito abandonado).
 - **Estado real:** el código ya la exige (`apps/web/src/lib/cron-auth.ts`). Mientras no exista en Vercel, esas tareas **no corren** (responden error 500).
 - **Cómo se arregla:** acción manual, sin código. Vercel → proyecto → Settings → Environment Variables → `CRON_SECRET` con un valor largo y aleatorio → volver a desplegar. Hacerlo en los dos proyectos de Vercel (YJBMOTOCOM y YBMOTOCOM).
