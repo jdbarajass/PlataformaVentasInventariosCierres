@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
+import { expenseCategoryNote } from '@/lib/finance/expense-classes'
 
 interface Budget {
   id: string
@@ -440,6 +441,9 @@ export default function PresupuestoPage() {
                 {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 Registrar
               </Button>
+              {expenseCategoryNote(expenseForm.category, fixedExpenses) && (
+                <p className="w-full text-xs text-muted-foreground">{expenseCategoryNote(expenseForm.category, fixedExpenses)}</p>
+              )}
             </div>
           </div>
 

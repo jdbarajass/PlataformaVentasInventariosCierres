@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { bogotaDateStr, bogotaHour, bogotaToISO } from '@/lib/bogota-time'
+import { countsInUtility, utilityExpenseCents, fixedMonthlyTotalCents, type FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
 
 const monthNames = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -58,6 +59,9 @@ export default function HistorialMensualPage() {
   const [prevRevenue, setPrevRevenue] = useState(0)
   const [prevProfit, setPrevProfit] = useState(0)
   const [totalOperatingExpenses, setTotalOperatingExpenses] = useState(0)
+  // Salidas registradas que NO restan utilidad (retiros, inversiones y pagos
+  // ya contados en gastos fijos). Solo informativo en el PDF.
+  const [excludedExpenses, setExcludedExpenses] = useState(0)
   const [fixedMonthlyTotal, setFixedMonthlyTotal] = useState(0)
   // Desglose de gastos fijos (Arriendo/Sueldo/Servicios/Otros) — igual que
   // Configuración > Comisiones y Gastos Fijos, necesario para la sección
@@ -95,6 +99,13 @@ export default function HistorialMensualPage() {
       setPrevProfit(pRevenue - pCost)
 
       if (canViewProfit) {
+        const { data: settingsData } = await supabase
+          .from('store_settings')
+          .select('fixed_monthly_expenses')
+          .eq('id', 1)
+          .single()
+        const fixed = ((settingsData as any)?.fixed_monthly_expenses || null) as FixedMonthlyExpenses | null
+
         // operating_expenses.date es DATE (sin hora/zona horaria) — se
         // construye el string directamente, sin pasar por Date/toISOString,
         // que sí dependen de la zona horaria del dispositivo.
@@ -103,27 +114,24 @@ export default function HistorialMensualPage() {
         const to = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`
         const { data: expensesData } = await supabase
           .from('operating_expenses')
-          .select('amount_cents, date')
+          .select('amount_cents, date, category')
           .gte('date', from)
           .lt('date', to)
-        const expensesRows = (expensesData as { amount_cents: number; date: string }[]) || []
-        setTotalOperatingExpenses(expensesRows.reduce((sum, e) => sum + e.amount_cents, 0))
+        const expensesRows = (expensesData as { amount_cents: number; date: string; category: string }[]) || []
+        // Solo lo que resta de la utilidad (sin retiros del dueño, inversiones
+        // ni lo ya contado en gastos fijos — lib/finance/expense-classes.ts,
+        // docs/PLAN_CONTROL_FINANCIERO.md Fase 1). Lo excluido se muestra aparte.
+        const counted = expensesRows.filter((e) => countsInUtility(e.category, fixed))
+        setTotalOperatingExpenses(utilityExpenseCents(expensesRows, fixed))
+        setExcludedExpenses(expensesRows.reduce((sum, e) => sum + e.amount_cents, 0) - utilityExpenseCents(expensesRows, fixed))
         setExpensesByDay(
-          expensesRows.reduce<Record<string, number>>((acc, e) => {
+          counted.reduce<Record<string, number>>((acc, e) => {
             acc[e.date] = (acc[e.date] || 0) + e.amount_cents
             return acc
           }, {})
         )
 
-        const { data: settingsData } = await supabase
-          .from('store_settings')
-          .select('fixed_monthly_expenses')
-          .eq('id', 1)
-          .single()
-        const fixed = (settingsData as any)?.fixed_monthly_expenses
-        setFixedMonthlyTotal(
-          fixed ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents : 0
-        )
+        setFixedMonthlyTotal(fixedMonthlyTotalCents(fixed))
         setFixedBreakdown({
           arriendo: fixed?.arriendo_cents || 0,
           sueldo: fixed?.sueldo_cents || 0,
@@ -423,6 +431,7 @@ export default function HistorialMensualPage() {
             <tr class="strong"><td>Total gastos fijos</td><td class="r red">${formatPrice(totalGastosFijos)}</td></tr>
             <tr><td><i>Gastos operativos del mes</i></td><td class="r amber">${formatPrice(totalOperatingExpenses)}</td></tr>
             <tr class="total-row"><td>TOTAL EGRESOS DEL MES</td><td class="r">${formatPrice(totalEgresos)}</td></tr>
+            ${excludedExpenses > 0 ? `<tr><td class="muted"><i>Otras salidas que no restan utilidad (retiros del dueño, inversiones y pagos ya contados en gastos fijos)</i></td><td class="r muted">${formatPrice(excludedExpenses)}</td></tr>` : ''}
           </tbody>
         </table>` : ''
 

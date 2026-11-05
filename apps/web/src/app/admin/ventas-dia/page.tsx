@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { EXPENSE_CATEGORIES } from '@/lib/expense-categories'
+import { utilityExpenseCents, fixedMonthlyTotalCents, expenseCategoryNote, type FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
 import { bogotaDateStr, bogotaDayRange, formatBogotaTime } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
@@ -198,6 +199,9 @@ function VentasDiaContent() {
   const [savingNote, setSavingNote] = useState(false)
 
   const [dailyFixedExpense, setDailyFixedExpense] = useState(0)
+  // Gastos fijos de Configuración (solo se cargan para quien ve utilidad):
+  // deciden qué gastos registrados ya están contados como fijos.
+  const [fixedConfig, setFixedConfig] = useState<FixedMonthlyExpenses | null>(null)
 
   // Selección múltiple para cambio masivo de método de pago
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -352,8 +356,8 @@ function VentasDiaContent() {
       .then((json) => {
         const fixed = json?.data?.fixed_monthly_expenses
         if (fixed) {
-          const total = fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents
-          setDailyFixedExpense(total / (fixed.dias_mes || 30))
+          setFixedConfig(fixed)
+          setDailyFixedExpense(fixedMonthlyTotalCents(fixed) / (fixed.dias_mes || 30))
         }
       })
       .catch(() => {})
@@ -395,7 +399,12 @@ function VentasDiaContent() {
   )
   const netProfit = totalDia - totalCost
   const netProfitPct = totalDia > 0 ? (netProfit / totalDia) * 100 : 0
-  const utilidadReal = netProfit - totalGastos - dailyFixedExpense
+  // Solo restan los gastos del negocio: sin retiros del dueño, inversiones
+  // ni pagos ya contados en el gasto fijo diario (lib/finance/expense-classes.ts,
+  // docs/PLAN_CONTROL_FINANCIERO.md Fase 1). totalGastos (arriba) sigue siendo
+  // toda la plata que salió, para la tarjeta de gastos.
+  const gastosQueRestan = utilityExpenseCents(expenses, fixedConfig)
+  const utilidadReal = netProfit - gastosQueRestan - dailyFixedExpense
 
   // Ingresos por método de pago del día — igual que "Por método" de Vista
   // del Día en el local (_build_totales en vista_diaria_dialog.py): cada
@@ -919,7 +928,7 @@ function VentasDiaContent() {
             <div className="rounded-xl border bg-card p-3 sm:p-4">
               <p className="text-sm text-muted-foreground">Utilidad real del día</p>
               <p className={`text-lg font-bold sm:text-2xl ${utilidadReal >= 0 ? 'text-green-500' : 'text-red-500'}`}>{formatPrice(utilidadReal)}</p>
-              <p className="text-xs text-muted-foreground">Ganancia neta − gastos del día − gasto fijo diario ({formatPrice(dailyFixedExpense)})</p>
+              <p className="text-xs text-muted-foreground">Ganancia neta − gastos del día que restan ({formatPrice(gastosQueRestan)}) − gasto fijo diario ({formatPrice(dailyFixedExpense)})</p>
             </div>
           </>
         )}
@@ -1467,6 +1476,9 @@ function VentasDiaContent() {
               {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Registrar
             </Button>
+            {expenseCategoryNote(expenseForm.category, canViewProfit ? fixedConfig : undefined) && (
+              <p className="w-full text-xs text-muted-foreground">{expenseCategoryNote(expenseForm.category, canViewProfit ? fixedConfig : undefined)}</p>
+            )}
           </div>
           {expenses.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay gastos registrados en esta fecha.</p>
@@ -1497,6 +1509,9 @@ function VentasDiaContent() {
                     <X className="mr-2 h-4 w-4" />
                     Cancelar
                   </Button>
+                  {expenseCategoryNote(editExpenseForm.category, canViewProfit ? fixedConfig : undefined) && (
+                    <p className="w-full text-xs text-muted-foreground">{expenseCategoryNote(editExpenseForm.category, canViewProfit ? fixedConfig : undefined)}</p>
+                  )}
                 </div>
               ) : (
                 <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">

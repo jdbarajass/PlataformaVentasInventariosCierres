@@ -26,6 +26,12 @@ Bienvenido a la documentación del proyecto YJBMOTOCOM.
 |-----------|-------------|------------|
 | **[UNIFICACION_YJBMOTOCOM.md](UNIFICACION_YJBMOTOCOM.md)** | Estado vivo del proyecto de unificación: entendimiento de ambos sistemas, plan aprobado, decisiones tomadas y progreso fase por fase. Leer primero si se retoma este trabajo. | 👨‍💻 Desarrolladores + 🧑‍💼 Dueño del negocio |
 
+### 💰 Control financiero
+
+| Documento | Descripción | Para quién |
+|-----------|-------------|------------|
+| **[PLAN_CONTROL_FINANCIERO.md](PLAN_CONTROL_FINANCIERO.md)** | Estado de resultados, compras, inventario y flujo de caja (reemplazo del Excel KOAJ): fórmulas, decisiones, qué no se hace y estado por fase. | 👨‍💻 Desarrolladores + 🧑‍💼 Dueño del negocio |
+
 ### 🎨 Diseño UX
 
 | Documento | Descripción | Para quién |

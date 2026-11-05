@@ -1,0 +1,165 @@
+# Plan: Control financiero (estado de resultados, compras, inventario y flujo de caja)
+
+Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando cada una antes de seguir.**
+
+| Fase | Estado |
+|---|---|
+| 1 Clasificar salidas + sin doble conteo de fijos | **Hecha 2026-11-05** (commit local, sin push). Falta que el usuario la pruebe. |
+| 2 Finanzas → Mes | Pendiente (después de probar la 1) |
+| 3 Finanzas → Año + foto de inventario | Pendiente |
+| 4 Inventario y rentabilidad | Pendiente |
+| 5 Flujo de caja, por cobrar / por pagar | Pendiente |
+| 6 Exportar Excel / PDF | Pendiente |
+
+Decisiones del usuario (2026-11-05):
+- Arriendo, sueldo y luz se registran como gasto en Ventas del Día **y** están en Gastos Fijos → deben contar
+  **solo como gasto fijo**. Regla aplicada: si el gasto fijo de esa categoría está configurado (> 0), el pago
+  registrado mueve la cuenta pero no resta otra vez de la utilidad; si está en 0, el pago registrado sí resta.
+  Mapa: Arriendo → arriendo, Sueldo → sueldo, Luz y Servicios → servicios.
+- **Toda** compra de mercancía va por Facturas, nunca como gasto operativo (por eso no hay categoría "mercancía").
+
+### Fase 1 — cómo quedó (2026-11-05)
+- `apps/web/src/lib/finance/expense-classes.ts`: clase por categoría (`expenseClass`), `isCoveredByFixed`,
+  `countsInUtility`, `utilityExpenseCents`, `fixedMonthlyTotalCents`, `expenseCategoryNote`. Pruebas:
+  `src/__tests__/lib/expense-classes.test.ts` (9). Suite 162/162.
+- `lib/expense-categories.ts`: 7 categorías nuevas (Servicios, Transporte, Publicidad, Mantenimiento,
+  Gastos bancarios, Inversión, Retiro del dueño). Las 7 originales no cambian de nombre.
+- Utilidad real ahora usa `utilityExpenseCents` en: Historial Mensual (tarjeta del mes, detalle por día y PDF,
+  que además muestra aparte "otras salidas que no restan utilidad"), Reportes (tarjeta Utilidad Real) y Ventas
+  del Día (utilidad del día; la tarjeta "Gastos operativos del día" sigue mostrando toda la plata que salió).
+- Aviso debajo del selector de categoría (Ventas del Día al crear y editar, Presupuesto → Gastos) cuando la
+  categoría es retiro, inversión o ya está en Gastos Fijos.
+- **No cambió**: lo que se descuenta de las cuentas, Presupuesto (gastado vs presupuestado por categoría),
+  Exportar/Importar, Cierres ni Mi Cuadre.
+- YBMOTOCOM: solo código, sin migración. Replicar allá cuando el usuario lo apruebe.
+
+Origen: el usuario quiere llevar en YJBMOTOCOM el control que llevaba en el Excel `KOAJ_CARRENO2026.xlsx`
+(y que el proyecto `CIERRE_KOAJ` ya reemplazó con Cuentas → Gastos / Mes / Año), complementado con un
+"prompt maestro" de indicadores financieros. Este documento dice qué se toma, qué no y por qué.
+
+---
+
+## 1. Qué hacía el Excel y cómo lo resolvió KOAJ
+
+El Excel tiene una hoja por mes (ventas diarias por medio, **recompras**, gastos operacionales, saldo por medio,
+gastos fijos con aviso "registrado / no registrado") y dos hojas de resumen:
+
+- **CierreGeneral2026**: por mes → Ventas, Recompras, Gastos operativos, Ganancia neta (ventas − gastos),
+  Ganancia real (ventas − recompras − gastos), % de ganancia, y aparte el **inventario al cierre de cada mes**
+  y cuánto subió. Total y promedio del año.
+- **DATOS_ANUALES_2026**: lo vendido por medio de pago, mes a mes.
+
+Lo más valioso que aprendió KOAJ al reemplazarlo (`CIERRE_KOAJ/.../docs/PLAN_CUENTAS_DIARIAS.md`):
+
+1. **No toda salida de plata es gasto.** En septiembre KOAJ tenía $28,1 M de "gastos" y solo ~$4,1 M eran gasto
+   operativo real; el resto eran inversiones, préstamos y retiros. Clasificar cada salida es lo que hace que la
+   utilidad sea creíble.
+2. La "ganancia real" del Excel (ventas − recompras − gastos) mide **cuánta plata quedó**, no cuánto se ganó:
+   si el inventario sube, esa plata no se perdió, está en la tienda. Por eso se guarda el inventario de fin de mes.
+3. KOAJ **no conoce el costo** de lo vendido (Alegra no lo da bien) y tiene que estimarlo con inventarios.
+
+## 2. Qué tiene YA este sistema (no se duplica)
+
+| Dato | Dónde vive | Comentario |
+|---|---|---|
+| Ventas (online + mostrador) con descuento por línea | `orders` / `order_items` (`discount_cents`) | Fuente de ventas |
+| **Costo de cada venta** | `order_items.cost_cents` (foto del costo al vender) | Ventaja enorme sobre KOAJ: el costo de lo vendido es real, no estimado |
+| Comisión por medio de pago | `payments.commission_cents` | Regla del negocio: se traslada al cliente, **no** resta ganancia. No se toca. |
+| Gastos operativos con categoría | `operating_expenses` (7 categorías cerradas en `lib/expense-categories.ts`) | Se registran en Ventas del Día y Presupuesto |
+| Gastos fijos mensuales | `store_settings.fixed_monthly_expenses` (arriendo, sueldo, servicios, otros) | Se restan completos en "Utilidad real" |
+| Compras de mercancía (= las "recompras") | `supplier_invoices` + abonos (Facturas) | Los abonos debitan cuentas |
+| Entrada de mercancía con costo | Inventario → Cargue de pedidos | Sube stock y costo, pero no queda ligado a una factura |
+| Saldo por cuenta y foto mensual | `accounts`, `account_movements`, `account_closures` | Cuentas → Resumen / Cierres |
+| Por cobrar | Fiado, Cuentas → Por cobrar, Addi / SisteCrédito / datáfono pendientes | |
+| Presupuesto por categoría | `monthly_budgets` | |
+| Historial Mensual / Reportes | ingresos, costo, ganancia neta, utilidad real, top y rentabilidad por producto, ticket promedio, comparación vs mes anterior, PDF | Ya cubre buena parte del "dashboard" del prompt |
+
+Lo que **falta** de verdad: clasificar las salidas (retiro del dueño, inversión, financiero), un estado de
+resultados con comparación, el resumen anual tipo CierreGeneral, el inventario de fin de mes, la rotación y
+productos quietos, el punto de equilibrio y un flujo de caja que separe utilidad de plata disponible.
+
+## 3. Hallazgos de integridad en lo que existe hoy (por confirmar con el usuario)
+
+1. **Posible doble conteo de gastos fijos.** "Utilidad real" (Historial Mensual, Reportes, Ventas del Día) resta
+   los gastos fijos de Configuración **y además** todos los gastos operativos, que incluyen las categorías
+   Sueldo, Arriendo y Luz. Si el arriendo se registra como gasto en Ventas del Día *y* está en Configuración,
+   cuenta dos veces.
+2. **Ventas con costo $0.** Los ítems manuales (fuera de catálogo) y productos sin costo cargado entran con
+   `cost_cents = 0`: inflan la ganancia sin aviso. Conviene mostrar cuántas ventas del mes no tienen costo.
+3. **Sin lugar para retiros del dueño ni inversiones.** Hoy, si se registran, caen en "Otro" y bajan la utilidad
+   como si fueran gasto (justo el error que el prompt pide evitar).
+4. **Compras de contado.** Si alguna compra de mercancía se paga y se anota como gasto en vez de factura, la
+   utilidad baja dos veces (como gasto y como costo cuando se venda).
+
+## 4. Fórmulas (centralizadas en `apps/web/src/lib/finance/`, con pruebas)
+
+Todas en COP, por mes calendario en hora de Bogotá, con divisiones por cero → "—" y aviso de dato faltante.
+
+```
+Ventas brutas        = Σ (cantidad × precio) de órdenes pagadas del periodo
+Descuentos           = Σ order_items.discount_cents            (solo informativo; ya está en el dato)
+Ventas netas         = Σ orders.total_cents pagadas             (= lo que hoy llama "Ingresos")
+Transacciones        = número de órdenes pagadas
+Ticket promedio      = Ventas netas ÷ Transacciones
+Costo de lo vendido  = Σ cantidad × cost_cents                  (costo real guardado al vender)
+Utilidad bruta       = Ventas netas − Costo de lo vendido
+Margen bruto %       = Utilidad bruta ÷ Ventas netas
+Markup %             = Utilidad bruta ÷ Costo de lo vendido
+Gastos operativos    = gastos clase "operativo" del mes (+ gastos fijos de Configuración que NO estén
+                       registrados como gasto, según la decisión del punto 3.1)
+Utilidad operacional = Utilidad bruta − Gastos operativos
+Gastos financieros   = gastos clase "financiero" (4x1000, cuota de manejo, intereses)
+Utilidad neta        = Utilidad operacional − Gastos financieros   (sin impuestos: el sistema no los maneja)
+Margen neto %        = Utilidad neta ÷ Ventas netas
+Gastos / ventas %    = (Gastos operativos + financieros) ÷ Ventas netas
+Nómina / ventas %    = gastos categoría Sueldo ÷ Ventas netas
+
+Punto de equilibrio  = Gastos fijos del mes ÷ Margen bruto %     (ventas necesarias para no perder)
+  por día            = Punto de equilibrio ÷ días que abre la tienda en el mes
+Ventas para utilidad objetivo = (Gastos fijos + Utilidad objetivo) ÷ Margen bruto %
+
+Compras del mes      = Σ supplier_invoices.amount con fecha de llegada en el mes   (las "recompras")
+Plata que quedó (estilo Excel) = Ventas netas − Compras pagadas − Gastos (todas las salidas que no son inversión/retiro)
+Inventario fin de mes = Σ stock × costo (productos + variantes), foto guardada el último día
+Variación inventario = Inventario fin de mes − Inventario fin del mes anterior
+Días de inventario   = Inventario actual ÷ (Costo de lo vendido de los últimos 30 días ÷ 30)
+Rotación (veces/año) = Costo de lo vendido 12 meses ÷ Inventario promedio
+```
+
+Clasificación de cada categoría de gasto (mapa en código, sin cambiar la tabla):
+
+| Clase | Categorías | ¿Resta utilidad? | ¿Resta plata? |
+|---|---|---|---|
+| Operativo | Montado, Relleno Cascos, Sueldo, Arriendo, Luz, Servicios, Transporte/Flete, Publicidad, Mantenimiento, Devueltas de dinero, Otro | Sí | Sí |
+| Financiero | Comisiones bancarias / 4x1000 / intereses (nueva) | Sí (abajo de la operacional) | Sí |
+| Inversión | Equipos y mejoras del local (nueva) | No (dura años) | Sí |
+| Retiro del dueño | Retiro del dueño (nueva) | **No** | Sí |
+| Mercancía | No va en gastos: va en **Facturas** | Solo cuando se vende (costo) | Sí, al abonar |
+
+## 5. Fases propuestas
+
+| Fase | Qué | Migración |
+|---|---|---|
+| 1 | **Clasificar las salidas**: categorías nuevas (Servicios, Transporte/Flete, Publicidad, Mantenimiento, Financiero, Inversión, Retiro del dueño), mapa categoría → clase en `lib/finance/`, y arreglo del doble conteo de gastos fijos según lo que decida el usuario. Los gastos viejos quedan como están (todas sus categorías siguen siendo "operativo"). | No |
+| 2 | **Finanzas → Mes** (página nueva `/admin/finanzas`, solo admin y admin de solo lectura): estado de resultados del mes con cada fórmula visible, comparación vs mes anterior y mismo mes del año pasado, aviso de ventas sin costo, gastos por clase y categoría, punto de equilibrio y ventas para una utilidad objetivo. | No |
+| 3 | **Finanzas → Año** (el CierreGeneral): 12 meses con ventas, costo, utilidad bruta, compras, gastos, utilidad neta, plata que quedó, %, inventario de fin de mes y su variación; total y promedio. Foto del inventario de fin de mes (tabla nueva + la toma el cron diario el último día del mes, o un botón). **El inventario de meses pasados no se puede reconstruir**: arranca desde el mes en que se suba. | Sí (1 tabla) |
+| 4 | **Inventario y rentabilidad**: días de inventario, rotación, productos sin venta en 60/90 días con la plata quieta en ellos, baja rotación, rentabilidad por categoría. | No |
+| 5 | **Flujo de caja y por cobrar / por pagar**: saldo inicial (cierre de cuentas del mes anterior) + entradas − salidas por clase = saldo final; por cobrar (fiado, por cobrar, Addi/SisteCrédito/datáfono pendientes); por pagar (facturas pendientes y próximas a vencer); "cuánto se puede retirar" = plata disponible − por pagar en 30 días − gastos fijos del próximo mes (marcado como estimado). | No |
+| 6 | Exportar a Excel (exceljs ya está) e imprimir/PDF del estado de resultados y del año, igual que Historial Mensual. | No |
+
+Cada fase: pruebas de las fórmulas (vitest), `tsc` sin errores nuevos, revisión en celular, este documento
+actualizado, commit local en `main` sin push. La migración de la Fase 3 también se debe correr en YBMOTOCOM.
+
+## 6. Lo que NO se hace del prompt, y por qué
+
+| Pedido del prompt | Decisión | Razón |
+|---|---|---|
+| Módulo de descuentos y devoluciones | **No** | Los descuentos ya se guardan por línea: se muestran como una línea informativa, sin módulo nuevo. Las devoluciones ya se manejan con Cambios y cancelación de venta. |
+| Balance general, ROA, ROE, endeudamiento, razón corriente, capital de trabajo | **No** | Necesitan activos fijos, patrimonio y deudas que el sistema no tiene. Calcularlos sería inventar números (el propio prompt lo prohíbe). |
+| EBITDA y margen EBITDA | **No** | Sin depreciación ni intereses separados, el EBITDA sería igual a la utilidad operacional: un número repetido con otro nombre. |
+| Utilidad antes de impuestos, IVA | **No** | El sistema no registra impuestos; eso lo lleva el contador. La utilidad neta se rotula "antes de impuestos". |
+| IA que responde preguntas ("CFO virtual") | **No por ahora** | Cuesta por uso, necesita clave de API y puede contestar con seguridad algo mal calculado. Las preguntas del prompt quedan respondidas por las pantallas (Fases 2-5). Se puede evaluar después, sobre estas mismas fórmulas. |
+| Costos directos/indirectos, fijos/variables, margen de contribución | **Parcial** | La clase de gasto y los gastos fijos de Configuración dan lo necesario para el punto de equilibrio; no se abre una contabilidad de costos aparte. |
+| Filtros por semana y trimestre | **No** | Mes y año cubren el uso real; Ventas del Día ya cubre el día. |
+| Control de duplicidad de ingresos, diferencia caja vs ventas | **Ya existe** | La venta es atómica en la BD; Cierres y Mi Cuadre ya comparan caja contra ventas. |
+| Bonos regalo, regla 70/30, incentivos | **No** | Son de KOAJ (ropa, empleadas con metas); YJBMOTOCOM ya tiene meta por vendedor. |

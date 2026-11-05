@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth-context'
 import { bogotaDateStr, bogotaDayRange, bogotaHour, BOGOTA_TZ } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
+import { utilityExpenseCents, fixedMonthlyTotalCents, type FixedMonthlyExpenses } from '@/lib/finance/expense-classes'
 
 // "YYYY-MM-DD" sin hora se interpreta como medianoche UTC — formatearlo
 // con new Date(str).toLocaleDateString() sin fijar la zona horaria usa la
@@ -241,13 +242,9 @@ export default function ReportsPage() {
       // para aproximar la "utilidad real" del software local.
       const { data: expensesData } = await supabase
         .from('operating_expenses')
-        .select('amount_cents')
+        .select('amount_cents, category')
         .gte('date', dateFrom)
         .lte('date', dateTo)
-      const totalOperatingExpenses = ((expensesData as { amount_cents: number }[]) || []).reduce(
-        (sum, e) => sum + e.amount_cents,
-        0
-      )
 
       // Gastos fijos mensuales (Arriendo/Sueldo/Servicios/Otros de
       // Configuración > Comisiones y Gastos Fijos). Igual que el software
@@ -261,10 +258,15 @@ export default function ReportsPage() {
         .select('fixed_monthly_expenses')
         .eq('id', 1)
         .single()
-      const fixed = (settingsData as any)?.fixed_monthly_expenses
-      const totalFixedExpenses = fixed
-        ? fixed.arriendo_cents + fixed.sueldo_cents + fixed.servicios_cents + fixed.otros_gastos_cents
-        : 0
+      const fixed = ((settingsData as any)?.fixed_monthly_expenses || null) as FixedMonthlyExpenses | null
+      const totalFixedExpenses = fixedMonthlyTotalCents(fixed)
+      // Solo los gastos que restan utilidad: sin retiros del dueño,
+      // inversiones ni pagos ya contados en los gastos fijos (Fase 1 de
+      // docs/PLAN_CONTROL_FINANCIERO.md).
+      const totalOperatingExpenses = utilityExpenseCents(
+        (expensesData as { amount_cents: number; category: string }[]) || [],
+        fixed
+      )
       const totalExpenses = totalOperatingExpenses + totalFixedExpenses
 
       if (isStale()) return
@@ -448,7 +450,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="max-sm:p-3 max-sm:pt-0">
               <div className="text-lg font-bold sm:text-2xl">{formatPrice(profitTotals.netProfit)}</div>
-              <p className="text-xs text-muted-foreground">Ganancia neta − gastos operativos del periodo y gasto fijo mensual completo ({formatPrice(profitTotals.expenses)})</p>
+              <p className="text-xs text-muted-foreground">Ganancia neta − gastos del periodo (sin retiros, inversiones ni lo ya contado en fijos) y gasto fijo mensual completo ({formatPrice(profitTotals.expenses)})</p>
             </CardContent>
           </Card>
           <Card>
