@@ -1,6 +1,6 @@
 # Plan: Control financiero (estado de resultados, compras, inventario y flujo de caja)
 
-Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando cada una antes de seguir.**
+Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando cada una antes de seguir. Las 6 están hechas (2026-11-05).**
 
 | Fase | Estado |
 |---|---|
@@ -8,8 +8,8 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 | 2 Finanzas → Mes (Estado de resultados) | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 3 Finanzas → Año + foto de inventario | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. 00059 corrida en YJBMOTOCOM; **falta en YBMOTOCOM**. |
 | 4 Inventario y rentabilidad | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
-| 5 Flujo de caja, por cobrar / por pagar | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. |
-| 6 Exportar Excel / PDF | Pendiente |
+| 5 Flujo de caja, por cobrar / por pagar | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
+| 6 Exportar Excel / PDF | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. **Con esta fase el plan queda completo.** |
 
 ### Fase 2 — cómo quedó (2026-11-05)
 - Fórmulas: `apps/web/src/lib/finance/income-statement.ts` (`buildIncomeStatement`, `salesForTargetProfit`,
@@ -31,6 +31,26 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   - Los meses pasados usan los gastos fijos configurados hoy (no hay historial): la pantalla lo advierte.
   - Aviso de ventas sin costo: oct-2026 tiene 11 líneas ($1.205.000) con costo $0.
 - Verificado en Chromium con datos reales (sesión creada por script): 1366 px y 390 px, sin desborde ni errores.
+
+### Fase 6 — cómo quedó (2026-11-05)
+- `lib/finance/report.ts`: un `ReportDoc` (secciones con columnas tipadas: texto, dinero en centavos, %, número) sale
+  igual en **Excel** (`buildReportWorkbookBuffer` / `downloadReportExcel`: una hoja por sección + hoja de notas; dinero en
+  pesos como número con formato de moneda y negativos en rojo; exceljs se carga solo al exportar) y en **PDF**
+  (`buildReportHtml` / `openReportPrintable`: ventana imprimible, "Guardar como PDF"). Todo el texto va escapado (los
+  nombres de producto son datos del usuario).
+- `lib/finance/report-builders.ts`: `monthReport`, `yearReport`, `inventoryReport`, `cashFlowReport` arman el reporte con los
+  mismos datos que ya muestra cada pestaña (no recalculan). Título con `BRAND.name` (cada tienda sale con su nombre).
+- `components/finanzas/export-buttons.tsx`: botones "Excel" y "PDF / Imprimir" arriba de cada pestaña.
+- Pruebas: `finance-report.test.ts` (6, incluye que se genera un .xlsx real y el escape de HTML). Suite 203/203.
+  `npm run build` OK (página de Finanzas 20 kB). Verificado en Chromium: los 4 Excel se descargan y se abren con los
+  valores de la pantalla; los 4 PDF abren con todas sus secciones.
+- Exportar reemplaza lo que el prompt pedía de "reportes exportables": estado de resultados, comparativo mensual y anual,
+  rentabilidad, inventario, flujo de caja, por cobrar/por pagar e indicadores.
+
+### Además el 2026-11-05: costo obligatorio en ítems fuera de catálogo
+- Decisión del dueño: "todo tiene un costo". Registrar Venta no deja agregar un ítem manual sin costo y
+  `POST /api/pos/sales` lo rechaza con un mensaje claro (`__tests__/api/pos-sales-manual-cost.test.ts`). Editar ventas
+  viejas no lo exige (había 15 con costo $0 en 90 días; quedaron en `docs/PENDIENTES.md` para revisar).
 
 ### Fase 5 — cómo quedó (2026-11-05)
 - `lib/finance/cash-flow.ts` (`buildCashFlow`, `movementConcept`, `buildReceivables`, `buildPayables`, `withdrawable`) +

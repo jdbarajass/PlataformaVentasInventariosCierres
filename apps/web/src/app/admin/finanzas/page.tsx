@@ -12,6 +12,9 @@ import { formatPrice, formatPct, MONTH_NAMES } from '@/lib/finance/format'
 import { YearView } from '@/components/finanzas/year-view'
 import { InventoryView } from '@/components/finanzas/inventory-view'
 import { CashFlowView } from '@/components/finanzas/cash-flow-view'
+import { ExportButtons } from '@/components/finanzas/export-buttons'
+import { monthReport } from '@/lib/finance/report-builders'
+import { BRAND } from '@/config/brand'
 import { cn } from '@/lib/utils'
 
 // Finanzas → Estado de resultados (docs/PLAN_CONTROL_FINANCIERO.md, Fase 2).
@@ -191,6 +194,9 @@ export default function FinanzasPage() {
         </div>
       ) : s && prev && ly && data ? (
         <div className={`space-y-6 sm:space-y-8 ${loading ? 'opacity-60 transition-opacity' : ''}`} aria-busy={loading}>
+          <div className="flex justify-end">
+            <ExportButtons getDoc={() => monthReport(data, BRAND.name)} disabled={loading} />
+          </div>
           {/* Avisos: qué tan confiables son las cifras */}
           {(s.itemsWithoutCost.lines > 0 || isCurrentMonth || data.current.daysElapsed === 0) && (
             <div className="space-y-2">

@@ -7,6 +7,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { formatPrice, formatPct, MONTH_NAMES } from '@/lib/finance/format'
 import type { YearSummary, YearMonth } from '@/lib/finance/year-summary'
+import { ExportButtons } from '@/components/finanzas/export-buttons'
+import { yearReport } from '@/lib/finance/report-builders'
+import { BRAND } from '@/config/brand'
 
 // Finanzas → Año (docs/PLAN_CONTROL_FINANCIERO.md, Fase 3): el "CierreGeneral"
 // del Excel. Los números los calcula /api/finance/year (lib/finance/year-summary.ts).
@@ -105,6 +108,9 @@ export function YearView({ year, accessToken, canEdit }: { year: number; accessT
 
   return (
     <div className={`space-y-6 sm:space-y-8 ${loading ? 'opacity-60 transition-opacity' : ''}`} aria-busy={loading}>
+      <div className="flex justify-end">
+        <ExportButtons getDoc={() => yearReport(data, BRAND.name)} disabled={loading} />
+      </div>
       {(data.snapshotsMissing || !hasAnySnapshot) && (
         <div className="space-y-2">
           {data.snapshotsMissing ? (

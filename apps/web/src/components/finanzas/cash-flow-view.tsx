@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { formatPrice, MONTH_NAMES } from '@/lib/finance/format'
 import { FLOW_CONCEPT_LABEL, type CashFlow, type Payables, type Receivables } from '@/lib/finance/cash-flow'
+import { ExportButtons } from '@/components/finanzas/export-buttons'
+import { cashFlowReport } from '@/lib/finance/report-builders'
+import { BRAND } from '@/config/brand'
 
 // Finanzas → Flujo de caja (docs/PLAN_CONTROL_FINANCIERO.md, Fase 5). Todo
 // el cálculo vive en lib/finance/cash-flow.ts y lo hace /api/finance/cash-flow.
@@ -90,6 +93,9 @@ export function CashFlowView({ year, month, accessToken }: { year: number; month
 
   return (
     <div className={`space-y-6 sm:space-y-8 ${loading ? 'opacity-60 transition-opacity' : ''}`} aria-busy={loading}>
+      <div className="flex justify-end">
+        <ExportButtons getDoc={() => cashFlowReport(data, BRAND.name)} disabled={loading} />
+      </div>
       {atrasado > 0 && (
         <p className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />

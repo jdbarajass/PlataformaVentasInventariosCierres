@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { formatPrice, formatPct } from '@/lib/finance/format'
 import type { InventoryInsights, ProductInsight } from '@/lib/finance/inventory-insights'
+import { ExportButtons } from '@/components/finanzas/export-buttons'
+import { inventoryReport } from '@/lib/finance/report-builders'
+import { BRAND } from '@/config/brand'
 
 // Finanzas → Inventario (docs/PLAN_CONTROL_FINANCIERO.md, Fase 4). Todo el
 // cálculo vive en lib/finance/inventory-insights.ts y lo hace /api/finance/inventory.
@@ -134,6 +137,9 @@ export function InventoryView({ accessToken }: { accessToken: string | undefined
 
   return (
     <div className={`space-y-6 sm:space-y-8 ${loading ? 'opacity-60 transition-opacity' : ''}`} aria-busy={loading}>
+      <div className="flex justify-end">
+        <ExportButtons getDoc={() => inventoryReport(data, BRAND.name)} disabled={loading} />
+      </div>
       {controls}
 
       {/* Tarjetas */}
