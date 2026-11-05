@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
     const fromISO = bogotaToISO(addDays(today, -(LOOKBACK_DAYS - 1)), '00:00')
 
     const [products, variants, items, movements] = await Promise.all([
-      fetchAll<{ id: string; title: string; cost_cents: number; stock_qty: number; created_at: string; categories: { name: string } | null }>((a, b) =>
-        supabase.from('products').select('id, title, cost_cents, stock_qty, created_at, categories(name)').is('deleted_at', null).order('id').range(a, b)
+      // Incluye los borrados: solo para ubicar sus ventas pasadas en su categoría.
+      fetchAll<{ id: string; title: string; cost_cents: number; stock_qty: number; created_at: string; deleted_at: string | null; categories: { name: string } | null }>((a, b) =>
+        supabase.from('products').select('id, title, cost_cents, stock_qty, created_at, deleted_at, categories(name)').order('id').range(a, b)
       ),
       fetchAll<InventoryVariantRow>((a, b) =>
         supabase.from('product_variants').select('product_id, cost_cents, stock_qty').order('id').range(a, b)
@@ -79,6 +80,7 @@ export async function GET(request: NextRequest) {
       stock_qty: p.stock_qty,
       created_at: p.created_at,
       category: p.categories?.name || null,
+      deleted: !!p.deleted_at,
     }))
     const sales: InsightSale[] = items.map((i) => ({
       product_id: i.product_id,

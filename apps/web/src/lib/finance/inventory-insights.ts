@@ -18,6 +18,12 @@ export interface InsightProduct extends InventoryProductRow {
   created_at: string
   /** Nombre de la categoría asignada, o null (se infiere del nombre). */
   category: string | null
+  /**
+   * Producto borrado del catálogo: no cuenta en el inventario ni en las listas,
+   * pero sus ventas pasadas siguen sumando en SU categoría (si no, caían en una
+   * categoría inferida del nombre, ej. "CASCO" aparte de "CASCOS").
+   */
+  deleted?: boolean
 }
 
 export interface InsightSale {
@@ -108,8 +114,9 @@ export function buildInventoryInsights(input: {
   quietDays: number
   listLimit?: number
 }): InventoryInsights {
-  const { products, variants, sales, lastIn, today, windowDays, quietDays } = input
+  const { variants, sales, lastIn, today, windowDays, quietDays } = input
   const limit = input.listLimit ?? 15
+  const products = input.products.filter((p) => !p.deleted)
   const inventory = computeInventoryValue(products, variants)
 
   const windowStart = addDays(today, -(windowDays - 1))
@@ -127,7 +134,7 @@ export function buildInventoryInsights(input: {
 
   const byProduct = new Map<string, { units: number; sales: number; cost: number; lastSale: string | null }>()
   const cat = new Map<string, Omit<CategoryInsight, 'margin' | 'profitShare'>>()
-  const catOf = new Map(products.map((p) => [p.id, productCategory(p)]))
+  const catOf = new Map(input.products.map((p) => [p.id, productCategory(p)]))
   const getCat = (name: string) => {
     let c = cat.get(name)
     if (!c) {

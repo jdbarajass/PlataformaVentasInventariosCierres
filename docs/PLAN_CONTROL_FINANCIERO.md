@@ -50,6 +50,14 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
     Alarma Premium) siguen activos en la tienda, nunca se vendieron y suman $5,3 M de inventario que no existe.
   - "ÍTEMS MANUALES" es la categoría que más vende en 90 días: esas ventas no descuentan stock ni quedan ligadas a un producto.
   - Categorías partidas por falta de categoría asignada (CASCOS vs CASCO, CHAQUETAS vs CHAQUETA).
+- **Limpieza de datos hecha el 2026-11-05 a pedido del usuario** (script con service role; cada cambio en
+  `audit_logs` con `actor_email` "Claude Code (script, pedido del dueño 2026-11-05)" y su valor anterior):
+  - Los 3 productos de demostración eliminados como lo hace el panel (`active=false`, `deleted_at`). No tenían ventas.
+  - CHAQUETA IMPERMEABLE AZUL y VERDE DOBLE FAZ: categoría Chaquetas y costo $76.000 en sus 12 tallas (igual que sus
+    gemelas MORADO y NEGRA DOBLE FAZ); la única venta afectada (AZUL L, YJBM-20261015-3823) pasó de costo $0 a $76.000.
+  - Resultado: 0 productos sin categoría y 0 con costo $0; inventario $54,4 M; plata quieta $4,0 M.
+- Arreglo de código el mismo día: las ventas de productos **borrados** del catálogo ahora suman en su categoría
+  (antes caían en una categoría inferida del nombre: "CASCO" aparte de "CASCOS").
 
 ### Fase 3 — cómo quedó (2026-11-05)
 - Migración `supabase/migrations/00059_inventory_snapshots.sql`: tabla `inventory_snapshots` (una foto por mes,

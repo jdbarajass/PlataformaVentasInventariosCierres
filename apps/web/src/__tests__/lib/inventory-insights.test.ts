@@ -67,6 +67,18 @@ describe('buildInventoryInsights', () => {
     expect(byName['CASCOS'].profitShare).toBeCloseTo(20_000 / 33_000)
   })
 
+  it('producto borrado: no suma inventario, pero sus ventas van a su categoría', () => {
+    const x = buildInventoryInsights({
+      products: [{ id: 'viejo', title: 'CASCO VIEJO', cost_cents: 1000, stock_qty: 9, created_at: old, category: 'Cascos', deleted: true }],
+      variants: [],
+      sales: [sale('viejo', 'CASCO VIEJO', 1, 5_000, 1_000, '2026-11-01')],
+      lastIn: {}, today: TODAY, windowDays: 90, quietDays: 90,
+    })
+    expect(x.inventory.value_cents).toBe(0)
+    expect(x.categories.map((c) => c.category)).toEqual(['CASCOS'])
+    expect(x.topMovers).toEqual([])
+  })
+
   it('sin ventas: sin divisiones por cero', () => {
     const e = buildInventoryInsights({ products: [], variants: [], sales: [], lastIn: {}, today: TODAY, windowDays: 30, quietDays: 60 })
     expect(e.daysOfInventory).toBeNull()
