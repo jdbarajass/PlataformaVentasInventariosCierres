@@ -23,9 +23,35 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 - **Crear en el catálogo el "casco de niños"** (pedido del usuario 2026-11-05). Hoy se vende como ítem manual
   ("CASCO DE NIÑA", $100.000 el 31-oct, factura YJBM-20261031-8370, sin costo). Recordárselo hasta que lo cree.
-- **Revisar las 15 ventas manuales con costo $0** de los últimos 90 días (lista entregada el 2026-11-05, entre ellas
-  CASCO SPARTAN FENIX $380.000 y Q58MAX $300.000). Si el usuario da los costos, corregirlos como las chaquetas doble faz
-  (script con auditoría). Desde el 2026-11-05 ya no se puede vender un ítem manual sin costo.
+- **Pasar el costo de 15 ventas manuales que quedaron con costo $0** (últimos 90 días al 2026-11-05). Con los costos,
+  Claude los corrige como las chaquetas doble faz (script con auditoría). Desde el 2026-11-05 ya no se puede vender un
+  ítem manual sin costo.
+
+  | Fecha | Factura | Ítem | Precio |
+  |---|---|---|---|
+  | 14-ago | YJBM-20260814-5111 | PARRILA GIXXER 150 | $120.000 |
+  | 27-sep | YJBM-20260927-8980 | BASE TCOM | $25.000 |
+  | 28-sep | YJBM-20260928-1790 | CASCO X ONE ABATIBLE | $190.000 |
+  | 29-sep | YJBM-20260929-4933 | CHAQUETA PROTECCION | $140.000 |
+  | 30-sep | YJBM-20260930-6409 | SILICONA SIOMONIZ | $20.000 |
+  | 3-oct | YJBM-20261003-7357 | CASCO SPARTAN FENIX | $380.000 |
+  | 7-oct | YJBM-20261007-1149 | BASE KYV2 | $20.000 |
+  | 22-oct | YJBM-20261022-6070 | pijama sin maletro | $75.000 |
+  | 24-oct | YJBM-20261025-1186 | PIJAMA SIN MALETERO | $85.000 |
+  | 27-oct | YJBM-20261027-9112 | Q58MAX (2 uds) | $180.000 |
+  | 27-oct | YJBM-20261027-9112 | Q58MAX (1 ud) | $120.000 |
+  | 28-oct | YJBM-20261028-9243 | silicona simoniz | $20.000 |
+  | 30-oct | YJBM-20261030-1142 | LAVADO CASCO | $35.000 |
+  | 30-oct | YJBM-20261030-1142 | VISOR SHAFT 526 TORNASOL | $70.000 |
+  | 31-oct | YJBM-20261031-8370 | CASCO DE NIÑA | $100.000 |
+
+## 1d. Subir los cambios (push) — las dos tiendas
+
+- Al 2026-11-05: **16 commits sin subir en YJBMOTOCOM** y **7 en YBMOTOCOM** (carpeta `Pictures/YOJAN`): el control
+  financiero completo (6 fases) y el costo obligatorio en ítems manuales. Hacer el push desde una red sin bloqueo de
+  GitHub. Al desplegar YJBMOTOCOM también se activa su `CRON_SECRET`.
+- **Después del push, en YBMOTOCOM:** revisar Finanzas → Inventario (productos de demostración de `seed.sql`, productos
+  sin categoría, costos en $0). La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
 
 ## 2. Seguridad (las dos tiendas)
 
