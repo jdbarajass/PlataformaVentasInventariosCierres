@@ -48,6 +48,9 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 ## 1d. Después del push, revisar YBMOTOCOM
 
+- **Push pendiente (2026-11-05, tarde):** Ventas por día y Gastos quedaron en commits locales en las dos tiendas
+  (YJBMOTOCOM y YBMOTOCOM). Subir desde una red con GitHub, haciendo `git pull` antes.
+
 - Revisar allá Finanzas → Inventario (productos de demostración de `seed.sql`, productos sin categoría, costos en $0).
   La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
 - En YBMOTOCOM el código del control financiero ya está desplegado, pero Finanzas → Año no guarda el inventario de fin
