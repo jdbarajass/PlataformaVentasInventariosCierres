@@ -519,6 +519,13 @@ export default function VentasPage() {
     // rol. Antes se forzaba a 0 para cualquiera que no fuera admin,
     // perdiendo el costo real que la vendedora sí necesitaba registrar.
     const cost = Math.round((parseFloat(manualCost) || 0) * 100)
+    // Todo tiene un costo (decisión del dueño, 2026-11-05): sin costo, la
+    // venta mostraría una utilidad del 100 % que no existe. Si se revende algo
+    // de otra tienda, el costo es lo que se le pagó a esa tienda.
+    if (cost <= 0) {
+      toast({ title: 'Falta el costo', description: 'Escribe cuánto nos costó este producto (si lo trajiste de otra tienda, lo que le pagaste).', variant: 'destructive' })
+      return
+    }
     updateActiveSession((s) => ({
       ...s,
       cart: [
@@ -958,7 +965,7 @@ export default function VentasPage() {
                     className="rounded-lg"
                   />
                   <MoneyInput placeholder="Precio de venta" value={manualPrice} onChange={setManualPrice} className="rounded-lg" />
-                  <MoneyInput placeholder="Costo (opcional)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
+                  <MoneyInput placeholder="Costo (obligatorio)" aria-label="Costo (obligatorio)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" className="rounded-lg touch:h-11 max-sm:flex-1" onClick={addManualItem}>

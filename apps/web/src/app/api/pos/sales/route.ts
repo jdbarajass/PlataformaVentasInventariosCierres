@@ -23,6 +23,14 @@ const saleItemSchema = z
     message: 'El ítem debe tener product_id o un nombre manual (manual_title)',
     path: ['product_id'],
   })
+  // Todo tiene un costo (decisión del dueño, 2026-11-05): un ítem fuera de
+  // catálogo sin costo hacía ver una utilidad del 100 %. Solo aplica a ventas
+  // NUEVAS; editar una venta vieja (PUT /api/pos/sales/[id]) no lo exige, para
+  // no trabar las que ya quedaron guardadas con costo $0.
+  .refine((item) => item.product_id || (item.manual_cost_cents ?? 0) > 0, {
+    message: 'Los productos fuera de catálogo necesitan su costo (cuánto nos costó)',
+    path: ['manual_cost_cents'],
+  })
 
 const salePaymentSchema = z.object({
   method: z.enum(['card', 'transfer', 'wallet', 'cash', 'nequi', 'nu', 'qr', 'daviplata', 'other', 'addi', 'sistecredito']),
@@ -66,8 +74,11 @@ export async function POST(request: NextRequest) {
     const validation = saleSchema.safeParse(body)
 
     if (!validation.success) {
+      // El costo faltante de un ítem manual se explica con su propio mensaje
+      // (Registrar Venta muestra `error` tal cual).
+      const costIssue = validation.error.errors.find((e) => e.path.includes('manual_cost_cents'))
       return NextResponse.json(
-        { error: 'Datos inválidos', details: validation.error.errors },
+        { error: costIssue ? costIssue.message : 'Datos inválidos', details: validation.error.errors },
         { status: 400 }
       )
     }

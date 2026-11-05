@@ -19,6 +19,14 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
+## 1c. Pendientes del negocio (YJBMOTOCOM)
+
+- **Crear en el catálogo el "casco de niños"** (pedido del usuario 2026-11-05). Hoy se vende como ítem manual
+  ("CASCO DE NIÑA", $100.000 el 31-oct, factura YJBM-20261031-8370, sin costo). Recordárselo hasta que lo cree.
+- **Revisar las 15 ventas manuales con costo $0** de los últimos 90 días (lista entregada el 2026-11-05, entre ellas
+  CASCO SPARTAN FENIX $380.000 y Q58MAX $300.000). Si el usuario da los costos, corregirlos como las chaquetas doble faz
+  (script con auditoría). Desde el 2026-11-05 ya no se puede vender un ítem manual sin costo.
+
 ## 2. Seguridad (las dos tiendas)
 
 ### 2.1 `CRON_SECRET` sin configurar en Vercel
