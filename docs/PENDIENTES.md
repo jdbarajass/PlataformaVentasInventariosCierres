@@ -48,9 +48,6 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 ## 1d. Después del push, revisar YBMOTOCOM
 
-- **Push pendiente (2026-11-05, tarde):** Ventas por día y Gastos quedaron en commits locales en las dos tiendas
-  (YJBMOTOCOM y YBMOTOCOM). Subir desde una red con GitHub, haciendo `git pull` antes.
-
 - Revisar allá Finanzas → Inventario (productos de demostración de `seed.sql`, productos sin categoría, costos en $0).
   La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
 - En YBMOTOCOM el código del control financiero ya está desplegado, pero Finanzas → Año no guarda el inventario de fin
@@ -87,6 +84,8 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **Push de Ventas por día y Gastos (2026-11-05, tarde):** YJBMOTOCOM `6ae1c88..c8b1459` y YBMOTOCOM `32e1b77..0d8dfa6` (sin cambios nuevos en la nube antes de subir).
 
 - **Push de las dos tiendas (2026-11-05):** YJBMOTOCOM `79cef2a..2e54c5f` (control financiero completo + merge con la
   auditoría del 31-oct hecha en el otro PC) y YBMOTOCOM `6d91296..32e1b77`. La migración de la foto del inventario pasó
