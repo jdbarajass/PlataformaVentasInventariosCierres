@@ -6,8 +6,8 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 |---|---|
 | 1 Clasificar salidas + sin doble conteo de fijos | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 2 Finanzas → Mes (Estado de resultados) | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
-| 3 Finanzas → Año + foto de inventario | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. **Falta correr la migración 00059 en los dos Supabase** y que el usuario la pruebe. |
-| 4 Inventario y rentabilidad | Pendiente |
+| 3 Finanzas → Año + foto de inventario | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. 00059 corrida en YJBMOTOCOM; **falta en YBMOTOCOM**. |
+| 4 Inventario y rentabilidad | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. |
 | 5 Flujo de caja, por cobrar / por pagar | Pendiente |
 | 6 Exportar Excel / PDF | Pendiente |
 
@@ -31,6 +31,25 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   - Los meses pasados usan los gastos fijos configurados hoy (no hay historial): la pantalla lo advierte.
   - Aviso de ventas sin costo: oct-2026 tiene 11 líneas ($1.205.000) con costo $0.
 - Verificado en Chromium con datos reales (sesión creada por script): 1366 px y 390 px, sin desborde ni errores.
+
+### Fase 4 — cómo quedó (2026-11-05)
+- `lib/finance/inventory-insights.ts` (`buildInventoryInsights`) + `GET /api/finance/inventory?window=30|90|180|365&quiet=60|90|180`
+  → pestaña **Inventario** de Finanzas (`components/finanzas/inventory-view.tsx`). Sin migración. Pruebas:
+  `inventory-insights.test.ts` (7). Suite 188/188.
+- Muestra: inventario a costo, **días de inventario** (inventario ÷ costo vendido de 30 días ÷ 30), **rotación**
+  (marcada ESTIMADO: usa el inventario de hoy, no el promedio), **plata quieta**, rentabilidad por categoría (con el
+  inventario de hoy de cada una), productos quietos, los que más rotan, baja rotación (días de cobertura) y los que más
+  utilidad dejan.
+- Producto quieto = con stock, sin venta en más de N días **y** sin entrada de mercancía (o creación) en ese tiempo,
+  para no marcar lo recién llegado. Las ventas se miran siempre un año atrás.
+- Categoría = la asignada en el producto; si no tiene, la primera palabra del nombre (igual que Inventario e Historial).
+  Los ítems manuales van aparte ("ÍTEMS MANUALES").
+- Las alertas de stock bajo NO se repiten: ya existen en Dashboard e Inventario.
+- Hallazgos con datos reales (YJBMOTOCOM, 5-nov-2026, informados al usuario):
+  - Los 3 productos de demostración de `supabase/seed.sql` (Guantes Touring Premium, Chaqueta Moto Adventure, Candado
+    Alarma Premium) siguen activos en la tienda, nunca se vendieron y suman $5,3 M de inventario que no existe.
+  - "ÍTEMS MANUALES" es la categoría que más vende en 90 días: esas ventas no descuentan stock ni quedan ligadas a un producto.
+  - Categorías partidas por falta de categoría asignada (CASCOS vs CASCO, CHAQUETAS vs CHAQUETA).
 
 ### Fase 3 — cómo quedó (2026-11-05)
 - Migración `supabase/migrations/00059_inventory_snapshots.sql`: tabla `inventory_snapshots` (una foto por mes,
