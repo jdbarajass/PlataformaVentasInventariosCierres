@@ -3,6 +3,8 @@ import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
+import { bogotaDateStr } from '@/lib/bogota-time'
+import { applyInvoiceAmountChange } from '@/lib/supplier-invoice-edit'
 
 const invoiceUpdateSchema = z.object({
   description: z.string().min(1).optional(),
@@ -47,27 +49,55 @@ export async function GET(
   }
 }
 
-// PUT - Editar datos descriptivos de la factura (nunca el estado/pago directo)
+// PUT - Editar la factura (solo admin): descripción, proveedor, total, fechas y
+// notas. El estado no se manda: se recalcula si cambia el total (ver
+// lib/supplier-invoice-edit.ts) y el total nunca puede quedar por debajo de lo
+// ya abonado. Queda en auditoría con el valor anterior.
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   try {
-    const auth = await requireAuth(request, ['admin', 'seller'])
+    const auth = await requireAuth(request, ['admin'])
     if (!auth.success) {
       return auth.response
     }
 
-    const supabase = createAuthenticatedClient(auth.token)
-
     const body = await request.json()
-    const validatedData = invoiceUpdateSchema.parse(body)
+    const parsed = invoiceUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Datos de validación inválidos', details: parsed.error.errors }, { status: 400 })
+    }
+    const validatedData = parsed.data
 
-    const { data: invoice, error } = await supabase
+    const supabase = getServiceSupabase()
+    const { data: current, error: currentError } = await supabase
       .from('supplier_invoices')
-      // @ts-ignore - Supabase type inference issue
-      .update({ ...validatedData, updated_at: new Date().toISOString() })
+      .select('id, description, supplier, amount_cents, arrival_date, due_date, notes, status, paid_at, payments:supplier_invoice_payments(amount_cents)')
+      .eq('id', id)
+      .single()
+    if (currentError || !current) {
+      return NextResponse.json({ error: 'Factura no encontrada' }, { status: 404 })
+    }
+    const cur = current as any
+
+    const update: Record<string, unknown> = { ...validatedData, updated_at: new Date().toISOString() }
+    if (validatedData.amount_cents !== undefined && validatedData.amount_cents !== Number(cur.amount_cents)) {
+      const result = applyInvoiceAmountChange(
+        { amount_cents: Number(cur.amount_cents), status: cur.status, paid_at: cur.paid_at, payments: cur.payments },
+        validatedData.amount_cents,
+        bogotaDateStr(new Date())
+      )
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+      update.status = result.status
+      update.paid_at = result.paid_at
+    }
+
+    const { data: invoice, error } = await (supabase.from('supplier_invoices') as any)
+      .update(update)
       .eq('id', id)
       .select()
       .single()
@@ -76,26 +106,20 @@ export async function PUT(
       throw error
     }
 
+    const { payments: _payments, ...oldData } = cur
     await logAudit(supabase, {
       actorId: auth.user.id,
       actorEmail: auth.user.email,
       action: 'supplier_invoice_updated',
       tableName: 'supplier_invoices',
       recordId: id,
-      newData: validatedData,
+      oldData,
+      newData: update,
     })
 
     return NextResponse.json(invoice)
   } catch (error) {
     console.error('Error updating supplier invoice:', error)
-
-    if (error instanceof Error && error.message.includes('Expected')) {
-      return NextResponse.json(
-        { error: 'Datos de validación inválidos' },
-        { status: 400 }
-      )
-    }
-
     return NextResponse.json(
       { error: 'Error al actualizar la factura' },
       { status: 500 }

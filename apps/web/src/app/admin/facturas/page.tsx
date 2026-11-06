@@ -10,6 +10,7 @@ import {
   Trash2,
   AlertTriangle,
   CheckCircle2,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,6 +79,11 @@ export default function FacturasPage() {
 
   const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  // Editar la factura (total con descuento, fechas, proveedor…): solo admin.
+  const isAdmin = userProfile?.role === 'admin'
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
+  const [editInvoice, setEditInvoice] = useState({ description: '', supplier: '', amount: '', arrival_date: '', due_date: '', notes: '' })
+  const [savingInvoice, setSavingInvoice] = useState(false)
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
@@ -235,6 +241,55 @@ export default function FacturasPage() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     } finally {
       setPayingId(null)
+    }
+  }
+
+  const startEditInvoice = (invoice: SupplierInvoice) => {
+    setEditingInvoiceId(invoice.id)
+    setEditInvoice({
+      description: invoice.description,
+      supplier: invoice.supplier,
+      amount: String(Math.round(invoice.amount_cents / 100)),
+      arrival_date: invoice.arrival_date || '',
+      due_date: invoice.due_date || '',
+      notes: invoice.notes || '',
+    })
+  }
+
+  const handleSaveInvoice = async (invoice: SupplierInvoice) => {
+    const amount_cents = Math.round((parseFloat(editInvoice.amount) || 0) * 100)
+    if (!editInvoice.description.trim() || !editInvoice.supplier.trim() || amount_cents <= 0) {
+      toast({ title: 'Error', description: 'Descripción, proveedor y total son obligatorios', variant: 'destructive' })
+      return
+    }
+    const paid = paidSoFar(invoice)
+    if (amount_cents < paid) {
+      toast({ title: 'Error', description: `El total no puede ser menor a lo ya abonado (${formatPrice(paid)})`, variant: 'destructive' })
+      return
+    }
+    setSavingInvoice(true)
+    try {
+      const res = await fetch(`/api/supplier-invoices/${invoice.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          description: editInvoice.description.trim(),
+          supplier: editInvoice.supplier.trim(),
+          amount_cents,
+          arrival_date: editInvoice.arrival_date || null,
+          due_date: editInvoice.due_date || null,
+          notes: editInvoice.notes.trim() || null,
+        }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(json?.error || 'No se pudo guardar la factura')
+      toast({ title: 'Factura actualizada', description: json?.status === 'paid' && invoice.status !== 'paid' ? 'Con los abonos ya quedó pagada.' : undefined })
+      setEditingInvoiceId(null)
+      fetchInvoices()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingInvoice(false)
     }
   }
 
@@ -469,6 +524,54 @@ export default function FacturasPage() {
 
                 {isExpanded && (
                   <div className="space-y-4 border-t p-4">
+                    {editingInvoiceId === invoice.id ? (
+                      <div className="space-y-3 rounded-lg border border-primary/40 p-3">
+                        <p className="text-sm font-medium">Editar factura</p>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          <label className="block text-xs">
+                            <span className="text-muted-foreground">Descripción</span>
+                            <Input value={editInvoice.description} onChange={(e) => setEditInvoice({ ...editInvoice, description: e.target.value })} className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
+                          </label>
+                          <label className="block text-xs">
+                            <span className="text-muted-foreground">Proveedor</span>
+                            <Input value={editInvoice.supplier} onChange={(e) => setEditInvoice({ ...editInvoice, supplier: e.target.value })} className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
+                          </label>
+                          <label className="block text-xs">
+                            <span className="text-muted-foreground">Total de la factura</span>
+                            <MoneyInput value={editInvoice.amount} onChange={(v) => setEditInvoice({ ...editInvoice, amount: v })} aria-label="Total de la factura" className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
+                          </label>
+                          <label className="block text-xs">
+                            <span className="text-muted-foreground">Llegada</span>
+                            <Input type="date" value={editInvoice.arrival_date} onChange={(e) => setEditInvoice({ ...editInvoice, arrival_date: e.target.value })} className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
+                          </label>
+                          <label className="block text-xs">
+                            <span className="text-muted-foreground">Vencimiento</span>
+                            <Input type="date" value={editInvoice.due_date} onChange={(e) => setEditInvoice({ ...editInvoice, due_date: e.target.value })} className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
+                          </label>
+                          <label className="block text-xs">
+                            <span className="text-muted-foreground">Notas</span>
+                            <Input value={editInvoice.notes} onChange={(e) => setEditInvoice({ ...editInvoice, notes: e.target.value })} placeholder="Ej: descuento adicional del proveedor" className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
+                          </label>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {paid > 0 ? `Ya abonado: ${formatPrice(paid)}. El total no puede quedar por debajo de eso; si los abonos ya lo cubren, la factura queda pagada.` : 'Todavía no tiene abonos.'}
+                          {' '}Nuevo saldo: {formatPrice(Math.max(Math.round((parseFloat(editInvoice.amount) || 0) * 100) - paid, 0))}.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" className="rounded-lg touch:h-11 max-sm:flex-1" onClick={() => handleSaveInvoice(invoice)} disabled={savingInvoice}>
+                            {savingInvoice ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                            Guardar cambios
+                          </Button>
+                          <Button size="sm" variant="ghost" className="rounded-lg touch:h-11" onClick={() => setEditingInvoiceId(null)} disabled={savingInvoice}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : isAdmin && (
+                      <Button variant="outline" size="sm" className="rounded-lg touch:h-11" onClick={() => startEditInvoice(invoice)}>
+                        <Pencil className="mr-1 h-3 w-3" /> Editar factura
+                      </Button>
+                    )}
                     <div className="grid gap-2 text-sm sm:grid-cols-3">
                       <p><span className="text-muted-foreground">Llegada:</span> {formatDate(invoice.arrival_date)}</p>
                       <p><span className="text-muted-foreground">Vencimiento:</span> {formatDate(invoice.due_date)}</p>
