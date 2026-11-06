@@ -2,7 +2,7 @@
 
 > **Este documento es el estado vivo del proyecto.** Si retomas este trabajo en una sesión nueva (o después de una pausa larga), lee este archivo completo antes de tocar código — te dice exactamente en qué quedamos, qué decisiones ya se tomaron y por qué, y cuál es el siguiente paso concreto.
 
-**Última actualización**: 2026-11-05 (entrada 96 — control financiero, detalle en `docs/PLAN_CONTROL_FINANCIERO.md`)
+**Última actualización**: 2026-11-06 (entrada 97 — editar facturas de proveedor)
 **Estado actual**: **Fases 3, 3B y 4 (4.1-4.4) completas**, más una **segunda auditoría exhaustiva sección-por-sección (sección 15/16) también completa** — las 19 secciones del panel admin fueron comparadas contra el software local módulo por módulo y se corrigieron 15 hallazgos reales adicionales que la Fase 4 no había cerrado (ver sección 16 para el resumen ejecutivo). Todos los commits en `main`, ninguno pusheado — esperando autorización explícita del usuario para `git push`. Migraciones 00008-00025 pendientes de aplicar/confirmar por el usuario en Supabase real (la `00025` es nueva, de esta ronda). Se consolidó el login del sitio en una sola ruta (`/iniciar-sesion`, sección 14). Queda documentado un candidato claro para una futura Fase 5: ampliar la cobertura de `audit_logs` a ~8 módulos que hoy no registran nada (sección 15.17).
 
 Contexto de la Fase 3B (sección 10): el usuario comparó una captura del software local corriendo contra la nube y encontró que la Fase 2 (sección 5.3) se había saltado 4 módulos que la Fase 1 sí identificó correctamente: Calculadora, Mi Cuadre, Historial Mensual, y Ventas del Día completo. Ya están cerrados.
@@ -2959,3 +2959,15 @@ Reemplaza el control que el usuario llevaba en el Excel `KOAJ_CARRENO2026.xlsx` 
 - Limpieza de datos en producción (con auditoría): productos de demostración eliminados; categoría y costo de dos
   chaquetas doble faz.
 - Replicado en YBMOTOCOM (`docs/EXPANSION_SEGUNDA_TIENDA.md`, secciones 17-21).
+
+## 97. Facturas: el admin puede editar una factura (2026-11-06)
+
+Pedido del usuario: un proveedor dio un descuento adicional y la factura (XONE ABATIBLE PLANO Y CALCA) no se podía corregir.
+- Botón **Editar factura** (solo admin) en `/admin/facturas`: descripción, proveedor, total, llegada, vencimiento y notas.
+- `PUT /api/supplier-invoices/[id]` pasa a ser **solo admin** (antes también vendedor, aunque la pantalla no lo usaba) y usa
+  `lib/supplier-invoice-edit.ts`: el total no puede quedar por debajo de lo abonado; si cambia el total el estado se recalcula
+  (pagada si los abonos ya lo cubren, pendiente si no); una factura pagada sin abonos (pagada por fuera del sistema) se queda
+  pagada. Auditoría `supplier_invoice_updated` con `old_data`.
+- Pruebas: `__tests__/lib/supplier-invoice-edit.test.ts` (6) y `__tests__/api/supplier-invoice-edit.test.ts` (4). Suite 234/234.
+- Replicado en YBMOTOCOM (`docs/EXPANSION_SEGUNDA_TIENDA.md` sección 23). Sin migración.
+
