@@ -2987,3 +2987,4 @@ paga casi 2 meses después.
 - Las APIs `/api/{sistecredito,addi,card-payments}/pending-releases` ahora traen `order:orders(order_number, customer_name)`
   y paginan con `fetchAll` (antes se cortaban en 1000 filas, y estas tablas guardan todo el historial).
 - Sin migración. Verificado en local con datos reales (totales del popup = tarjeta) en escritorio y celular. Suite 234/234.
+- Replicado en YBMOTOCOM (`docs/EXPANSION_SEGUNDA_TIENDA.md` sección 24).

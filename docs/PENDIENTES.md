@@ -4,7 +4,7 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-05.
+> Última revisión: 2026-11-09.
 
 ## 1. Migraciones sin correr en el Supabase de YBMOTOCOM
 
