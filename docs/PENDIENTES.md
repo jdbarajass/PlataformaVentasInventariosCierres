@@ -90,6 +90,9 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 
 ## Resueltos
 
+- **Push del detalle de desembolsos en Cuentas (2026-11-09):** YJBMOTOCOM `a3f6109..874bc4d` y YBMOTOCOM `81b77b5..3926225`
+  (sin cambios nuevos en la nube antes de subir).
+
 - **Push de Ventas por día y Gastos (2026-11-05, tarde):** YJBMOTOCOM `6ae1c88..c8b1459` y YBMOTOCOM `32e1b77..0d8dfa6` (sin cambios nuevos en la nube antes de subir).
 
 - **Push de las dos tiendas (2026-11-05):** YJBMOTOCOM `79cef2a..2e54c5f` (control financiero completo + merge con la
