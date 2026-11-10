@@ -5,6 +5,11 @@
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
 > Última revisión: 2026-11-09.
+>
+> **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
+> `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
+> evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
+> a Resueltos.
 
 ## 1. Migraciones sin correr en el Supabase de YBMOTOCOM
 
