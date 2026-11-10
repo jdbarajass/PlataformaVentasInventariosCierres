@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 import { bogotaDayRange, bogotaToISO } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
+import { ReleaseDetailDialog, type ReleaseDetailRow, type ReleaseKind } from '@/components/admin/release-detail-dialog'
 
 interface Account {
   id: string
@@ -67,6 +68,10 @@ interface AccountClosure {
   created_at: string
 }
 
+// Factura y cliente de la venta, para el detalle de desembolsos (las APIs
+// de *_pending_releases los traen embebidos desde `orders`).
+type ReleaseOrderRef = { order_number: string; customer_name: string | null } | null
+
 const movementTypeLabels: Record<string, string> = {
   sale: 'Venta',
   manual_adjustment: 'Ajuste manual',
@@ -106,6 +111,7 @@ export default function CuentasPage() {
     sale_date: string
     release_date: string
     released_at: string | null
+    order: ReleaseOrderRef
   }[]>([])
   const sistecreditoPending = sistecreditoReleases.filter((p) => !p.released_at)
   // Ventas por Datáfono (método 'card') ya registradas pero todavía no
@@ -121,6 +127,7 @@ export default function CuentasPage() {
     sale_date: string
     release_date: string
     released_at: string | null
+    order: ReleaseOrderRef
   }[]>([])
   const cardPending = cardReleases.filter((p) => !p.released_at)
   // Ventas por Addi (plan de 7 días) ya registradas pero todavía no
@@ -135,9 +142,15 @@ export default function CuentasPage() {
     sale_date: string
     release_date: string
     released_at: string | null
+    order: ReleaseOrderRef
   }[]>([])
   const addiPending = addiReleases.filter((p) => !p.released_at)
   const [loading, setLoading] = useState(true)
+  // Popup "lo que llegó y lo que falta" de una cuenta con desembolso
+  // diferido (SisteCrédito, Addi, Datáfono) — se abre al darle click a la
+  // tarjeta en Resumen.
+  const [releaseDetail, setReleaseDetail] = useState<{ accountId: string; kind: ReleaseKind } | null>(null)
+  const closeReleaseDetail = useCallback(() => setReleaseDetail(null), [])
   // Margen real de SisteCrédito (ver Configuración POS): la venta se
   // registra por el valor base, pero SisteCrédito paga base+margen (nos
   // cobran 4% de comisión pero le trasladamos al cliente un recargo mayor,
@@ -406,6 +419,41 @@ export default function CuentasPage() {
   ) + cardPending.reduce((sum, p) => sum + p.amount_cents, 0)
     + addiPending.reduce((sum, p) => sum + p.amount_cents, 0)
 
+  // Filas (pendientes y ya llegadas) de una cuenta para el popup de detalle,
+  // normalizadas a un solo formato: SisteCrédito llega con su margen, Addi y
+  // Datáfono llegan completos (margen 0).
+  const releaseRowsFor = (accountId: string, kind: ReleaseKind): ReleaseDetailRow[] => {
+    if (kind === 'sistecredito') {
+      return sistecreditoReleases
+        .filter((r) => r.account_id === accountId)
+        .map((r) => ({
+          id: r.id,
+          sale_date: r.sale_date,
+          release_date: r.release_date,
+          released_at: r.released_at,
+          base_cents: r.base_amount_cents,
+          margin_pct: Number(r.margin_pct),
+          final_cents: Math.round(r.base_amount_cents * (1 + r.margin_pct / 100)),
+          order_number: r.order?.order_number ?? null,
+          customer_name: r.order?.customer_name ?? null,
+        }))
+    }
+    const source = kind === 'addi' ? addiReleases : cardReleases
+    return source
+      .filter((r) => r.account_id === accountId)
+      .map((r) => ({
+        id: r.id,
+        sale_date: r.sale_date,
+        release_date: r.release_date,
+        released_at: r.released_at,
+        base_cents: r.amount_cents,
+        margin_pct: 0,
+        final_cents: r.amount_cents,
+        order_number: r.order?.order_number ?? null,
+        customer_name: r.order?.customer_name ?? null,
+      }))
+  }
+
   const handleManualAdjustment = async () => {
     if (!session?.access_token || !adjustAccount || !adjustAmount) return
     const amount = Math.round(parseFloat(adjustAmount) * 100)
@@ -643,9 +691,29 @@ export default function CuentasPage() {
                     (sum, p) => sum + Math.round(p.base_amount_cents * (1 + p.margin_pct / 100)),
                     0
                   )
-                  const nextReleaseDate = accountPendingReleases
-                    .map((p) => p.release_date)
-                    .sort()[0]
+                  // Agrupado por fecha de liberación: las ventas de cada mes
+                  // llegan juntas el día 1 de dos meses después, así que
+                  // octubre y noviembre son dos líneas (1-dic y 1-ene), no
+                  // una sola con la fecha más próxima.
+                  const sistecreditoPendingByDate = Object.entries(
+                    accountPendingReleases.reduce<Record<string, number>>((acc, p) => {
+                      acc[p.release_date] = (acc[p.release_date] || 0) + Math.round(p.base_amount_cents * (1 + p.margin_pct / 100))
+                      return acc
+                    }, {})
+                  ).sort(([a], [b]) => (a < b ? -1 : 1))
+
+                  // ¿Qué detalle abre el click en la tarjeta? El del medio
+                  // de pago diferido que tenga ventas en esta cuenta
+                  // (pendientes o ya llegadas); si no tiene ninguna, la
+                  // tarjeta no es clicable.
+                  const detailKind: ReleaseKind | null = sistecreditoReleases.some((r) => r.account_id === account.id)
+                    ? 'sistecredito'
+                    : addiReleases.some((r) => r.account_id === account.id)
+                      ? 'addi'
+                      : cardReleases.some((r) => r.account_id === account.id)
+                        ? 'datafono'
+                        : null
+                  const openDetail = () => detailKind && setReleaseDetail({ accountId: account.id, kind: detailKind })
 
                   // Pendientes de Datáfono de esta cuenta, agrupados por
                   // fecha de desembolso -- todas las ventas del mismo día
@@ -676,12 +744,35 @@ export default function CuentasPage() {
 
                   return (
                     <div key={account.id} className="rounded-xl border bg-card p-4">
+                      {/* Con desembolso diferido, la parte de arriba abre el
+                          detalle de lo que llegó y lo que falta. Las notas
+                          quedan fuera para poder escribir sin abrirlo. */}
+                      <div
+                        role={detailKind ? 'button' : undefined}
+                        tabIndex={detailKind ? 0 : undefined}
+                        aria-label={detailKind ? `Ver lo que llegó y lo que falta por llegar de ${account.name}` : undefined}
+                        onClick={detailKind ? openDetail : undefined}
+                        onKeyDown={detailKind ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            openDetail()
+                          }
+                        } : undefined}
+                        className={cn(
+                          detailKind && '-m-2 cursor-pointer rounded-lg p-2 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                        )}
+                      >
                       <div className="flex items-center gap-2">
                         <span
                           className="h-3 w-3 rounded-full"
                           style={{ backgroundColor: account.color || '#94a3b8' }}
                         />
                         <p className="font-medium">{account.name}</p>
+                        {detailKind && (
+                          <span className="ml-auto flex shrink-0 items-center text-[11px] text-muted-foreground">
+                            Ver detalle <ChevronRight className="h-3.5 w-3.5" />
+                          </span>
+                        )}
                       </div>
                       <p className="mt-2 text-2xl font-bold">{formatPrice(account.balance_cents)}</p>
                       {pendingBaseCents > 0 && (
@@ -691,11 +782,14 @@ export default function CuentasPage() {
                           {' '}→ total esperado {formatPrice(account.balance_cents + pendingExpectedCents)}
                         </p>
                       )}
+                      {sistecreditoPendingByDate.map(([releaseDate, cents]) => (
+                        <p key={releaseDate} className="mt-1 text-xs text-blue-600">
+                          + {formatPrice(cents)} pendiente de liberar — llega el {formatDebtDate(releaseDate)}
+                        </p>
+                      ))}
                       {pendingReleaseFinalCents > 0 && (
-                        <p className="mt-1 text-xs text-blue-600">
-                          + {formatPrice(pendingReleaseFinalCents)} pendiente de liberar
-                          {nextReleaseDate && ` (se libera el ${formatDebtDate(nextReleaseDate)})`}
-                          {' '}→ total esperado {formatPrice(account.balance_cents + pendingReleaseFinalCents)}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          → total esperado {formatPrice(account.balance_cents + pendingReleaseFinalCents)}
                         </p>
                       )}
                       {cardPendingByDate.map(([releaseDate, cents]) => (
@@ -718,6 +812,7 @@ export default function CuentasPage() {
                           → total esperado {formatPrice(account.balance_cents + addiPendingTotalCents)}
                         </p>
                       )}
+                      </div>
 
                       {/* Nota/observación libre -- ej. "700 mil de esto en
                           verdad están en Nu, 300 mil en Nequi" cuando hubo
@@ -753,6 +848,22 @@ export default function CuentasPage() {
                   )
                 })}
               </div>
+
+              {releaseDetail && (() => {
+                const detailAccount = accountById(releaseDetail.accountId)
+                if (!detailAccount) return null
+                return (
+                  <ReleaseDetailDialog
+                    open
+                    onClose={closeReleaseDetail}
+                    kind={releaseDetail.kind}
+                    accountName={detailAccount.name}
+                    accountColor={detailAccount.color}
+                    balanceCents={detailAccount.balance_cents}
+                    rows={releaseRowsFor(detailAccount.id, releaseDetail.kind)}
+                  />
+                )
+              })()}
 
               {isAdmin && (
               <div className="grid gap-6 lg:grid-cols-2">

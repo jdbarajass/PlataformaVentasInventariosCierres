@@ -2971,3 +2971,19 @@ Pedido del usuario: un proveedor dio un descuento adicional y la factura (XONE A
 - Pruebas: `__tests__/lib/supplier-invoice-edit.test.ts` (6) y `__tests__/api/supplier-invoice-edit.test.ts` (4). Suite 234/234.
 - Replicado en YBMOTOCOM (`docs/EXPANSION_SEGUNDA_TIENDA.md` sección 23). Sin migración.
 
+
+## 98. Cuentas: detalle de lo que llegó y lo que falta por llegar (SisteCrédito, Addi, Datáfono) (2026-11-09)
+
+Pedido del usuario: SisteCrédito mostraba solo el total pendiente, sin desglose, y quería llevar bien las cuentas de lo que
+paga casi 2 meses después.
+- **Bug corregido en la tarjeta de SisteCrédito:** sumaba todo lo pendiente y mostraba solo la fecha más próxima ("se libera
+  el 1 de dic"), aunque las ventas de noviembre llegan el 1 de enero. Ahora sale una línea por fecha de liberación (igual que
+  Addi y Datáfono) y el "total esperado" aparte.
+- **Popup de detalle:** al darle click a la tarjeta de una cuenta con desembolso diferido (SisteCrédito, Addi o Datáfono;
+  "Ver detalle ›") se abre `components/admin/release-detail-dialog.tsx`: cuadre (ya llegó, falta por llegar, saldo real,
+  total esperado = lo mismo de la tarjeta), lo pendiente agrupado por fecha de llegada con cada venta (fecha, factura,
+  cliente, base + margen) y lo que ya llegó desde el día 1 de hace dos meses. Avisa si hay plata atrasada sin liberar
+  (cron/`CRON_SECRET`). Las notas de la tarjeta quedan fuera de la zona clicable.
+- Las APIs `/api/{sistecredito,addi,card-payments}/pending-releases` ahora traen `order:orders(order_number, customer_name)`
+  y paginan con `fetchAll` (antes se cortaban en 1000 filas, y estas tablas guardan todo el historial).
+- Sin migración. Verificado en local con datos reales (totales del popup = tarjeta) en escritorio y celular. Suite 234/234.
