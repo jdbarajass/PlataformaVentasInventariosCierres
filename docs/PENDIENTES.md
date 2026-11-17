@@ -21,7 +21,8 @@ editar y borrar gastos falla** (la función `record_operating_expense` cambia de
 - [x] YJBMOTOCOM: corrida por el usuario el 2026-11-17 (verificado por Claude: existen `operating_expenses.gmf_cents`, `notes`,
   `parent_expense_id` y la versión nueva de `record_operating_expense`). Código subido el mismo día.
 - [ ] YBMOTOCOM: correr `00061_expense_gmf_notes.sql` (después de las de la sección 1). El código está en un commit local
-  (`85042ed` en `C:\Users\JJBarajas\Pictures\YOJAN`) **sin push a propósito**: subirlo solo después de correr la migración allá.
+  (`85042ed`, y encima `0bcf0a2` de préstamos, en `C:\Users\JJBarajas\Pictures\YOJAN`) **sin push a propósito**: subirlos
+  solo después de correr la migración allá.
 
 ## 1. Migraciones sin correr en el Supabase de YBMOTOCOM
 
