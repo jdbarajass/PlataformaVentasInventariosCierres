@@ -93,7 +93,7 @@ interface Expense {
 }
 interface DailyNote { id: string; text: string; created_at: string }
 const EMPTY_EXPENSE_FORM = { description: '', amount: '', category: '', account_id: '', notes: '', apply_gmf: true }
-interface Loan { id: string; product_title: string; warehouse: string; status: string; direction: 'lent' | 'borrowed'; created_at: string }
+interface Loan { id: string; product_title: string; warehouse: string; status: string; direction: 'lent' | 'borrowed'; created_at: string; observations?: string | null }
 interface ExchangeItem { title: string; talla: string | null; qty: number }
 interface ExchangeMovement { id: string; created_at: string; delivered: ExchangeItem | null; returned: ExchangeItem | null }
 
@@ -131,11 +131,16 @@ function PendingLoansCard({ title, description, warehouseLabel, emptyLabel, href
             </thead>
             <tbody>
               {loans.map((loan) => (
-                <tr key={loan.id} className="border-b last:border-0">
+                <tr key={loan.id} className="border-b align-top last:border-0">
                   <td className="py-2 pr-2 text-muted-foreground">
                     {new Date(loan.created_at).toLocaleDateString('es-CO')}
                   </td>
-                  <td className="py-2 pr-2">{loan.product_title}</td>
+                  <td className="py-2 pr-2">
+                    {loan.product_title}
+                    {loan.observations && (
+                      <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {loan.observations}</p>
+                    )}
+                  </td>
                   <td className="py-2">{loan.warehouse}</td>
                 </tr>
               ))}

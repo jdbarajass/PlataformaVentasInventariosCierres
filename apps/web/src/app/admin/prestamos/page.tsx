@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { PackageOpen, PackageMinus, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { LoanPartnerInput } from '@/components/loans/loan-partner-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -435,7 +436,10 @@ function PrestamosContent() {
                 className="rounded-lg"
               />
             </div>
-            <Input placeholder={cfg.warehousePlaceholder} value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className="rounded-lg self-end" />
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">{cfg.warehouseLabel}</label>
+              <LoanPartnerInput placeholder={cfg.warehousePlaceholder} value={warehouse} onChange={setWarehouse} />
+            </div>
           </div>
           <Input placeholder="Observaciones (opcional)" value={observations} onChange={(e) => setObservations(e.target.value)} className="rounded-lg" />
           <Button className="rounded-lg touch:h-11 max-sm:w-full" onClick={handleCreate} disabled={saving}>
@@ -489,10 +493,9 @@ function PrestamosContent() {
                   className="rounded-lg"
                   placeholder="Producto"
                 />
-                <Input
+                <LoanPartnerInput
                   value={editForm.warehouse}
-                  onChange={(e) => setEditForm({ ...editForm, warehouse: e.target.value })}
-                  className="rounded-lg"
+                  onChange={(v) => setEditForm({ ...editForm, warehouse: v })}
                   placeholder="Almacén"
                 />
                 <Input

@@ -102,4 +102,11 @@ export const BRAND = {
     nequi: { phone: '314 406 5520', name: 'YJBMOTOCOM' },
     daviplata: { phone: '314 406 5520', name: 'YJBMOTOCOM' },
   },
+
+  /**
+   * Locales con los que más se presta / se debe mercancía (Préstamos →
+   * "Almacén / destino"). Solo son sugerencias rápidas: el campo sigue siendo
+   * libre para escribir cualquier otro. Pedido del usuario 2026-11-17.
+   */
+  loanPartners: ['YBMOTOCOM', 'YOJAN (VECINO)', 'EDEN', 'RENZO', 'PATRICIA MT'],
 } as const

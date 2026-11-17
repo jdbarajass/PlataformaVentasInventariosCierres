@@ -40,8 +40,6 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 ## 1c. Pendientes del negocio (YJBMOTOCOM)
 
-- **Crear en el catálogo el "casco de niños"** (pedido del usuario 2026-11-05). Hoy se vende como ítem manual
-  ("CASCO DE NIÑA", $100.000 el 31-oct, factura YJBM-20261031-8370, sin costo). Recordárselo hasta que lo cree.
 - **Pasar el costo de 15 ventas manuales que quedaron con costo $0** (últimos 90 días al 2026-11-05). Con los costos,
   Claude los corrige como las chaquetas doble faz (script con auditoría). Desde el 2026-11-05 ya no se puede vender un
   ítem manual sin costo.
@@ -107,6 +105,11 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **Casco de niños en el catálogo (2026-11-17):** creados `CASCO NIÑO` (SKU 42) y `CASCO NIÑA` (SKU 43), categoría
+  Cascos, costo $80.000, precio $120.000, 0 unidades y sin tallas (decisión del usuario). Quedan sin publicar en la
+  tienda online, como los demás ingresados recientes (se venden en mostrador; se publican desde Catálogo cuando tengan
+  foto). Falta cargarles inventario.
 
 - **4x1000 y observaciones en gastos, YJBMOTOCOM (2026-11-17):** migración `00061_expense_gmf_notes.sql` corrida y
   verificada; código subido. En YBMOTOCOM sigue pendiente (sección 0).
