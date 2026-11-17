@@ -23,6 +23,8 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   sin tocar sus fórmulas. Borrar o editar el gasto devuelve/rehace también su 4x1000; el hijo no se edita ni se
   borra solo (la API responde 400). Fórmula en `lib/finance/gmf.ts` (= la de la BD), pruebas en `gmf.test.ts`.
 - Un gasto anterior al cambio no cobra 4x1000 al editarlo, salvo que se marque la casilla.
+- Estado: YJBMOTOCOM con la migración corrida y verificada, y el código subido (2026-11-17). YBMOTOCOM: commit local
+  `85042ed`; falta correr la 00061 allá y después subirlo.
 
 ### Fase 2 — cómo quedó (2026-11-05)
 - Fórmulas: `apps/web/src/lib/finance/income-statement.ts` (`buildIncomeStatement`, `salesForTargetProfit`,

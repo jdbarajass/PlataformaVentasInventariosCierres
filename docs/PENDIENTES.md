@@ -11,15 +11,17 @@
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
 
-## 0. ⚠️ Migración `00061_expense_gmf_notes.sql` (4x1000 y observaciones en gastos) — LAS DOS TIENDAS
+## 0. ⚠️ Migración `00061_expense_gmf_notes.sql` (4x1000 y observaciones en gastos) — falta YBMOTOCOM
 
 Cambio del 2026-11-17: los gastos que salen de una cuenta que no es efectivo cobran el 4x1000 automático (subtotal +
 4x1000 = total que sale de la cuenta) y tienen observaciones. **Correrla en el SQL Editor de Supabase ANTES de subir el
 código (push)**, primero en YJBMOTOCOM y luego en YBMOTOCOM. Si el código llega a Vercel sin la migración, **registrar,
 editar y borrar gastos falla** (la función `record_operating_expense` cambia de parámetros).
 
-- [ ] YJBMOTOCOM: correr `00061_expense_gmf_notes.sql`.
-- [ ] YBMOTOCOM: correr `00061_expense_gmf_notes.sql` (después de las de la sección 1).
+- [x] YJBMOTOCOM: corrida por el usuario el 2026-11-17 (verificado por Claude: existen `operating_expenses.gmf_cents`, `notes`,
+  `parent_expense_id` y la versión nueva de `record_operating_expense`). Código subido el mismo día.
+- [ ] YBMOTOCOM: correr `00061_expense_gmf_notes.sql` (después de las de la sección 1). El código está en un commit local
+  (`85042ed` en `C:\Users\JJBarajas\Pictures\YOJAN`) **sin push a propósito**: subirlo solo después de correr la migración allá.
 
 ## 1. Migraciones sin correr en el Supabase de YBMOTOCOM
 
@@ -105,6 +107,9 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **4x1000 y observaciones en gastos, YJBMOTOCOM (2026-11-17):** migración `00061_expense_gmf_notes.sql` corrida y
+  verificada; código subido. En YBMOTOCOM sigue pendiente (sección 0).
 
 - **Push del detalle de desembolsos en Cuentas (2026-11-09):** YJBMOTOCOM `a3f6109..874bc4d` y YBMOTOCOM `81b77b5..3926225`
   (sin cambios nuevos en la nube antes de subir).
