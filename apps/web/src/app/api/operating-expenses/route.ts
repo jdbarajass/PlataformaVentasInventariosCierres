@@ -3,6 +3,7 @@ import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
 import { checkSufficientBalance } from '@/lib/account-balance'
+import { expenseGmfCents } from '@/lib/finance/gmf'
 import { z } from 'zod'
 
 const expenseSchema = z.object({
@@ -12,6 +13,9 @@ const expenseSchema = z.object({
   category: z.string().min(1, 'La categoría es obligatoria'),
   account_id: z.string().uuid().optional().nullable(),
   created_by: z.string().uuid().optional(),
+  notes: z.string().max(2000).optional().nullable(),
+  // Casilla "cobrar 4x1000": por defecto sí (solo aplica si la cuenta no es efectivo).
+  apply_gmf: z.boolean().optional(),
 })
 
 // GET - Listar gastos operativos (filtros: from, to, category)
@@ -60,7 +64,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Registrar un gasto operativo (debita la cuenta indicada, si hay)
+// POST - Registrar un gasto operativo (debita la cuenta indicada, si hay).
+// Si la cuenta no es efectivo y apply_gmf no es false, la BD registra además
+// el 4x1000 como gasto hijo en "Gastos bancarios" y descuenta el total
+// (migración 00061, lib/finance/gmf.ts).
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request, ['admin', 'seller'])
@@ -78,12 +85,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { date, description, amount_cents, category, account_id, created_by } = validation.data
+    const { date, description, amount_cents, category, account_id, created_by, notes } = validation.data
+    const apply_gmf = validation.data.apply_gmf ?? true
 
     const supabase = getServiceSupabase()
 
+    let gmf_cents = 0
     if (account_id) {
-      const insufficient = await checkSufficientBalance(supabase, account_id, amount_cents)
+      const { data: account } = await supabase.from('accounts').select('payment_method').eq('id', account_id).maybeSingle()
+      gmf_cents = expenseGmfCents(amount_cents, (account as any)?.payment_method, apply_gmf)
+      const insufficient = await checkSufficientBalance(supabase, account_id, amount_cents + gmf_cents)
       if (insufficient) return insufficient
     }
 
@@ -94,6 +105,8 @@ export async function POST(request: NextRequest) {
       p_category: category,
       p_account_id: account_id || null,
       p_created_by: created_by || null,
+      p_notes: notes?.trim() || null,
+      p_apply_gmf: apply_gmf,
     })
 
     if (error) {
@@ -106,7 +119,7 @@ export async function POST(request: NextRequest) {
       action: 'operating_expense_created',
       tableName: 'operating_expenses',
       recordId: (expense as any)?.id,
-      newData: { description, amount_cents, category },
+      newData: { description, amount_cents, category, gmf_cents: (expense as any)?.gmf_cents ?? gmf_cents, notes: notes?.trim() || null },
     })
 
     return NextResponse.json({ data: expense }, { status: 201 })

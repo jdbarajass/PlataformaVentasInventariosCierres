@@ -53,7 +53,7 @@ describe('PATCH /api/operating-expenses/[id]', () => {
     )
 
     expect(res.status).toBe(200)
-    expect(calls['operating_expenses.update']).toEqual([[{ description: 'Varsol', category: 'Montado' }]])
+    expect(calls['operating_expenses.update']).toEqual([[{ description: 'Varsol', category: 'Montado', notes: null }]])
     expect(client.rpc).not.toHaveBeenCalled()
   })
 
@@ -113,6 +113,44 @@ describe('PATCH /api/operating-expenses/[id]', () => {
     expect(requireAuthMock.mock.calls.map((c) => c[1])).toEqual([['admin'], ['admin']])
     expect(client.rpc).not.toHaveBeenCalled()
     expect(client.from).not.toHaveBeenCalled()
+  })
+
+  it('el 4x1000 automático (gasto hijo) no se edita ni se borra solo', async () => {
+    const { client } = createSupabaseMock({
+      operating_expenses: { data: { ...CURRENT, id: 'exp-gmf', amount_cents: 4_800, category: 'Gastos bancarios', parent_expense_id: 'exp-0' }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { PATCH, DELETE } = await import('@/app/api/operating-expenses/[id]/route')
+    const res = await PATCH(patch({ description: 'X', amount_cents: 100, category: 'Otro', account_id: null }), params)
+    const del = await DELETE(new NextRequest('http://localhost/api/operating-expenses/exp-1', { method: 'DELETE' }), params)
+
+    expect(res.status).toBe(400)
+    expect(del.status).toBe(400)
+    expect(client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('si se activa el 4x1000 en una cuenta que no es efectivo, rehace el gasto cobrándolo', async () => {
+    const { client, calls } = createSupabaseMock(
+      {
+        operating_expenses: { data: CURRENT, error: null },
+        accounts: { data: { name: 'Nequi', balance_cents: 500_000, payment_method: 'nequi' }, error: null },
+      },
+      { record_operating_expense: { data: { ...CURRENT, id: 'exp-2', gmf_cents: 4_800 }, error: null } }
+    )
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { PATCH } = await import('@/app/api/operating-expenses/[id]/route')
+    const res = await PATCH(
+      patch({ description: 'VARSOL Y VUELTAS', amount_cents: 1_200_000, category: 'Otro', account_id: ACCOUNT_ID, apply_gmf: true, notes: ' pagado por transferencia ' }),
+      params
+    )
+
+    expect(res.status).toBe(200)
+    expect(calls['rpc.delete_operating_expense']).toEqual([[{ p_expense_id: 'exp-1' }]])
+    expect(calls['rpc.record_operating_expense'][0][0]).toMatchObject({
+      p_amount_cents: 1_200_000, p_apply_gmf: true, p_notes: 'pagado por transferencia',
+    })
   })
 
   it('devuelve 404 si el gasto no existe', async () => {

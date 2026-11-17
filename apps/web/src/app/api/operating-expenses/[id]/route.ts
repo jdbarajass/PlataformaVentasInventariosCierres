@@ -3,13 +3,19 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
 import { checkSufficientBalance } from '@/lib/account-balance'
+import { expenseGmfCents } from '@/lib/finance/gmf'
 import { z } from 'zod'
+
+const GMF_CHILD_ERROR = 'Este 4x1000 se cobró automáticamente: se corrige o elimina desde su gasto.'
 
 const updateSchema = z.object({
   description: z.string().trim().min(1, 'La descripción es obligatoria'),
   amount_cents: z.number().int().positive('El monto debe ser mayor a 0'),
   category: z.string().min(1, 'La categoría es obligatoria'),
   account_id: z.string().uuid().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+  // Casilla "cobrar 4x1000". Si no viene, se conserva lo que tenía el gasto.
+  apply_gmf: z.boolean().optional(),
 })
 
 // PATCH - Editar un gasto operativo (solo admin; el vendedor solo registra).
@@ -19,6 +25,9 @@ const updateSchema = z.object({
 // débito original y record_operating_expense registra el gasto corregido,
 // conservando su fecha y quién lo creó. Así el historial de la cuenta muestra
 // la reversa y el débito nuevo, igual que si se hubiera borrado y rehecho.
+// El 4x1000 (migración 00061) cuenta como dinero: si cambia (porque cambió el
+// monto, la cuenta o la casilla), se rehace igual; delete_operating_expense
+// devuelve también el 4x1000 hijo y record_operating_expense lo vuelve a cobrar.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -51,25 +60,47 @@ export async function PATCH(
     if (!current) {
       return NextResponse.json({ error: 'Gasto no encontrado' }, { status: 404 })
     }
+    if (current.parent_expense_id) {
+      return NextResponse.json({ error: GMF_CHILD_ERROR }, { status: 400 })
+    }
 
-    const moneyChanged = current.amount_cents !== amount_cents || (current.account_id || null) !== account_id
+    const currentGmf = Number(current.gmf_cents || 0)
+    const notes = validation.data.notes === undefined ? current.notes ?? null : validation.data.notes?.trim() || null
+    const applyGmf = validation.data.apply_gmf ?? currentGmf > 0
+    let newGmf = 0
+    if (account_id && applyGmf) {
+      const { data: account } = await supabase.from('accounts').select('payment_method').eq('id', account_id).maybeSingle()
+      newGmf = expenseGmfCents(amount_cents, (account as any)?.payment_method, applyGmf)
+    }
+
+    const moneyChanged =
+      current.amount_cents !== amount_cents || (current.account_id || null) !== account_id || currentGmf !== newGmf
 
     let updated: any
     if (!moneyChanged) {
       const { data, error } = await supabase
         .from('operating_expenses')
-        .update({ description, category })
+        .update({ description, category, notes })
         .eq('id', id)
         .select()
         .single()
       if (error) throw error
       updated = data
+      // El 4x1000 hijo lleva la descripción del gasto.
+      if (currentGmf > 0 && description !== current.description) {
+        const { error: childError } = await supabase
+          .from('operating_expenses')
+          .update({ description: `4x1000: ${description}` })
+          .eq('parent_expense_id', id)
+        if (childError) throw childError
+      }
     } else {
       // Validar saldo ANTES de revertir: si la cuenta es la misma, la reversa
       // devuelve el monto original, así que solo hace falta cubrir la diferencia.
       if (account_id) {
         const sameAccount = current.account_id === account_id
-        const debit = sameAccount ? amount_cents - current.amount_cents : amount_cents
+        const total = amount_cents + newGmf
+        const debit = sameAccount ? total - (current.amount_cents + currentGmf) : total
         if (debit > 0) {
           const insufficient = await checkSufficientBalance(supabase, account_id, debit)
           if (insufficient) return insufficient
@@ -88,6 +119,8 @@ export async function PATCH(
         p_category: category,
         p_account_id: account_id,
         p_created_by: current.created_by,
+        p_notes: notes,
+        p_apply_gmf: applyGmf,
       })
       if (error) {
         console.error('Gasto revertido pero no se pudo registrar la corrección:', { id, error })
@@ -107,9 +140,9 @@ export async function PATCH(
       recordId: updated?.id ?? id,
       oldData: {
         id: current.id, description: current.description, amount_cents: current.amount_cents,
-        category: current.category, account_id: current.account_id,
+        category: current.category, account_id: current.account_id, gmf_cents: currentGmf, notes: current.notes ?? null,
       },
-      newData: { description, amount_cents, category, account_id },
+      newData: { description, amount_cents, category, account_id, gmf_cents: updated?.gmf_cents ?? newGmf, notes },
     })
 
     return NextResponse.json({ data: updated })
@@ -122,7 +155,8 @@ export async function PATCH(
   }
 }
 
-// DELETE - Eliminar un gasto operativo, revirtiendo el débito a su cuenta (si tenía).
+// DELETE - Eliminar un gasto operativo, revirtiendo el débito a su cuenta (si tenía)
+// y su 4x1000 (si tenía).
 // Solo admin: se usa desde Ventas del Día y Presupuesto.
 export async function DELETE(
   request: NextRequest,
@@ -136,6 +170,15 @@ export async function DELETE(
     }
 
     const supabase = getServiceSupabase()
+    const { data: target } = await supabase
+      .from('operating_expenses')
+      .select('id, parent_expense_id')
+      .eq('id', id)
+      .maybeSingle()
+    if ((target as any)?.parent_expense_id) {
+      return NextResponse.json({ error: GMF_CHILD_ERROR }, { status: 400 })
+    }
+
     const { error } = await (supabase.rpc as any)('delete_operating_expense', {
       p_expense_id: id,
     })

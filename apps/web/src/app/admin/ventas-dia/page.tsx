@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
+import { Textarea } from '@/components/ui/textarea'
+import { ExpenseGmfSummary, expenseBreakdown } from '@/components/finanzas/expense-gmf-summary'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { AdminAuthorizationDialog } from '@/components/admin/admin-authorization-dialog'
@@ -74,15 +76,23 @@ interface PaymentSplit {
   account_id: string
   amount: string
 }
-interface Account { id: string; name: string }
+interface Account { id: string; name: string; payment_method?: string }
 interface ProductResult {
   id: string
   title: string
   price_cents: number
   variants: { id: string; talla: string | null }[]
 }
-interface Expense { id: string; description: string; amount_cents: number; category: string; account_id: string | null }
+interface Expense {
+  id: string; description: string; amount_cents: number; category: string; account_id: string | null
+  notes?: string | null
+  /** 4x1000 cobrado (informativo; el cobro real es el gasto hijo en "Gastos bancarios"). */
+  gmf_cents?: number | null
+  /** Si tiene valor, este gasto ES el 4x1000 de otro: se muestra dentro de su gasto. */
+  parent_expense_id?: string | null
+}
 interface DailyNote { id: string; text: string; created_at: string }
+const EMPTY_EXPENSE_FORM = { description: '', amount: '', category: '', account_id: '', notes: '', apply_gmf: true }
 interface Loan { id: string; product_title: string; warehouse: string; status: string; direction: 'lent' | 'borrowed'; created_at: string }
 interface ExchangeItem { title: string; talla: string | null; qty: number }
 interface ExchangeMovement { id: string; created_at: string; delivered: ExchangeItem | null; returned: ExchangeItem | null }
@@ -185,14 +195,14 @@ function VentasDiaContent() {
   const [saving, setSaving] = useState(false)
 
   // Gasto form
-  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
+  const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM)
   const [savingExpense, setSavingExpense] = useState(false)
   // Edición en línea de un gasto ya registrado (corregir un error de
   // digitación o un gasto duplicado sin tener que ir a la base de datos).
   // Solo admin: el vendedor registra gastos pero no los corrige ni borra
   // (el API también lo exige, esto solo oculta los botones).
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
-  const [editExpenseForm, setEditExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
+  const [editExpenseForm, setEditExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '', notes: '', apply_gmf: true })
   const [savingEditExpense, setSavingEditExpense] = useState(false)
 
   // Notas del día — junto a Gastos operativos, para dejar registrado algo
@@ -774,6 +784,7 @@ function VentasDiaContent() {
           date, description: expenseForm.description, amount_cents: amount,
           category: expenseForm.category, account_id: expenseForm.account_id || null,
           created_by: userProfile?.id,
+          notes: expenseForm.notes.trim() || null, apply_gmf: expenseForm.apply_gmf,
         }),
       })
       if (!res.ok) {
@@ -781,7 +792,7 @@ function VentasDiaContent() {
         throw new Error(error.error || 'Error al registrar el gasto')
       }
       toast({ title: 'Gasto registrado' })
-      setExpenseForm({ description: '', amount: '', category: '', account_id: '' })
+      setExpenseForm(EMPTY_EXPENSE_FORM)
       await fetchExpenses()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -797,6 +808,9 @@ function VentasDiaContent() {
       amount: String(Math.round(e.amount_cents / 100)),
       category: e.category,
       account_id: e.account_id || '',
+      notes: e.notes || '',
+      // Se conserva lo que tenía: un gasto viejo (sin 4x1000) no lo cobra de golpe al editarlo.
+      apply_gmf: Number(e.gmf_cents || 0) > 0,
     })
   }
 
@@ -815,6 +829,7 @@ function VentasDiaContent() {
         body: JSON.stringify({
           description: editExpenseForm.description.trim(), amount_cents: amount,
           category: editExpenseForm.category, account_id: editExpenseForm.account_id || null,
+          notes: editExpenseForm.notes.trim() || null, apply_gmf: editExpenseForm.apply_gmf,
         }),
       })
       if (!res.ok) {
@@ -835,8 +850,9 @@ function VentasDiaContent() {
   }
 
   const handleDeleteExpense = async (e: Expense) => {
-    const refund = e.account_id ? ' El dinero se devuelve a su cuenta.' : ''
-    if (!confirm(`¿Eliminar el gasto "${e.description}" por ${formatPrice(e.amount_cents)}?${refund}`)) return
+    const gmf = Number(e.gmf_cents || 0)
+    const refund = e.account_id ? (gmf > 0 ? ` El dinero (con su 4x1000 de ${formatPrice(gmf)}) se devuelve a su cuenta.` : ' El dinero se devuelve a su cuenta.') : ''
+    if (!confirm(`¿Eliminar el gasto "${e.description}" por ${formatPrice(e.amount_cents + gmf)}?${refund}`)) return
     try {
       const res = await fetch(`/api/operating-expenses/${e.id}`, { method: 'DELETE', headers: authHeaders() })
       if (!res.ok) {
@@ -1553,12 +1569,29 @@ function VentasDiaContent() {
             {expenseCategoryNote(expenseForm.category, canViewProfit ? fixedConfig : undefined) && (
               <p className="w-full text-xs text-muted-foreground">{expenseCategoryNote(expenseForm.category, canViewProfit ? fixedConfig : undefined)}</p>
             )}
+            <ExpenseGmfSummary
+              amountCents={Math.round((parseFloat(expenseForm.amount) || 0) * 100)}
+              paymentMethod={accounts.find((a) => a.id === expenseForm.account_id)?.payment_method}
+              hasAccount={!!expenseForm.account_id}
+              applyGmf={expenseForm.apply_gmf}
+              onApplyGmfChange={(v) => setExpenseForm({ ...expenseForm, apply_gmf: v })}
+            />
+            <Textarea
+              placeholder="Observaciones (opcional)…"
+              aria-label="Observaciones del gasto"
+              value={expenseForm.notes}
+              onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+              rows={2}
+              maxLength={2000}
+              className="min-h-0 w-full rounded-lg"
+            />
           </div>
           {expenses.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay gastos registrados en esta fecha.</p>
           ) : (
             <div className="space-y-1">
-              {expenses.map((e) => editingExpenseId === e.id && !exportMode && canManageExpenses ? (
+              {/* El 4x1000 (gasto hijo) no va como línea aparte: se muestra dentro de su gasto. */}
+              {expenses.filter((e) => !e.parent_expense_id).map((e) => editingExpenseId === e.id && !exportMode && canManageExpenses ? (
                 <div key={e.id} className="flex flex-wrap gap-2 rounded-lg border border-primary/50 p-2">
                   <Input placeholder="Descripción" value={editExpenseForm.description} onChange={(ev) => setEditExpenseForm({ ...editExpenseForm, description: ev.target.value })} className="rounded-lg" />
                   <select value={editExpenseForm.category} onChange={(ev) => setEditExpenseForm({ ...editExpenseForm, category: ev.target.value })} aria-label="Categoría del gasto" className="rounded-lg border bg-background px-3 py-2 text-sm touch:h-11 max-sm:w-full">
@@ -1586,17 +1619,41 @@ function VentasDiaContent() {
                   {expenseCategoryNote(editExpenseForm.category, canViewProfit ? fixedConfig : undefined) && (
                     <p className="w-full text-xs text-muted-foreground">{expenseCategoryNote(editExpenseForm.category, canViewProfit ? fixedConfig : undefined)}</p>
                   )}
+                  <ExpenseGmfSummary
+                    amountCents={Math.round((parseFloat(editExpenseForm.amount) || 0) * 100)}
+                    paymentMethod={accounts.find((a) => a.id === editExpenseForm.account_id)?.payment_method}
+                    hasAccount={!!editExpenseForm.account_id}
+                    applyGmf={editExpenseForm.apply_gmf}
+                    onApplyGmfChange={(v) => setEditExpenseForm({ ...editExpenseForm, apply_gmf: v })}
+                  />
+                  <Textarea
+                    placeholder="Observaciones (opcional)…"
+                    aria-label="Observaciones del gasto"
+                    value={editExpenseForm.notes}
+                    onChange={(ev) => setEditExpenseForm({ ...editExpenseForm, notes: ev.target.value })}
+                    rows={2}
+                    maxLength={2000}
+                    className="min-h-0 w-full rounded-lg"
+                  />
                 </div>
               ) : (
                 <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
-                  <span>
-                    {e.description} · {e.category}
-                    {accountName(e.account_id) && (
-                      <span className="text-xs text-muted-foreground"> · {accountName(e.account_id)}</span>
+                  <div className="min-w-0">
+                    <span>
+                      {e.description} · {e.category}
+                      {accountName(e.account_id) && (
+                        <span className="text-xs text-muted-foreground"> · {accountName(e.account_id)}</span>
+                      )}
+                    </span>
+                    {expenseBreakdown(e) && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(e)}</p>
                     )}
-                  </span>
+                    {e.notes && (
+                      <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {e.notes}</p>
+                    )}
+                  </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <span className="font-medium">{formatPrice(e.amount_cents)}</span>
+                    <span className="font-medium">{formatPrice(e.amount_cents + Number(e.gmf_cents || 0))}</span>
                     {!exportMode && canManageExpenses && (
                       <>
                         <Button variant="ghost" size="icon" className="h-8 w-8 touch:h-11 touch:w-11" title="Editar gasto" aria-label="Editar gasto" onClick={() => startEditExpense(e)}>

@@ -18,6 +18,11 @@ export interface MonthExpense {
   amount_cents: number
   category: string
   account_id: string | null
+  notes?: string | null
+  /** 4x1000 que cobró este gasto (va como gasto aparte, ver parent_expense_id). */
+  gmf_cents?: number
+  /** Si tiene valor, este gasto es el 4x1000 automático de otro (migración 00061). */
+  parent_expense_id?: string | null
 }
 
 export interface ExpenseRow extends MonthExpense {
@@ -117,7 +122,7 @@ export interface ExpenseFilters {
 export function filterExpenseRows(rows: ExpenseRow[], f: ExpenseFilters): ExpenseRow[] {
   const q = f.search.trim().toLowerCase()
   return rows.filter((r) => {
-    if (q && !`${r.description} ${r.category} ${r.account_name || ''}`.toLowerCase().includes(q)) return false
+    if (q && !`${r.description} ${r.category} ${r.account_name || ''} ${r.notes || ''}`.toLowerCase().includes(q)) return false
     if (f.account === '__none__' ? r.account_id !== null : f.account && r.account_id !== f.account) return false
     if (f.category && r.category !== f.category) return false
     if (f.cls === 'resta' && !r.counted) return false

@@ -915,6 +915,9 @@ export interface Database {
           category: string
           account_id: string | null
           created_by: string | null
+          notes: string | null
+          gmf_cents: number
+          parent_expense_id: string | null
           created_at: string
           updated_at: string
         }
@@ -926,6 +929,9 @@ export interface Database {
           category: string
           account_id?: string | null
           created_by?: string | null
+          notes?: string | null
+          gmf_cents?: number
+          parent_expense_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -935,6 +941,9 @@ export interface Database {
           amount_cents?: number
           category?: string
           account_id?: string | null
+          notes?: string | null
+          gmf_cents?: number
+          parent_expense_id?: string | null
           updated_at?: string
         }
         Relationships: [

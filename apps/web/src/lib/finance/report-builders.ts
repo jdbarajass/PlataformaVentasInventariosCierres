@@ -382,7 +382,7 @@ export function salesMonthReport(d: SalesMonthReportInput, brand: string): Repor
 export interface ExpensesMonthReportInput {
   year: number
   month: number
-  rows: { date: string; description: string; category: string; cls: string; counted: boolean; coveredByFixed: boolean; account_name: string | null; amount_cents: number }[]
+  rows: { date: string; description: string; category: string; cls: string; counted: boolean; coveredByFixed: boolean; account_name: string | null; amount_cents: number; notes?: string | null }[]
   totals: { out: number; counted: number; notCounted: number; count: number }
   byCategory: { category: string; cls: string; cents: number; count: number }[]
   fixed: { items: { label: string; configured: number; registered: number; status: string }[] }
@@ -399,7 +399,7 @@ export function expensesMonthReport(d: ExpensesMonthReportInput, brand: string):
     sections: [
       {
         title: 'Gastos',
-        columns: [{ header: 'Fecha' }, { header: 'Descripción' }, { header: 'Categoría' }, { header: 'Tipo' }, { header: '¿Resta utilidad?' }, { header: 'Cuenta' }, { header: 'Monto', kind: 'money' }],
+        columns: [{ header: 'Fecha' }, { header: 'Descripción' }, { header: 'Categoría' }, { header: 'Tipo' }, { header: '¿Resta utilidad?' }, { header: 'Cuenta' }, { header: 'Observaciones' }, { header: 'Monto', kind: 'money' }],
         rows: d.rows.map((r) => [
           r.date,
           r.description,
@@ -407,9 +407,10 @@ export function expensesMonthReport(d: ExpensesMonthReportInput, brand: string):
           CLASS_LABEL[r.cls] || r.cls,
           r.counted ? 'Sí' : r.coveredByFixed ? 'No: ya está en gastos fijos' : 'No',
           r.account_name || 'Sin cuenta',
+          r.notes || '',
           r.amount_cents,
         ]),
-        totals: ['Total', `${d.totals.count} gastos`, '', '', '', '', d.totals.out],
+        totals: ['Total', `${d.totals.count} gastos`, '', '', '', '', '', d.totals.out],
       },
       {
         title: 'Por categoría',

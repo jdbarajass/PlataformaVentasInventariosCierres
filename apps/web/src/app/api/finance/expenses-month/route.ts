@@ -29,20 +29,20 @@ export async function GET(request: NextRequest) {
       fetchAll<MonthExpense>((a, b) =>
         supabase
           .from('operating_expenses')
-          .select('id, date, description, amount_cents, category, account_id')
+          .select('id, date, description, amount_cents, category, account_id, notes, gmf_cents, parent_expense_id')
           .gte('date', p.fromDate)
           .lt('date', p.toDate)
           .order('date')
           .range(a, b)
       ),
-      fetchAll<{ id: string; name: string; active: boolean; balance_cents: number; sort_order: number }>((a, b) =>
-        supabase.from('accounts').select('id, name, active, balance_cents, sort_order').order('sort_order').range(a, b)
+      fetchAll<{ id: string; name: string; active: boolean; balance_cents: number; sort_order: number; payment_method: string }>((a, b) =>
+        supabase.from('accounts').select('id, name, active, balance_cents, sort_order, payment_method').order('sort_order').range(a, b)
       ),
     ])
     if (settingsError) throw settingsError
     const fixed = ((settings as any)?.fixed_monthly_expenses || null) as FixedMonthlyExpenses | null
 
-    const summary = buildExpensesMonth({ expenses: expenses.map((e) => ({ ...e, amount_cents: Number(e.amount_cents) })), accounts, fixed })
+    const summary = buildExpensesMonth({ expenses: expenses.map((e) => ({ ...e, amount_cents: Number(e.amount_cents), gmf_cents: Number(e.gmf_cents || 0) })), accounts, fixed })
     return NextResponse.json({
       data: {
         year,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         daysInMonth: p.daysInMonth,
         daysElapsed: p.daysElapsed,
         fixedConfig: fixed,
-        accounts: accounts.map((a) => ({ id: a.id, name: a.name, active: a.active, balance_cents: Number(a.balance_cents) })),
+        accounts: accounts.map((a) => ({ id: a.id, name: a.name, active: a.active, balance_cents: Number(a.balance_cents), payment_method: a.payment_method })),
         ...summary,
       },
     })

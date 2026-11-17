@@ -4,12 +4,22 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-09.
+> Última revisión: 2026-11-17.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
+
+## 0. ⚠️ Migración `00061_expense_gmf_notes.sql` (4x1000 y observaciones en gastos) — LAS DOS TIENDAS
+
+Cambio del 2026-11-17: los gastos que salen de una cuenta que no es efectivo cobran el 4x1000 automático (subtotal +
+4x1000 = total que sale de la cuenta) y tienen observaciones. **Correrla en el SQL Editor de Supabase ANTES de subir el
+código (push)**, primero en YJBMOTOCOM y luego en YBMOTOCOM. Si el código llega a Vercel sin la migración, **registrar,
+editar y borrar gastos falla** (la función `record_operating_expense` cambia de parámetros).
+
+- [ ] YJBMOTOCOM: correr `00061_expense_gmf_notes.sql`.
+- [ ] YBMOTOCOM: correr `00061_expense_gmf_notes.sql` (después de las de la sección 1).
 
 ## 1. Migraciones sin correr en el Supabase de YBMOTOCOM
 
@@ -22,6 +32,7 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00058_account_notes.sql` | Falla guardar notas de una cuenta |
 | `00059_loan_stock.sql` | Al llevar allá el cambio de préstamos, prestar productos y cambiar estados falla. Correrla antes de desplegarlo en YBMOTOCOM |
 | `00060_inventory_snapshots.sql` | Finanzas → Año solo muestra el inventario de hoy (aviso amarillo); la foto de fin de mes (botón y tarea nocturna) falla |
+| `00061_expense_gmf_notes.sql` | Registrar, editar y borrar gastos falla en cuanto se publique el cambio del 4x1000 (ver sección 0) |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 

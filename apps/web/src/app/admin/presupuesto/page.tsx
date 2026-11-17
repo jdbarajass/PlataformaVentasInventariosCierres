@@ -5,6 +5,8 @@ import { PiggyBank, Plus, Loader2, Trash2, Receipt, Copy, AlertTriangle } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
+import { Textarea } from '@/components/ui/textarea'
+import { ExpenseGmfSummary, expenseBreakdown } from '@/components/finanzas/expense-gmf-summary'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
@@ -26,12 +28,20 @@ interface Expense {
   amount_cents: number
   category: string
   account_id: string | null
+  notes?: string | null
+  /** 4x1000 cobrado (el cobro real es el gasto hijo en "Gastos bancarios"). */
+  gmf_cents?: number | null
+  /** Si tiene valor, este gasto ES el 4x1000 de otro: se muestra dentro de su gasto. */
+  parent_expense_id?: string | null
 }
 
 interface Account {
   id: string
   name: string
+  payment_method?: string
 }
+
+const EMPTY_EXPENSE_FORM = { description: '', amount: '', category: '', account_id: '', notes: '', apply_gmf: true }
 
 const monthNames = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -61,7 +71,7 @@ export default function PresupuestoPage() {
   const [savingBudget, setSavingBudget] = useState(false)
   const [copyingPrevMonth, setCopyingPrevMonth] = useState(false)
 
-  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', category: '', account_id: '' })
+  const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE_FORM)
   const [savingExpense, setSavingExpense] = useState(false)
 
   const { session, userProfile } = useAuth()
@@ -233,6 +243,8 @@ export default function PresupuestoPage() {
           category: expenseForm.category,
           account_id: expenseForm.account_id || null,
           created_by: userProfile?.id,
+          notes: expenseForm.notes.trim() || null,
+          apply_gmf: expenseForm.apply_gmf,
         }),
       })
       if (!res.ok) {
@@ -240,7 +252,7 @@ export default function PresupuestoPage() {
         throw new Error(error.error || 'Error al registrar el gasto')
       }
       toast({ title: 'Gasto registrado' })
-      setExpenseForm({ description: '', amount: '', category: '', account_id: '' })
+      setExpenseForm(EMPTY_EXPENSE_FORM)
       await Promise.all([fetchExpenses(), fetchAccounts()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -250,7 +262,8 @@ export default function PresupuestoPage() {
   }
 
   const handleDeleteExpense = async (expense: Expense) => {
-    if (!confirm(`¿Eliminar el gasto "${expense.description}"?`)) return
+    const gmf = Number(expense.gmf_cents || 0)
+    if (!confirm(`¿Eliminar el gasto "${expense.description}"?${gmf > 0 ? ` También se devuelve su 4x1000 (${formatPrice(gmf)}).` : ''}`)) return
     try {
       const res = await fetch(`/api/operating-expenses/${expense.id}`, { method: 'DELETE', headers: authHeaders() })
       if (!res.ok) throw new Error('Error al eliminar el gasto')
@@ -444,6 +457,22 @@ export default function PresupuestoPage() {
               {expenseCategoryNote(expenseForm.category, fixedExpenses) && (
                 <p className="w-full text-xs text-muted-foreground">{expenseCategoryNote(expenseForm.category, fixedExpenses)}</p>
               )}
+              <ExpenseGmfSummary
+                amountCents={Math.round((parseFloat(expenseForm.amount) || 0) * 100)}
+                paymentMethod={accounts.find((a) => a.id === expenseForm.account_id)?.payment_method}
+                hasAccount={!!expenseForm.account_id}
+                applyGmf={expenseForm.apply_gmf}
+                onApplyGmfChange={(v) => setExpenseForm({ ...expenseForm, apply_gmf: v })}
+              />
+              <Textarea
+                placeholder="Observaciones (opcional)…"
+                aria-label="Observaciones del gasto"
+                value={expenseForm.notes}
+                onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+                rows={2}
+                maxLength={2000}
+                className="min-h-0 w-full rounded-lg"
+              />
             </div>
           </div>
 
@@ -454,14 +483,21 @@ export default function PresupuestoPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {expenses.map((e) => (
+              {/* El 4x1000 (gasto hijo) no va como línea aparte: se muestra dentro de su gasto. */}
+              {expenses.filter((e) => !e.parent_expense_id).map((e) => (
                 <div key={e.id} className="flex items-center justify-between rounded-xl border bg-card p-4 max-sm:gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium">{e.description}</p>
                     <p className="text-sm text-muted-foreground">{e.category} · {formatDate(e.date)}</p>
+                    {expenseBreakdown(e) && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(e)}</p>
+                    )}
+                    {e.notes && (
+                      <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {e.notes}</p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <p className="font-bold">{formatPrice(e.amount_cents)}</p>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <p className="font-bold">{formatPrice(e.amount_cents + Number(e.gmf_cents || 0))}</p>
                     {/* Borrar gastos es solo de admin (el API también lo exige). */}
                     {userProfile?.role === 'admin' && (
                       <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar gasto" onClick={() => handleDeleteExpense(e)}>

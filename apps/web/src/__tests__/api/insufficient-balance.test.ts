@@ -108,4 +108,41 @@ describe('POST /api/operating-expenses — saldo insuficiente', () => {
     expect((await res.json()).error).toContain('Saldo insuficiente en Efectivo')
     expect(client.rpc).not.toHaveBeenCalled()
   })
+
+  it('en una cuenta que no es efectivo exige saldo para el gasto más su 4x1000', async () => {
+    const { client } = createSupabaseMock({
+      accounts: { data: { name: 'Nequi', balance_cents: 5_000_000, payment_method: 'nequi' }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/operating-expenses/route')
+    const res = await POST(
+      buildRequest('http://localhost/api/operating-expenses', {
+        description: 'Pago internet', amount_cents: 5_000_000, category: 'Servicios', account_id: ACCOUNT_ID,
+      })
+    )
+
+    // $50.000 + $200 de 4x1000 > $50.000 de saldo
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/descontar \$\s?50\.200/)
+    expect(client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('registra con 4x1000 y observaciones si el saldo alcanza', async () => {
+    const { client, calls } = createSupabaseMock(
+      { accounts: { data: { name: 'Nequi', balance_cents: 9_000_000, payment_method: 'nequi' }, error: null } },
+      { record_operating_expense: { data: { id: 'exp-9', gmf_cents: 20_000 }, error: null } }
+    )
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { POST } = await import('@/app/api/operating-expenses/route')
+    const res = await POST(
+      buildRequest('http://localhost/api/operating-expenses', {
+        description: 'Pago internet', amount_cents: 5_000_000, category: 'Servicios', account_id: ACCOUNT_ID, notes: 'factura 123',
+      })
+    )
+
+    expect(res.status).toBe(201)
+    expect(calls['rpc.record_operating_expense'][0][0]).toMatchObject({ p_apply_gmf: true, p_notes: 'factura 123' })
+  })
 })

@@ -11,6 +11,19 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
 | 5 Flujo de caja, por cobrar / por pagar | **Hecha y aprobada 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. |
 | 6 Exportar Excel / PDF | **Hecha 2026-11-05** (commit local, sin push). Replicada en YBMOTOCOM. Falta que el usuario la pruebe. **Con esta fase el plan queda completo.** |
 
+### Después del plan: 4x1000 y observaciones en los gastos (2026-11-17)
+- Pedido del usuario, igual que KOAJ: un gasto que sale de una cuenta que **no es efectivo** cobra el 4x1000
+  automático. Pantallas de registro (Ventas del Día, Presupuesto, Finanzas → Gastos) muestran **Subtotal** (lo
+  digitado), **4x1000** (con casilla "cobrar" para quitarlo si el banco no lo cobró) y **Total que sale de la cuenta**.
+  Efectivo y "sin cuenta" no pagan 4x1000. Todos los gastos tienen **observaciones** (visibles en las listas, en el
+  reporte exportable de Finanzas → Gastos y en la hoja Gastos del Excel).
+- Cómo se guarda (migración `00061_expense_gmf_notes.sql`): el gasto conserva el subtotal en `amount_cents` y el
+  4x1000 en `gmf_cents` (informativo); el cobro real es un **gasto hijo** (`parent_expense_id`) en la categoría
+  **"Gastos bancarios"**. Así la utilidad, el gasto financiero, el flujo de caja, el presupuesto y el año lo cuentan
+  sin tocar sus fórmulas. Borrar o editar el gasto devuelve/rehace también su 4x1000; el hijo no se edita ni se
+  borra solo (la API responde 400). Fórmula en `lib/finance/gmf.ts` (= la de la BD), pruebas en `gmf.test.ts`.
+- Un gasto anterior al cambio no cobra 4x1000 al editarlo, salvo que se marque la casilla.
+
 ### Fase 2 — cómo quedó (2026-11-05)
 - Fórmulas: `apps/web/src/lib/finance/income-statement.ts` (`buildIncomeStatement`, `salesForTargetProfit`,
   `percentChange`, `ratio`) y `lib/finance/periods.ts` (`monthPeriod`, `shiftMonth`, `truncatePeriod`, en hora de

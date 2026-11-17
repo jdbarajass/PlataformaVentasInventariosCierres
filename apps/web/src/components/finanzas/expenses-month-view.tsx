@@ -6,6 +6,8 @@ import { Loader2, Plus, Pencil, Trash2, X, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
+import { Textarea } from '@/components/ui/textarea'
+import { ExpenseGmfSummary, expenseBreakdown } from '@/components/finanzas/expense-gmf-summary'
 import { useToast } from '@/components/ui/use-toast'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { bogotaDateStr } from '@/lib/bogota-time'
@@ -22,7 +24,7 @@ import { BRAND } from '@/config/brand'
 // Registrar / editar / borrar usa /api/operating-expenses (mismas reglas de
 // saldo y auditoría que Ventas del Día).
 
-interface Account { id: string; name: string; active: boolean; balance_cents: number }
+interface Account { id: string; name: string; active: boolean; balance_cents: number; payment_method?: string }
 interface ExpensesResponse extends ExpensesMonth {
   year: number
   month: number
@@ -45,7 +47,7 @@ const NO_FILTERS: ExpenseFilters = { search: '', account: '', category: '', cls:
 const fmtDate = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
 const reason = (r: ExpenseRow) => (r.cls === 'retiro' ? 'No resta: retiro del dueño' : r.cls === 'inversion' ? 'No resta: inversión' : r.coveredByFixed ? 'No resta: ya está en gastos fijos' : 'Resta utilidad')
 
-interface FormState { id: string | null; date: string; description: string; category: string; amount: string; account_id: string }
+interface FormState { id: string | null; date: string; description: string; category: string; amount: string; account_id: string; notes: string; apply_gmf: boolean }
 
 export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year: number; month: number; accessToken: string | undefined; canEdit: boolean }) {
   const [data, setData] = useState<ExpensesResponse | null>(null)
@@ -90,10 +92,11 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
     if (!data) return
     const today = bogotaDateStr(new Date())
     const date = today >= data.fromDate && today < data.toDate ? today : data.fromDate
-    setForm({ id: null, date, description: '', category: '', amount: '', account_id: '' })
+    setForm({ id: null, date, description: '', category: '', amount: '', account_id: '', notes: '', apply_gmf: true })
   }
   const openEdit = (r: ExpenseRow) =>
-    setForm({ id: r.id, date: r.date, description: r.description, category: r.category, amount: String(Math.round(r.amount_cents / 100)), account_id: r.account_id || '' })
+    // apply_gmf conserva lo que tenía: un gasto viejo (sin 4x1000) no lo cobra de golpe al editarlo.
+    setForm({ id: r.id, date: r.date, description: r.description, category: r.category, amount: String(Math.round(r.amount_cents / 100)), account_id: r.account_id || '', notes: r.notes || '', apply_gmf: Number(r.gmf_cents || 0) > 0 })
 
   const save = async () => {
     if (!form || !accessToken) return
@@ -104,7 +107,7 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
     }
     setSaving(true)
     try {
-      const body = { description: form.description.trim(), amount_cents, category: form.category, account_id: form.account_id || null }
+      const body = { description: form.description.trim(), amount_cents, category: form.category, account_id: form.account_id || null, notes: form.notes.trim() || null, apply_gmf: form.apply_gmf }
       const res = await fetch(form.id ? `/api/operating-expenses/${form.id}` : '/api/operating-expenses', {
         method: form.id ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
@@ -124,8 +127,9 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
 
   const remove = async (r: ExpenseRow) => {
     if (!accessToken) return
-    const back = r.account_id ? ' La plata vuelve a su cuenta.' : ''
-    if (!confirm(`¿Eliminar el gasto "${r.description}" por ${formatPrice(r.amount_cents)}?${back}`)) return
+    const gmf = Number(r.gmf_cents || 0)
+    const back = r.account_id ? (gmf > 0 ? ` La plata (con su 4x1000 de ${formatPrice(gmf)}) vuelve a su cuenta.` : ' La plata vuelve a su cuenta.') : ''
+    if (!confirm(`¿Eliminar el gasto "${r.description}" por ${formatPrice(r.amount_cents + gmf)}?${back}`)) return
     try {
       const res = await fetch(`/api/operating-expenses/${r.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } })
       const json = await res.json().catch(() => null)
@@ -207,6 +211,19 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
               </Button>
               <Button variant="ghost" className="rounded-lg touch:h-11" onClick={() => setForm(null)} disabled={saving}>Cancelar</Button>
             </div>
+          </div>
+          <div className="mt-3 space-y-3">
+            <ExpenseGmfSummary
+              amountCents={Math.round((parseFloat(form.amount) || 0) * 100)}
+              paymentMethod={data.accounts.find((a) => a.id === form.account_id)?.payment_method}
+              hasAccount={!!form.account_id}
+              applyGmf={form.apply_gmf}
+              onApplyGmfChange={(v) => setForm({ ...form, apply_gmf: v })}
+            />
+            <label className="block space-y-1 text-sm">
+              <span className="text-muted-foreground">Observaciones (opcional)</span>
+              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} maxLength={2000} placeholder="Algo más que quieras anotar de este gasto…" className="min-h-0 rounded-lg" />
+            </label>
           </div>
           {note && <p className="mt-2 text-xs text-muted-foreground">{note}</p>}
           {form.id && <p className="mt-2 text-xs text-muted-foreground">La fecha de un gasto ya registrado no se cambia: si quedó en otro día, elimínalo y regístralo de nuevo.</p>}
@@ -326,7 +343,12 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                   {rows.map((r) => (
                     <tr key={r.id} className="border-b last:border-0 align-top">
                       <td className="whitespace-nowrap px-4 py-2 sm:pl-6"><Link href={`/admin/ventas-dia?date=${r.date}`} className="hover:underline">{fmtDate(r.date)}</Link></td>
-                      <td className="px-3 py-2">{r.description}</td>
+                      <td className="px-3 py-2">
+                        <p>{r.description}</p>
+                        {r.parent_expense_id && <p className="text-xs text-amber-700 dark:text-amber-400">4x1000 automático: se corrige desde su gasto</p>}
+                        {expenseBreakdown(r) && <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(r)} (va en una línea aparte)</p>}
+                        {r.notes && <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {r.notes}</p>}
+                      </td>
                       <td className="px-3 py-2">
                         <p>{r.category}</p>
                         <p className={`text-xs ${r.counted ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-400'}`}>{EXPENSE_CLASS_LABEL[r.cls]} · {reason(r)}</p>
@@ -335,8 +357,12 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                       <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-red-600 dark:text-red-400">−{formatPrice(r.amount_cents)}</td>
                       {canEdit && (
                         <td className="whitespace-nowrap px-4 py-1 text-right sm:pr-6">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(r)} aria-label={`Editar ${r.description}`}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => remove(r)} aria-label={`Eliminar ${r.description}`}><Trash2 className="h-4 w-4" /></Button>
+                          {!r.parent_expense_id && (
+                            <>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(r)} aria-label={`Editar ${r.description}`}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => remove(r)} aria-label={`Eliminar ${r.description}`}><Trash2 className="h-4 w-4" /></Button>
+                            </>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -352,10 +378,13 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                       <p className="font-medium">{r.description}</p>
                       <p className="text-xs text-muted-foreground">{fmtDate(r.date)} · {r.category} · {r.account_name || 'Sin cuenta'}</p>
                       <p className={`text-xs ${r.counted ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-400'}`}>{reason(r)}</p>
+                      {r.parent_expense_id && <p className="text-xs text-amber-700 dark:text-amber-400">4x1000 automático: se corrige desde su gasto</p>}
+                      {expenseBreakdown(r) && <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(r)} (va en una línea aparte)</p>}
+                      {r.notes && <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {r.notes}</p>}
                     </div>
                     <p className="shrink-0 font-medium tabular-nums text-red-600 dark:text-red-400">−{formatPrice(r.amount_cents)}</p>
                   </div>
-                  {canEdit && (
+                  {canEdit && !r.parent_expense_id && (
                     <div className="mt-2 flex gap-2">
                       <Button variant="outline" size="sm" className="rounded-lg touch:h-10" onClick={() => openEdit(r)}><Pencil className="mr-1 h-3 w-3" /> Editar</Button>
                       <Button variant="outline" size="sm" className="rounded-lg text-red-500 touch:h-10" onClick={() => remove(r)}><Trash2 className="mr-1 h-3 w-3" /> Eliminar</Button>

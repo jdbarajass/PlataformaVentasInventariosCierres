@@ -172,12 +172,14 @@ export const sheetDefinitions: SheetDefinition[] = [
     name: 'Gastos',
     importable: true,
     table: 'operating_expenses',
-    columns: ['ID', 'Fecha', 'Descripción', 'Monto', 'Categoría', 'Cuenta ID'],
+    // El 4x1000 automático (migración 00061) sale como su propia fila en
+    // "Gastos bancarios"; las observaciones van en Notas.
+    columns: ['ID', 'Fecha', 'Descripción', 'Monto', 'Categoría', 'Cuenta ID', 'Notas'],
     fetch: async (supabase) => {
       const { data } = await supabase.from('operating_expenses').select('*').order('date', { ascending: false })
       return data || []
     },
-    toRow: (r) => [r.id, r.date, r.description, centsToPesos(r.amount_cents), r.category, r.account_id || ''],
+    toRow: (r) => [r.id, r.date, r.description, centsToPesos(r.amount_cents), r.category, r.account_id || '', r.notes || ''],
     fromRow: (v) => ({
       id: v['ID'] || undefined,
       date: v['Fecha'] || undefined,
@@ -185,6 +187,8 @@ export const sheetDefinitions: SheetDefinition[] = [
       amount_cents: pesosToCents(v['Monto']),
       category: v['Categoría'],
       account_id: v['Cuenta ID'] || null,
+      // Un Excel viejo (sin la columna Notas) no borra las observaciones.
+      ...(v['Notas'] !== undefined ? { notes: v['Notas'] || null } : {}),
     }),
   },
   {
