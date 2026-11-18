@@ -2988,3 +2988,66 @@ paga casi 2 meses después.
   y paginan con `fetchAll` (antes se cortaban en 1000 filas, y estas tablas guardan todo el historial).
 - Sin migración. Verificado en local con datos reales (totales del popup = tarjeta) en escritorio y celular. Suite 234/234.
 - Replicado en YBMOTOCOM (`docs/EXPANSION_SEGUNDA_TIENDA.md` sección 24).
+
+
+## 99. Préstamos: prestar no mueve inventario; Cobrar crea la venta (2026-11-18)
+
+El usuario preguntó si prestar debía bajar el inventario. Con la regla de la 00059 (31-oct) prestar descontaba stock, y
+"Cobrado" era solo un estado. En la práctica el local marcaba "Cobrado" y además hacía la venta en Registrar Venta. Con
+los datos reales se confirmó que pasó así, y el usuario lo confirmó también. El resultado era que el inventario bajaba
+dos veces y el cobro del préstamo no metía plata a ninguna cuenta.
+
+Decisión del usuario, que reemplaza la de la 00059:
+
+- **Nos deben**
+  - Prestar, Devuelto, Reabrir y Eliminar **no mueven inventario**.
+  - **Cobrar** abre un formulario: valor de venta (lo digita el usuario, porque el precio a otros locales varía), costo
+    del producto (se pide solo si está fuera de catálogo), método de pago con su cuenta automática como en Registrar
+    Venta, y fecha.
+  - Al cobrar se crea una venta de mostrador real a nombre del local, enlazada al préstamo (`sale_order_id`). Esa
+    venta baja el inventario y mete la plata a la cuenta.
+  - Si la venta se cancela en Ventas del Día, el préstamo vuelve a "Pendiente" (trigger
+    `trg_reopen_loans_on_sale_cancel`).
+- **Debemos**
+  - **Lo vendí** es opcional: registra una venta con ítem manual, que **no toca nuestro inventario** porque la unidad es
+    del otro local. El costo viene del catálogo y el admin lo puede corregir.
+  - **Cerrar deuda** tiene tres formas:
+    - **misma unidad:** solo si no se vendió;
+    - **una igual de surtido:** pregunta "¿ya está ingresada al inventario?"; si sí, baja 1 de la talla elegida, y si
+      no, no mueve nada;
+    - **en plata:** monto, cuenta y fecha. Sale como `invoice_payment` (en Flujo de caja aparece en "Pagos a
+      proveedores", no como gasto, sin 4x1000, igual que los abonos a facturas). Si se había vendido, el costo de esa
+      venta pasa a ser lo pagado.
+- **Eliminar** pregunta "¿Te devolvieron el producto?". Si la respuesta es "No", no borra y remite a Cobrar o Cerrar
+  deuda. No se puede borrar nada que tenga venta, pago o salida de inventario.
+- **Inventario**
+  - En Detalle, al buscar, sale un aviso con lo prestado, por ejemplo: "Casco XONE (M) está prestado a YOJAN FRANCO
+    desde el 11 de nov".
+  - Lo mismo aparece bajo cada producto del ajuste de conteo.
+
+Técnico:
+
+- **Migración `00062_loans_no_stock.sql`.** Agrega a `loans` las columnas `sale_order_id`, `close_method`,
+  `paid_cents`, `paid_account_id` y `closed_at`, y estas funciones:
+  - `charge_lent_loan`, `sell_borrowed_loan` y `close_borrowed_loan`, que llaman a `create_pos_sale`;
+  - `set_loan_status`, ahora solo pendiente ↔ devuelto;
+  - `delete_loan`, sin stock.
+
+  `create_lent_loan` se deja sin stock para que el código anterior siga funcionando entre la migración y el despliegue.
+  La migración también corrige datos de forma idempotente: devuelve lo que la 00059 dejó descontado en préstamos
+  pendientes y cobrados, y deja `stock_deducted` en NULL; esa columna ya no se usa.
+- **API.** Rutas nuevas `POST /api/loans/[id]/charge`, `/sell` y `/close`, con la lógica común en `lib/loans.ts`; las
+  ventas pasan por `resolveSale`. `PUT` ya no acepta `charged`. `GET` trae `sale_order(order_number)`.
+- **UI.** Diálogos nuevos en `components/loans/loan-dialogs.tsx`, botones por estado en `/admin/prestamos` y aviso en
+  `/admin/inventario`.
+- **Corrección de datos en YJBMOTOCOM:** la migración se corrió el 2026-11-18 y subió 1 unidad en 5 productos (cascos
+  XTRONG R1 XL y L, intercomunicador HERO, guante JDL L y casco XONE M). La diadema de RAMIRO ya se había devuelto
+  ese día.
+- **Pruebas**
+  - `scripts/auditoria-ventas/audit.mjs`: casos B13, L* y D*; 55 escenarios, todos los de préstamos OK.
+  - `scripts/auditoria-ventas/transicion-00062.mjs`: la corrección de datos, incluido correrla dos veces.
+  - `__tests__/api/loans.test.ts`: 21 pruebas.
+  - Suite completa: 251/251.
+  - Revisión en el navegador local con datos reales, sin enviar nada.
+- **Replicado en YBMOTOCOM** con la 00059 incluida. Allá hay que correr 00059 y luego 00062 antes del push (ver
+  `docs/PENDIENTES.md`, sección 0a).
