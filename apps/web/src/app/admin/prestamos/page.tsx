@@ -2,25 +2,43 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PackageOpen, PackageMinus, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from 'lucide-react'
+import { PackageOpen, PackageMinus, Plus, Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle, HandCoins, Undo2, RotateCcw, ShoppingBag, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { LoanPartnerInput } from '@/components/loans/loan-partner-input'
+import { LoanSaleDialog, LoanCloseDialog, LoanDeleteDialog, type AccountOption } from '@/components/loans/loan-dialogs'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { BOGOTA_TZ, bogotaDateStr, bogotaTimeStr, bogotaToISO } from '@/lib/bogota-time'
+import { formatPrice } from '@/lib/utils'
 
 type Direction = 'lent' | 'borrowed'
 
+// Desde la migración 00062 prestar y devolver NO mueven inventario. "Cobrar"
+// (Nos deben) y "Lo vendí" (Debemos) crean una venta de mostrador, y una
+// deuda se cierra devolviendo la misma unidad, una igual de surtido o
+// pagando en plata.
 interface Loan {
   id: string
+  product_id: string | null
+  variant_id: string | null
   product_title: string
   warehouse: string
   observations: string | null
   status: 'pending' | 'returned' | 'charged'
   direction: Direction
   created_at: string
+  sale_order_id: string | null
+  sale_order: { order_number: string } | null
+  close_method: 'same_unit' | 'restock_unit' | 'money' | null
+  paid_cents: number | null
+}
+
+const closeMethodLabels: Record<NonNullable<Loan['close_method']>, string> = {
+  same_unit: 'Se devolvió la misma unidad',
+  restock_unit: 'Se devolvió una igual de surtido',
+  money: 'Pagado en plata',
 }
 
 interface ProductResult {
@@ -130,13 +148,28 @@ function PrestamosContent() {
   const [editForm, setEditForm] = useState({ product_title: '', warehouse: '', observations: '', date: '', time: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
-  const { session } = useAuth()
+  const { session, userProfile } = useAuth()
   const { toast } = useToast()
+  const canViewCost = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
+
+  // Diálogos: Cobrar / Lo vendí, Cerrar deuda, Eliminar.
+  const [accounts, setAccounts] = useState<AccountOption[]>([])
+  const [saleLoan, setSaleLoan] = useState<Loan | null>(null)
+  const [closeLoan, setCloseLoan] = useState<Loan | null>(null)
+  const [deleteLoan, setDeleteLoan] = useState<Loan | null>(null)
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${session?.access_token}` }),
     [session?.access_token]
   )
+
+  useEffect(() => {
+    if (!session?.access_token) return
+    fetch('/api/accounts', { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then(({ data }) => setAccounts(data || []))
+      .catch(() => setAccounts([]))
+  }, [session?.access_token, authHeaders])
 
   // Se trae siempre todo (sin filtrar por status en el servidor) para poder
   // calcular el banner de alerta sobre el total real de pendientes, igual
@@ -226,11 +259,7 @@ function PrestamosContent() {
       if (direction === 'lent') {
         toast({
           title: 'Préstamo registrado',
-          description: !loan.product_id
-            ? `Se prestó "${loan.product_title}" a ${loan.warehouse}. Está fuera de catálogo: no descuenta inventario.`
-            : loan.stock_deducted > 0
-              ? `Se prestó "${loan.product_title}" a ${loan.warehouse}. Se descuenta del inventario hasta que se devuelva o el local lo pague.`
-              : `Se prestó "${loan.product_title}" a ${loan.warehouse}. El sistema lo tenía sin stock: no se descontó nada.`,
+          description: `Se prestó "${loan.product_title}" a ${loan.warehouse}. El inventario no cambia: baja solo si el local lo paga (botón Cobrar).`,
           duration: 6000,
         })
       } else {
@@ -258,12 +287,22 @@ function PrestamosContent() {
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ status }),
       })
-      if (!res.ok) throw new Error(`Error al actualizar la ${directionConfig[loan.direction].bannerNoun}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `Error al actualizar la ${directionConfig[loan.direction].bannerNoun}`)
+      }
       toast({ title: loan.direction === 'lent' ? 'Préstamo actualizado' : 'Deuda actualizada' })
       await fetchLoans()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
+  }
+
+  const handleDialogDone = async (message: string) => {
+    setSaleLoan(null)
+    setCloseLoan(null)
+    toast({ title: 'Listo', description: message, duration: 6000 })
+    await fetchLoans()
   }
 
   const startEdit = (loan: Loan) => {
@@ -306,13 +345,17 @@ function PrestamosContent() {
     }
   }
 
+  // La confirmación ("¿te devolvieron el producto?") la hace LoanDeleteDialog.
   const handleDelete = async (loan: Loan) => {
     const noun = directionConfig[loan.direction].bannerNoun
-    if (!confirm(`¿Eliminar ${loan.direction === 'lent' ? 'el' : 'la'} ${noun} de "${loan.product_title}"?`)) return
     try {
       const res = await fetch(`/api/loans/${loan.id}`, { method: 'DELETE', headers: authHeaders() })
-      if (!res.ok) throw new Error(`Error al eliminar la ${noun}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `Error al eliminar la ${noun}`)
+      }
       toast({ title: loan.direction === 'lent' ? 'Préstamo eliminado' : 'Deuda eliminada' })
+      setDeleteLoan(null)
       await fetchLoans()
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -543,36 +586,91 @@ function PrestamosContent() {
                     {loan.warehouse} · {formatDateTime(loan.created_at)}
                     {loan.observations ? ` · ${loan.observations}` : ''}
                   </p>
+                  {(loan.sale_order || loan.close_method) && (
+                    <p className="text-xs text-muted-foreground">
+                      {loan.sale_order && `Venta ${loan.sale_order.order_number}`}
+                      {loan.sale_order && loan.close_method && ' · '}
+                      {loan.close_method && closeMethodLabels[loan.close_method]}
+                      {loan.close_method === 'money' && loan.paid_cents ? ` (${formatPrice(loan.paid_cents)})` : ''}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                   <Badge variant="outline" className={diasBadgeColor(diasPendientes(loan.created_at), loan.status)}>
                     {diasPendientes(loan.created_at)}d
                   </Badge>
                   <Badge variant="outline" className={statusColors[loan.status]}>{cfg.statusLabels[loan.status]}</Badge>
-                  <select
-                    value={loan.status}
-                    onChange={(e) => handleStatusChange(loan, e.target.value as Loan['status'])}
-                    aria-label="Cambiar estado"
-                    className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11"
-                  >
-                    <option value="pending">{cfg.statusLabels.pending}</option>
-                    <option value="returned">{cfg.statusLabels.returned}</option>
-                    <option value="charged">{cfg.statusLabels.charged}</option>
-                  </select>
+                  {loan.direction === 'borrowed' && loan.status === 'pending' && loan.sale_order_id && (
+                    <Badge variant="outline" className="bg-violet-500/10 text-violet-600 border-violet-500/20">Vendido</Badge>
+                  )}
+                  {/* Acciones según el estado (00062). */}
+                  {loan.status === 'pending' && loan.direction === 'lent' && (
+                    <>
+                      <Button size="sm" variant="outline" className="rounded-lg touch:h-11" onClick={() => handleStatusChange(loan, 'returned')}>
+                        <Undo2 className="mr-1 h-3.5 w-3.5" /> Devuelto
+                      </Button>
+                      <Button size="sm" className="rounded-lg touch:h-11" onClick={() => setSaleLoan(loan)}>
+                        <HandCoins className="mr-1 h-3.5 w-3.5" /> Cobrar
+                      </Button>
+                    </>
+                  )}
+                  {loan.status === 'pending' && loan.direction === 'borrowed' && (
+                    <>
+                      {!loan.sale_order_id && (
+                        <Button size="sm" variant="outline" className="rounded-lg touch:h-11" onClick={() => setSaleLoan(loan)}>
+                          <ShoppingBag className="mr-1 h-3.5 w-3.5" /> Lo vendí
+                        </Button>
+                      )}
+                      <Button size="sm" className="rounded-lg touch:h-11" onClick={() => setCloseLoan(loan)}>
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Cerrar deuda
+                      </Button>
+                    </>
+                  )}
+                  {loan.status === 'returned' && (!loan.close_method || loan.close_method === 'same_unit') && (
+                    <Button size="sm" variant="outline" className="rounded-lg touch:h-11" onClick={() => handleStatusChange(loan, 'pending')}>
+                      <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reabrir
+                    </Button>
+                  )}
                   {/* Editar y eliminar juntos: en celular bajan como grupo a la derecha. */}
                   <div className="flex items-center gap-2 max-sm:ml-auto">
                     <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Editar préstamo" onClick={() => startEdit(loan)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar préstamo" onClick={() => handleDelete(loan)}>
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                    </Button>
+                    {/* Con venta o pago registrado no se borra (se perdería el rastro de esa plata). */}
+                    {!loan.sale_order_id && loan.close_method !== 'money' && loan.close_method !== 'restock_unit' && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Eliminar préstamo" onClick={() => setDeleteLoan(loan)}>
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
             )
           )}
         </div>
+      )}
+
+      {saleLoan && (
+        <LoanSaleDialog
+          loan={saleLoan}
+          accounts={accounts}
+          canViewCost={canViewCost}
+          authHeaders={authHeaders}
+          onClose={() => setSaleLoan(null)}
+          onDone={handleDialogDone}
+        />
+      )}
+      {closeLoan && (
+        <LoanCloseDialog
+          loan={closeLoan}
+          accounts={accounts}
+          authHeaders={authHeaders}
+          onClose={() => setCloseLoan(null)}
+          onDone={handleDialogDone}
+        />
+      )}
+      {deleteLoan && (
+        <LoanDeleteDialog loan={deleteLoan} onClose={() => setDeleteLoan(null)} onConfirm={() => handleDelete(deleteLoan)} />
       )}
     </div>
   )

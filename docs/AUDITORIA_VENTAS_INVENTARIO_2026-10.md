@@ -8,7 +8,7 @@
 
 - Se levantó un Postgres local con las **58 migraciones reales** y se ejecutaron las funciones reales (`create_pos_sale`, `edit_pos_sale`, `cancel_pos_sale`, `release_*`) con el formato que manda la API. No se tocó producción.
 - Se leyó el código de ventas, cancelación, edición, cambios, préstamos, ajustes, importación de Excel, tienda online, crons y cierres.
-- **Resultado inicial:** 36 escenarios, 18 correctos y 18 con falla o con un hueco de control. Con los préstamos corregidos (sección 8): 45 escenarios, 28 correctos y 17 pendientes.
+- **Resultado inicial:** 36 escenarios, 18 correctos y 18 con falla o con un hueco de control. Con los préstamos corregidos (sección 8): 45 escenarios, 28 correctos y 17 pendientes. Con la 00062 (2026-11-18): 55 escenarios, 38 correctos y los mismos 17 pendientes (ninguno de préstamos).
 - Repetir: `scripts/auditoria-ventas/` (ver sección 7).
 
 **Límites.** No hay acceso a la base de datos de producción desde este equipo, así que aquí no hay ninguna cifra real del negocio. Las pruebas son sobre las funciones de base de datos, no con clics en el navegador. Los casos B6, B11, B12 y B14 reproducen los mismos pasos que hace la ruta o la pantalla. La concurrencia real (dos ventas en el mismo instante) se revisó leyendo el código, no ejecutándola: la función bloquea la fila con `FOR UPDATE`.
@@ -33,7 +33,7 @@ Todos estos casos dejan **más stock en el sistema que en el físico**, que es l
 
 | ID | Qué pasa | Efecto probado | Origen |
 |---|---|---|---|
-| B13 | **Un préstamo a otro almacén no descuenta stock.** Solo guarda una nota. | Sistema 5, físico 4 | Diseño heredado del software local |
+| B13 | **Un préstamo a otro almacén no descuenta stock.** Solo guarda una nota. *(2026-11-18: es la regla decidida; el conteo se cuadra con el aviso de Inventario y la venta de Cobrar.)* | Sistema 5, físico 4 | Diseño heredado del software local |
 | B10 | **Un ítem "fuera de catálogo" no descuenta nada.** Si se vende así un producto que sí existe, el stock no baja y no queda movimiento. | Sistema 9, físico 8 | Diseño, sin control |
 | B12 | **El ajuste de conteo escribe la cantidad final.** Se cuentan 10, se venden 2 y luego se digita el 10: la venta se borra del stock. | Sistema 10, físico 8 | Sistema + proceso |
 | B11 | **Un formulario de producto abierto pisa el stock** (productos sin talla). Guarda el número que había al abrirlo, sin dejar movimiento. | Sistema 10, físico 8 | Bug |
@@ -99,13 +99,30 @@ No se cambió código de la aplicación ni migraciones. Las correcciones requier
 
 | Tema | Decisión | Estado |
 |---|---|---|
-| Préstamos | Prestar descuenta del inventario hasta que se devuelva. Si el local lo paga, no vuelve. Aviso de 6 segundos al registrar. | Implementado, sin desplegar. Requiere la migración `00059_loan_stock.sql`. |
+| Préstamos | ~~Prestar descuenta del inventario hasta que se devuelva~~ (00059, reemplazada). **Desde 2026-11-18 (00062):** prestar no mueve inventario; Cobrar crea la venta, y esa venta es la que lo descuenta; Inventario avisa lo prestado. | Ver la nota "Préstamos, cambio del 2026-11-18" debajo. |
 | Cancelar y editar venta | Un vendedor necesita autorización de un admin (correo y contraseña, verificados en el servidor). Queda en Auditoría qué admin autorizó. El cambio masivo de método sigue la misma regla. | Implementado y enviado a GitHub. |
 | Ítem manual | No pide confirmación: la reventa de productos de otros locales es una venta legítima. | Sin cambios. |
 
 **Préstamos: reglas tomadas.** Los préstamos anteriores a la migración no se tocan: nunca descontaron, así que al devolverlos tampoco suman. Lo que nos prestan a nosotros y lo que está fuera de catálogo no mueven stock. Borrar un préstamo pendiente devuelve la unidad; borrar uno cobrado no. Prestar con stock 0 en el sistema se permite, no descuenta nada y el aviso lo dice.
 
 **Orden de despliegue:** primero correr `00059` en cada Supabase y después desplegar el código. Al revés, prestar un producto de catálogo y cambiar el estado o borrar préstamos fallan.
+
+**Préstamos, cambio del 2026-11-18 (`00062_loans_no_stock.sql`).** Con la 00059 apareció un problema. El local marcaba "Cobrado", que era solo un estado, y además hacía la venta en Registrar Venta. Así el inventario bajaba dos veces y el cobro no metía plata a ninguna cuenta. Por decisión del usuario quedan estas reglas:
+
+- **Nos deben**
+  - Prestar, devolver, reabrir y borrar no mueven inventario.
+  - **Cobrar** pide el valor de venta (el costo sale del producto), el método, la cuenta y la fecha, y crea la venta a nombre del local. Esa venta es la que baja el inventario.
+  - Cancelar esa venta deja el préstamo otra vez pendiente.
+- **Debemos**
+  - **Lo vendí** es opcional: registra una venta manual que no toca nuestro inventario.
+  - **Cerrar deuda** tiene tres formas:
+    - misma unidad: solo si no se vendió;
+    - una igual de surtido: si ya está ingresada al inventario, baja 1;
+    - en plata: sale de la cuenta como pago a proveedor, y el costo de la venta pasa a ser lo pagado.
+- **Borrar** pide confirmar "¿te devolvieron el producto?". No se borra lo que ya tiene venta o pago.
+- **Inventario** muestra un aviso con lo prestado al buscar un producto y en el ajuste de conteo.
+
+La migración devuelve al inventario lo que la 00059 dejó descontado en préstamos pendientes y cobrados. Los casos B13, L* y D* de `audit.mjs` y el script `transicion-00062.mjs` lo prueban.
 
 Para repetir las pruebas:
 

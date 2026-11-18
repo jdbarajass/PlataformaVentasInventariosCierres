@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
+import { createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
@@ -34,9 +34,11 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAuthenticatedClient(auth.token)
 
+    // sale_order: la venta que creó "Cobrar" (Nos deben) o "Lo vendí"
+    // (Debemos), para mostrar su número en Préstamos.
     let query = supabase
       .from('loans')
-      .select('*')
+      .select('*, sale_order:orders!loans_sale_order_id_fkey(order_number)')
       .order('created_at', { ascending: false })
 
     if (status) {
@@ -45,7 +47,6 @@ export async function GET(request: NextRequest) {
     if (direction) {
       query = query.eq('direction', direction as 'lent' | 'borrowed')
     }
-
     const { data, error } = await query
 
     if (error) {
@@ -75,25 +76,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = loanSchema.parse(body)
 
-    // Prestar un producto de catálogo lo descuenta del inventario hasta que
-    // se devuelva (función atómica, ver migración 00059). Lo que nos prestan
-    // a nosotros y lo que está fuera de catálogo no tocan stock.
-    const { data: loan, error } = validatedData.direction === 'lent' && validatedData.product_id
-      ? await (getServiceSupabase().rpc as any)('create_lent_loan', {
-          p_loan: validatedData,
-          p_actor: auth.user.id,
-        })
-      : await supabase
-          .from('loans')
-          // @ts-ignore - Supabase type inference issue
-          .insert(validatedData)
-          .select()
-          .single()
+    // Prestar NO mueve el inventario (migración 00062): el producto sigue
+    // siendo nuestro hasta que el otro local lo pague con "Cobrar", que es
+    // la venta que sí lo descuenta. Mientras tanto Inventario avisa que hay
+    // unidades prestadas para tenerlas en cuenta en el conteo.
+    const { data: loan, error } = await supabase
+      .from('loans')
+      // @ts-ignore - Supabase type inference issue
+      .insert(validatedData)
+      .select()
+      .single()
 
     if (error) {
-      if (error.message?.includes('talla')) {
-        return NextResponse.json({ error: error.message }, { status: 400 })
-      }
       throw error
     }
 

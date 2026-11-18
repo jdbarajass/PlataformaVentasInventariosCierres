@@ -835,7 +835,15 @@ export interface Database {
           observations: string | null
           status: 'pending' | 'returned' | 'charged'
           direction: 'lent' | 'borrowed'
+          /** Sin uso desde la 00062 (los préstamos ya no mueven inventario). */
           stock_deducted: number | null
+          /** Venta creada por "Cobrar" (lent) o "Lo vendí" (borrowed). */
+          sale_order_id: string | null
+          /** Cómo se cerró una deuda (borrowed). */
+          close_method: 'same_unit' | 'restock_unit' | 'money' | null
+          paid_cents: number | null
+          paid_account_id: string | null
+          closed_at: string | null
           created_at: string
           updated_at: string
         }

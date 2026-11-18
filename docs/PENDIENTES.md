@@ -4,12 +4,41 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-17.
+> Última revisión: 2026-11-18.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
+
+## 0a. ⚠️ Migración `00062_loans_no_stock.sql` (préstamos sin inventario; Cobrar = venta) — falta en las DOS tiendas
+
+Cambio del 2026-11-18, decidido por el usuario (reemplaza la regla de la 00059):
+- Prestar y devolver **no mueven inventario**.
+- **Cobrar** crea la venta, y esa sí baja el inventario y mete la plata a la cuenta.
+- Cancelar esa venta reabre el préstamo.
+- **Debemos** tiene "Lo vendí" (venta manual que no toca nuestro inventario) y "Cerrar deuda", que cierra de una de tres formas:
+  - misma unidad;
+  - una igual de surtido (baja 1 si ya está ingresada);
+  - en plata (pago a proveedor; el costo de la venta pasa a ser lo pagado).
+- Inventario avisa qué productos están prestados.
+
+La migración también **corrige datos**: devuelve al inventario lo que la 00059 dejó descontado en préstamos pendientes y
+cobrados. En YJBMOTOCOM eso es lo siguiente (revisado el 2026-11-18):
+- 4 pendientes: intercomunicador HERO a RENZO, guante JDL L, casco XONE M a YOJAN FRANCO y diadema a RAMIRO.
+- 2 cobrados que también se vendieron por Registrar Venta, confirmado por el usuario: casco XTRONG R1 XL a EDEN y casco
+  XTRONG R1 L a BRAYAN BETO.
+
+Es idempotente: correrla dos veces no suma doble.
+
+**Correrla en el SQL Editor de Supabase ANTES de subir el código.** Si el código llega primero, la pantalla de Préstamos
+y la tarjeta de préstamos de Ventas del Día no cargan.
+
+- [ ] YJBMOTOCOM: correr `00062_loans_no_stock.sql`; después hacer el push del código.
+- [ ] YBMOTOCOM: correr `00059_loan_stock.sql` y luego `00062_loans_no_stock.sql`, en ese orden y después de las de la
+  sección 1. Después hacer el push. Allá no hay préstamos descontados, así que la corrección no cambia nada.
+- Pruebas: `scripts/auditoria-ventas/audit.mjs` (casos B13, L* y D*) y `scripts/auditoria-ventas/transicion-00062.mjs`
+  (la corrección de datos).
 
 ## 0. ⚠️ Migración `00061_expense_gmf_notes.sql` (4x1000 y observaciones en gastos) — falta YBMOTOCOM
 
@@ -33,9 +62,10 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00056_addi_pending_releases.sql` | Cualquier venta por Addi en YBMOTOCOM falla |
 | `00057_addi_backfill_sept12.sql` | Allá no cambia datos; se corre para no desordenar el historial de migraciones |
 | `00058_account_notes.sql` | Falla guardar notas de una cuenta |
-| `00059_loan_stock.sql` | Al llevar allá el cambio de préstamos, prestar productos y cambiar estados falla. Correrla antes de desplegarlo en YBMOTOCOM |
+| `00059_loan_stock.sql` | La 00062 la necesita (correrla justo antes de la 00062) |
 | `00060_inventory_snapshots.sql` | Finanzas → Año solo muestra el inventario de hoy (aviso amarillo); la foto de fin de mes (botón y tarea nocturna) falla |
 | `00061_expense_gmf_notes.sql` | Registrar, editar y borrar gastos falla en cuanto se publique el cambio del 4x1000 (ver sección 0) |
+| `00062_loans_no_stock.sql` | Préstamos y la tarjeta de préstamos de Ventas del Día no cargan en cuanto se publique el cambio de préstamos (ver sección 0a) |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
@@ -73,8 +103,8 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 - Revisar allá Finanzas → Inventario (productos de demostración de `seed.sql`, productos sin categoría, costos en $0).
   La limpieza de datos del 2026-11-05 se hizo solo en YJBMOTOCOM.
 - En YBMOTOCOM el código del control financiero ya está desplegado, pero Finanzas → Año no guarda el inventario de fin
-  de mes hasta correr `00060_inventory_snapshots.sql` (punto 1). La auditoría del 31-oct (`00059_loan_stock.sql`)
-  todavía no se ha llevado allá.
+  de mes hasta correr `00060_inventory_snapshots.sql` (punto 1). El cambio de préstamos (00059 + 00062) todavía no se
+  ha llevado allá (sección 0a).
 
 ## 2. Seguridad (las dos tiendas)
 
@@ -101,7 +131,7 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada de esto está corregido todavía.
 
 - **Corregir en YJBMOTOCOM las filas 8 y 9 del diagnóstico** del 2026-10-31: 16 pagos sin cuenta por $4.198.000 y 2 con cuenta distinta por $350.000. El detalle y la causa están en la sección 9 de la auditoría. Antes de tocar saldos hay que confirmar que esa plata no se haya cuadrado ya con un ajuste manual.
-- **Verificar el despliegue en YJBMOTOCOM** del cambio de préstamos y de autorización de admin para cancelar, editar y cambiar método masivo (código enviado a GitHub el 2026-10-31). La migración `00059_loan_stock.sql` ya se corrió allá. Probarlo con un vendedor real en el navegador.
+- **Verificar el despliegue en YJBMOTOCOM** de la autorización de admin para cancelar, editar y cambiar método masivo (código enviado a GitHub el 2026-10-31). Probarlo con un vendedor real en el navegador. (La regla de préstamos de esa fecha se reemplazó el 2026-11-18, ver sección 0a.)
 - **Plata:** editar una venta ya desembolsada duplica el dinero; cancelarla no lo saca; se puede cancelar dos veces; el cambio masivo de método no mueve la plata; al editar se sigue aceptando un pago "Sin cuenta".
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 

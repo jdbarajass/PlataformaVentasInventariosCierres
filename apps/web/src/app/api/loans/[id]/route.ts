@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAuthenticatedClient, getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
 import { logAudit } from '@/lib/audit'
+import { isLoanRuleError } from '@/lib/loans'
 import { z } from 'zod'
 
 const loanUpdateSchema = z.object({
-  status: z.enum(['pending', 'returned', 'charged']).optional(),
+  // Solo Pendiente <-> Devuelto. "Cobrado"/"Pagado" se alcanzan con
+  // /charge (Nos deben) y /close (Debemos), que dejan registrada la venta o
+  // el pago — ver migración 00062.
+  status: z.enum(['pending', 'returned']).optional(),
   observations: z.string().optional().nullable(),
   // El software local permite editar producto/almacén de un préstamo ya
   // creado (EditPrestamoDialog) — sección 12.3/13.3 ítem 4.3.10 de la
@@ -32,13 +36,25 @@ export async function PUT(
     const supabase = createAuthenticatedClient(auth.token)
 
     const body = await request.json()
-    const validatedData = loanUpdateSchema.parse(body)
+    const parsed = loanUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      const statusIssue = parsed.error.errors.some((e) => e.path[0] === 'status')
+      return NextResponse.json(
+        {
+          error: statusIssue
+            ? 'Estado no válido: para cobrar o pagar usa Cobrar / Cerrar deuda'
+            : 'Datos de validación inválidos',
+        },
+        { status: 400 }
+      )
+    }
+    const validatedData = parsed.data
 
     const { status, ...fields } = validatedData
     let loan: unknown = null
 
-    // El estado va por función atómica: devolver un préstamo regresa la unidad
-    // al inventario (ver migración 00059).
+    // El estado va por función (set_loan_status, migración 00062): no mueve
+    // inventario y no deja reabrir algo que ya tiene venta o pago.
     if (status) {
       const { data, error } = await (getServiceSupabase().rpc as any)('set_loan_status', {
         p_loan_id: id,
@@ -46,6 +62,9 @@ export async function PUT(
         p_actor: auth.user.id,
       })
       if (error) {
+        if (isLoanRuleError(error.message)) {
+          return NextResponse.json({ error: error.message }, { status: 400 })
+        }
         throw error
       }
       loan = data
@@ -107,13 +126,17 @@ export async function DELETE(
 
     const supabase = createAuthenticatedClient(auth.token)
 
-    // Borrar un préstamo pendiente devuelve la unidad al inventario.
+    // Borrar solo quita el registro (los préstamos no mueven inventario). No
+    // se borra uno con venta o pago registrado — ver delete_loan (00062).
     const { error } = await (getServiceSupabase().rpc as any)('delete_loan', {
       p_loan_id: id,
       p_actor: auth.user.id,
     })
 
     if (error) {
+      if (isLoanRuleError(error.message)) {
+        return NextResponse.json({ error: error.message }, { status: 400 })
+      }
       throw error
     }
 

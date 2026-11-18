@@ -102,12 +102,12 @@ describe('POST /api/loans', () => {
     expect(calls['loans.insert'][0][0]).toMatchObject({ direction: 'borrowed' })
   })
 
-  it('un préstamo de catálogo pasa por la función que descuenta inventario', async () => {
-    const { client } = createSupabaseMock()
-    createAuthenticatedClientMock.mockReturnValue(client)
-    const service = createSupabaseMock({}, {
-      create_lent_loan: { data: { id: 'loan-3', stock_deducted: 1 }, error: null },
+  it('un préstamo de catálogo se guarda sin tocar inventario (migración 00062)', async () => {
+    const { client, calls } = createSupabaseMock({
+      loans: { data: { id: 'loan-3', product_id: '11111111-1111-4111-8111-111111111111' }, error: null },
     })
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock()
     getServiceSupabaseMock.mockReturnValue(service.client)
 
     const { POST } = await import('@/app/api/loans/route')
@@ -116,24 +116,8 @@ describe('POST /api/loans', () => {
     )
 
     expect(res.status).toBe(201)
-    expect(service.calls['rpc.create_lent_loan'][0][0].p_actor).toBe('u1')
-    expect(client.from).not.toHaveBeenCalledWith('loans')
-  })
-
-  it('un producto con tallas prestado sin talla responde 400', async () => {
-    const { client } = createSupabaseMock()
-    createAuthenticatedClientMock.mockReturnValue(client)
-    const service = createSupabaseMock({}, {
-      create_lent_loan: { data: null, error: { message: 'Elige la talla del producto prestado' } },
-    })
-    getServiceSupabaseMock.mockReturnValue(service.client)
-
-    const { POST } = await import('@/app/api/loans/route')
-    const res = await POST(
-      buildRequest({ product_id: '11111111-1111-4111-8111-111111111111', product_title: 'Casco', warehouse: 'Norte' })
-    )
-
-    expect(res.status).toBe(400)
+    expect(calls['loans.insert'][0][0]).toMatchObject({ product_id: '11111111-1111-4111-8111-111111111111' })
+    expect(service.client.rpc).not.toHaveBeenCalled()
   })
 
   it('401 cuando no hay sesión autenticada', async () => {
@@ -158,7 +142,7 @@ describe('PUT /api/loans/[id]', () => {
     requireAuthMock.mockResolvedValue(ADMIN_AUTH)
   })
 
-  it('rechaza un estado que no sea pending/returned/charged', async () => {
+  it('rechaza un estado que no sea pending/returned', async () => {
     const { client } = createSupabaseMock()
     createAuthenticatedClientMock.mockReturnValue(client)
 
@@ -166,6 +150,35 @@ describe('PUT /api/loans/[id]', () => {
     const res = await PUT(buildRequest({ status: 'lost' }, 'PUT'), { params: Promise.resolve({ id: 'loan-1' }) })
 
     expect(res.status).toBe(400)
+  })
+
+  it('no deja marcar "cobrado" a mano: eso va por Cobrar (que registra la venta)', async () => {
+    const { client } = createSupabaseMock()
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock()
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { PUT } = await import('@/app/api/loans/[id]/route')
+    const res = await PUT(buildRequest({ status: 'charged' }, 'PUT'), { params: Promise.resolve({ id: 'loan-1' }) })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('Cobrar')
+    expect(service.client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('reabrir un préstamo que ya tiene venta responde 400 con el motivo', async () => {
+    const { client } = createSupabaseMock()
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      set_loan_status: { data: null, error: { message: 'Este préstamo ya tiene una venta: para reabrirlo cancela la venta en Ventas del Día' } },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { PUT } = await import('@/app/api/loans/[id]/route')
+    const res = await PUT(buildRequest({ status: 'pending' }, 'PUT'), { params: Promise.resolve({ id: 'loan-1' }) })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('cancela la venta')
   })
 
   it('permite marcar un préstamo como devuelto', async () => {
@@ -220,5 +233,187 @@ describe('DELETE /api/loans/[id]', () => {
 
     expect(res.status).toBe(200)
     expect(service.calls['rpc.delete_loan'][0][0]).toMatchObject({ p_loan_id: 'loan-1' })
+  })
+
+  it('no borra un préstamo con venta o pago registrado (400 con el motivo)', async () => {
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+    const { client } = createSupabaseMock()
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      delete_loan: { data: null, error: { message: 'Este préstamo tiene una venta o un pago registrado: no se puede eliminar' } },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { DELETE } = await import('@/app/api/loans/[id]/route')
+    const res = await DELETE(buildRequest({}, 'DELETE'), { params: Promise.resolve({ id: 'loan-1' }) })
+
+    expect(res.status).toBe(400)
+  })
+})
+
+const PRODUCT_ID = '11111111-1111-4111-8111-111111111111'
+const ACCOUNT_ID = '22222222-2222-4222-8222-222222222222'
+const pendingLent = { id: 'loan-1', product_id: PRODUCT_ID, variant_id: null, product_title: 'Casco', warehouse: 'EDEN', direction: 'lent', status: 'pending', sale_order_id: null }
+
+describe('POST /api/loans/[id]/charge (Cobrar)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+  })
+
+  it('crea la venta con el precio digitado, el costo del catálogo y el nombre del local', async () => {
+    const { client } = createSupabaseMock({
+      loans: { data: pendingLent, error: null },
+      product_variants: { data: [], error: null },
+      products: { data: [{ id: PRODUCT_ID, title: 'Casco', sku: 'C1', images: [], cost_cents: 30000000 }], error: null },
+      store_settings: { data: { pos_commission_rates: {} }, error: null },
+    })
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      charge_lent_loan: { data: { id: 'loan-1', status: 'charged', sale_order_id: 'o1' }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/charge/route')
+    const res = await POST(
+      buildRequest({ price_cents: 39000000, payment: { method: 'cash', account_id: ACCOUNT_ID } }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(200)
+    const args = service.calls['rpc.charge_lent_loan'][0][0]
+    expect(args.p_order).toMatchObject({ customer_name: 'EDEN', total_cents: 39000000, seller_id: 'u1' })
+    expect(args.p_items[0]).toMatchObject({ product_id: PRODUCT_ID, price_cents: 39000000, cost_cents: 30000000 })
+    expect(args.p_payments[0]).toMatchObject({ method: 'cash', account_id: ACCOUNT_ID, amount_cents: 39000000 })
+  })
+
+  it('un préstamo fuera de catálogo pide el costo', async () => {
+    const { client } = createSupabaseMock({ loans: { data: { ...pendingLent, product_id: null }, error: null } })
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock()
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/charge/route')
+    const res = await POST(
+      buildRequest({ price_cents: 100000, payment: { method: 'cash' } }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('costo')
+    expect(service.client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('no cobra un préstamo que no está pendiente', async () => {
+    const { client } = createSupabaseMock({ loans: { data: { ...pendingLent, status: 'charged' }, error: null } })
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock()
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/charge/route')
+    const res = await POST(
+      buildRequest({ price_cents: 100000, payment: { method: 'cash' } }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(400)
+    expect(service.client.rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/loans/[id]/sell (Lo vendí)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+  })
+
+  it('vende como ítem manual (sin tocar inventario) con el costo del catálogo', async () => {
+    const { client } = createSupabaseMock({
+      loans: { data: { ...pendingLent, direction: 'borrowed' }, error: null },
+      products: { data: { cost_cents: 25000000 }, error: null },
+      store_settings: { data: { pos_commission_rates: {} }, error: null },
+    })
+    createAuthenticatedClientMock.mockReturnValue(client)
+    const service = createSupabaseMock({}, {
+      sell_borrowed_loan: { data: { id: 'loan-1', sale_order_id: 'o2' }, error: null },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/sell/route')
+    const res = await POST(
+      buildRequest({ price_cents: 35000000, payment: { method: 'nequi' } }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(200)
+    const item = service.calls['rpc.sell_borrowed_loan'][0][0].p_items[0]
+    expect(item).toMatchObject({ product_id: null, variant_id: null, product_title: 'Casco', cost_cents: 25000000 })
+  })
+})
+
+describe('POST /api/loans/[id]/close (Cerrar deuda)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+  })
+
+  it('pagar en plata revisa el saldo y manda monto y cuenta', async () => {
+    const service = createSupabaseMock(
+      { accounts: { data: { name: 'Efectivo', balance_cents: 100000000 }, error: null } },
+      { close_borrowed_loan: { data: { id: 'loan-1', status: 'charged' }, error: null } }
+    )
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/close/route')
+    const res = await POST(
+      buildRequest({ method: 'money', amount_cents: 3500000, account_id: ACCOUNT_ID }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(200)
+    expect(service.calls['rpc.close_borrowed_loan'][0][0]).toMatchObject({
+      p_method: 'money', p_amount_cents: 3500000, p_account_id: ACCOUNT_ID, p_product_id: null,
+    })
+  })
+
+  it('pagar en plata sin saldo suficiente responde 400 sin cerrar', async () => {
+    const service = createSupabaseMock({ accounts: { data: { name: 'Efectivo', balance_cents: 100 }, error: null } })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/close/route')
+    const res = await POST(
+      buildRequest({ method: 'money', amount_cents: 3500000, account_id: ACCOUNT_ID }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(400)
+    expect(service.client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('devolver de surtido ya ingresado manda el producto a descontar', async () => {
+    const service = createSupabaseMock({}, { close_borrowed_loan: { data: { id: 'loan-1', status: 'returned' }, error: null } })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/close/route')
+    const res = await POST(
+      buildRequest({ method: 'restock_unit', product_id: PRODUCT_ID }),
+      { params: Promise.resolve({ id: 'loan-1' }) }
+    )
+
+    expect(res.status).toBe(200)
+    expect(service.calls['rpc.close_borrowed_loan'][0][0]).toMatchObject({ p_method: 'restock_unit', p_product_id: PRODUCT_ID, p_amount_cents: null })
+  })
+
+  it('una regla de la base (ej. ya se vendió) responde 400 con el mensaje', async () => {
+    const service = createSupabaseMock({}, {
+      close_borrowed_loan: { data: null, error: { message: 'Ese producto ya se vendió: no se puede devolver la misma unidad' } },
+    })
+    getServiceSupabaseMock.mockReturnValue(service.client)
+
+    const { POST } = await import('@/app/api/loans/[id]/close/route')
+    const res = await POST(buildRequest({ method: 'same_unit' }), { params: Promise.resolve({ id: 'loan-1' }) })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('ya se vendió')
   })
 })

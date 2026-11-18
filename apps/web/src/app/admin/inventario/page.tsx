@@ -1354,6 +1354,30 @@ export default function InventarioPage() {
     (p) => p.stock_qty <= p.low_stock_threshold
   ).length
 
+  // Préstamos pendientes a otros locales (Nos deben). Desde la migración
+  // 00062 prestar no descuenta inventario: la unidad sigue contada aquí
+  // aunque no esté en el local, así que se avisa al buscar el producto y en
+  // el ajuste de conteo para tenerla en cuenta al hacer inventario.
+  interface PrestamoPendiente { id: string; product_id: string | null; variant_id: string | null; product_title: string; warehouse: string; created_at: string }
+  const [prestamosPendientes, setPrestamosPendientes] = useState<PrestamoPendiente[]>([])
+  useEffect(() => {
+    if (!session?.access_token) return
+    fetch('/api/loans?status=pending&direction=lent', { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then(({ data }) => setPrestamosPendientes((data || []).filter((l: PrestamoPendiente) => l.product_id)))
+      .catch(() => setPrestamosPendientes([]))
+  }, [session?.access_token])
+  const prestamosDe = (productId: string, variantId?: string | null) =>
+    prestamosPendientes.filter(
+      (l) => l.product_id === productId && (!variantId || !l.variant_id || l.variant_id === variantId)
+    )
+  const fechaCorta = (iso: string) =>
+    new Date(iso).toLocaleDateString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short' })
+  // Solo cuando se busca algo: los préstamos de los productos que aparecen.
+  const prestamosEnBusqueda = searchQuery.trim()
+    ? filteredProducts.flatMap((p) => prestamosDe(p.id))
+    : []
+
   // Todos los códigos de barras ya usados en el catálogo (producto base +
   // variantes) — para que "Generar automático" nunca repita uno existente,
   // igual que ya hace la pestaña Ingresar con generarCodigoBarrasAuto.
@@ -1722,6 +1746,12 @@ export default function InventarioPage() {
                                   ))}
                                 </div>
                               )}
+                              {row.item && prestamosDe(row.item.productId, row.item.variantId).map((l) => (
+                                <p key={l.id} className="mt-1 flex items-start gap-1 text-xs text-amber-600">
+                                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                                  <span>{l.product_title} está prestado a {l.warehouse} desde el {fechaCorta(l.created_at)}: se cuenta en el sistema pero no está en el local.</span>
+                                </p>
+                              ))}
                             </td>
                             <td data-label="Cant. actual" className="p-2 text-right text-muted-foreground">{row.item ? row.item.stockQty : '—'}</td>
                             <td data-label="Tipo de ajuste" className="p-2">
@@ -2430,6 +2460,23 @@ export default function InventarioPage() {
           Stock bajo ({lowStockCount})
         </Button>
       </div>
+
+      {prestamosEnBusqueda.length > 0 && (
+        <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700">
+          <p className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {prestamosEnBusqueda.length === 1 ? 'Hay 1 unidad prestada' : `Hay ${prestamosEnBusqueda.length} unidades prestadas`}: se cuentan aquí pero no están en el local
+          </p>
+          <ul className="mt-2 space-y-1 pl-6">
+            {prestamosEnBusqueda.map((l) => (
+              <li key={l.id}>
+                <span className="font-medium">{l.product_title}</span> está prestado a <span className="font-medium">{l.warehouse}</span> desde el {fechaCorta(l.created_at)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 pl-6 text-xs">Tenlo en cuenta al hacer inventario. Baja del stock solo si el local lo paga (Préstamos → Cobrar).</p>
+        </div>
+      )}
 
       {/* Products Table */}
       <div className="rounded-xl border bg-card">
