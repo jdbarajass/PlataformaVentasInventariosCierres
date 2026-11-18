@@ -38,7 +38,8 @@ y la tarjeta de préstamos de Ventas del Día no cargan.
   columnas y funciones nuevas creadas y `stock_deducted` en NULL. Hubo 5 correcciones de +1 (cascos XTRONG R1 XL y L,
   intercomunicador HERO, guante JDL L y casco XONE M). La diadema de RAMIRO no hizo falta, porque se marcó "Devuelto"
   ese día antes de la migración y ya había recuperado su unidad.
-- [ ] YJBMOTOCOM: **push del código** (`10b818a`, `3c338bd`, `95309af` y la nota de pendientes), cuando el usuario lo pida.
+- [x] YJBMOTOCOM: push del código el 2026-11-18 (`0407238..c83f671`), sin cambios nuevos en la nube antes de subir.
+  Falta confirmar que Vercel lo publicó y probar Cobrar con un préstamo real.
 - [ ] YBMOTOCOM: correr `00059_loan_stock.sql` y luego `00062_loans_no_stock.sql`, en ese orden y después de las de la
   sección 1. Después hacer el push. Allá no hay préstamos descontados, así que la corrección no cambia nada. El código
   está en los commits locales `8a02aa2` y `11e65ea`, encima de `85042ed` y `0bcf0a2` (en `C:\Users\JJBarajas\Pictures\YOJAN`), y sigue
