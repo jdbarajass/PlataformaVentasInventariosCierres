@@ -36,7 +36,9 @@ y la tarjeta de préstamos de Ventas del Día no cargan.
 
 - [ ] YJBMOTOCOM: correr `00062_loans_no_stock.sql`; después hacer el push del código.
 - [ ] YBMOTOCOM: correr `00059_loan_stock.sql` y luego `00062_loans_no_stock.sql`, en ese orden y después de las de la
-  sección 1. Después hacer el push. Allá no hay préstamos descontados, así que la corrección no cambia nada.
+  sección 1. Después hacer el push. Allá no hay préstamos descontados, así que la corrección no cambia nada. El código
+  está en el commit local `8a02aa2`, encima de `85042ed` y `0bcf0a2` (en `C:\Users\JJBarajas\Pictures\YOJAN`), y sigue
+  **sin push a propósito**.
 - Pruebas: `scripts/auditoria-ventas/audit.mjs` (casos B13, L* y D*) y `scripts/auditoria-ventas/transicion-00062.mjs`
   (la corrección de datos).
 
