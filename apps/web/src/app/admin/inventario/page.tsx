@@ -2465,7 +2465,9 @@ export default function InventarioPage() {
         <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700">
           <p className="flex items-center gap-2 font-medium">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            {prestamosEnBusqueda.length === 1 ? 'Hay 1 unidad prestada' : `Hay ${prestamosEnBusqueda.length} unidades prestadas`}: se cuentan aquí pero no están en el local
+            {prestamosEnBusqueda.length === 1
+              ? 'Hay 1 unidad prestada: se cuenta aquí pero no está en el local'
+              : `Hay ${prestamosEnBusqueda.length} unidades prestadas: se cuentan aquí pero no están en el local`}
           </p>
           <ul className="mt-2 space-y-1 pl-6">
             {prestamosEnBusqueda.map((l) => (

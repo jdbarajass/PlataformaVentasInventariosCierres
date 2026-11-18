@@ -451,12 +451,12 @@ export function LoanDeleteDialog({
       ) : (
         <>
           <p className="mb-3 text-sm font-medium">{lent ? '¿Te devolvieron el producto?' : `¿Ya le devolviste el producto a ${loan.warehouse}?`}</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="destructive" className="flex-1 rounded-lg touch:h-11" onClick={confirm} disabled={deleting}>
+          <div className="flex flex-col gap-2">
+            <Button variant="destructive" className="w-full rounded-lg touch:h-11" onClick={confirm} disabled={deleting}>
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {lent ? 'Sí, me lo devolvieron: eliminar' : 'Sí, ya lo devolví: eliminar'}
             </Button>
-            <Button variant="outline" className="flex-1 rounded-lg touch:h-11" onClick={() => setAnswer('no')} disabled={deleting}>
+            <Button variant="outline" className="w-full rounded-lg touch:h-11" onClick={() => setAnswer('no')} disabled={deleting}>
               {lent ? 'No, no me lo devolvieron' : 'No, todavía no'}
             </Button>
           </div>
