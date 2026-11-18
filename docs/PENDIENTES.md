@@ -34,10 +34,14 @@ Es idempotente: correrla dos veces no suma doble.
 **Correrla en el SQL Editor de Supabase ANTES de subir el código.** Si el código llega primero, la pantalla de Préstamos
 y la tarjeta de préstamos de Ventas del Día no cargan.
 
-- [ ] YJBMOTOCOM: correr `00062_loans_no_stock.sql`; después hacer el push del código.
+- [x] YJBMOTOCOM: corrida por el usuario el 2026-11-18. Claude la verificó en la base y en el navegador local:
+  columnas y funciones nuevas creadas y `stock_deducted` en NULL. Hubo 5 correcciones de +1 (cascos XTRONG R1 XL y L,
+  intercomunicador HERO, guante JDL L y casco XONE M). La diadema de RAMIRO no hizo falta, porque se marcó "Devuelto"
+  ese día antes de la migración y ya había recuperado su unidad.
+- [ ] YJBMOTOCOM: **push del código** (`10b818a`, `3c338bd`, `95309af` y la nota de pendientes), cuando el usuario lo pida.
 - [ ] YBMOTOCOM: correr `00059_loan_stock.sql` y luego `00062_loans_no_stock.sql`, en ese orden y después de las de la
   sección 1. Después hacer el push. Allá no hay préstamos descontados, así que la corrección no cambia nada. El código
-  está en el commit local `8a02aa2`, encima de `85042ed` y `0bcf0a2` (en `C:\Users\JJBarajas\Pictures\YOJAN`), y sigue
+  está en los commits locales `8a02aa2` y `11e65ea`, encima de `85042ed` y `0bcf0a2` (en `C:\Users\JJBarajas\Pictures\YOJAN`), y sigue
   **sin push a propósito**.
 - Pruebas: `scripts/auditoria-ventas/audit.mjs` (casos B13, L* y D*) y `scripts/auditoria-ventas/transicion-00062.mjs`
   (la corrección de datos).
