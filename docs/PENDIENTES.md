@@ -4,12 +4,29 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-18.
+> Última revisión: 2026-11-21.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
+
+## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta en las DOS tiendas
+
+Cambio del 2026-11-21: abonar una factura, transferir entre cuentas y cerrar una deuda de préstamo en plata cobran el
+4x1000 si la cuenta no es efectivo (va aparte como gasto en "Gastos bancarios"). El abono también tiene fecha editable.
+Detalle en `docs/UNIFICACION_YJBMOTOCOM.md` sección 100.
+
+**Correrla en el SQL Editor de Supabase ANTES de subir el código.** Si el código llega primero, fallan abonar,
+transferir, cerrar deudas en plata y Finanzas → Gastos (columnas y parámetros nuevos). Es aditiva: lo registrado antes
+queda igual, sin 4x1000.
+
+- [ ] YJBMOTOCOM: correr la 00063 y después hacer commit y push del código (hecho en el PC ACER el 2026-11-21, todavía
+  sin commit ni push).
+- [ ] YJBMOTOCOM: probar en vivo un abono desde Nequi o NU (debe salir el 4x1000 en Gastos bancarios) y uno con fecha
+  de ayer.
+- [ ] YBMOTOCOM: replicar el cambio en su repo y correr la 00063 allá después de las de la sección 1.
+- Prueba de la migración: escenarios en PGlite (ver sección 100 de unificación).
 
 ## 0a. ⚠️ Migración `00062_loans_no_stock.sql` (préstamos sin inventario; Cobrar = venta) — falta en las DOS tiendas
 
@@ -73,6 +90,7 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00060_inventory_snapshots.sql` | Finanzas → Año solo muestra el inventario de hoy (aviso amarillo); la foto de fin de mes (botón y tarea nocturna) falla |
 | `00061_expense_gmf_notes.sql` | Registrar, editar y borrar gastos falla en cuanto se publique el cambio del 4x1000 (ver sección 0) |
 | `00062_loans_no_stock.sql` | Préstamos y la tarjeta de préstamos de Ventas del Día no cargan en cuanto se publique el cambio de préstamos (ver sección 0a) |
+| `00063_gmf_payments_transfers.sql` | Abonar, transferir, cerrar deudas en plata y Finanzas → Gastos fallan en cuanto se publique el cambio del 4x1000 en abonos (ver sección 00) |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 

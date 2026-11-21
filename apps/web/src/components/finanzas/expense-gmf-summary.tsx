@@ -59,3 +59,22 @@ export function expenseBreakdown(e: { amount_cents: number; gmf_cents?: number |
   if (gmf <= 0) return null
   return `Subtotal ${formatPrice(e.amount_cents)} + 4x1000 ${formatPrice(gmf)}`
 }
+
+export type GmfSource = 'supplier_payment' | 'transfer' | 'loan'
+
+const GMF_SOURCE_LABEL: Record<GmfSource, string> = {
+  supplier_payment: 'de un abono a factura',
+  transfer: 'de una transferencia entre cuentas',
+  loan: 'de un pago de préstamo',
+}
+
+/**
+ * Aviso para el 4x1000 automático de un abono, una transferencia o un pago de
+ * préstamo (migración 00063). Ese gasto no se edita (su valor sale de la
+ * fórmula); si no debía cobrarse, se elimina y la plata vuelve a la cuenta.
+ */
+export function gmfSourceNote(e: { gmf_source?: GmfSource | string | null }): string | null {
+  if (!e.gmf_source) return null
+  const label = GMF_SOURCE_LABEL[e.gmf_source as GmfSource] || ''
+  return `4x1000 automático ${label}: no se edita; si sobra, elimínalo y la plata vuelve a la cuenta`.replace('  ', ' ')
+}

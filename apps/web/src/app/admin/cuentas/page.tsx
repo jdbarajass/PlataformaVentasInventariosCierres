@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils'
 import { bogotaDayRange, bogotaToISO } from '@/lib/bogota-time'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
+import { expenseGmfCents } from '@/lib/finance/gmf'
+import { ExpenseGmfSummary } from '@/components/finanzas/expense-gmf-summary'
 import { ReleaseDetailDialog, type ReleaseDetailRow, type ReleaseKind } from '@/components/admin/release-detail-dialog'
 
 interface Account {
@@ -192,6 +194,9 @@ export default function CuentasPage() {
   const [toAccount, setToAccount] = useState('')
   const [transferAmount, setTransferAmount] = useState('')
   const [transferNote, setTransferNote] = useState('')
+  // Casilla "cobrar 4x1000": si la cuenta origen no es efectivo, se le
+  // descuenta además el 4x1000 como gasto bancario (migración 00063).
+  const [transferApplyGmf, setTransferApplyGmf] = useState(true)
   const [savingTransfer, setSavingTransfer] = useState(false)
 
   // Cierre mensual
@@ -500,6 +505,16 @@ export default function CuentasPage() {
       toast({ title: 'Error', description: 'El monto debe ser mayor a 0', variant: 'destructive' })
       return
     }
+    const origin = accounts.find((a) => a.id === fromAccount)
+    const gmf = origin ? expenseGmfCents(amount, origin.payment_method, transferApplyGmf) : 0
+    if (origin && origin.balance_cents < amount + gmf) {
+      toast({
+        title: 'Saldo insuficiente',
+        description: `${origin.name} tiene ${formatPrice(origin.balance_cents)} y la transferencia${gmf > 0 ? ' con su 4x1000' : ''} es de ${formatPrice(amount + gmf)}`,
+        variant: 'destructive',
+      })
+      return
+    }
 
     try {
       setSavingTransfer(true)
@@ -512,15 +527,17 @@ export default function CuentasPage() {
           amount_cents: amount,
           description: transferNote || 'Transferencia entre cuentas',
           created_by: userProfile?.id,
+          apply_gmf: transferApplyGmf,
         }),
       })
       if (!res.ok) {
         const error = await res.json()
         throw new Error(error.error || 'Error al transferir')
       }
-      toast({ title: 'Transferencia realizada' })
+      toast({ title: 'Transferencia realizada', description: gmf > 0 ? `Se cobró además el 4x1000 (${formatPrice(gmf)}) de ${origin?.name}.` : undefined })
       setTransferAmount('')
       setTransferNote('')
+      setTransferApplyGmf(true)
       await Promise.all([fetchAccounts(), fetchMovements()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -961,6 +978,15 @@ export default function CuentasPage() {
                       onChange={(e) => setTransferNote(e.target.value)}
                       className="rounded-lg"
                     />
+                    {fromAccount && Math.round((parseFloat(transferAmount) || 0) * 100) > 0 && (
+                      <ExpenseGmfSummary
+                        amountCents={Math.round((parseFloat(transferAmount) || 0) * 100)}
+                        paymentMethod={accounts.find((a) => a.id === fromAccount)?.payment_method}
+                        hasAccount
+                        applyGmf={transferApplyGmf}
+                        onApplyGmfChange={setTransferApplyGmf}
+                      />
+                    )}
                     <Button
                       className="w-full rounded-lg"
                       onClick={handleTransfer}

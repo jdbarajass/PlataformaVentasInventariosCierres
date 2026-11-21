@@ -19,6 +19,9 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { bogotaDateStr } from '@/lib/bogota-time'
+import { expenseGmfCents } from '@/lib/finance/gmf'
+import { ExpenseGmfSummary } from '@/components/finanzas/expense-gmf-summary'
 
 interface SupplierInvoicePayment {
   id: string
@@ -26,6 +29,8 @@ interface SupplierInvoicePayment {
   account_id: string | null
   notes: string | null
   paid_at: string
+  /** 4x1000 cobrado en este abono (migración 00063); va aparte como gasto bancario. */
+  gmf_cents?: number | null
 }
 
 interface SupplierInvoiceItem {
@@ -54,6 +59,7 @@ interface Account {
   id: string
   name: string
   balance_cents: number
+  payment_method: string
 }
 
 export default function FacturasPage() {
@@ -70,6 +76,11 @@ export default function FacturasPage() {
   const [payAmount, setPayAmount] = useState('')
   const [payAccount, setPayAccount] = useState('')
   const [payNotes, setPayNotes] = useState('')
+  // Fecha del abono: hoy (hora Colombia) por defecto; se puede poner un día
+  // anterior si el abono se anota después. No se permiten fechas futuras.
+  const [payDate, setPayDate] = useState(() => bogotaDateStr(new Date()))
+  // Casilla "cobrar 4x1000" (solo cuentas que no son efectivo), como en los gastos.
+  const [payApplyGmf, setPayApplyGmf] = useState(true)
   const [payingId, setPayingId] = useState<string | null>(null)
 
   const [newItem, setNewItem] = useState({ description: '', qty: '1', unit_price: '' })
@@ -205,13 +216,20 @@ export default function FacturasPage() {
       toast({ title: 'Error', description: 'El monto debe ser mayor a 0', variant: 'destructive' })
       return
     }
+    const today = bogotaDateStr(new Date())
+    if (!payDate || payDate > today) {
+      toast({ title: 'Error', description: 'La fecha del abono no puede ser futura', variant: 'destructive' })
+      return
+    }
     // Aviso inmediato con el saldo ya cargado; el API vuelve a validar con
     // el saldo real del momento (puede haber cambiado desde que se cargó).
+    // El saldo tiene que cubrir el abono + su 4x1000.
     const account = accounts.find((a) => a.id === payAccount)
-    if (account && account.balance_cents < amount) {
+    const gmf = account ? expenseGmfCents(amount, account.payment_method, payApplyGmf) : 0
+    if (account && account.balance_cents < amount + gmf) {
       toast({
         title: 'Saldo insuficiente',
-        description: `${account.name} tiene ${formatPrice(account.balance_cents)} y el abono es de ${formatPrice(amount)}`,
+        description: `${account.name} tiene ${formatPrice(account.balance_cents)} y el abono${gmf > 0 ? ' con su 4x1000' : ''} es de ${formatPrice(amount + gmf)}`,
         variant: 'destructive',
       })
       return
@@ -226,16 +244,20 @@ export default function FacturasPage() {
           account_id: payAccount || null,
           notes: payNotes || null,
           created_by: userProfile?.id,
+          paid_at: payDate,
+          apply_gmf: payApplyGmf,
         }),
       })
       if (!res.ok) {
         const error = await res.json()
         throw new Error(error.error || 'Error al registrar el abono')
       }
-      toast({ title: 'Abono registrado' })
+      toast({ title: 'Abono registrado', description: gmf > 0 ? `Se cobró además el 4x1000 (${formatPrice(gmf)}) de ${account?.name}.` : undefined })
       setPayAmount('')
       setPayAccount('')
       setPayNotes('')
+      setPayDate(bogotaDateStr(new Date()))
+      setPayApplyGmf(true)
       await Promise.all([fetchInvoices(), fetchAccounts()])
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' })
@@ -661,9 +683,16 @@ export default function FacturasPage() {
                         <p className="mb-2 text-sm font-medium">Abonos</p>
                         <div className="space-y-1">
                           {invoice.payments.map((p) => (
-                            <div key={p.id} className="flex justify-between rounded-lg border px-3 py-2 text-sm">
-                              <span>{formatDate(p.paid_at)} {p.notes ? `· ${p.notes}` : ''}</span>
-                              <span className="font-medium">{formatPrice(p.amount_cents)}</span>
+                            <div key={p.id} className="flex justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                              <span className="min-w-0">
+                                {formatDate(p.paid_at)}
+                                {p.account_id && accounts.find((a) => a.id === p.account_id) ? ` · ${accounts.find((a) => a.id === p.account_id)!.name}` : ''}
+                                {p.notes ? ` · ${p.notes}` : ''}
+                                {Number(p.gmf_cents || 0) > 0 && (
+                                  <span className="block text-xs text-amber-700 dark:text-amber-400">+ 4x1000 {formatPrice(Number(p.gmf_cents))} (va como gasto bancario, no cuenta como abono)</span>
+                                )}
+                              </span>
+                              <span className="shrink-0 font-medium">{formatPrice(p.amount_cents)}</span>
                             </div>
                           ))}
                         </div>
@@ -693,6 +722,17 @@ export default function FacturasPage() {
                             ))}
                           </select>
                         </label>
+                        <label className="block max-sm:flex-1">
+                          <span className="text-xs text-muted-foreground">Fecha del abono</span>
+                          <Input
+                            type="date"
+                            value={payDate}
+                            max={bogotaDateStr(new Date())}
+                            onChange={(e) => setPayDate(e.target.value)}
+                            aria-label="Fecha del abono"
+                            className="h-8 w-36 rounded-lg text-xs touch:h-11 max-sm:w-full"
+                          />
+                        </label>
                         <Input
                           placeholder="Notas"
                           value={payNotes}
@@ -711,6 +751,15 @@ export default function FacturasPage() {
                         >
                           Usar saldo restante
                         </Button>
+                        {Math.round((parseFloat(payAmount) || 0) * 100) > 0 && (
+                          <ExpenseGmfSummary
+                            amountCents={Math.round((parseFloat(payAmount) || 0) * 100)}
+                            paymentMethod={accounts.find((a) => a.id === payAccount)?.payment_method}
+                            hasAccount={!!payAccount}
+                            applyGmf={payApplyGmf}
+                            onApplyGmfChange={setPayApplyGmf}
+                          />
+                        )}
                       </div>
                     )}
 

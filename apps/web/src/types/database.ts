@@ -722,6 +722,8 @@ export interface Database {
           account_id: string | null
           notes: string | null
           paid_at: string
+          /** 4x1000 cobrado en este abono (informativo; migración 00063). */
+          gmf_cents: number
           created_at: string
         }
         Insert: {
@@ -731,6 +733,7 @@ export interface Database {
           account_id?: string | null
           notes?: string | null
           paid_at?: string
+          gmf_cents?: number
           created_at?: string
         }
         Update: {
@@ -738,6 +741,7 @@ export interface Database {
           account_id?: string | null
           notes?: string | null
           paid_at?: string
+          gmf_cents?: number
         }
         Relationships: [
           {
@@ -843,6 +847,8 @@ export interface Database {
           close_method: 'same_unit' | 'restock_unit' | 'money' | null
           paid_cents: number | null
           paid_account_id: string | null
+          /** 4x1000 cobrado al pagar la deuda en plata (migración 00063). */
+          paid_gmf_cents: number
           closed_at: string | null
           created_at: string
           updated_at: string
@@ -926,6 +932,9 @@ export interface Database {
           notes: string | null
           gmf_cents: number
           parent_expense_id: string | null
+          /** 4x1000 automático de un abono, transferencia o préstamo (migración 00063). */
+          gmf_source: 'supplier_payment' | 'transfer' | 'loan' | null
+          gmf_source_id: string | null
           created_at: string
           updated_at: string
         }
@@ -940,6 +949,8 @@ export interface Database {
           notes?: string | null
           gmf_cents?: number
           parent_expense_id?: string | null
+          gmf_source?: 'supplier_payment' | 'transfer' | 'loan' | null
+          gmf_source_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -952,6 +963,8 @@ export interface Database {
           notes?: string | null
           gmf_cents?: number
           parent_expense_id?: string | null
+          gmf_source?: 'supplier_payment' | 'transfer' | 'loan' | null
+          gmf_source_id?: string | null
           updated_at?: string
         }
         Relationships: [

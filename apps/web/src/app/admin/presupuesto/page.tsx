@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Textarea } from '@/components/ui/textarea'
-import { ExpenseGmfSummary, expenseBreakdown } from '@/components/finanzas/expense-gmf-summary'
+import { ExpenseGmfSummary, expenseBreakdown, gmfSourceNote } from '@/components/finanzas/expense-gmf-summary'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
@@ -33,6 +33,8 @@ interface Expense {
   gmf_cents?: number | null
   /** Si tiene valor, este gasto ES el 4x1000 de otro: se muestra dentro de su gasto. */
   parent_expense_id?: string | null
+  /** 4x1000 automático de un abono, transferencia o préstamo (00063). */
+  gmf_source?: string | null
 }
 
 interface Account {
@@ -491,6 +493,9 @@ export default function PresupuestoPage() {
                     <p className="text-sm text-muted-foreground">{e.category} · {formatDate(e.date)}</p>
                     {expenseBreakdown(e) && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(e)}</p>
+                    )}
+                    {gmfSourceNote(e) && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{gmfSourceNote(e)}</p>
                     )}
                     {e.notes && (
                       <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {e.notes}</p>

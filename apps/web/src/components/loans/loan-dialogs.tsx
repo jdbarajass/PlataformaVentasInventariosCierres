@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { bogotaDateStr, bogotaTimeStr, bogotaToISO } from '@/lib/bogota-time'
+import { ExpenseGmfSummary } from '@/components/finanzas/expense-gmf-summary'
 
 // Diálogos de Préstamos (migración 00062):
 //   - LoanSaleDialog: "Cobrar" (Nos deben) y "Lo vendí" (Debemos). Crea una
@@ -240,6 +241,8 @@ export function LoanCloseDialog({
   const [results, setResults] = useState<{ id: string; title: string; variants: { id: string; talla: string | null }[] }[]>([])
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState(() => accounts.find((a) => a.payment_method === 'cash')?.id || '')
+  // Casilla "cobrar 4x1000" del pago en plata (cuentas que no son efectivo, migración 00063).
+  const [applyGmf, setApplyGmf] = useState(true)
   const [date, setDate] = useState(() => bogotaDateStr(new Date()))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -274,7 +277,7 @@ export function LoanCloseDialog({
     } else {
       const cents = Math.round(Number(amount || 0) * 100)
       if (cents <= 0) return setError('Escribe cuánto le pagaste')
-      body = { method, amount_cents: cents, account_id: accountId || null, date: when }
+      body = { method, amount_cents: cents, account_id: accountId || null, apply_gmf: applyGmf, date: when }
     }
     try {
       setSaving(true)
@@ -319,7 +322,7 @@ export function LoanCloseDialog({
       <div className="space-y-2">
         {option('same_unit', 'Le devolví su misma unidad', sold ? 'No aplica: ese producto ya se vendió.' : 'Se cierra y no pasa nada más.', sold)}
         {option('restock_unit', 'Le devolví una igual que me llegó de surtido', 'Si ya está ingresada al inventario, baja 1.')}
-        {option('money', 'Le pagué en plata', 'Sale de la cuenta como pago a proveedor (no es gasto).')}
+        {option('money', 'Le pagué en plata', 'Sale de la cuenta como pago a proveedor (no es gasto). Si la cuenta no es efectivo, el 4x1000 va aparte como gasto bancario.')}
       </div>
 
       {method === 'restock_unit' && (
@@ -374,6 +377,15 @@ export function LoanCloseDialog({
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </Field>
+          {Math.round(Number(amount || 0) * 100) > 0 && (
+            <ExpenseGmfSummary
+              amountCents={Math.round(Number(amount || 0) * 100)}
+              paymentMethod={accounts.find((a) => a.id === accountId)?.payment_method}
+              hasAccount={!!accountId}
+              applyGmf={applyGmf}
+              onApplyGmfChange={setApplyGmf}
+            />
+          )}
         </div>
       )}
 

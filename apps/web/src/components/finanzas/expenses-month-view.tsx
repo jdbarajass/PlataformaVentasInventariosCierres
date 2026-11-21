@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Textarea } from '@/components/ui/textarea'
-import { ExpenseGmfSummary, expenseBreakdown } from '@/components/finanzas/expense-gmf-summary'
+import { ExpenseGmfSummary, expenseBreakdown, gmfSourceNote } from '@/components/finanzas/expense-gmf-summary'
 import { useToast } from '@/components/ui/use-toast'
 import { useLatestRequest } from '@/lib/use-latest-request'
 import { bogotaDateStr } from '@/lib/bogota-time'
@@ -346,6 +346,7 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                       <td className="px-3 py-2">
                         <p>{r.description}</p>
                         {r.parent_expense_id && <p className="text-xs text-amber-700 dark:text-amber-400">4x1000 automático: se corrige desde su gasto</p>}
+                        {gmfSourceNote(r) && <p className="text-xs text-amber-700 dark:text-amber-400">{gmfSourceNote(r)}</p>}
                         {expenseBreakdown(r) && <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(r)} (va en una línea aparte)</p>}
                         {r.notes && <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {r.notes}</p>}
                       </td>
@@ -359,7 +360,7 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                         <td className="whitespace-nowrap px-4 py-1 text-right sm:pr-6">
                           {!r.parent_expense_id && (
                             <>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(r)} aria-label={`Editar ${r.description}`}><Pencil className="h-4 w-4" /></Button>
+                              {!r.gmf_source && <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(r)} aria-label={`Editar ${r.description}`}><Pencil className="h-4 w-4" /></Button>}
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => remove(r)} aria-label={`Eliminar ${r.description}`}><Trash2 className="h-4 w-4" /></Button>
                             </>
                           )}
@@ -379,6 +380,7 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                       <p className="text-xs text-muted-foreground">{fmtDate(r.date)} · {r.category} · {r.account_name || 'Sin cuenta'}</p>
                       <p className={`text-xs ${r.counted ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-400'}`}>{reason(r)}</p>
                       {r.parent_expense_id && <p className="text-xs text-amber-700 dark:text-amber-400">4x1000 automático: se corrige desde su gasto</p>}
+                      {gmfSourceNote(r) && <p className="text-xs text-amber-700 dark:text-amber-400">{gmfSourceNote(r)}</p>}
                       {expenseBreakdown(r) && <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(r)} (va en una línea aparte)</p>}
                       {r.notes && <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {r.notes}</p>}
                     </div>
@@ -386,7 +388,7 @@ export function ExpensesMonthView({ year, month, accessToken, canEdit }: { year:
                   </div>
                   {canEdit && !r.parent_expense_id && (
                     <div className="mt-2 flex gap-2">
-                      <Button variant="outline" size="sm" className="rounded-lg touch:h-10" onClick={() => openEdit(r)}><Pencil className="mr-1 h-3 w-3" /> Editar</Button>
+                      {!r.gmf_source && <Button variant="outline" size="sm" className="rounded-lg touch:h-10" onClick={() => openEdit(r)}><Pencil className="mr-1 h-3 w-3" /> Editar</Button>}
                       <Button variant="outline" size="sm" className="rounded-lg text-red-500 touch:h-10" onClick={() => remove(r)}><Trash2 className="mr-1 h-3 w-3" /> Eliminar</Button>
                     </div>
                   )}

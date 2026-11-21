@@ -3051,3 +3051,42 @@ Técnico:
   - Revisión en el navegador local con datos reales, sin enviar nada.
 - **Replicado en YBMOTOCOM** con la 00059 incluida. Allá hay que correr 00059 y luego 00062 antes del push (ver
   `docs/PENDIENTES.md`, sección 0a).
+
+
+## 100. 4x1000 en abonos a facturas, transferencias y pagos de préstamos; fecha del abono (2026-11-21)
+
+El usuario preguntó si el 4x1000 se cobraba al abonar o pagar una factura desde una cuenta que no es efectivo. **No se
+cobraba**: solo los gastos operativos lo tenían (00061). Tampoco lo cobraban las transferencias entre cuentas ni el
+"Cerrar deuda en plata" de Préstamos (que en la sección 99 quedó "sin 4x1000"). El usuario decidió cobrarlo en las tres
+y dejar sin 4x1000 lo ya registrado. También pidió poder cambiar la fecha del abono cuando se anota otro día.
+
+- **Facturas → Abonar:** campo **Fecha del abono** (hoy por defecto, editable, sin fechas futuras) y resumen Subtotal +
+  4x1000 (casilla "cobrar") = Total que sale de la cuenta. En la lista de abonos se ve la cuenta y el 4x1000 cobrado.
+- **Cuentas → Transferir:** el mismo resumen. El 4x1000 sale de la cuenta de origen.
+- **Préstamos → Cerrar deuda → Le pagué en plata:** el mismo resumen.
+- El 4x1000 queda como gasto en "Gastos bancarios" con la fecha de la operación. En Finanzas → Gastos, Ventas del Día
+  y Presupuesto sale con el aviso "4x1000 automático de …: no se edita" y sin botón de editar (sí de eliminar).
+- **Arreglo de paso:** la fecha del abono la ponía la BD con `CURRENT_DATE` (UTC); los abonos hechos después de las
+  7 p.m. quedaban con la fecha del día siguiente.
+
+Técnico:
+
+- **Migración `00063_gmf_payments_transfers.sql`:** columnas `operating_expenses.gmf_source` y `gmf_source_id`,
+  `supplier_invoice_payments.gmf_cents` y `loans.paid_gmf_cents`; función interna `charge_account_gmf`;
+  `pay_supplier_invoice` (+ `p_paid_at`, `p_apply_gmf`), `transfer_between_accounts` (+ `p_apply_gmf`) y
+  `close_borrowed_loan` (+ `p_apply_gmf`) cambian de firma con valores por defecto (la llamada anterior sigue
+  funcionando, sin 4x1000). `delete_supplier_invoice` devuelve también el 4x1000 de los abonos y
+  `delete_operating_expense` limpia `gmf_cents` / `paid_gmf_cents` si se borra un 4x1000 a mano. Las funciones de
+  plata quedan solo para `service_role` (REVOKE a anon y authenticated).
+- **API:** `POST /api/supplier-invoices/[id]/payments` (`paid_at`, `apply_gmf`), `/api/account-movements/transfer`
+  y `/api/loans/[id]/close` (`apply_gmf`) validan el saldo con el 4x1000 incluido. `PATCH /api/operating-expenses/[id]`
+  responde 400 si el gasto tiene `gmf_source`.
+- **Pruebas:**
+  - Escenarios de la migración en PGlite (24, todos OK): abono con y sin 4x1000, efectivo, casilla desmarcada, firma
+    vieja, fecha anterior y futura, borrar la factura, borrar el 4x1000 a mano, transferencias (incluida la que no
+    alcanza para el 4x1000), préstamo en plata y permisos.
+  - `scripts/auditoria-ventas/audit.mjs`: mismos resultados con y sin la 00063.
+  - `__tests__/api/gmf-payments.test.ts`: 14 pruebas.
+  - Suite completa: 264/265. La que falla (`loans.test.ts`, "rechaza un préstamo sin nombre…") ya fallaba antes de
+    este cambio.
+- **Falta replicar en YBMOTOCOM** y correr la 00063 en las dos tiendas antes del push (ver `docs/PENDIENTES.md`).

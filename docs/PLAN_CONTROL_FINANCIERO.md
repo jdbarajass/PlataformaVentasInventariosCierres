@@ -23,6 +23,24 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   sin tocar sus fórmulas. Borrar o editar el gasto devuelve/rehace también su 4x1000; el hijo no se edita ni se
   borra solo (la API responde 400). Fórmula en `lib/finance/gmf.ts` (= la de la BD), pruebas en `gmf.test.ts`.
 - Un gasto anterior al cambio no cobra 4x1000 al editarlo, salvo que se marque la casilla.
+
+### 4x1000 en abonos a facturas, transferencias y préstamos; fecha del abono (2026-11-21)
+- Pedido del usuario: toda plata que sale de una cuenta que no es efectivo paga 4x1000, no solo los gastos. Ahora
+  también lo cobran **Facturas → Abonar**, **Cuentas → Transferir** (a la cuenta de origen; la destino recibe el valor
+  completo) y **Préstamos → Cerrar deuda en plata**. Las tres muestran el mismo resumen de los gastos (Subtotal +
+  4x1000 con casilla "cobrar" = Total que sale de la cuenta) y validan que el saldo cubra el total.
+- Cómo se guarda (migración `00063_gmf_payments_transfers.sql`): el abono, la transferencia o el pago se registran
+  como siempre y el 4x1000 sale aparte como gasto en **"Gastos bancarios"** con `gmf_source`
+  (`supplier_payment` / `transfer` / `loan`) y `gmf_source_id`. Función interna `charge_account_gmf`. El 4x1000 **no
+  cuenta como abono** a la factura ni como costo del préstamo. Informativo: `supplier_invoice_payments.gmf_cents` y
+  `loans.paid_gmf_cents`.
+- Ese gasto no se edita (la API responde 400). Sí se puede eliminar (la plata vuelve a la cuenta), y borrar la factura
+  devuelve también el 4x1000 de sus abonos.
+- **Fecha del abono:** campo editable (hoy en hora Colombia por defecto, sin fechas futuras). Antes la base usaba
+  `CURRENT_DATE` en UTC, y un abono hecho después de las 7 p.m. quedaba con la fecha de mañana. El abono, la fecha de
+  pago de la factura, el 4x1000 y el movimiento de la cuenta quedan con esa fecha, así que Año y Flujo de caja lo ubican
+  en su mes.
+- Lo registrado antes del cambio queda sin 4x1000 (decisión del usuario).
 - Estado: YJBMOTOCOM con la migración corrida y verificada, y el código subido (2026-11-17). YBMOTOCOM: commit local
   `85042ed`; falta correr la 00061 allá y después subirlo.
 

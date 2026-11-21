@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Textarea } from '@/components/ui/textarea'
-import { ExpenseGmfSummary, expenseBreakdown } from '@/components/finanzas/expense-gmf-summary'
+import { ExpenseGmfSummary, expenseBreakdown, gmfSourceNote } from '@/components/finanzas/expense-gmf-summary'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { AdminAuthorizationDialog } from '@/components/admin/admin-authorization-dialog'
@@ -90,6 +90,8 @@ interface Expense {
   gmf_cents?: number | null
   /** Si tiene valor, este gasto ES el 4x1000 de otro: se muestra dentro de su gasto. */
   parent_expense_id?: string | null
+  /** 4x1000 automático de un abono, transferencia o préstamo (00063): no se edita. */
+  gmf_source?: string | null
 }
 interface DailyNote { id: string; text: string; created_at: string }
 const EMPTY_EXPENSE_FORM = { description: '', amount: '', category: '', account_id: '', notes: '', apply_gmf: true }
@@ -1653,6 +1655,9 @@ function VentasDiaContent() {
                     {expenseBreakdown(e) && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">{expenseBreakdown(e)}</p>
                     )}
+                    {gmfSourceNote(e) && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{gmfSourceNote(e)}</p>
+                    )}
                     {e.notes && (
                       <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">Obs.: {e.notes}</p>
                     )}
@@ -1661,9 +1666,11 @@ function VentasDiaContent() {
                     <span className="font-medium">{formatPrice(e.amount_cents + Number(e.gmf_cents || 0))}</span>
                     {!exportMode && canManageExpenses && (
                       <>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 touch:h-11 touch:w-11" title="Editar gasto" aria-label="Editar gasto" onClick={() => startEditExpense(e)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        {!e.gmf_source && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 touch:h-11 touch:w-11" title="Editar gasto" aria-label="Editar gasto" onClick={() => startEditExpense(e)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 touch:h-11 touch:w-11" title="Eliminar gasto" aria-label="Eliminar gasto" onClick={() => handleDeleteExpense(e)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

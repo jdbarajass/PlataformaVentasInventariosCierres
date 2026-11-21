@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       fetchAll<MonthExpense>((a, b) =>
         supabase
           .from('operating_expenses')
-          .select('id, date, description, amount_cents, category, account_id, notes, gmf_cents, parent_expense_id')
+          .select('id, date, description, amount_cents, category, account_id, notes, gmf_cents, parent_expense_id, gmf_source')
           .gte('date', p.fromDate)
           .lt('date', p.toDate)
           .order('date')

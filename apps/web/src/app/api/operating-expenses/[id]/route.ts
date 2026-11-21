@@ -7,6 +7,10 @@ import { expenseGmfCents } from '@/lib/finance/gmf'
 import { z } from 'zod'
 
 const GMF_CHILD_ERROR = 'Este 4x1000 se cobró automáticamente: se corrige o elimina desde su gasto.'
+// 4x1000 de un abono a factura, una transferencia o un pago de préstamo
+// (migración 00063): su valor sale de la fórmula, no se edita. Si sobra, se
+// elimina y la plata vuelve a la cuenta.
+const GMF_SOURCE_ERROR = 'Este 4x1000 se cobró automáticamente: no se edita. Si no debía cobrarse, elimínalo y la plata vuelve a la cuenta.'
 
 const updateSchema = z.object({
   description: z.string().trim().min(1, 'La descripción es obligatoria'),
@@ -62,6 +66,9 @@ export async function PATCH(
     }
     if (current.parent_expense_id) {
       return NextResponse.json({ error: GMF_CHILD_ERROR }, { status: 400 })
+    }
+    if (current.gmf_source) {
+      return NextResponse.json({ error: GMF_SOURCE_ERROR }, { status: 400 })
     }
 
     const currentGmf = Number(current.gmf_cents || 0)

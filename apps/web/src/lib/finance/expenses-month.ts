@@ -23,6 +23,8 @@ export interface MonthExpense {
   gmf_cents?: number
   /** Si tiene valor, este gasto es el 4x1000 automático de otro (migración 00061). */
   parent_expense_id?: string | null
+  /** 4x1000 automático de un abono, transferencia o préstamo (migración 00063). */
+  gmf_source?: 'supplier_payment' | 'transfer' | 'loan' | null
 }
 
 export interface ExpenseRow extends MonthExpense {

@@ -10,9 +10,13 @@ const transferSchema = z.object({
   amount_cents: z.number().int().positive('El monto debe ser mayor a 0'),
   description: z.string().optional(),
   created_by: z.string().uuid().optional(),
+  // Casilla "cobrar 4x1000" (migración 00063): si la cuenta origen no es
+  // efectivo, se le descuenta además el 4x1000 como gasto bancario.
+  apply_gmf: z.boolean().optional(),
 })
 
-// POST - Transferir saldo entre dos cuentas (valida saldo suficiente). Solo admin.
+// POST - Transferir saldo entre dos cuentas (valida saldo suficiente, incluido
+// el 4x1000 de la cuenta origen si aplica). Solo admin.
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request, ['admin'])
@@ -30,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { from_account_id, to_account_id, amount_cents, description, created_by } =
+    const { from_account_id, to_account_id, amount_cents, description, created_by, apply_gmf = false } =
       validation.data
 
     // transfer_between_accounts valida el saldo, descuenta/acredita ambas
@@ -45,6 +49,7 @@ export async function POST(request: NextRequest) {
         p_amount_cents: amount_cents,
         p_description: description || 'Transferencia entre cuentas',
         p_created_by: created_by || null,
+        p_apply_gmf: apply_gmf,
       }
     )
 
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
       action: 'account_transfer',
       tableName: 'account_movements',
       recordId: referenceId as any,
-      newData: { from_account_id, to_account_id, amount_cents, description },
+      newData: { from_account_id, to_account_id, amount_cents, description, apply_gmf },
     })
 
     return NextResponse.json({ reference_id: referenceId }, { status: 201 })
