@@ -29,7 +29,7 @@ interface Expense {
   category: string
   account_id: string | null
   notes?: string | null
-  /** 4x1000 cobrado (el cobro real es el gasto hijo en "Gastos bancarios"). */
+  /** 4x1000 cobrado (el cobro real es el gasto hijo en "4X1000 impuestos (Gastos Bancarios)"). */
   gmf_cents?: number | null
   /** Si tiene valor, este gasto ES el 4x1000 de otro: se muestra dentro de su gasto. */
   parent_expense_id?: string | null

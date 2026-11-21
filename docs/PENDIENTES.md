@@ -14,8 +14,10 @@
 ## Resumen rápido por tienda (2026-11-21)
 
 **YJBMOTOCOM** (este repo):
+0. Correr `00064_rename_gmf_category.sql` (renombra "Gastos bancarios" y agrega "Gasto operativo"). Después, Claude
+   verifica y hace el push (sección 000).
 1. Probar en vivo, cuando Vercel publique el push del 2026-11-21:
-   - un abono a factura desde Nequi o NU: debe salir el 4x1000 en Gastos bancarios y en la cuenta;
+   - un abono a factura desde Nequi o NU: debe salir el 4x1000 en "4X1000 impuestos (Gastos Bancarios)" y en la cuenta;
    - un abono con fecha de ayer;
    - una transferencia desde una cuenta que no sea efectivo (sección 00).
 2. Confirmar que Vercel publicó el cambio de préstamos y probar Cobrar con un préstamo real (sección 0a).
@@ -23,17 +25,36 @@
 4. Corregir los 16 pagos sin cuenta y los 2 con cuenta distinta (sección 3).
 5. Verificar en vivo la autorización de admin para cancelar y editar ventas (sección 3).
 6. Bugs de plata e inventario de la auditoría del 31-oct (sección 3).
-7. Seguridad: `npm audit`, 2FA para el admin y límite de intentos de inicio de sesión (sección 2).
+7. **Seguridad, prioridad alta:** quitarle al rol público (`anon`) el permiso de ejecutar las funciones que mueven plata
+   (sección 2.5).
+8. Seguridad: `npm audit`, 2FA para el admin y límite de intentos de inicio de sesión (sección 2).
 
 **YBMOTOCOM** (repo aparte, en el otro PC: `C:\Users\JJBarajas\Pictures\YOJAN`):
 1. Revisar por qué Vercel no publica y mandar captura del último despliegue (sección 1d).
-2. Correr en su Supabase, **en orden**, de la 00056 a la 00063 (sección 1).
+2. Correr en su Supabase, **en orden**, de la 00056 a la 00064 (sección 1).
 3. Hacer el push de los commits locales que esperan esas migraciones (`85042ed`, `0bcf0a2`, `8a02aa2`, `11e65ea`), solo
    después de correrlas (secciones 0 y 0a).
-4. Replicar el cambio del 4x1000 en abonos, transferencias y préstamos (sección 00), que todavía no se ha llevado allá.
+4. Replicar el cambio del 4x1000 en abonos, transferencias y préstamos (sección 00) y el de categorías (sección 000).
+   Ninguno de los dos se ha llevado allá todavía.
 5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
    (sección 1d).
+
+## 000. ⚠️ Migración `00064_rename_gmf_category.sql` (categorías de gasto) — falta en las DOS tiendas
+
+Cambio del 2026-11-21:
+- "Gastos bancarios" pasa a llamarse **"4X1000 impuestos (Gastos Bancarios)"**, también en los gastos y presupuestos
+  ya guardados. El 4x1000 automático cae ahí.
+- Categoría nueva **"Gasto operativo"**.
+
+No mueve plata. Detalle en `docs/UNIFICACION_YJBMOTOCOM.md` sección 101.
+
+Correrla y subir el código enseguida. Si el código sube primero, el 4x1000 automático sigue saliendo con el nombre
+viejo hasta correrla. Si la migración va primero, la utilidad no cambia, pero la línea de gasto financiero lo muestra
+como operativo hasta el push.
+
+- [ ] YJBMOTOCOM: correr la 00064, verificar y hacer el push (código en commit local, **sin push a propósito**).
+- [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
 ## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta YBMOTOCOM
 
@@ -120,6 +141,7 @@ Correr **en orden** en el SQL Editor del Supabase de YBMOTOCOM (el código ya la
 | `00061_expense_gmf_notes.sql` | Registrar, editar y borrar gastos falla en cuanto se publique el cambio del 4x1000 (ver sección 0) |
 | `00062_loans_no_stock.sql` | Préstamos y la tarjeta de préstamos de Ventas del Día no cargan en cuanto se publique el cambio de préstamos (ver sección 0a) |
 | `00063_gmf_payments_transfers.sql` | Abonar, transferir, cerrar deudas en plata y Finanzas → Gastos fallan en cuanto se publique el cambio del 4x1000 en abonos (ver sección 00) |
+| `00064_rename_gmf_category.sql` | El 4x1000 sigue saliendo como "Gastos bancarios" (ver sección 000) |
 
 Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
@@ -179,6 +201,21 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 ### 2.4 Sin límite de intentos propio en el inicio de sesión y el registro (prioridad baja)
 - Hoy depende solo del límite interno de Supabase Auth. Solo vale la pena si algún día se ven intentos de adivinar contraseñas.
+
+### 2.5 ⚠️ Funciones de plata ejecutables por el rol público (`anon`), prioridad alta
+- **Encontrado el 2026-11-21** probando la 00064. En Postgres una función nueva queda ejecutable por PUBLIC, y Supabase
+  además le da permiso a `anon` y `authenticated`. Muchas migraciones solo hicieron `GRANT ... TO service_role`, sin
+  `REVOKE`.
+- Ejemplo confirmado en la base de pruebas: `record_operating_expense`. Son `SECURITY DEFINER`, así que alguien con la
+  llave pública (la que va en la web) podría llamar `/rest/v1/rpc/...` y mover saldos. Las de la 00062 y la 00063 ya
+  tienen `REVOKE`.
+- **Cómo se arregla:**
+  1. Una migración que haga `REVOKE ALL ... FROM PUBLIC, anon, authenticated` en todas las funciones del esquema
+     público que mueven plata o inventario. Antes hay que confirmar que ninguna se llama desde el navegador; la app
+     las llama desde el servidor con `service_role`.
+  2. Verificar en el SQL Editor con
+     `select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where nspname='public' and has_function_privilege('anon', p.oid, 'EXECUTE') and prosecdef;`
+  3. Hacerlo en las dos tiendas.
 
 ## 3. Auditoría de ventas e inventario (2026-10-31)
 

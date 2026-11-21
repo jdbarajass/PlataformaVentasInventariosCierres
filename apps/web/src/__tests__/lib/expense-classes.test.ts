@@ -22,6 +22,16 @@ describe('expenseClass', () => {
     expect(expenseClass('Inversión')).toBe('inversion')
     expect(expenseClass('Retiro del dueño')).toBe('retiro')
   })
+  it('"4X1000 impuestos (Gastos Bancarios)" es financiero y el nombre viejo también (00064)', () => {
+    expect(expenseClass('4X1000 impuestos (Gastos Bancarios)')).toBe('financiero')
+    expect(expenseClass('Gastos bancarios')).toBe('financiero')
+    expect(EXPENSE_CATEGORIES).toContain('4X1000 impuestos (Gastos Bancarios)')
+    expect(EXPENSE_CATEGORIES).not.toContain('Gastos bancarios')
+  })
+  it('"Gasto operativo" está en la lista y es operativo', () => {
+    expect(EXPENSE_CATEGORIES).toContain('Gasto operativo')
+    expect(expenseClass('Gasto operativo')).toBe('operativo')
+  })
   it('las categorías originales siguen en la lista con el mismo nombre', () => {
     for (const c of ['Montado', 'Relleno Cascos', 'Devueltas de dinero', 'Sueldo', 'Arriendo', 'Luz', 'Otro']) {
       expect(EXPENSE_CATEGORIES).toContain(c)

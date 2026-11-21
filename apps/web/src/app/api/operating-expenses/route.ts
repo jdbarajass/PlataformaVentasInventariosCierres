@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Registrar un gasto operativo (debita la cuenta indicada, si hay).
 // Si la cuenta no es efectivo y apply_gmf no es false, la BD registra además
-// el 4x1000 como gasto hijo en "Gastos bancarios" y descuenta el total
+// el 4x1000 como gasto hijo en "4X1000 impuestos (Gastos Bancarios)" y descuenta el total
 // (migración 00061, lib/finance/gmf.ts).
 export async function POST(request: NextRequest) {
   try {

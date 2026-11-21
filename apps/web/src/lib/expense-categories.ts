@@ -14,6 +14,18 @@
 //
 // La compra de mercancía NO es una categoría a propósito: se registra en
 // Facturas (decisión del usuario, 2026-11-05).
+//
+// 2026-11-21 (pedido del usuario): "Gastos bancarios" se renombró a
+// GMF_CATEGORY (migración 00064, que también cambió los gastos y
+// presupuestos guardados). El nombre viejo sigue contando como financiero
+// (LEGACY_GMF_CATEGORY), por si llega de un Excel anterior. Se agregó
+// "Gasto operativo" (clase operativo).
+
+/** Categoría del 4x1000 automático (y de cuota de manejo, intereses…). */
+export const GMF_CATEGORY = '4X1000 impuestos (Gastos Bancarios)'
+/** Nombre anterior de GMF_CATEGORY (antes de la migración 00064). */
+export const LEGACY_GMF_CATEGORY = 'Gastos bancarios'
+
 export const EXPENSE_CATEGORIES = [
   'Montado',
   'Relleno Cascos',
@@ -25,7 +37,8 @@ export const EXPENSE_CATEGORIES = [
   'Transporte',
   'Publicidad',
   'Mantenimiento',
-  'Gastos bancarios',
+  'Gasto operativo',
+  GMF_CATEGORY,
   'Inversión',
   'Retiro del dueño',
   'Otro',

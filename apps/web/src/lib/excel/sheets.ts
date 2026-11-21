@@ -173,7 +173,7 @@ export const sheetDefinitions: SheetDefinition[] = [
     importable: true,
     table: 'operating_expenses',
     // El 4x1000 automático (migración 00061) sale como su propia fila en
-    // "Gastos bancarios"; las observaciones van en Notas.
+    // "4X1000 impuestos (Gastos Bancarios)"; las observaciones van en Notas.
     columns: ['ID', 'Fecha', 'Descripción', 'Monto', 'Categoría', 'Cuenta ID', 'Notas'],
     fetch: async (supabase) => {
       const { data } = await supabase.from('operating_expenses').select('*').order('date', { ascending: false })

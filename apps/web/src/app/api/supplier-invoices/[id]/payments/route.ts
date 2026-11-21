@@ -20,7 +20,7 @@ const paymentSchema = z.object({
 // POST - Registrar un abono (parcial o el saldo restante) a una factura.
 // La factura se marca 'paid' automáticamente cuando la suma de abonos
 // alcanza el monto total (función pay_supplier_invoice). Si la cuenta no es
-// efectivo, se cobra además el 4x1000 como gasto en "Gastos bancarios"
+// efectivo, se cobra además el 4x1000 como gasto en "4X1000 impuestos (Gastos Bancarios)"
 // (no cuenta como abono a la factura).
 export async function POST(
   request: NextRequest,

@@ -10,6 +10,8 @@
 // Ventas del Día y las pantallas de Finanzas) debe usar utilityExpenseCents /
 // countsInUtility en vez de sumar operating_expenses directamente.
 
+import { GMF_CATEGORY, LEGACY_GMF_CATEGORY } from '@/lib/expense-categories'
+
 export type ExpenseClass = 'operativo' | 'financiero' | 'inversion' | 'retiro'
 
 export interface FixedMonthlyExpenses {
@@ -21,7 +23,8 @@ export interface FixedMonthlyExpenses {
 }
 
 const CATEGORY_CLASS: Record<string, ExpenseClass> = {
-  'Gastos bancarios': 'financiero',
+  [GMF_CATEGORY]: 'financiero',
+  [LEGACY_GMF_CATEGORY]: 'financiero',
   'Inversión': 'inversion',
   'Retiro del dueño': 'retiro',
 }

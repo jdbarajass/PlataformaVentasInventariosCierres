@@ -3092,3 +3092,29 @@ Técnico:
 - **YJBMOTOCOM:** el usuario corrió la 00063 el 2026-11-21. Se verificó con capturas del SQL Editor (4 columnas y 4
   funciones con su firma nueva, sin duplicadas) y el código se subió ese día.
 - **Falta replicar en YBMOTOCOM** y correr allá la 00063 antes de su push (ver `docs/PENDIENTES.md`).
+
+
+## 101. Categorías de gasto: "4X1000 impuestos (Gastos Bancarios)" y "Gasto operativo" (2026-11-21)
+
+Pedido del usuario:
+- **"Gastos bancarios" pasa a llamarse "4X1000 impuestos (Gastos Bancarios)".** Es la misma categoría renombrada, no una
+  nueva. Sigue siendo gasto financiero, y ahí cae el 4x1000 automático de gastos, abonos, transferencias y préstamos.
+- **Categoría nueva "Gasto operativo"** (clase operativo, resta de la utilidad como las demás).
+
+Técnico:
+
+- `lib/expense-categories.ts`: constantes `GMF_CATEGORY` y `LEGACY_GMF_CATEGORY`, y "Gasto operativo" en la lista.
+  `lib/finance/expense-classes.ts` clasifica los dos nombres como financiero; el viejo sigue sirviendo para un Excel
+  anterior. Las listas de Ventas del Día, Presupuesto y Finanzas → Gastos toman la lista de ahí, así que no hubo que
+  tocarlas.
+- **Migración `00064_rename_gmf_category.sql`.** Renombra la categoría en `operating_expenses` y `monthly_budgets`; si
+  en un mes ya hay presupuesto con el nombre nuevo, lo suma en vez de duplicarlo. También vuelve a crear
+  `record_operating_expense` y `charge_account_gmf` con el nombre nuevo, con la misma firma. No mueve plata y es
+  idempotente.
+- **Pruebas:**
+  - la 00064 en PGlite: 5 casos OK, incluido correrla dos veces;
+  - `expense-classes.test.ts`: 2 pruebas nuevas;
+  - suite completa: 266/267 (la que falla es la misma de la sección 100, de antes).
+- **Hallazgo de seguridad (de antes, no corregido aquí):** `record_operating_expense` se puede ejecutar con el rol
+  `anon`. Ver `docs/PENDIENTES.md` sección 2.5.
+- **Falta replicar en YBMOTOCOM**, junto con la 00063.

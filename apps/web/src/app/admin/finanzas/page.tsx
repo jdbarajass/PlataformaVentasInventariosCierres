@@ -136,7 +136,7 @@ export default function FinanzasPage() {
     { key: 'gross', label: 'Utilidad bruta', sign: '=', value: s.grossProfit, goodWhenUp: true, pick: (x) => x.grossProfit, formula: 'Ventas netas − costo de lo vendido.', strong: true },
     { key: 'opex', label: 'Gastos operativos', sign: '−', value: s.operatingExpenses, goodWhenUp: false, pick: (x) => x.operatingExpenses, formula: 'Gastos fijos de Configuración + gastos registrados que restan (sin retiros, inversiones ni pagos ya contados en fijos).' },
     { key: 'op', label: 'Utilidad operacional', sign: '=', value: s.operatingProfit, goodWhenUp: true, pick: (x) => x.operatingProfit, formula: 'Utilidad bruta − gastos operativos.', strong: true },
-    { key: 'fin', label: 'Gastos financieros', sign: '−', value: s.financialExpenses, goodWhenUp: false, pick: (x) => x.financialExpenses, formula: 'Gastos con categoría "Gastos bancarios" (4x1000, cuota de manejo, intereses).' },
+    { key: 'fin', label: 'Gastos financieros', sign: '−', value: s.financialExpenses, goodWhenUp: false, pick: (x) => x.financialExpenses, formula: 'Gastos con categoría "4X1000 impuestos (Gastos Bancarios)" (4x1000, cuota de manejo, intereses).' },
     { key: 'netp', label: 'Utilidad neta', sign: '=', value: s.netProfit, goodWhenUp: true, pick: (x) => x.netProfit, formula: 'Utilidad operacional − gastos financieros. Antes de impuestos. Es la misma "utilidad real" de Historial Mensual.', strong: true },
   ] : []
 

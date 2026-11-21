@@ -41,6 +41,10 @@ Creado: 2026-11-05. **Aprobadas las 6 fases (2026-11-05), una por una y probando
   pago de la factura, el 4x1000 y el movimiento de la cuenta quedan con esa fecha, así que Año y Flujo de caja lo ubican
   en su mes.
 - Lo registrado antes del cambio queda sin 4x1000 (decisión del usuario).
+
+### "Gastos bancarios" → "4X1000 impuestos (Gastos Bancarios)" y "Gasto operativo" (2026-11-21)
+- La categoría financiera se renombró (migración `00064_rename_gmf_category.sql`, también en los datos guardados). Sigue
+  siendo clase "financiero"; el nombre viejo también, por compatibilidad. Nueva categoría "Gasto operativo" (operativo).
 - Estado: YJBMOTOCOM con la migración corrida y verificada, y el código subido (2026-11-17). YBMOTOCOM: commit local
   `85042ed`; falta correr la 00061 allá y después subirlo.
 
