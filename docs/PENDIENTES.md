@@ -14,8 +14,8 @@
 ## Resumen rápido por tienda (2026-11-21)
 
 **YJBMOTOCOM** (este repo):
-0. Correr `00064_rename_gmf_category.sql` (renombra "Gastos bancarios" y agrega "Gasto operativo"). Después, Claude
-   verifica y hace el push (sección 000).
+0. ~~Correr la 00064~~: hecho y subido el 2026-11-21 (sección 000). Al abrir Ventas del Día o Finanzas → Gastos,
+   revisar que salgan "4X1000 impuestos (Gastos Bancarios)" y "Gasto operativo" en la lista de categorías.
 1. Probar en vivo, cuando Vercel publique el push del 2026-11-21:
    - un abono a factura desde Nequi o NU: debe salir el 4x1000 en "4X1000 impuestos (Gastos Bancarios)" y en la cuenta;
    - un abono con fecha de ayer;
@@ -40,7 +40,7 @@
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
    (sección 1d).
 
-## 000. ⚠️ Migración `00064_rename_gmf_category.sql` (categorías de gasto) — falta en las DOS tiendas
+## 000. ⚠️ Migración `00064_rename_gmf_category.sql` (categorías de gasto) — falta YBMOTOCOM
 
 Cambio del 2026-11-21:
 - "Gastos bancarios" pasa a llamarse **"4X1000 impuestos (Gastos Bancarios)"**, también en los gastos y presupuestos
@@ -53,7 +53,10 @@ Correrla y subir el código enseguida. Si el código sube primero, el 4x1000 aut
 viejo hasta correrla. Si la migración va primero, la utilidad no cambia, pero la línea de gasto financiero lo muestra
 como operativo hasta el push.
 
-- [ ] YJBMOTOCOM: correr la 00064, verificar y hacer el push (código en commit local, **sin push a propósito**).
+- [x] YJBMOTOCOM: corrida por el usuario el 2026-11-21. La captura del SQL Editor muestra el archivo completo (143
+  líneas) con "Success". Supabase corre todo junto, así que si algo fallaba no habría guardado nada. Código subido el
+  mismo día.
+- [ ] YJBMOTOCOM: confirmar en la pantalla que los gastos de 4x1000 de noviembre salen con el nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
 ## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta YBMOTOCOM
@@ -227,6 +230,10 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **Categorías de gasto, YJBMOTOCOM (2026-11-21):** migración `00064_rename_gmf_category.sql` corrida (captura con
+  "Success") y código subido. "Gastos bancarios" ahora es "4X1000 impuestos (Gastos Bancarios)" y existe "Gasto
+  operativo". En YBMOTOCOM sigue pendiente (sección 000).
 
 - **4x1000 en abonos, transferencias y préstamos; fecha del abono, YJBMOTOCOM (2026-11-21):** migración
   `00063_gmf_payments_transfers.sql` corrida y verificada (capturas del SQL Editor); código subido. Falta la prueba en

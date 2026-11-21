@@ -3117,4 +3117,5 @@ Técnico:
   - suite completa: 266/267 (la que falla es la misma de la sección 100, de antes).
 - **Hallazgo de seguridad (de antes, no corregido aquí):** `record_operating_expense` se puede ejecutar con el rol
   `anon`. Ver `docs/PENDIENTES.md` sección 2.5.
+- **YJBMOTOCOM:** el usuario corrió la 00064 el 2026-11-21 (archivo completo, "Success") y el código se subió ese día.
 - **Falta replicar en YBMOTOCOM**, junto con la 00063.
