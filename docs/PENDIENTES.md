@@ -11,23 +11,31 @@
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
 
-## Resumen rápido por tienda (2026-11-21)
+## Resumen rápido por tienda (verificado 2026-11-21)
+
+**Estado de YJBMOTOCOM verificado el 2026-11-21:**
+- Local y GitHub al día (`main` = `origin/main` = `9b5323a`).
+- Vercel publicó los tres pushes de estos días: préstamos (`affa8e8`), 4x1000 (`90ad9c9`) y categorías (`9b5323a`), con
+  "Deployment has completed".
+- Migraciones 00062, 00063 y 00064 corridas en su Supabase.
+- Lo único que falta del código nuevo es probarlo en pantalla (puntos 1 y 2).
 
 **YJBMOTOCOM** (este repo):
-0. ~~Correr la 00064~~: hecho y subido el 2026-11-21 (sección 000). Al abrir Ventas del Día o Finanzas → Gastos,
-   revisar que salgan "4X1000 impuestos (Gastos Bancarios)" y "Gasto operativo" en la lista de categorías.
-1. Probar en vivo, cuando Vercel publique el push del 2026-11-21:
-   - un abono a factura desde Nequi o NU: debe salir el 4x1000 en "4X1000 impuestos (Gastos Bancarios)" y en la cuenta;
+1. Probar en vivo lo de hoy (ya está publicado):
+   - en Ventas del Día o Finanzas → Gastos, que la lista de categorías tenga "4X1000 impuestos (Gastos Bancarios)" y
+     "Gasto operativo", y que los 4x1000 de noviembre salgan con ese nombre;
+   - un abono a factura desde Nequi o NU: el 4x1000 debe salir en la cuenta y como gasto;
    - un abono con fecha de ayer;
-   - una transferencia desde una cuenta que no sea efectivo (sección 00).
-2. Confirmar que Vercel publicó el cambio de préstamos y probar Cobrar con un préstamo real (sección 0a).
+   - una transferencia desde una cuenta que no sea efectivo (secciones 00 y 000).
+2. Probar Cobrar en Préstamos con un préstamo real (sección 0a; el despliegue ya está confirmado).
 3. Pasar el costo de las 15 ventas manuales que quedaron con costo $0 (sección 1c).
 4. Corregir los 16 pagos sin cuenta y los 2 con cuenta distinta (sección 3).
 5. Verificar en vivo la autorización de admin para cancelar y editar ventas (sección 3).
 6. Bugs de plata e inventario de la auditoría del 31-oct (sección 3).
-7. **Seguridad, prioridad alta:** quitarle al rol público (`anon`) el permiso de ejecutar las funciones que mueven plata
+7. **Seguridad, prioridad alta:** quitarle al rol público (`anon`) el permiso de ejecutar las 20 funciones expuestas
    (sección 2.5).
-8. Seguridad: `npm audit`, 2FA para el admin y límite de intentos de inicio de sesión (sección 2).
+8. Seguridad: `npm audit` (19 avisos al 2026-11-21), 2FA para el admin y límite de intentos de inicio de sesión
+   (sección 2).
 
 **YBMOTOCOM** (repo aparte, en el otro PC: `C:\Users\JJBarajas\Pictures\YOJAN`):
 1. Revisar por qué Vercel no publica y mandar captura del último despliegue (sección 1d).
@@ -39,6 +47,7 @@
 5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
    (sección 1d).
+7. Cerrar allá también las funciones expuestas a `anon` (sección 2.5).
 
 ## 000. ⚠️ Migración `00064_rename_gmf_category.sql` (categorías de gasto) — falta YBMOTOCOM
 
@@ -56,13 +65,14 @@ como operativo hasta el push.
 - [x] YJBMOTOCOM: corrida por el usuario el 2026-11-21. La captura del SQL Editor muestra el archivo completo (143
   líneas) con "Success". Supabase corre todo junto, así que si algo fallaba no habría guardado nada. Código subido el
   mismo día.
+- [x] YJBMOTOCOM: Vercel publicó el código (`9b5323a`, "Deployment has completed", revisado el 2026-11-21).
 - [ ] YJBMOTOCOM: confirmar en la pantalla que los gastos de 4x1000 de noviembre salen con el nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
 ## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta YBMOTOCOM
 
 Cambio del 2026-11-21: abonar una factura, transferir entre cuentas y cerrar una deuda de préstamo en plata cobran el
-4x1000 si la cuenta no es efectivo (va aparte como gasto en "Gastos bancarios"). El abono también tiene fecha editable.
+4x1000 si la cuenta no es efectivo (va aparte como gasto en "4X1000 impuestos (Gastos Bancarios)", nombre desde la 00064). El abono también tiene fecha editable.
 Detalle en `docs/UNIFICACION_YJBMOTOCOM.md` sección 100.
 
 **Correrla en el SQL Editor de Supabase ANTES de subir el código.** Si el código llega primero, fallan abonar,
@@ -75,9 +85,9 @@ queda igual, sin 4x1000.
   - `pay_supplier_invoice`, `transfer_between_accounts` y `close_borrowed_loan` están con sus parámetros nuevos y sin
     versiones viejas duplicadas.
 
-  El código se subió el mismo día.
-- [ ] YJBMOTOCOM: probar en vivo un abono desde Nequi o NU (debe salir el 4x1000 en Gastos bancarios) y uno con fecha
-  de ayer.
+  El código se subió el mismo día y Vercel lo publicó (`90ad9c9`, "Deployment has completed").
+- [ ] YJBMOTOCOM: probar en vivo un abono desde Nequi o NU (debe salir el 4x1000 como gasto y en la cuenta), uno con
+  fecha de ayer y una transferencia.
 - [ ] YBMOTOCOM: replicar el cambio en su repo y correr la 00063 allá después de las de la sección 1.
 - Prueba de la migración: escenarios en PGlite (ver sección 100 de unificación).
 
@@ -109,7 +119,8 @@ y la tarjeta de préstamos de Ventas del Día no cargan.
   intercomunicador HERO, guante JDL L y casco XONE M). La diadema de RAMIRO no hizo falta, porque se marcó "Devuelto"
   ese día antes de la migración y ya había recuperado su unidad.
 - [x] YJBMOTOCOM: push del código el 2026-11-18 (`0407238..c83f671`), sin cambios nuevos en la nube antes de subir.
-  Falta confirmar que Vercel lo publicó y probar Cobrar con un préstamo real.
+  Vercel lo publicó: `affa8e8` con "Deployment has completed", revisado el 2026-11-21.
+- [ ] YJBMOTOCOM: probar Cobrar con un préstamo real.
 - [ ] YBMOTOCOM: correr `00059_loan_stock.sql` y luego `00062_loans_no_stock.sql`, en ese orden y después de las de la
   sección 1. Después hacer el push. Allá no hay préstamos descontados, así que la corrección no cambia nada. El código
   está en los commits locales `8a02aa2` y `11e65ea`, encima de `85042ed` y `0bcf0a2` (en `C:\Users\JJBarajas\Pictures\YOJAN`), y sigue
@@ -195,7 +206,9 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 - **Cómo se arregla:** acción manual, sin código. Vercel → proyecto → Settings → Environment Variables → `CRON_SECRET` con un valor largo y aleatorio → volver a desplegar. Hacerlo en los dos proyectos de Vercel (YJBMOTOCOM y YBMOTOCOM).
 
 ### 2.2 `npm audit`: dependencias con avisos de seguridad
-- La revisión de 2026-10-31 (`npm audit --omit=dev`) encontró 29: 3 críticas, 7 altas, 15 moderadas y 4 bajas. En 2026-08 eran 17, casi todas por un `uuid` vulnerable que traen `exceljs`, `mercadopago`, `svix` y `resend`.
+- **2026-11-21:** `npm audit --omit=dev` da 19 avisos: 2 críticos, 7 altos, 9 moderados y 1 bajo. Incluye `sharp`
+  (libvips).
+- La revisión de 2026-10-31 había encontrado 29: 3 críticas, 7 altas, 15 moderadas y 4 bajas. En 2026-08 eran 17, casi todas por un `uuid` vulnerable que traen `exceljs`, `mercadopago`, `svix` y `resend`.
 - **Cómo se arregla:** actualizar esas dependencias. Lo natural es hacerlo junto con la actualización de Next.js 14 → 15. Volver a correr `npm audit` en `apps/web` para ver el estado actual antes de empezar.
 
 ### 2.3 Sin verificación en dos pasos (2FA) para el admin
@@ -209,9 +222,18 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 - **Encontrado el 2026-11-21** probando la 00064. En Postgres una función nueva queda ejecutable por PUBLIC, y Supabase
   además le da permiso a `anon` y `authenticated`. Muchas migraciones solo hicieron `GRANT ... TO service_role`, sin
   `REVOKE`.
-- Ejemplo confirmado en la base de pruebas: `record_operating_expense`. Son `SECURITY DEFINER`, así que alguien con la
-  llave pública (la que va en la web) podría llamar `/rest/v1/rpc/...` y mover saldos. Las de la 00062 y la 00063 ya
-  tienen `REVOKE`.
+- Son `SECURITY DEFINER`, así que alguien con la llave pública (la que va en la web) podría llamar `/rest/v1/rpc/...` y
+  mover saldos. Las de la 00062 y la 00063 ya tienen `REVOKE`.
+- **Lista completa (2026-11-21):** son 20 funciones, sacadas de la base de pruebas con todas las migraciones.
+  - Plata e inventario: `adjust_account_balance`, `cancel_pos_sale`, `create_pos_sale` (2 versiones),
+    `edit_pos_sale`, `record_operating_expense`, `delete_operating_expense`, `delete_supplier_invoice`,
+    `pay_customer_credit`, `delete_customer_credit`, `release_addi_pending`, `release_card_pending` y
+    `release_sistecredito_pending`.
+  - Tienda y puntos: `create_order_with_items`, `award_loyalty_points`, `redeem_loyalty_points`,
+    `redeem_loyalty_points_for_coupon` y `set_review_verified_purchase`.
+  - Seguramente necesarias para RLS y triggers (**no quitarles el permiso sin revisar**): `get_user_role` y
+    `prevent_role_self_escalation`.
+  - En la base real puede haber diferencias; confirmar con la consulta del punto 2.
 - **Cómo se arregla:**
   1. Una migración que haga `REVOKE ALL ... FROM PUBLIC, anon, authenticated` en todas las funciones del esquema
      público que mueven plata o inventario. Antes hay que confirmar que ninguna se llama desde el navegador; la app
@@ -222,7 +244,8 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 
 ## 3. Auditoría de ventas e inventario (2026-10-31)
 
-Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada de esto está corregido todavía.
+Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada de esto está corregido todavía
+(re-verificado el 2026-11-21: `audit.mjs` sigue dando las mismas 17 fallas B*).
 
 - **Corregir en YJBMOTOCOM las filas 8 y 9 del diagnóstico** del 2026-10-31: 16 pagos sin cuenta por $4.198.000 y 2 con cuenta distinta por $350.000. El detalle y la causa están en la sección 9 de la auditoría. Antes de tocar saldos hay que confirmar que esa plata no se haya cuadrado ya con un ajuste manual.
 - **Verificar el despliegue en YJBMOTOCOM** de la autorización de admin para cancelar, editar y cambiar método masivo (código enviado a GitHub el 2026-10-31). Probarlo con un vendedor real en el navegador. (La regla de préstamos de esa fecha se reemplazó el 2026-11-18, ver sección 0a.)
