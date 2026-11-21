@@ -11,7 +11,31 @@
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
 
-## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta en las DOS tiendas
+## Resumen rápido por tienda (2026-11-21)
+
+**YJBMOTOCOM** (este repo):
+1. Probar en vivo, cuando Vercel publique el push del 2026-11-21:
+   - un abono a factura desde Nequi o NU: debe salir el 4x1000 en Gastos bancarios y en la cuenta;
+   - un abono con fecha de ayer;
+   - una transferencia desde una cuenta que no sea efectivo (sección 00).
+2. Confirmar que Vercel publicó el cambio de préstamos y probar Cobrar con un préstamo real (sección 0a).
+3. Pasar el costo de las 15 ventas manuales que quedaron con costo $0 (sección 1c).
+4. Corregir los 16 pagos sin cuenta y los 2 con cuenta distinta (sección 3).
+5. Verificar en vivo la autorización de admin para cancelar y editar ventas (sección 3).
+6. Bugs de plata e inventario de la auditoría del 31-oct (sección 3).
+7. Seguridad: `npm audit`, 2FA para el admin y límite de intentos de inicio de sesión (sección 2).
+
+**YBMOTOCOM** (repo aparte, en el otro PC: `C:\Users\JJBarajas\Pictures\YOJAN`):
+1. Revisar por qué Vercel no publica y mandar captura del último despliegue (sección 1d).
+2. Correr en su Supabase, **en orden**, de la 00056 a la 00063 (sección 1).
+3. Hacer el push de los commits locales que esperan esas migraciones (`85042ed`, `0bcf0a2`, `8a02aa2`, `11e65ea`), solo
+   después de correrlas (secciones 0 y 0a).
+4. Replicar el cambio del 4x1000 en abonos, transferencias y préstamos (sección 00), que todavía no se ha llevado allá.
+5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).
+6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
+   (sección 1d).
+
+## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta YBMOTOCOM
 
 Cambio del 2026-11-21: abonar una factura, transferir entre cuentas y cerrar una deuda de préstamo en plata cobran el
 4x1000 si la cuenta no es efectivo (va aparte como gasto en "Gastos bancarios"). El abono también tiene fecha editable.
@@ -21,8 +45,13 @@ Detalle en `docs/UNIFICACION_YJBMOTOCOM.md` sección 100.
 transferir, cerrar deudas en plata y Finanzas → Gastos (columnas y parámetros nuevos). Es aditiva: lo registrado antes
 queda igual, sin 4x1000.
 
-- [ ] YJBMOTOCOM: correr la 00063 y después hacer commit y push del código (hecho en el PC ACER el 2026-11-21, todavía
-  sin commit ni push).
+- [x] YJBMOTOCOM: corrida por el usuario el 2026-11-21. Verificada con capturas del SQL Editor:
+  - existen las 4 columnas nuevas;
+  - `charge_account_gmf` existe;
+  - `pay_supplier_invoice`, `transfer_between_accounts` y `close_borrowed_loan` están con sus parámetros nuevos y sin
+    versiones viejas duplicadas.
+
+  El código se subió el mismo día.
 - [ ] YJBMOTOCOM: probar en vivo un abono desde Nequi o NU (debe salir el 4x1000 en Gastos bancarios) y uno con fecha
   de ayer.
 - [ ] YBMOTOCOM: replicar el cambio en su repo y correr la 00063 allá después de las de la sección 1.
@@ -161,6 +190,10 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **4x1000 en abonos, transferencias y préstamos; fecha del abono, YJBMOTOCOM (2026-11-21):** migración
+  `00063_gmf_payments_transfers.sql` corrida y verificada (capturas del SQL Editor); código subido. Falta la prueba en
+  vivo y YBMOTOCOM (sección 00).
 
 - **Casco de niños en el catálogo (2026-11-17):** creados `CASCO NIÑO` (SKU 42) y `CASCO NIÑA` (SKU 43), categoría
   Cascos, costo $80.000, precio $120.000, 0 unidades y sin tallas (decisión del usuario). Quedan sin publicar en la

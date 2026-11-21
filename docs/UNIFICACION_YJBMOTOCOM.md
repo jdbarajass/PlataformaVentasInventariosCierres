@@ -3089,4 +3089,6 @@ Técnico:
   - `__tests__/api/gmf-payments.test.ts`: 14 pruebas.
   - Suite completa: 264/265. La que falla (`loans.test.ts`, "rechaza un préstamo sin nombre…") ya fallaba antes de
     este cambio.
-- **Falta replicar en YBMOTOCOM** y correr la 00063 en las dos tiendas antes del push (ver `docs/PENDIENTES.md`).
+- **YJBMOTOCOM:** el usuario corrió la 00063 el 2026-11-21. Se verificó con capturas del SQL Editor (4 columnas y 4
+  funciones con su firma nueva, sin duplicadas) y el código se subió ese día.
+- **Falta replicar en YBMOTOCOM** y correr allá la 00063 antes de su push (ver `docs/PENDIENTES.md`).
