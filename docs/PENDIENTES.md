@@ -18,13 +18,22 @@
 - Vercel publicó los tres pushes de estos días: préstamos (`affa8e8`), 4x1000 (`90ad9c9`) y categorías (`9b5323a`), con
   "Deployment has completed".
 - Migraciones 00062, 00063 y 00064 corridas en su Supabase.
-- Lo único que falta del código nuevo es probarlo en pantalla (puntos 1 y 2).
+- **Revisado en vivo en www.yjbmotocom.com el 2026-11-21 (10:50 a. m.)**, solo mirando, sin guardar nada:
+  - Facturas → Abonar muestra el campo "Fecha del abono" (hoy por defecto). Con $100.000 desde NEQUI muestra
+    Subtotal $100.000 + 4x1000 $400 = Total $100.400.
+  - Ventas del Día tiene en la lista "Gasto operativo" y "4X1000 impuestos (Gastos Bancarios)". El gasto manual de
+    4x1000 de Nequi de hoy ya sale con el nombre nuevo, o sea que la 00064 renombró los datos.
+- **Abonos de la mañana del 2026-11-21:** IMPERMABLES (QR $628.573 y NU $1.371.427), INTERCOMUNICADORES (NU
+  $2.000.000 y Efectivo $344.000) y GUANTEX FOX (Nequi $1.210.000). Se hicieron de 7:54 a 8:01 a. m., antes de que se
+  publicara el 4x1000 automático (9:26 a. m.), y por eso no lo tienen. A las 9:32 y 9:34 se registraron a mano dos gastos
+  de 4x1000: NU $15.471 y Nequi $21.916. **No volver a cobrarlo.** Que el usuario confirme que esos dos gastos cubren
+  lo que cobró el banco.
+- Falta probar con una operación real después del cambio (puntos 1 y 2).
 
 **YJBMOTOCOM** (este repo):
-1. Probar en vivo lo de hoy (ya está publicado):
-   - en Ventas del Día o Finanzas → Gastos, que la lista de categorías tenga "4X1000 impuestos (Gastos Bancarios)" y
-     "Gasto operativo", y que los 4x1000 de noviembre salgan con ese nombre;
-   - un abono a factura desde Nequi o NU: el 4x1000 debe salir en la cuenta y como gasto;
+1. Probar con una operación real (la pantalla ya se revisó en vivo, ver arriba):
+   - el próximo abono a factura desde Nequi, NU o QR: revisar en Cuentas → Movimientos que salgan el abono y una línea
+     "4x1000: Abono a factura…";
    - un abono con fecha de ayer;
    - una transferencia desde una cuenta que no sea efectivo (secciones 00 y 000).
 2. Probar Cobrar en Préstamos con un préstamo real (sección 0a; el despliegue ya está confirmado).
@@ -66,7 +75,8 @@ como operativo hasta el push.
   líneas) con "Success". Supabase corre todo junto, así que si algo fallaba no habría guardado nada. Código subido el
   mismo día.
 - [x] YJBMOTOCOM: Vercel publicó el código (`9b5323a`, "Deployment has completed", revisado el 2026-11-21).
-- [ ] YJBMOTOCOM: confirmar en la pantalla que los gastos de 4x1000 de noviembre salen con el nombre nuevo.
+- [x] YJBMOTOCOM: revisado en vivo el 2026-11-21. Las categorías salen en la lista y los gastos guardados ya tienen el
+  nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
 ## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta YBMOTOCOM
