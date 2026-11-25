@@ -61,8 +61,11 @@ textos, sin migración.
    corrió de la 00057 a la 00064 en orden. Evidencia: captura de `scripts/verificar-migraciones-00056-00064.sql` en el
    SQL Editor de YBMOTOCOM con las 8 filas en "SÍ está".
 3. ~~Push de los 10 commits~~: hecho 2026-11-25 (ver Resueltos).
-4. Vercel: deshacer el Instant Rollback / promover el último despliegue y confirmar "Deployment has completed".
-5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).
+4. ~~Vercel~~: **HECHO 2026-11-25.** El usuario promovió `f8fcbaa` a producción (captura de Overview: sin "Rolled
+   back", "push to the main branch"). En vivo, `/api/finance/month`, `/api/supplier-invoices` y `/api/loans` dan 401
+   (antes 404).
+5. ~~`CRON_SECRET`~~: **está configurada** (verificado en vivo 2026-11-25: los crons responden 401 "No autorizado", no
+   500 "Cron no configurado"). Solo falta que el usuario confirme que es distinta a la de YJBMOTOCOM.
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
    (sección 1d).
 7. Cerrar allá también las funciones expuestas a `anon` (sección 2.5).
@@ -275,7 +278,8 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 
 - **YBMOTOCOM al día con YJBMOTOCOM (2026-11-25):** migraciones 00057-00064 corridas (la 00056 ya estaba; captura con
   las 8 en "SÍ está") y push `3926225..f8fcbaa` (10 commits, autor YBMOTOCOM, sin cambios nuevos en la nube antes de
-  subir). Falta que Vercel lo publique (quitar el Instant Rollback del 4-sep) y `CRON_SECRET`.
+  subir). Vercel ya lo publicó: el usuario promovió `f8fcbaa` y se quitó el Instant Rollback del 4-sep (los pushes
+  vuelven a publicarse solos). `CRON_SECRET` existe (crons dan 401).
 
 - **Categorías de gasto, YJBMOTOCOM (2026-11-21):** migración `00064_rename_gmf_category.sql` corrida (captura con
   "Success") y código subido. "Gastos bancarios" ahora es "4X1000 impuestos (Gastos Bancarios)" y existe "Gasto
