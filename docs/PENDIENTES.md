@@ -301,7 +301,8 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
   idempotente). **YBMOTOCOM:** corrido por el usuario el 2026-11-25 (captura): serial **1** y códigos
   `1501001011`-`1501001016`, correctos porque allá era el primer producto (la tienda está en ceros: 1 producto en
   total, 0 categorías). Quedó sin categoría porque YB no tenía ninguna: `scripts/categorias-como-yjbmotocom.sql` (repo
-  YB) crea las mismas 12 de YJB y le asigna Guantes. **Falta que el usuario lo corra** y mande captura.
+  YB) crea las mismas 12 de YJB y le asigna Guantes: corrido por el usuario el 2026-11-25 (captura: 12 categorías,
+  Repuestos y Lubricantes inactivas, Guantes con 1 producto). **Completo en las dos tiendas.**
 
 - **Comparación de estructura YJB vs YB (2026-11-25):** con `scripts/huella-estructura-bd.sql` y
   `scripts/diferencias-estructura-bd.sql` (capturas de las dos). Tablas, columnas, triggers y políticas idénticos.
