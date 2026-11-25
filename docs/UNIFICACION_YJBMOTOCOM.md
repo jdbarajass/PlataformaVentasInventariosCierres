@@ -3144,3 +3144,11 @@ Qué cambió (solo textos y etiquetas en `app/admin/facturas/page.tsx`; no cambi
 - **YBMOTOCOM:** commit local `9ee404e`, sobre la página anterior a la sección 100. Sin push: espera las migraciones
   (ver `docs/PENDIENTES.md`). Cuando se replique la sección 100 allá, la sección de Abonar va a chocar en el mismo
   lugar; hay que dejar las dos cosas (fecha del abono y etiqueta de notas), como se hizo aquí.
+
+### 102.1 Abonar en celular: dos campos por fila (2026-11-25)
+
+Al juntar este cambio con la sección 100 (que agregó "Fecha del abono"), en celular Monto, Cuenta y Fecha quedaban en
+una sola fila y la cuenta se cortaba ("NE" en vez de NEQUI). Ahora, por debajo de `sm`, los cuatro campos van de a dos
+(Monto | Cuenta, Fecha | Notas), con `min-w-0` para que el campo de fecha pueda encogerse. Escritorio sin cambios.
+Revisado a 390 y 360 px con el resumen del 4x1000 a la vista (sin guardar nada). `tsc`, lint y 267/267 pruebas OK.
+Al replicar la sección 100 en YBMOTOCOM, llevar también este ajuste.

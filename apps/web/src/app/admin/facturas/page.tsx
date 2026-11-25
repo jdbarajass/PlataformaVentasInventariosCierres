@@ -726,9 +726,10 @@ export default function FacturasPage() {
                       </div>
                     )}
 
+                    {/* < sm: los cuatro campos del abono en 2 columnas (Monto | Cuenta, Fecha | Notas); en una sola fila no cabían. */}
                     {invoice.status === 'pending' && (
                       <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
-                        <label className="block max-sm:flex-1">
+                        <label className="block max-sm:min-w-0 max-sm:basis-[calc(50%-0.25rem)]">
                           <span className="text-xs text-muted-foreground">Monto del abono</span>
                           <MoneyInput
                             value={payAmount}
@@ -736,7 +737,7 @@ export default function FacturasPage() {
                             className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:w-full"
                           />
                         </label>
-                        <label className="block max-sm:flex-1">
+                        <label className="block max-sm:min-w-0 max-sm:basis-[calc(50%-0.25rem)]">
                           <span className="block text-xs text-muted-foreground">Sale de la cuenta</span>
                           <select
                             value={payAccount}
@@ -749,7 +750,7 @@ export default function FacturasPage() {
                             ))}
                           </select>
                         </label>
-                        <label className="block max-sm:flex-1">
+                        <label className="block max-sm:min-w-0 max-sm:basis-[calc(50%-0.25rem)]">
                           <span className="block text-xs text-muted-foreground">Fecha del abono</span>
                           <Input
                             type="date"
@@ -757,10 +758,10 @@ export default function FacturasPage() {
                             max={bogotaDateStr(new Date())}
                             onChange={(e) => setPayDate(e.target.value)}
                             aria-label="Fecha del abono"
-                            className="h-8 w-36 rounded-lg text-xs touch:h-11 max-sm:w-full"
+                            className="h-8 w-36 rounded-lg text-xs touch:h-11 max-sm:w-full max-sm:min-w-0"
                           />
                         </label>
-                        <label className="block max-sm:basis-full">
+                        <label className="block max-sm:min-w-0 max-sm:basis-[calc(50%-0.25rem)]">
                           <span className="text-xs text-muted-foreground">Notas (opcional)</span>
                           <Input
                             placeholder="Ej: transferencia #123"
