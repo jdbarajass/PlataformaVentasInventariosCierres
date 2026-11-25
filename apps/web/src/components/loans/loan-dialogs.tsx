@@ -139,6 +139,8 @@ export function LoanSaleDialog({
     if (priceCents <= 0) return setError('Escribe el valor de venta')
     if (costRequired && !costCents) return setError('Escribe el costo del producto')
     if (needsSize && sizes.length > 0 && !variantId) return setError('Elige la talla')
+    // Toda venta entra a una cuenta (00068).
+    if (!account) return setError('Ese método no tiene una cuenta activa: elige otro o créala en Cuentas')
     try {
       setSaving(true)
       const res = await fetch(`/api/loans/${loan.id}/${isCharge ? 'charge' : 'sell'}`, {

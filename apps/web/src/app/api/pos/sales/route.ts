@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
-import { resolveSale } from '@/lib/pos-sale'
+import { resolveSale, isPosRuleError } from '@/lib/pos-sale'
 import { logAudit } from '@/lib/audit'
 import { awardLoyaltyPointsForOrder } from '@/lib/loyalty'
 import { z } from 'zod'
@@ -115,7 +115,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      if (error.message?.includes('Stock insuficiente')) {
+      // Reglas de la base (stock, cuenta obligatoria…): se muestran tal cual.
+      if (isPosRuleError(error.message)) {
         return NextResponse.json({ error: error.message }, { status: 400 })
       }
       throw error

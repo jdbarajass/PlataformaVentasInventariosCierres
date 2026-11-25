@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase, createAuthenticatedClient } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
-import { authorizeSaleChange, resolveSale } from '@/lib/pos-sale'
+import { authorizeSaleChange, resolveSale, isPosRuleError } from '@/lib/pos-sale'
 import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -127,7 +127,7 @@ export async function PUT(
       if (error.message?.includes('no encontrada') || error.message?.includes('no encontrado')) {
         return NextResponse.json({ error: error.message }, { status: 404 })
       }
-      if (error.message?.includes('Stock insuficiente')) {
+      if (isPosRuleError(error.message)) {
         return NextResponse.json({ error: error.message }, { status: 400 })
       }
       throw error
@@ -185,6 +185,10 @@ export async function DELETE(
     if (error) {
       if (error.message?.includes('no encontrada')) {
         return NextResponse.json({ error: error.message }, { status: 404 })
+      }
+      // 00068: cancelar dos veces se rechaza ("ya está cancelada").
+      if (isPosRuleError(error.message)) {
+        return NextResponse.json({ error: error.message }, { status: 400 })
       }
       throw error
     }

@@ -708,6 +708,18 @@ export default function VentasPage() {
       toast({ title: 'Error', description: 'Ingresa al menos un método de pago', variant: 'destructive' })
       return
     }
+    // Toda venta entra a una cuenta (el servidor también lo exige, 00068).
+    // Pasa si el método no tiene cuenta de su tipo (ej. "Otro") o si la
+    // desactivaron en Cuentas.
+    const sinCuenta = validPayments.find((p) => !p.account_id)
+    if (sinCuenta) {
+      toast({
+        title: 'Error',
+        description: `El método "${methodLabels[sinCuenta.method]}" no tiene una cuenta activa: usa otro método o créala en Cuentas`,
+        variant: 'destructive',
+      })
+      return
+    }
     const currentTotal =
       current.cart.reduce((sum, l) => sum + l.qty * l.price_cents, 0) -
       current.cart.reduce((sum, l) => sum + l.discount_cents, 0)

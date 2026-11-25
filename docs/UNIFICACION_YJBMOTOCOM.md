@@ -3223,3 +3223,27 @@ base de YJB (lo cambió Claude con la llave de servicio, solo dirección y horar
 Horario de las dos tiendas: **lunes a sábado 9:00 AM - 7:00 PM; domingos y festivos 10:00 AM - 4:00 PM**. Actualizado en
 Contacto (valores por defecto), FAQ, Privacidad, Términos, ejemplos de Configuración y en la base de las dos.
 YBMOTOCOM: Privacidad ahora muestra su dirección (Cc Megacentro, Local 111 Isla S).
+
+## 106. Plata de las ventas de mostrador blindada: migración 00068 (2026-11-25)
+
+Corrige las 7 fallas de plata de la auditoría del 31-oct en las dos tiendas. El detalle está en
+`docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md` sección 10.
+
+- Cancelar y editar devuelven lo que de verdad entró a cada cuenta, según sus movimientos, y no lo que dice la
+  etiqueta del método.
+- Se rechaza cancelar dos veces y editar una venta cancelada.
+- El cambio masivo de método mueve la plata (`change_pos_payment_method`).
+- Todo pago exige cuenta.
+
+App:
+- `bulk-method` usa la función nueva.
+- Editar venta (Ventas del Día) ya no tiene "Sin cuenta" y ajusta la cuenta al cambiar el método.
+- Registrar Venta y Préstamos avisan si un método no tiene cuenta.
+- `isPosRuleError` (`lib/pos-sale.ts`) muestra los mensajes de la base tal cual.
+
+Pruebas:
+- 268/268 en las dos tiendas.
+- `audit.mjs`: 52/58 OK, idéntico en las dos.
+
+Nota de entorno: en Windows, Vitest falla con "No test suite found" si la carpeta empieza por `c:` en minúscula. Hay
+que correrlo con la ruta en mayúscula (`C:\...`).

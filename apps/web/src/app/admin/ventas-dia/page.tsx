@@ -503,8 +503,16 @@ function VentasDiaContent() {
     setEditResults([])
   }
 
+  // Misma regla de Registrar Venta: cada método va a la cuenta de su tipo y
+  // el datáfono se liquida en la de NU. Antes el pago nuevo arrancaba "Sin
+  // cuenta" y cambiar el método no cambiaba la cuenta (auditoría B9).
+  const accountForMethod = (method: string) => {
+    const lookup = method === 'card' ? 'nu' : method
+    return accounts.find((a) => a.payment_method === lookup)?.id || ''
+  }
+
   const addEditPayment = () => {
-    setEditPayments((prev) => [...prev, { key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: '', amount: '' }])
+    setEditPayments((prev) => [...prev, { key: crypto.randomUUID(), method: 'cash', method_detail: '', account_id: accountForMethod('cash'), amount: '' }])
   }
 
   const editSubtotal = editCart.reduce((sum, l) => sum + l.qty * l.price_cents, 0)
@@ -524,6 +532,11 @@ function VentasDiaContent() {
     }
     if (validEditPayments.length === 0) {
       toast({ title: 'Error', description: 'Ingresa al menos un método de pago', variant: 'destructive' })
+      return
+    }
+    // Todo pago debe entrar a una cuenta (el servidor también lo exige, 00068).
+    if (validEditPayments.some((p) => !p.account_id)) {
+      toast({ title: 'Error', description: 'Cada pago debe tener una cuenta: elígela en la lista de cada pago', variant: 'destructive' })
       return
     }
     // Los pagos deben sumar EXACTO al total, igual que al registrar la venta.
@@ -1472,7 +1485,11 @@ function VentasDiaContent() {
                   <div key={p.key} className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
                     <select
                       value={p.method}
-                      onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, method: e.target.value as PaymentSplit['method'] } : x))}
+                      onChange={(e) => {
+                        const method = e.target.value as PaymentSplit['method']
+                        // Cambiar el método cambia la cuenta (si existe una de ese tipo).
+                        setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, method, account_id: accountForMethod(method) || x.account_id } : x))
+                      }}
                       aria-label="Método de pago" className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11 max-sm:flex-1"
                     >
                       {Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -1482,7 +1499,8 @@ function VentasDiaContent() {
                       onChange={(e) => setEditPayments((prev) => prev.map((x) => x.key === p.key ? { ...x, account_id: e.target.value } : x))}
                       aria-label="Cuenta" className="rounded-lg border bg-background px-2 py-1 text-xs touch:h-11 max-sm:flex-1"
                     >
-                      <option value="">Sin cuenta</option>
+                      {/* Sin opción "Sin cuenta": toda venta entra a una cuenta (00068). */}
+                      {!p.account_id && <option value="" disabled>Elige la cuenta</option>}
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                     <MoneyInput

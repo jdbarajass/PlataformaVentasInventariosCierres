@@ -309,7 +309,10 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 
 - **Corregir en YJBMOTOCOM las filas 8 y 9 del diagnóstico** del 2026-10-31: 16 pagos sin cuenta por $4.198.000 y 2 con cuenta distinta por $350.000. El detalle y la causa están en la sección 9 de la auditoría. Antes de tocar saldos hay que confirmar que esa plata no se haya cuadrado ya con un ajuste manual.
 - **Verificar el despliegue en YJBMOTOCOM** de la autorización de admin para cancelar, editar y cambiar método masivo (código enviado a GitHub el 2026-10-31). Probarlo con un vendedor real en el navegador. (La regla de préstamos de esa fecha se reemplazó el 2026-11-18, ver sección 0a.)
-- **Plata:** editar una venta ya desembolsada duplica el dinero; cancelarla no lo saca; se puede cancelar dos veces; el cambio masivo de método no mueve la plata; al editar se sigue aceptando un pago "Sin cuenta".
+- ~~**Plata:**~~ **corregido en código el 2026-11-25** con la migración `00068_pos_money_integrity.sql` (auditoría sección 10; `audit.mjs` 52/58 OK en las dos tiendas).
+  - [ ] YJBMOTOCOM: correr la 00068 **antes** del push.
+  - [ ] YBMOTOCOM: correr la 00068 **antes** del push.
+  - [ ] Push de los dos repos y probar en vivo: cancelar, editar y cambio masivo.
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos

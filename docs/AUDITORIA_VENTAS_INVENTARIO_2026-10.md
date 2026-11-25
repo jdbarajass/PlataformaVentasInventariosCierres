@@ -149,3 +149,36 @@ Detalle real recibido el 2026-10-31. Son 18 pagos por $4.548.000. No se ha corre
 Por método, los 16 sin cuenta suman: efectivo $415.000, Nequi $845.000, QR $670.000, NU $438.000, Daviplata $205.000, SisteCrédito $1.120.000, datáfono $260.000 y Addi $245.000.
 
 Sin cuenta no hubo movimiento ni desembolso pendiente, así que esa plata no aparece en ninguna cuenta del sistema. Eso no significa que falte físicamente. Antes de corregir hay que comparar contra movimientos y ajustes manuales, para no sumarla dos veces.
+
+## 10. Corrección de las fallas de plata: migración 00068 (2026-11-25)
+
+`supabase/migrations/00068_pos_money_integrity.sql`, igual en las dos tiendas.
+
+**Causa de fondo.** Cancelar y editar decidían cuánta plata sacar mirando la etiqueta del método, no lo que de verdad
+entró a cada cuenta.
+
+**Regla nueva.** Cancelar y editar devuelven exactamente lo que la venta metió a cada cuenta según sus movimientos:
+`account_movements` con `reference_id` = la venta y `reference_type` en `order`, `card_release`, `addi_release` o
+`sistecredito_release`, agrupados por cuenta. Lo que todavía no había llegado (pendientes sin liberar) se borra. Lo
+hace el helper `_pos_reverse_order_money`, y el pago se aplica con `_pos_apply_payment`.
+
+| Caso | Corrección |
+|---|---|
+| B1 | Cancelar una venta ya cancelada se rechaza ("ya está cancelada"). |
+| B2 | Cancelar después del desembolso saca la plata desembolsada (con el margen en SisteCrédito). |
+| B3 | Editar sin cambiar un pago ya desembolsado (mismo método, cuenta y valor) conserva el desembolso: no mueve plata. Si el pago cambia, se devuelve y se aplica el nuevo; si su fecha de desembolso ya pasó, se acredita de una vez. |
+| B4 | Editar una venta cancelada se rechaza. |
+| B5 | Cubierto por la regla nueva: esas ventas dejaron su movimiento `sale`. La simulación de `audit.mjs` se corrigió para incluirlo, como hacía la `create_pos_sale` de entonces. |
+| B6 | Función nueva `change_pos_payment_method`: devuelve lo que entró, cambia método y cuenta, y aplica el pago otra vez. La usa el cambio masivo (`api/pos/sales/bulk-method`), con la cuenta del método nuevo según la regla de Registrar Venta (el datáfono va a NU). Solo para ventas con un pago. |
+| B9 | Todo pago de mostrador exige cuenta, al vender y al editar. Editar venta ya no tiene "Sin cuenta" y, al cambiar el método, pone sola la cuenta de ese método. Registrar Venta y Préstamos avisan si un método no tiene cuenta activa. |
+
+Casos nuevos en `audit.mjs`:
+- M1: editar un datáfono desembolsado bajando el valor.
+- M2: pasar a efectivo un datáfono de hace 10 días.
+- M3: cambio de método en una venta de dos pagos.
+
+Resultado: 58 casos, **52 OK**. Quedan las 6 fallas de inventario y tienda online (B7, B8, B10, B11, B12, B14). Salida
+idéntica con las migraciones de YBMOTOCOM.
+
+**Orden de despliegue:** correr la 00068 en cada Supabase **antes** del push. Sin ella, el cambio masivo falla (la
+función no existe).

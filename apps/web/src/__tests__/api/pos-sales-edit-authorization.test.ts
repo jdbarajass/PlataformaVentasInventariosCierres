@@ -136,17 +136,47 @@ describe('PUT /api/pos/sales/bulk-method', () => {
   it('un vendedor autorizado cambia el método y queda quién autorizó', async () => {
     requireAuthMock.mockResolvedValue(SELLER_AUTH)
     verifyAdminAuthorizationMock.mockResolvedValue('admin@test.com')
+    const { client, calls } = createSupabaseMock(
+      {
+        accounts: { data: [{ id: 'cuenta-nequi', payment_method: 'nequi', active: true }], error: null },
+        payments: {
+          data: BULK_BODY.orderIds.map((order_id, i) => ({ id: `pago-${i}`, order_id, amount_cents: 5000 })),
+          error: null,
+        },
+      },
+      { change_pos_payment_method: { data: null, error: null } }
+    )
+    createAuthenticatedClientMock.mockReturnValue(client)
+    getServiceSupabaseMock.mockReturnValue(client)
 
     const { PUT } = await import('@/app/api/pos/sales/bulk-method/route')
     const res = await PUT(bulkRequest({ ...BULK_BODY, ...CREDENTIALS }))
 
     expect(res.status).toBe(200)
+    // 00068: el cambio pasa por la función que mueve la plata a la cuenta del método nuevo.
+    expect(calls['rpc.change_pos_payment_method']).toHaveLength(2)
+    expect(calls['rpc.change_pos_payment_method'][0][0]).toEqual(
+      expect.objectContaining({ p_method: 'nequi', p_account_id: 'cuenta-nequi' })
+    )
     expect(logAuditMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         action: 'pos_sales_bulk_method_changed',
-        newData: expect.objectContaining({ authorized_by: 'admin@test.com' }),
+        newData: expect.objectContaining({ authorized_by: 'admin@test.com', updated: 2 }),
       })
     )
+  })
+
+  it('sin una cuenta activa para el método nuevo no cambia nada', async () => {
+    requireAuthMock.mockResolvedValue(ADMIN_AUTH)
+    const { client, calls } = createSupabaseMock({ accounts: { data: [], error: null } })
+    createAuthenticatedClientMock.mockReturnValue(client)
+    getServiceSupabaseMock.mockReturnValue(client)
+
+    const { PUT } = await import('@/app/api/pos/sales/bulk-method/route')
+    const res = await PUT(bulkRequest(BULK_BODY))
+
+    expect(res.status).toBe(400)
+    expect(calls['rpc.change_pos_payment_method']).toBeUndefined()
   })
 })

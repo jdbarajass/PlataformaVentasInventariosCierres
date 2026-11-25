@@ -47,6 +47,20 @@ export async function PUT(request: NextRequest) {
     const rates: Record<string, number> = (settings as any)?.pos_commission_rates || {}
     const rate = rates[method] || 0
 
+    // Cuenta del método nuevo: la misma regla de Registrar Venta (cada método
+    // va a la cuenta de su tipo; el datáfono se liquida en la cuenta de NU).
+    const service = getServiceSupabase()
+    const { data: accounts } = await service.from('accounts').select('id, payment_method, active')
+    const lookupMethod = method === 'card' ? 'nu' : method
+    const targetAccount = ((accounts || []) as { id: string; payment_method: string; active: boolean | null }[])
+      .find((a) => a.payment_method === lookupMethod && a.active !== false)
+    if (!targetAccount) {
+      return NextResponse.json(
+        { error: `No hay una cuenta activa para el método elegido: créala o actívala en Cuentas` },
+        { status: 400 }
+      )
+    }
+
     const { data: payments } = await supabase
       .from('payments')
       .select('id, order_id, amount_cents')
@@ -70,9 +84,16 @@ export async function PUT(request: NextRequest) {
       }
       const payment = orderPayments[0]
       const commissionCents = Math.round((payment.amount_cents * rate) / 100)
-      const { error } = await (supabase.from('payments') as any)
-        .update({ method, method_detail: methodDetail || null, commission_cents: commissionCents })
-        .eq('id', payment.id)
+      // Antes solo se cambiaba la etiqueta del pago y la plata se quedaba en
+      // la cuenta vieja (auditoría B6). change_pos_payment_method (00068)
+      // devuelve lo que entró, cambia método y cuenta y aplica el pago otra vez.
+      const { error } = await (service.rpc as any)('change_pos_payment_method', {
+        p_order_id: orderId,
+        p_method: method,
+        p_account_id: targetAccount.id,
+        p_method_detail: methodDetail || null,
+        p_commission_cents: commissionCents,
+      })
       if (error) {
         excluded++
         continue

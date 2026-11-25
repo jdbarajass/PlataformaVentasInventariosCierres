@@ -191,3 +191,20 @@ export async function resolveSale(
 
   return { resolvedItems, resolvedPayments, subtotal_cents, discount_cents, total_cents }
 }
+
+/**
+ * Errores de regla de negocio que lanzan las funciones de venta de la base
+ * (00068) y que se muestran tal cual al usuario (400), en vez del genérico
+ * "Error al registrar/editar/cancelar la venta".
+ */
+export function isPosRuleError(message: string | undefined): boolean {
+  if (!message) return false
+  return [
+    'ya está cancelada',
+    'debe tener una cuenta',
+    'solo para ventas con un pago',
+    'Stock insuficiente',
+    'no encontrada',
+    'no encontrado',
+  ].some((s) => message.includes(s))
+}

@@ -76,6 +76,6 @@ export function isLoanRuleError(message: string | undefined): boolean {
   return [
     'no está pendiente', 'ya está cerrada', 'ya se vendió', 'cancela la venta', 'Cobrar',
     'no se puede', 'talla', 'Escribe cuánto', 'no debe tocar', 'Solo se', 'no encontrad',
-    'suma de los pagos', 'Forma de cierre',
+    'suma de los pagos', 'Forma de cierre', 'debe tener una cuenta', 'ya está cancelada',
   ].some((s) => message.includes(s))
 }
