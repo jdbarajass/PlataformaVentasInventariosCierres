@@ -241,6 +241,16 @@ Detalle en `docs/EXPANSION_SEGUNDA_TIENDA.md` (recordatorio al inicio).
 - Hoy depende solo del límite interno de Supabase Auth. Solo vale la pena si algún día se ven intentos de adivinar contraseñas.
 
 ### 2.5 ⚠️ Funciones de plata ejecutables por el rol público (`anon`), prioridad alta
+
+**Avance 2026-11-25: migración lista, `00065_revoke_public_function_execute.sql`** (en los dos repos). Quita EXECUTE a
+PUBLIC/anon/authenticated en TODA función `SECURITY DEFINER` de `public` menos `get_user_role` (la usan 102 políticas
+RLS) y las de trigger. Revisado: todas las llamadas `.rpc` de la app usan `getServiceSupabase()` (service_role), ninguna
+sale del navegador. Probada en PGlite con todas las migraciones: solo queda `get_user_role` abierta, ninguna función
+abierta llama a una cerrada, idempotente. Al final trae una consulta de verificación (debe devolver solo
+`get_user_role`).
+- [ ] YJBMOTOCOM: correr la 00065 y mandar captura; probar en vivo una venta, un gasto y un abono.
+- [ ] YBMOTOCOM: igual, después de YJBMOTOCOM.
+
 - **Encontrado el 2026-11-21** probando la 00064. En Postgres una función nueva queda ejecutable por PUBLIC, y Supabase
   además le da permiso a `anon` y `authenticated`. Muchas migraciones solo hicieron `GRANT ... TO service_role`, sin
   `REVOKE`.
@@ -275,6 +285,15 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **Comparación de estructura YJB vs YB (2026-11-25):** con `scripts/huella-estructura-bd.sql` y
+  `scripts/diferencias-estructura-bd.sql` (capturas de las dos). Tablas, columnas, triggers y políticas idénticos.
+  Diferencias: (1) YB sin bucket `product-images` (fotos de productos fallaban); (2) dos índices de
+  `inventory_movements` con nombre corto en YB (salió de `schema.sql`, ya corregido); (3) YJB tiene además
+  `rls_auto_enable()`, función que crea el propio Supabase (no viene de migraciones; no hace falta copiarla). (1) y (2)
+  los arregla `00066_product_images_bucket_and_index_names.sql`: **falta correrla en YBMOTOCOM** (en YJB no hace nada).
+  Admin nuevo de YBMOTOCOM `adminyojan@ybmotocom.com` creado por el usuario con rol `admin` (captura); también existen
+  `yojan_admin@ybmotocom.com` y `ybmotocom.cc.megacentro@gmail.com`, ambos admin.
 
 - **YBMOTOCOM al día con YJBMOTOCOM (2026-11-25):** migraciones 00057-00064 corridas (la 00056 ya estaba; captura con
   las 8 en "SÍ está") y push `3926225..f8fcbaa` (10 commits, autor YBMOTOCOM, sin cambios nuevos en la nube antes de

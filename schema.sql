@@ -110,8 +110,8 @@ CREATE TABLE IF NOT EXISTS public.inventory_movements (
     created_by      UUID        REFERENCES public.users(id) ON DELETE SET NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_inventory_product    ON public.inventory_movements(product_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_created_at ON public.inventory_movements(created_at);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_product    ON public.inventory_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_created_at ON public.inventory_movements(created_at);
 
 -- =====================================================
 -- TABLA: orders
