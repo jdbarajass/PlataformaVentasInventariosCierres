@@ -57,9 +57,10 @@ textos, sin migración.
   despliegues nuevos no pasan a producción solos. Hay que deshacer el rollback (o promover el último despliegue)
   **después** de las migraciones y el push.
 
-1. Correr en su Supabase `scripts/verificar-migraciones-00056-00064.sql` (solo lectura) y mandar captura.
-2. Correr, **en orden**, las que salgan "FALTA" de la 00056 a la 00064 (sección 1).
-3. Push de los 10 commits.
+1. ~~Verificar migraciones~~ y 2. ~~Correr las que faltaban~~: **HECHO 2026-11-25.** La 00056 ya estaba; el usuario
+   corrió de la 00057 a la 00064 en orden. Evidencia: captura de `scripts/verificar-migraciones-00056-00064.sql` en el
+   SQL Editor de YBMOTOCOM con las 8 filas en "SÍ está".
+3. ~~Push de los 10 commits~~: hecho 2026-11-25 (ver Resueltos).
 4. Vercel: deshacer el Instant Rollback / promover el último despliegue y confirmar "Deployment has completed".
 5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
@@ -271,6 +272,10 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
 
 ## Resueltos
+
+- **YBMOTOCOM al día con YJBMOTOCOM (2026-11-25):** migraciones 00057-00064 corridas (la 00056 ya estaba; captura con
+  las 8 en "SÍ está") y push `3926225..f8fcbaa` (10 commits, autor YBMOTOCOM, sin cambios nuevos en la nube antes de
+  subir). Falta que Vercel lo publique (quitar el Instant Rollback del 4-sep) y `CRON_SECRET`.
 
 - **Categorías de gasto, YJBMOTOCOM (2026-11-21):** migración `00064_rename_gmf_category.sql` corrida (captura con
   "Success") y código subido. "Gastos bancarios" ahora es "4X1000 impuestos (Gastos Bancarios)" y existe "Gasto
