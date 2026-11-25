@@ -293,6 +293,13 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 
 ## Resueltos
 
+- **GUANTE ALPINESTARS GP PRO CAÑA LARGA (2026-11-25):** creado en YJBMOTOCOM por Claude con la regla de
+  Inventario → Ingresar: serial **44**, categoría Guantes, costo $160.000, precio $229.000 (costo / 0,7 = 228.571,
+  redondeado hacia arriba a $500, como el mínimo "margen 30%" de la app; el "+30%" = $208.000 lo calcula la app sola),
+  sin publicar, tallas XS-2XL en 0 con códigos `1504003011`-`1504003016`. Para YBMOTOCOM:
+  `scripts/crear-producto-con-tallas.sql` (misma regla, calculada con sus propios datos; probado en PGlite e
+  idempotente). **Falta que el usuario lo corra en YBMOTOCOM** y mande la captura del resultado.
+
 - **Comparación de estructura YJB vs YB (2026-11-25):** con `scripts/huella-estructura-bd.sql` y
   `scripts/diferencias-estructura-bd.sql` (capturas de las dos). Tablas, columnas, triggers y políticas idénticos.
   Diferencias: (1) YB sin bucket `product-images` (fotos de productos fallaban); (2) dos índices de
