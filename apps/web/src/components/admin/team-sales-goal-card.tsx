@@ -17,6 +17,8 @@ interface TeamSales {
   total_cents: number
   goal_cents: number
   bonus_cents: number
+  /** Si viene, el bono es este % de lo vendido (00067) y ya va calculado en bonus_cents. */
+  bonus_pct?: number | null
 }
 
 // Meta mensual de ventas de mostrador y bono asociado — es una meta del
@@ -59,7 +61,19 @@ export function TeamSalesGoalCard() {
             style={{ width: `${progress}%` }}
           />
         </div>
-        {reached ? (
+        {data.bonus_pct ? (
+          // Bono en % de lo vendido: se acumula con cada venta, se llegue o no a la meta.
+          <>
+            <p className={reached ? 'mt-2 text-xs font-medium text-green-500' : 'mt-2 text-xs text-muted-foreground'}>
+              {reached
+                ? '¡Meta alcanzada entre todos!'
+                : `${progress}% — faltan ${formatPrice(data.goal_cents - data.total_cents)} entre todos para la meta`}
+            </p>
+            <p className="mt-1 text-xs font-medium">
+              Bono acumulado ({data.bonus_pct}% de lo vendido): {formatPrice(data.bonus_cents)}
+            </p>
+          </>
+        ) : reached ? (
           <p className="mt-2 text-xs font-medium text-green-500">
             ¡Meta alcanzada entre todos! Bono: {formatPrice(data.bonus_cents)}
           </p>

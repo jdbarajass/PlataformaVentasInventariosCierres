@@ -21,6 +21,8 @@ const fixedExpensesSchema = z
   .optional()
 const sellerGoalCentsSchema = z.number().int().min(0).optional()
 const sistecreditoMarginSchema = z.number().min(0).max(100).optional()
+// Bono del equipo como % de lo vendido (migración 00067). null = bono fijo.
+const sellerBonusPctSchema = z.number().min(0).max(100).nullable().optional()
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,6 +113,12 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'El margen de SisteCrédito debe estar entre 0 y 100%' }, { status: 400 })
       }
     }
+    if (body.seller_bonus_pct !== undefined) {
+      const validation = sellerBonusPctSchema.safeParse(body.seller_bonus_pct)
+      if (!validation.success) {
+        return NextResponse.json({ error: 'El bono en % debe estar entre 0 y 100' }, { status: 400 })
+      }
+    }
 
     const supabase = getServiceSupabase()
 
@@ -133,6 +141,7 @@ export async function PUT(request: NextRequest) {
       'seller_monthly_goal_cents',
       'seller_goal_bonus_cents',
       'sistecredito_margin_pct',
+      'seller_bonus_pct',
     ]
 
     for (const field of allowedFields) {

@@ -3192,3 +3192,22 @@ costo $160.000. Precio de venta = costo / 0,7 redondeado hacia arriba a $500 (**
   producto y 0 categorías. `scripts/categorias-como-yjbmotocom.sql` (repo YB) creó las mismas 12 categorías de YJB
   (Repuestos y Lubricantes inactivas) y le asignó Guantes al guante.
 - La pantalla Ingresar solo ofrece S-2XL en modo multi-talla; XS (y 3XL) se agregan después desde Tallas.
+
+## 105. Bono del equipo en % de lo vendido; configuración propia de YBMOTOCOM (2026-11-25)
+
+**Bono en %.** Pedido para YBMOTOCOM: meta de equipo de $60.000.000 y bono del 1% de todo lo vendido en el mes, se
+llegue o no a la meta. Antes el bono solo podía ser fijo y se ganaba al llegar a la meta.
+- Migración `00067_seller_bonus_pct.sql`: columna opcional `store_settings.seller_bonus_pct`. NULL = bono fijo como
+  siempre (YJBMOTOCOM no cambia).
+- `api/reports/team-sales`: lee `*` (no falla si falta la columna) y, con % > 0, `bonus_cents = total × % / 100` y
+  devuelve `bonus_pct`. `TeamSalesGoalCard` muestra "Bono acumulado (1% de lo vendido)" y el avance hacia la meta
+  sin "para el bono".
+- Comisiones y Gastos Fijos (`configuracion-pos`): campo "o bono en % de lo vendido" (vacío = bono fijo; con % se
+  desactiva el fijo). `api/settings` lo valida (0-100 o null).
+- Orden: correr la 00067 antes del push. "Guardar meta" manda `seller_bonus_pct` y fallaría sin la columna.
+
+**Configuración de YBMOTOCOM.** El barrido (`scripts/barrido-configuracion.sql`) mostró que `store_settings` de YB
+seguía con los valores por defecto de la 00002, que son de YJBMOTOCOM: el pie de página de la tienda online de YB
+mostraba el teléfono y la dirección de YJB. `scripts/configurar-tienda-ybmotocom.sql` (repo YB) carga los datos reales
+de YB (contacto, horario, WhatsApp, Transferencia apagada, gastos fijos, meta y bono) y `brand.ts` de YB quedó con los
+mismos datos.

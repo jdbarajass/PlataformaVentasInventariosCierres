@@ -66,7 +66,17 @@ textos, sin migración.
   - Gastos fijos en 0 (YJB: sueldo $2.200.000, arriendo $3.000.000, servicios $300.000) y meta de vendedor por
     defecto ($20.000.000 / bono $200.000; YJB: $26.000.000 / $200.000). El usuario define los valores de YB.
   - Batería `scripts/auditoria-ventas/audit.mjs` con las migraciones de YB: salida idéntica a YJB (38 OK, 17 FALLA;
-    las fallas son las de la sección 3, iguales en las dos tiendas).
+    las fallas son las de la sección 3, iguales en las dos tiendas). **Siguiente tarea acordada con el usuario:
+    corregir esas 17 en las dos tiendas** (después de dejar YB configurada).
+  - **Arreglo preparado (2026-11-25):** `scripts/configurar-tienda-ybmotocom.sql` (repo YB) con los datos que dio el
+    usuario, SOLO de YBMOTOCOM: nombre YBMOTOCOM; tel. +57 321 411 1371 / +57 311 218 7184; ybmotocom@gmail.com;
+    Cc Megacentro Local 111 Isla S; L-S 9 AM-7 PM, domingos y festivos 10 AM-4 PM; WhatsApp 573214111371;
+    Transferencia apagada (no hay cuenta bancaria); sueldos $3.650.000 (Marilyn $1.950.000 + Santiago $1.700.000),
+    sin arriendo (local propio), servicios variables (se registran como gasto); meta de equipo $60.000.000 y **bono 1%
+    de todo lo vendido** (nuevo, migración 00067). `brand.ts` de YB con los mismos datos.
+    - [ ] YJBMOTOCOM: correr `00067_seller_bonus_pct.sql` **antes** del push (si no, "Guardar meta" falla).
+    - [ ] YBMOTOCOM: correr `scripts/configurar-tienda-ybmotocom.sql` (trae la 00067) antes del push.
+    - [ ] Push de los dos repos y revisar en vivo el pie de página de YB y la tarjeta de meta.
 
 1. ~~Verificar migraciones~~ y 2. ~~Correr las que faltaban~~: **HECHO 2026-11-25.** La 00056 ya estaba; el usuario
    corrió de la 00057 a la 00064 en orden. Evidencia: captura de `scripts/verificar-migraciones-00056-00064.sql` en el

@@ -77,16 +77,27 @@ export async function GET(request: NextRequest) {
     const serviceSupabase = getServiceSupabase()
     const { data: settings } = await serviceSupabase
       .from('store_settings')
-      .select('seller_monthly_goal_cents, seller_goal_bonus_cents')
+      // '*' y no la lista de columnas: así no falla si todavía no se corrió
+      // la migración 00067 (seller_bonus_pct).
+      .select('*')
       .eq('id', 1)
       .single()
+
+    // Bono: si hay % configurado (00067, YBMOTOCOM: 1%), es ese % de todo lo
+    // vendido en el mes, se llegue o no a la meta. Si no, el bono fijo de
+    // siempre, que se gana al llegar a la meta (YJBMOTOCOM).
+    const bonusPct = Number((settings as any)?.seller_bonus_pct) || 0
+    const bonusCents = bonusPct > 0
+      ? Math.round((totalCents * bonusPct) / 100)
+      : (settings as any)?.seller_goal_bonus_cents ?? 0
 
     return NextResponse.json({
       data: {
         sellers,
         total_cents: totalCents,
         goal_cents: (settings as any)?.seller_monthly_goal_cents ?? 0,
-        bonus_cents: (settings as any)?.seller_goal_bonus_cents ?? 0,
+        bonus_cents: bonusCents,
+        bonus_pct: bonusPct > 0 ? bonusPct : null,
         year,
         month,
       },

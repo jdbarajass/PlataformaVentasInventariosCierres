@@ -27,7 +27,8 @@ export default function ConfiguracionPosPage() {
   const [expenses, setExpenses] = useState<FixedExpenses>({
     arriendo_cents: 0, sueldo_cents: 0, servicios_cents: 0, otros_gastos_cents: 0, dias_mes: 30,
   })
-  const [sellerGoal, setSellerGoal] = useState({ goal: '0', bonus: '0' })
+  // bonusPct vacío = bono fijo; con valor = bono como % de lo vendido (00067).
+  const [sellerGoal, setSellerGoal] = useState({ goal: '0', bonus: '0', bonusPct: '' })
   const [sistecreditoMargin, setSistecreditoMargin] = useState('2')
   const [loading, setLoading] = useState(true)
   const [savingRates, setSavingRates] = useState(false)
@@ -63,6 +64,7 @@ export default function ConfiguracionPosPage() {
       setSellerGoal({
         goal: String((data?.seller_monthly_goal_cents ?? 0) / 100),
         bonus: String((data?.seller_goal_bonus_cents ?? 0) / 100),
+        bonusPct: Number(data?.seller_bonus_pct) > 0 ? String(Number(data.seller_bonus_pct)) : '',
       })
       setSistecreditoMargin(String(data?.sistecredito_margin_pct ?? 2))
     } catch (error) {
@@ -106,12 +108,22 @@ export default function ConfiguracionPosPage() {
       toast({ title: 'Error', description: 'La meta y el bono no pueden ser negativos', variant: 'destructive' })
       return
     }
+    const pctText = sellerGoal.bonusPct.trim().replace(',', '.')
+    const seller_bonus_pct = pctText === '' ? null : parseFloat(pctText)
+    if (seller_bonus_pct !== null && (isNaN(seller_bonus_pct) || seller_bonus_pct < 0 || seller_bonus_pct > 100)) {
+      toast({ title: 'Error', description: 'El bono en % debe estar entre 0 y 100 (o vacío para usar el bono fijo)', variant: 'destructive' })
+      return
+    }
     try {
       setSavingGoal(true)
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ seller_monthly_goal_cents: goal_cents, seller_goal_bonus_cents: bonus_cents }),
+        body: JSON.stringify({
+          seller_monthly_goal_cents: goal_cents,
+          seller_goal_bonus_cents: bonus_cents,
+          seller_bonus_pct: seller_bonus_pct && seller_bonus_pct > 0 ? seller_bonus_pct : null,
+        }),
       })
       if (!res.ok) throw new Error('Error al guardar la meta de ventas')
       toast({ title: 'Meta de ventas guardada' })
@@ -217,16 +229,35 @@ export default function ConfiguracionPosPage() {
         <p className="mb-4 text-xs text-muted-foreground">
           Meta compartida por todo el equipo (no individual): si entre todos los vendedores se llega a la meta de ventas de mostrador en el mes, se ofrece el bono. Todos ven el mismo avance combinado y el desglose por vendedor en el Dashboard.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label className="text-sm text-muted-foreground">Meta mensual (ventas de mostrador)</label>
             <MoneyInput value={sellerGoal.goal} onChange={(v) => setSellerGoal({ ...sellerGoal, goal: v })} className="rounded-lg" />
           </div>
           <div>
-            <label className="text-sm text-muted-foreground">Bono al alcanzarla</label>
-            <MoneyInput value={sellerGoal.bonus} onChange={(v) => setSellerGoal({ ...sellerGoal, bonus: v })} className="rounded-lg" />
+            <label className="text-sm text-muted-foreground">Bono fijo al alcanzarla</label>
+            <MoneyInput
+              value={sellerGoal.bonus}
+              onChange={(v) => setSellerGoal({ ...sellerGoal, bonus: v })}
+              className="rounded-lg"
+              disabled={sellerGoal.bonusPct.trim() !== '' && parseFloat(sellerGoal.bonusPct.replace(',', '.')) > 0}
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground">o bono en % de lo vendido</label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="Vacío = bono fijo"
+              value={sellerGoal.bonusPct}
+              onChange={(e) => setSellerGoal({ ...sellerGoal, bonusPct: e.target.value })}
+              className="rounded-lg"
+            />
           </div>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Con un % (ej. 1), el bono es ese porcentaje de todo lo que venda el equipo en el mes, se llegue o no a la meta, y el bono fijo no se usa. Déjalo vacío para usar el bono fijo.
+        </p>
         <Button className="mt-4 rounded-lg" onClick={handleSaveGoal} disabled={savingGoal || !isAdmin}>
           {savingGoal ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Guardar meta
