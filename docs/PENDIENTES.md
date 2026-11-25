@@ -4,7 +4,7 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-21.
+> Última revisión: 2026-11-25.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
@@ -30,7 +30,8 @@
   lo que cobró el banco.
 - Falta probar con una operación real después del cambio (puntos 1 y 2).
 
-**YJBMOTOCOM** (este repo):
+**YJBMOTOCOM** (este repo): el 2026-11-25 se subieron las etiquetas de Facturas (unificación sección 102); solo
+textos, sin migración.
 1. Probar con una operación real (la pantalla ya se revisó en vivo, ver arriba):
    - el próximo abono a factura desde Nequi, NU o QR: revisar en Cuentas → Movimientos que salgan el abono y una línea
      "4x1000: Abono a factura…";
@@ -49,8 +50,8 @@
 **YBMOTOCOM** (repo aparte, en el otro PC: `C:\Users\JJBarajas\Pictures\YOJAN`):
 1. Revisar por qué Vercel no publica y mandar captura del último despliegue (sección 1d).
 2. Correr en su Supabase, **en orden**, de la 00056 a la 00064 (sección 1).
-3. Hacer el push de los commits locales que esperan esas migraciones (`85042ed`, `0bcf0a2`, `8a02aa2`, `11e65ea`), solo
-   después de correrlas (secciones 0 y 0a).
+3. Hacer el push de los commits locales que esperan esas migraciones (`85042ed`, `0bcf0a2`, `8a02aa2`, `11e65ea` y
+   `9ee404e`, este último de etiquetas en Facturas del 2026-11-25), solo después de correrlas (secciones 0 y 0a).
 4. Replicar el cambio del 4x1000 en abonos, transferencias y préstamos (sección 00) y el de categorías (sección 000).
    Ninguno de los dos se ha llevado allá todavía.
 5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).

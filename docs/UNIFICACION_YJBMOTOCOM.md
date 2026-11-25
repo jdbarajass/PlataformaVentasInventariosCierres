@@ -3119,3 +3119,28 @@ Técnico:
   `anon`. Ver `docs/PENDIENTES.md` sección 2.5.
 - **YJBMOTOCOM:** el usuario corrió la 00064 el 2026-11-21 (archivo completo, "Success") y el código se subió ese día.
 - **Falta replicar en YBMOTOCOM**, junto con la 00063.
+
+## 102. Facturas: etiquetas y explicación en los campos (2026-11-25)
+
+Pedido del usuario: en **Facturas → Nueva factura** aparecían dos calendarios sin decir cuál era cuál. Los campos solo
+tenían placeholder, y en los de fecha el navegador lo oculta (solo se veía "dd/mm/aaaa").
+
+Qué cambió (solo textos y etiquetas en `app/admin/facturas/page.tsx`; no cambia cómo se guarda ni se calcula nada):
+- **Nueva factura:** cada campo tiene nombre arriba y una explicación corta abajo. Los obligatorios llevan `*`.
+  - Descripción \*: qué se compró.
+  - Proveedor \*: a quién se le debe.
+  - Total de la factura \*: lo que se debe en total; los pagos van después como abonos.
+  - Fecha de llegada: el día que llegó la mercancía o la factura. **Define en qué mes cuenta la compra** en
+    Finanzas → Año (`api/finance/year`, `invoiceYM`); si está vacía se usa el día en que se registró.
+  - Fecha de vencimiento: el último día para pagarla; de ahí salen los recuadros Vencidas / ≤7 / ≤30 días y las
+    insignias "Vencida" y "Vence pronto".
+  - Notas: opcional.
+- **Editar factura:** "Llegada" y "Vencimiento" pasan a "Fecha de llegada (mes de la compra)" y "Fecha de vencimiento
+  (último día para pagar)".
+- **Abonar:** "Monto" pasa a "Monto del abono", "Cuenta" a "Sale de la cuenta", y Notas (que no tenía etiqueta) pasa a
+  "Notas (opcional)". Las etiquetas van encima del campo, también la de "Fecha del abono" (sección 100).
+- Revisado en el servidor local con sesión admin creada por script, en escritorio (1440 px) y celular (390 px), sin
+  guardar nada. `tsc` sin errores.
+- **YBMOTOCOM:** commit local `9ee404e`, sobre la página anterior a la sección 100. Sin push: espera las migraciones
+  (ver `docs/PENDIENTES.md`). Cuando se replique la sección 100 allá, la sección de Abonar va a chocar en el mismo
+  lugar; hay que dejar las dos cosas (fecha del abono y etiqueta de notas), como se hizo aquí.
