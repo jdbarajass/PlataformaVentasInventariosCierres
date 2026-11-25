@@ -298,7 +298,10 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
   redondeado hacia arriba a $500, como el mínimo "margen 30%" de la app; el "+30%" = $208.000 lo calcula la app sola),
   sin publicar, tallas XS-2XL en 0 con códigos `1504003011`-`1504003016`. Para YBMOTOCOM:
   `scripts/crear-producto-con-tallas.sql` (misma regla, calculada con sus propios datos; probado en PGlite e
-  idempotente). **Falta que el usuario lo corra en YBMOTOCOM** y mande la captura del resultado.
+  idempotente). **YBMOTOCOM:** corrido por el usuario el 2026-11-25 (captura): serial **1** y códigos
+  `1501001011`-`1501001016`, correctos porque allá era el primer producto (la tienda está en ceros: 1 producto en
+  total, 0 categorías). Quedó sin categoría porque YB no tenía ninguna: `scripts/categorias-como-yjbmotocom.sql` (repo
+  YB) crea las mismas 12 de YJB y le asigna Guantes. **Falta que el usuario lo corra** y mande captura.
 
 - **Comparación de estructura YJB vs YB (2026-11-25):** con `scripts/huella-estructura-bd.sql` y
   `scripts/diferencias-estructura-bd.sql` (capturas de las dos). Tablas, columnas, triggers y políticas idénticos.
