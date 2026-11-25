@@ -3176,3 +3176,19 @@ función `SECURITY DEFINER` de `public`, salvo `get_user_role` (la usan las pol�
 revisó que todas las llamadas `.rpc` de la app usan `getServiceSupabase()`. Probada en PGlite con todas las
 migraciones: solo `get_user_role` queda abierta, ninguna función abierta llama a una cerrada, idempotente. Corrida en
 las dos tiendas; la verificación devolvió solo `get_user_role(user_id uuid)` en ambas.
+
+## 104. Crear productos con tallas por SQL y categorías de YBMOTOCOM (2026-11-25)
+
+Pedido del usuario: crear **GUANTE ALPINESTARS GP PRO CAÑA LARGA** en las dos tiendas, con todas las tallas en 0 y
+costo $160.000. Precio de venta = costo / 0,7 redondeado hacia arriba a $500 (**$229.000**), igual que el mínimo
+"margen 30%" de `/api/pos/min-price`. El "+30%" ($208.000) no se guarda: la app lo calcula sola.
+
+- `scripts/crear-producto-con-tallas.sql` (en los dos repos): misma regla que Inventario → Ingresar en modo
+  multi-talla. Serial = máximo numérico + 1; código de barras de familia `CC MM NNN VV T` (CC por categoría, MM el
+  subtipo más frecuente, NNN el siguiente modelo, VV 01, T la talla); sin publicar; costo en cada talla. Si el producto
+  ya existe no hace nada. Probado en PGlite.
+- YJBMOTOCOM: creado por Claude con la misma lógica en JS: serial 44, Guantes, códigos `1504003011`-`016`.
+- YBMOTOCOM: el usuario corrió el SQL. Serial 1 y códigos `1501001011`-`016`, porque la tienda estaba en ceros: 1
+  producto y 0 categorías. `scripts/categorias-como-yjbmotocom.sql` (repo YB) creó las mismas 12 categorías de YJB
+  (Repuestos y Lubricantes inactivas) y le asignó Guantes al guante.
+- La pantalla Ingresar solo ofrece S-2XL en modo multi-talla; XS (y 3XL) se agregan después desde Tallas.
