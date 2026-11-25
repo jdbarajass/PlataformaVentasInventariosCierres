@@ -443,14 +443,41 @@ export default function FacturasPage() {
       {showForm && (
         <div className="rounded-xl border bg-card p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">Nueva factura</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input placeholder="Descripción" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="rounded-lg" />
-            <Input placeholder="Proveedor" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="rounded-lg" />
-            <MoneyInput placeholder="Monto" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} className="rounded-lg" />
-            <Input type="date" placeholder="Fecha de llegada" value={form.arrival_date} onChange={(e) => setForm({ ...form, arrival_date: e.target.value })} className="rounded-lg" />
-            <Input type="date" placeholder="Fecha de vencimiento" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="rounded-lg" />
-            <Input placeholder="Notas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="rounded-lg" />
+          {/* Cada campo con su etiqueta y para qué sirve: en los de fecha el
+              navegador oculta el placeholder y solo se veía "dd/mm/aaaa". */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="font-medium">Descripción <span className="text-red-500">*</span></span>
+              <Input placeholder="Ej: cascos y chaquetas" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 rounded-lg" />
+              <span className="mt-1 block text-xs text-muted-foreground">Qué se compró, para reconocer la factura en la lista.</span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Proveedor <span className="text-red-500">*</span></span>
+              <Input placeholder="Ej: FREDMOTOS" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="mt-1 rounded-lg" />
+              <span className="mt-1 block text-xs text-muted-foreground">A quién se le debe esta factura.</span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Total de la factura <span className="text-red-500">*</span></span>
+              <MoneyInput placeholder="Ej: 3.684.600" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} aria-label="Total de la factura" className="mt-1 rounded-lg" />
+              <span className="mt-1 block text-xs text-muted-foreground">Lo que se le debe al proveedor en total. Los pagos se registran después como abonos.</span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Fecha de llegada</span>
+              <Input type="date" value={form.arrival_date} onChange={(e) => setForm({ ...form, arrival_date: e.target.value })} className="mt-1 rounded-lg" />
+              <span className="mt-1 block text-xs text-muted-foreground">El día que llegó la mercancía o la factura. Define en qué mes cuenta la compra en Finanzas. Si la deja vacía, se usa la fecha de hoy.</span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Fecha de vencimiento</span>
+              <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="mt-1 rounded-lg" />
+              <span className="mt-1 block text-xs text-muted-foreground">El último día para pagarla. Con esta fecha se avisa si está vencida o vence pronto (los recuadros de arriba).</span>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Notas</span>
+              <Input placeholder="Ej: descuento de 5% si se paga antes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 rounded-lg" />
+              <span className="mt-1 block text-xs text-muted-foreground">Opcional. Cualquier detalle que quiera recordar.</span>
+            </label>
           </div>
+          <p className="mt-3 text-xs text-muted-foreground"><span className="text-red-500">*</span> Obligatorio</p>
           <Button className="mt-4 rounded-lg touch:h-11 max-sm:w-full" onClick={handleCreate} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Guardar factura
@@ -563,11 +590,11 @@ export default function FacturasPage() {
                             <MoneyInput value={editInvoice.amount} onChange={(v) => setEditInvoice({ ...editInvoice, amount: v })} aria-label="Total de la factura" className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
                           </label>
                           <label className="block text-xs">
-                            <span className="text-muted-foreground">Llegada</span>
+                            <span className="text-muted-foreground">Fecha de llegada (mes de la compra)</span>
                             <Input type="date" value={editInvoice.arrival_date} onChange={(e) => setEditInvoice({ ...editInvoice, arrival_date: e.target.value })} className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
                           </label>
                           <label className="block text-xs">
-                            <span className="text-muted-foreground">Vencimiento</span>
+                            <span className="text-muted-foreground">Fecha de vencimiento (último día para pagar)</span>
                             <Input type="date" value={editInvoice.due_date} onChange={(e) => setEditInvoice({ ...editInvoice, due_date: e.target.value })} className="mt-1 h-9 rounded-lg text-sm touch:h-11" />
                           </label>
                           <label className="block text-xs">
@@ -702,7 +729,7 @@ export default function FacturasPage() {
                     {invoice.status === 'pending' && (
                       <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
                         <label className="block max-sm:flex-1">
-                          <span className="text-xs text-muted-foreground">Monto</span>
+                          <span className="text-xs text-muted-foreground">Monto del abono</span>
                           <MoneyInput
                             value={payAmount}
                             onChange={setPayAmount}
@@ -710,7 +737,7 @@ export default function FacturasPage() {
                           />
                         </label>
                         <label className="block max-sm:flex-1">
-                          <span className="text-xs text-muted-foreground">Cuenta</span>
+                          <span className="block text-xs text-muted-foreground">Sale de la cuenta</span>
                           <select
                             value={payAccount}
                             onChange={(e) => setPayAccount(e.target.value)}
@@ -723,7 +750,7 @@ export default function FacturasPage() {
                           </select>
                         </label>
                         <label className="block max-sm:flex-1">
-                          <span className="text-xs text-muted-foreground">Fecha del abono</span>
+                          <span className="block text-xs text-muted-foreground">Fecha del abono</span>
                           <Input
                             type="date"
                             value={payDate}
@@ -733,12 +760,15 @@ export default function FacturasPage() {
                             className="h-8 w-36 rounded-lg text-xs touch:h-11 max-sm:w-full"
                           />
                         </label>
-                        <Input
-                          placeholder="Notas"
-                          value={payNotes}
-                          onChange={(e) => setPayNotes(e.target.value)}
-                          className="h-8 w-40 rounded-lg text-xs touch:h-11 max-sm:w-full"
-                        />
+                        <label className="block max-sm:basis-full">
+                          <span className="text-xs text-muted-foreground">Notas (opcional)</span>
+                          <Input
+                            placeholder="Ej: transferencia #123"
+                            value={payNotes}
+                            onChange={(e) => setPayNotes(e.target.value)}
+                            className="h-8 w-40 rounded-lg text-xs touch:h-11 max-sm:w-full"
+                          />
+                        </label>
                         <Button size="sm" className="h-8 rounded-lg touch:h-11 max-sm:flex-1" onClick={() => handlePay(invoice)} disabled={payingId === invoice.id}>
                           {payingId === invoice.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
                           Abonar
