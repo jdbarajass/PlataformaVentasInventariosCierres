@@ -57,6 +57,17 @@ textos, sin migración.
   despliegues nuevos no pasan a producción solos. Hay que deshacer el rollback (o promover el último despliegue)
   **después** de las migraciones y el push.
 
+- **Barrido de configuración 2026-11-25** (`scripts/barrido-configuracion.sql` del repo YB, resultado pegado por el
+  usuario). Bien: 7 cuentas, 303 festivos, 12 categorías, 4 usuarios (2 admin, 2 vendedores). **Falta:**
+  - `store_settings` de YB sigue con los valores por defecto de la migración 00002, que son de YJBMOTOCOM:
+    `store_name` = "YJBMOTOCOM" y `contact_info` con el teléfono, correo y dirección de YJB. **El pie de página de
+    ybmotocom-web.vercel.app muestra el teléfono y la dirección de YJB** (verificado en vivo). `brand.ts` de YB también
+    tiene la dirección vacía (TODO). Hace falta que el usuario dé los datos reales de contacto de YB.
+  - Gastos fijos en 0 (YJB: sueldo $2.200.000, arriendo $3.000.000, servicios $300.000) y meta de vendedor por
+    defecto ($20.000.000 / bono $200.000; YJB: $26.000.000 / $200.000). El usuario define los valores de YB.
+  - Batería `scripts/auditoria-ventas/audit.mjs` con las migraciones de YB: salida idéntica a YJB (38 OK, 17 FALLA;
+    las fallas son las de la sección 3, iguales en las dos tiendas).
+
 1. ~~Verificar migraciones~~ y 2. ~~Correr las que faltaban~~: **HECHO 2026-11-25.** La 00056 ya estaba; el usuario
    corrió de la 00057 a la 00064 en orden. Evidencia: captura de `scripts/verificar-migraciones-00056-00064.sql` en el
    SQL Editor de YBMOTOCOM con las 8 filas en "SÍ está".
