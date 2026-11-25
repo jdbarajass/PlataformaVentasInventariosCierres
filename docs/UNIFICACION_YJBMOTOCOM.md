@@ -3152,3 +3152,27 @@ una sola fila y la cuenta se cortaba ("NE" en vez de NEQUI). Ahora, por debajo d
 (Monto | Cuenta, Fecha | Notas), con `min-w-0` para que el campo de fecha pueda encogerse. Escritorio sin cambios.
 Revisado a 390 y 360 px con el resumen del 4x1000 a la vista (sin guardar nada). `tsc`, lint y 267/267 pruebas OK.
 Al replicar la sección 100 en YBMOTOCOM, llevar también este ajuste.
+
+## 103. YBMOTOCOM igualada a YJBMOTOCOM; seguridad de funciones y bucket de fotos (2026-11-25)
+
+**YBMOTOCOM al día.** Se llevaron al repo de YBMOTOCOM (`C:\Users\JJBarajas\Pictures\YOJAN`) los cambios que le
+faltaban, incluida la autorización de admin para cancelar, editar y cambiar el método masivo (parte de `79cef2a` que
+nunca se había llevado). Commits con autor YBMOTOCOM (Vercel Hobby bloquea otros autores; el trailer `Co-Authored-By`
+no bloquea, comprobado con `f8fcbaa`). El usuario corrió allá las migraciones 00057-00064 y se quitó en Vercel un
+*Instant Rollback* del 4-sep que impedía publicar. Detalle y verificación en `docs/ESTADO_YBMOTOCOM.md` y
+`docs/DESPLIEGUE_VERCEL.md` de ese repo.
+
+**Comparación de estructura.** `scripts/huella-estructura-bd.sql` (cantidad y huella md5 de tablas, columnas,
+funciones, triggers, políticas, índices y buckets) y `scripts/diferencias-estructura-bd.sql` (solo lo raro contra lo
+que crean las migraciones). Iguales salvo: bucket `product-images` ausente en YB, dos índices con nombre de
+`schema.sql` en YB y `rls_auto_enable()` en YJB (la crea el panel de Supabase).
+
+**`00066_product_images_bucket_and_index_names.sql`.** Crea el bucket `product-images` (antes se creaba a mano, ver
+00004) y renombra `idx_inventory_product`/`idx_inventory_created_at` a `idx_inventory_movements_*`. `schema.sql`
+quedó con los nombres de la migración. Idempotente; en YJB no cambia nada. Corrida en YB.
+
+**`00065_revoke_public_function_execute.sql` (PENDIENTES 2.5).** Quita EXECUTE a PUBLIC/anon/authenticated en toda
+función `SECURITY DEFINER` de `public`, salvo `get_user_role` (la usan las políticas RLS) y las de trigger. Antes se
+revisó que todas las llamadas `.rpc` de la app usan `getServiceSupabase()`. Probada en PGlite con todas las
+migraciones: solo `get_user_role` queda abierta, ninguna función abierta llama a una cerrada, idempotente. Corrida en
+las dos tiendas; la verificación devolvió solo `get_user_role(user_id uuid)` en ambas.

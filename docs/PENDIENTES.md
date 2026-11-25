@@ -42,8 +42,8 @@ textos, sin migración.
 4. Corregir los 16 pagos sin cuenta y los 2 con cuenta distinta (sección 3).
 5. Verificar en vivo la autorización de admin para cancelar y editar ventas (sección 3).
 6. Bugs de plata e inventario de la auditoría del 31-oct (sección 3).
-7. **Seguridad, prioridad alta:** quitarle al rol público (`anon`) el permiso de ejecutar las 20 funciones expuestas
-   (sección 2.5).
+7. ~~Seguridad: funciones expuestas a `anon`~~: **HECHO 2026-11-25** con la 00065 (sección 2.5). Falta solo usar la
+   tienda normal y avisar si algo falla.
 8. Seguridad: `npm audit` (19 avisos al 2026-11-21), 2FA para el admin y límite de intentos de inicio de sesión
    (sección 2).
 
@@ -68,7 +68,9 @@ textos, sin migración.
    500 "Cron no configurado"). Solo falta que el usuario confirme que es distinta a la de YJBMOTOCOM.
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
    (sección 1d).
-7. Cerrar allá también las funciones expuestas a `anon` (sección 2.5).
+7. ~~Cerrar allá también las funciones expuestas a `anon`~~: **HECHO 2026-11-25** (00065, sección 2.5).
+8. ~~Bucket de fotos~~: **HECHO 2026-11-25** (00066). Falta probar subir una foto en Catálogo.
+- Estado completo de esta tienda: `docs/ESTADO_YBMOTOCOM.md` en su repo.
 
 ## 000. ⚠️ Migración `00064_rename_gmf_category.sql` (categorías de gasto) — falta YBMOTOCOM
 
@@ -248,8 +250,13 @@ RLS) y las de trigger. Revisado: todas las llamadas `.rpc` de la app usan `getSe
 sale del navegador. Probada en PGlite con todas las migraciones: solo queda `get_user_role` abierta, ninguna función
 abierta llama a una cerrada, idempotente. Al final trae una consulta de verificación (debe devolver solo
 `get_user_role`).
-- [ ] YJBMOTOCOM: correr la 00065 y mandar captura; probar en vivo una venta, un gasto y un abono.
-- [ ] YBMOTOCOM: igual, después de YJBMOTOCOM.
+- [x] YJBMOTOCOM: corrida por el usuario el 2026-11-25. Captura de la verificación: solo `get_user_role(user_id uuid)`.
+- [x] YBMOTOCOM: corrida por el usuario el 2026-11-25. Misma verificación: solo `get_user_role(user_id uuid)`.
+- [ ] Las dos: usar la tienda normal (una venta, un gasto, un abono) y avisar si algo da error de permisos. Si pasa,
+  la causa sería una función que sí se llama con la sesión del usuario: devolverle el permiso solo a ella con
+  `GRANT EXECUTE ON FUNCTION public.<nombre>(<args>) TO authenticated;`.
+- **Regla para funciones nuevas:** toda función `SECURITY DEFINER` nueva debe llevar su
+  `REVOKE ALL ... FROM PUBLIC, anon, authenticated` y `GRANT EXECUTE ... TO service_role` en la misma migración.
 
 - **Encontrado el 2026-11-21** probando la 00064. En Postgres una función nueva queda ejecutable por PUBLIC, y Supabase
   además le da permiso a `anon` y `authenticated`. Muchas migraciones solo hicieron `GRANT ... TO service_role`, sin
@@ -291,7 +298,8 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
   Diferencias: (1) YB sin bucket `product-images` (fotos de productos fallaban); (2) dos índices de
   `inventory_movements` con nombre corto en YB (salió de `schema.sql`, ya corregido); (3) YJB tiene además
   `rls_auto_enable()`, función que crea el propio Supabase (no viene de migraciones; no hace falta copiarla). (1) y (2)
-  los arregla `00066_product_images_bucket_and_index_names.sql`: **falta correrla en YBMOTOCOM** (en YJB no hace nada).
+  los arregla `00066_product_images_bucket_and_index_names.sql`: **corrida en YBMOTOCOM el 2026-11-25** (captura:
+  bucket `product-images publico=true` y los dos `idx_inventory_movements_*`). En YJB no hace falta (no cambia nada).
   Admin nuevo de YBMOTOCOM `adminyojan@ybmotocom.com` creado por el usuario con rol `admin` (captura); también existen
   `yojan_admin@ybmotocom.com` y `ybmotocom.cc.megacentro@gmail.com`, ambos admin.
 
