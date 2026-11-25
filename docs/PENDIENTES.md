@@ -47,13 +47,20 @@ textos, sin migración.
 8. Seguridad: `npm audit` (19 avisos al 2026-11-21), 2FA para el admin y límite de intentos de inicio de sesión
    (sección 2).
 
-**YBMOTOCOM** (repo aparte, en el otro PC: `C:\Users\JJBarajas\Pictures\YOJAN`):
-1. Revisar por qué Vercel no publica y mandar captura del último despliegue (sección 1d).
-2. Correr en su Supabase, **en orden**, de la 00056 a la 00064 (sección 1).
-3. Hacer el push de los commits locales que esperan esas migraciones (`85042ed`, `0bcf0a2`, `8a02aa2`, `11e65ea` y
-   `9ee404e`, este último de etiquetas en Facturas del 2026-11-25), solo después de correrlas (secciones 0 y 0a).
-4. Replicar el cambio del 4x1000 en abonos, transferencias y préstamos (sección 00) y el de categorías (sección 000).
-   Ninguno de los dos se ha llevado allá todavía.
+**YBMOTOCOM** (repo `C:\Users\JJBarajas\Pictures\YOJAN`). Puesta al día del 2026-11-25:
+- **Código ya igual a YJBMOTOCOM** en 10 commits locales (`0cc273e`..`f8fcbaa`, autor YBMOTOCOM), sin push. Incluye el
+  4x1000 en abonos (00063), las categorías (00064), las etiquetas de Facturas y la **autorización de admin para
+  cancelar/editar/cambiar método** (parte de `79cef2a` del 31-oct que nunca se había llevado). Solo quedan distintos
+  `brand.ts`, contacto y FAQ. `tsc`, lint y 267/267 pruebas OK. Los hashes viejos (`85042ed`, `0bcf0a2`, `8a02aa2`,
+  `11e65ea`, `9ee404e`) cambiaron al ponerles autor YBMOTOCOM.
+- **Causa de "Vercel no publica":** producción está fijada a un *Instant Rollback* del 4-sep. Mientras siga así, los
+  despliegues nuevos no pasan a producción solos. Hay que deshacer el rollback (o promover el último despliegue)
+  **después** de las migraciones y el push.
+
+1. Correr en su Supabase `scripts/verificar-migraciones-00056-00064.sql` (solo lectura) y mandar captura.
+2. Correr, **en orden**, las que salgan "FALTA" de la 00056 a la 00064 (sección 1).
+3. Push de los 10 commits.
+4. Vercel: deshacer el Instant Rollback / promover el último despliegue y confirmar "Deployment has completed".
 5. Configurar `CRON_SECRET` en Vercel, con una clave distinta a la de YJBMOTOCOM (sección 2.1).
 6. Revisar los datos de Finanzas → Inventario: productos de demostración, productos sin categoría y costos en $0
    (sección 1d).
