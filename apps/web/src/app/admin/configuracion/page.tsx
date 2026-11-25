@@ -327,7 +327,7 @@ export default function ConfiguracionPage() {
               <Input
                 value={settings.contact_info.business_hours.weekdays}
                 onChange={(e) => updateBusinessHours('weekdays', e.target.value)}
-                placeholder="Lunes a Viernes: 8:00 AM - 6:00 PM"
+                placeholder="Lunes a Sábado: 9:00 AM - 7:00 PM"
                 className="rounded-xl"
               />
             </div>
@@ -336,7 +336,7 @@ export default function ConfiguracionPage() {
               <Input
                 value={settings.contact_info.business_hours.saturday}
                 onChange={(e) => updateBusinessHours('saturday', e.target.value)}
-                placeholder="Sábado: 9:00 AM - 2:00 PM"
+                placeholder="(vacío si ya va en la línea anterior)"
                 className="rounded-xl"
               />
             </div>
@@ -345,7 +345,7 @@ export default function ConfiguracionPage() {
               <Input
                 value={settings.contact_info.business_hours.sunday}
                 onChange={(e) => updateBusinessHours('sunday', e.target.value)}
-                placeholder="Domingo: Cerrado"
+                placeholder="Domingos y festivos: 10:00 AM - 4:00 PM"
                 className="rounded-xl"
               />
             </div>

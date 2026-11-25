@@ -74,8 +74,8 @@ textos, sin migración.
     Transferencia apagada (no hay cuenta bancaria); sueldos $3.650.000 (Marilyn $1.950.000 + Santiago $1.700.000),
     sin arriendo (local propio), servicios variables (se registran como gasto); meta de equipo $60.000.000 y **bono 1%
     de todo lo vendido** (nuevo, migración 00067). `brand.ts` de YB con los mismos datos.
-    - [ ] YJBMOTOCOM: correr `00067_seller_bonus_pct.sql` **antes** del push (si no, "Guardar meta" falla).
-    - [ ] YBMOTOCOM: correr `scripts/configurar-tienda-ybmotocom.sql` (trae la 00067) antes del push.
+    - [x] YJBMOTOCOM: 00067 corrida por el usuario el 2026-11-25 ("Success").
+    - [x] YBMOTOCOM: `configurar-tienda-ybmotocom.sql` corrido el 2026-11-25 (captura con las 9 filas).
     - [ ] Push de los dos repos y revisar en vivo el pie de página de YB y la tarjeta de meta.
 
 1. ~~Verificar migraciones~~ y 2. ~~Correr las que faltaban~~: **HECHO 2026-11-25.** La 00056 ya estaba; el usuario

@@ -207,8 +207,8 @@ Si no se alcanza un acuerdo, las partes se someten a la jurisdicción de los tri
 **Email:** contacto@yjbmotocom.com
 
 **Horario de atención:**
-Lunes a Viernes: 9:00 AM - 6:00 PM
-Sábados: 9:00 AM - 1:00 PM
+Lunes a Sábado: 9:00 AM - 7:00 PM
+Domingos y festivos: 10:00 AM - 4:00 PM
 
 Tiempo de respuesta estimado: 24-48 horas hábiles.
 

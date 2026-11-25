@@ -219,8 +219,8 @@ Si eres padre/madre y crees que tu hijo ha proporcionado información personal, 
 
 **Email:** ${BRAND.supportEmail}
 **Teléfono:** +57 321 411 1371 / +57 314 406 5520
-**Dirección:** Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2, Bogotá, Colombia
-**Horario de Atención:** Lunes a Viernes 8:00 AM - 6:00 PM, Sábados 9:00 AM - 2:00 PM
+**Dirección:** Av Caracas No. 17-47, Cc Megacentro, Local 127 Exterior, Bogotá, Colombia
+**Horario de Atención:** Lunes a Sábado 9:00 AM - 7:00 PM, Domingos y festivos 10:00 AM - 4:00 PM
 
 **Responsable del Tratamiento de Datos:**
 YJBMOTOCOM

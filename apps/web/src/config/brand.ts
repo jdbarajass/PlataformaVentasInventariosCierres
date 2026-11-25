@@ -71,7 +71,7 @@ export const BRAND = {
   contact: {
     phonePrimary: '+57 321 411 1371',
     phoneSecondary: '+57 314 406 5520',
-    address: 'Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2',
+    address: 'Av Caracas No. 17-47, Cc Megacentro, Local 127 Exterior',
     city: 'Bogotá',
     cityCountry: 'Bogotá, Colombia',
     region: 'Cundinamarca',

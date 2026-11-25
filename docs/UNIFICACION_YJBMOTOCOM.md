@@ -3211,3 +3211,15 @@ seguía con los valores por defecto de la 00002, que son de YJBMOTOCOM: el pie d
 mostraba el teléfono y la dirección de YJB. `scripts/configurar-tienda-ybmotocom.sql` (repo YB) carga los datos reales
 de YB (contacto, horario, WhatsApp, Transferencia apagada, gastos fijos, meta y bono) y `brand.ts` de YB quedó con los
 mismos datos.
+
+### 105.1 Dirección real de YJBMOTOCOM y horario de las dos tiendas (2026-11-25)
+
+El usuario aclaró que YJBMOTOCOM queda en el **Local 127 Exterior**. "Local 111 Isla S" es el de YBMOTOCOM, y
+YJB lo mostraba por error. Dirección confirmada: **Av Caracas No. 17-47, Cc Megacentro, Local 127 Exterior,
+Bogotá**. Corregida en `brand.ts`, Contacto, FAQ (2 respuestas), Privacidad y en `store_settings.contact_info` de la
+base de YJB (lo cambió Claude con la llave de servicio, solo dirección y horario). El recibo térmico conserva
+"AK 14 # 17-21 LOCAL 127", su dato fiscal.
+
+Horario de las dos tiendas: **lunes a sábado 9:00 AM - 7:00 PM; domingos y festivos 10:00 AM - 4:00 PM**. Actualizado en
+Contacto (valores por defecto), FAQ, Privacidad, Términos, ejemplos de Configuración y en la base de las dos.
+YBMOTOCOM: Privacidad ahora muestra su dirección (Cc Megacentro, Local 111 Isla S).
