@@ -11,6 +11,20 @@
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
 
+## Cómo saber en qué Supabase se está (2026-11-26)
+
+En el panel de Supabase, el proyecto de **YJBMOTOCOM se llama "YB_MOTOCOM"** (nombre viejo, de antes de que existiera
+la segunda tienda). Para no confundirse, guiarse siempre por el **ID del proyecto** que sale en la dirección del
+navegador (`supabase.com/dashboard/project/<ID>`), no por el nombre:
+
+| Tienda | ID del proyecto Supabase | Carpeta del código |
+|---|---|---|
+| YJBMOTOCOM | `agwjqetdlgmqtnepaqzj` | `C:\Users\JJBarajas\Pictures\PlataformaVentasInventariosCierres` |
+| YBMOTOCOM | `ccoehayafcvfrnqnuhfa` | `C:\Users\JJBarajas\Pictures\YOJAN` |
+
+Cambiar el nombre en Supabase (Project Settings → General → Project name) es seguro: la página se conecta por el ID
+(dentro de `NEXT_PUBLIC_SUPABASE_URL`) y las llaves, que no cambian al renombrar. Ni el código ni Vercel usan el nombre.
+
 ## Resumen rápido por tienda (verificado 2026-11-21)
 
 **Estado de YJBMOTOCOM verificado el 2026-11-21:**
