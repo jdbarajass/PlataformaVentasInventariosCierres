@@ -13,8 +13,9 @@
 
 ## Cómo saber en qué Supabase se está (2026-11-26)
 
-En el panel de Supabase, el proyecto de **YJBMOTOCOM se llama "YB_MOTOCOM"** (nombre viejo, de antes de que existiera
-la segunda tienda). Para no confundirse, guiarse siempre por el **ID del proyecto** que sale en la dirección del
+En el panel de Supabase, el proyecto de YJBMOTOCOM se llamaba "YB_MOTOCOM" (nombre viejo, de antes de que existiera
+la segunda tienda). **El usuario lo renombró a "YJB_MOTOCOM" el 2026-11-26** (captura); nada dejó de funcionar porque
+la conexión va por el ID. Aun así, guiarse siempre por el **ID del proyecto** que sale en la dirección del
 navegador (`supabase.com/dashboard/project/<ID>`), no por el nombre:
 
 | Tienda | ID del proyecto Supabase | Carpeta del código |
