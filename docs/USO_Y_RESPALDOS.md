@@ -66,8 +66,12 @@ Vercel Pro US$20/mes por usuario.
 **Ojo:**
 - Vercel Hobby es, según sus condiciones, para uso **no comercial**. Hoy no cobra, pero en teoría a una tienda le
   corresponde Pro.
-- La cuenta de Vercel de YJBMOTOCOM muestra "Action Required: the billing address on your payment method is missing"
-  (2026-11-26): esa cuenta tiene una tarjeta registrada. Revisar en Settings → Billing que no haya nada contratado.
+- La cuenta de Vercel de YJBMOTOCOM tiene una tarjeta registrada **solo para el dominio `yjbmotocom.com`**, que se
+  compró en Vercel (confirmado por el usuario el 2026-11-26). El dominio **se renueva cada año y se cobra a esa
+  tarjeta**; la tarjeta no hace que se cobre el uso (en Hobby se bloquea, no se cobra). El aviso "Action Required:
+  billing address missing" pide completar la dirección de facturación: conviene hacerlo (Settings → Billing) para que
+  la renovación no falle. Si falla y el dominio vence, la tienda deja de abrir en www.yjbmotocom.com. Revisar la fecha
+  de renovación y que "Auto Renew" esté activo en Domains.
 
 ## 5. Respaldos
 

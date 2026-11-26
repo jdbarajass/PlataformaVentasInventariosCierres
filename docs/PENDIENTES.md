@@ -33,7 +33,9 @@ Detalle en `docs/USO_Y_RESPALDOS.md`. Uso medido el 2026-11-26: todo por debajo 
 - [ ] Crear `scripts/respaldo-bd.config.local` con la carpeta de la nube y las URL "Session pooler" de las dos bases.
 - [ ] Correr `scripts/respaldo-bd.ps1` y confirmar los dos `.dump` en la nube; programarlo (Programador de tareas).
 - [ ] Restauración de prueba en un proyecto aparte.
-- [ ] Vercel de YJBMOTOCOM: aviso "billing address missing" — revisar en Settings → Billing que no haya nada pago.
+- [x] Tarjeta en Vercel de YJBMOTOCOM: es solo para el dominio `yjbmotocom.com` (usuario, 2026-11-26).
+- [ ] Vercel de YJBMOTOCOM: completar la dirección de facturación (aviso "billing address missing") y confirmar en
+  Domains la fecha de renovación del dominio y que "Auto Renew" esté activo (se cobra cada año a esa tarjeta).
 
 ## Resumen rápido por tienda (verificado 2026-11-21)
 
