@@ -117,8 +117,9 @@ como operativo hasta el push.
 ## 00b. ⚠️ Migraciones `00069` y `00070` (precio mínimo al cliente, 35% en YJBMOTOCOM) — antes del push
 
 Cambio del 2026-11-26 (unificación sección 107): precios por % en Catálogo → Productos y categoría en Ingresar.
-- [ ] YJBMOTOCOM: correr `00069_product_client_min_markup_pct.sql` y luego `00070_client_min_markup_default_35.sql`
-  (la consulta final debe dar `sin_pct = 0`). Después, push y revisar en vivo Catálogo → Productos.
+- [x] YJBMOTOCOM: 00069 y 00070 corridas por el usuario el 2026-11-26 (captura: 239 productos, `sin_pct = 0`,
+  `en_35 = 239`; verificado también por API: los 239 en 35). YBMOTOCOM no se tocó (verificado).
+- [ ] YJBMOTOCOM: revisar en vivo Catálogo → Productos (admin y vendedor) e Inventario → Ingresar después del push.
 - [x] YBMOTOCOM: 00069 corrida el 2026-11-25 (allá no va la 00070; el % se elige por producto).
 - Pendiente en las dos: el costo todavía le llega al vendedor por `GET /api/products`, `GET /api/products/[id]`
   (pública) y consultas directas a Supabase (RLS). Cerrarlo implica tocar Inventario y permisos de columnas.
