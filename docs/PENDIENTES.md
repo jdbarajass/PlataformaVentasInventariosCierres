@@ -36,8 +36,10 @@ Detalle en `docs/USO_Y_RESPALDOS.md`. Uso medido el 2026-11-26: todo por debajo 
 - [x] Tarjeta en Vercel de YJBMOTOCOM: es solo para el dominio `yjbmotocom.com` (usuario, 2026-11-26).
 - [x] Vercel de YJBMOTOCOM: dirección de facturación completada por el usuario el 2026-11-26 (captura: el aviso
   "Action Required" ya no aparece).
-- [ ] Vercel de YJBMOTOCOM: confirmar en Domains la fecha de renovación de `yjbmotocom.com` y que "Auto Renew" esté
-  activo (se cobra cada año a esa tarjeta).
+- [ ] Dominio `yjbmotocom.com` **vence el 2027-03-19** (registro público RDAP, consultado 2026-11-26; registrado el
+  2026-03-19 por Vercel a través de Name.com). Confirmar que "Auto Renew" esté activo: Vercel → menú de la cuenta
+  (no el del proyecto) → Domains → `yjbmotocom.com`. En el proyecto, Settings → Domains está bien: www en producción y
+  `yjbmotocom.com` redirige a www (308).
 
 ## Resumen rápido por tienda (verificado 2026-11-21)
 
