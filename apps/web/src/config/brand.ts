@@ -109,4 +109,12 @@ export const BRAND = {
    * libre para escribir cualquier otro. Pedido del usuario 2026-11-17.
    */
   loanPartners: ['YBMOTOCOM', 'YOJAN (VECINO)', 'EDEN', 'RENZO', 'PATRICIA MT'],
+
+  /**
+   * Dominio propio comprado en Vercel con renovación automática anual (se cobra
+   * a la tarjeta de la cuenta de Vercel). El panel avisa al admin 5 días antes
+   * (components/admin/domain-renewal-banner.tsx). Registrado el 2026-03-19;
+   * se renueva cada 19 de marzo. null = la tienda no tiene dominio propio.
+   */
+  domainRenewal: { domain: 'yjbmotocom.com', monthDay: '03-19' } as { domain: string; monthDay: string } | null,
 } as const

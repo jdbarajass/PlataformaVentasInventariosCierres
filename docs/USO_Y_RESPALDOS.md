@@ -73,6 +73,15 @@ Vercel Pro US$20/mes por usuario.
   la renovación no falle. Si falla y el dominio vence, la tienda deja de abrir en www.yjbmotocom.com. Revisar la fecha
   de renovación y que "Auto Renew" esté activo en Domains.
 
+### Renovación del dominio `yjbmotocom.com`
+- Comprado en Vercel (registrador Name.com) el 2026-03-19. **Auto-Renewal activado** (captura del usuario,
+  2026-11-26): se renueva solo cada **19 de marzo** (próxima: 2027-03-19) y se cobra a la tarjeta de esa cuenta.
+- **Aviso en el panel:** desde 5 días antes y hasta el día de la renovación, el admin ve una franja amarilla arriba
+  del panel para revisar que la tarjeta esté vigente (`components/admin/domain-renewal-banner.tsx`,
+  `lib/domain-renewal.ts`). Se puede cerrar y vuelve a salir al día siguiente. La fecha se calcula sola cada año.
+- Se configura en `BRAND.domainRenewal` (`config/brand.ts`): YJBMOTOCOM `{ domain: 'yjbmotocom.com', monthDay:
+  '03-19' }`; YBMOTOCOM `null` (no tiene dominio propio, nunca sale el aviso). El código es igual en las dos tiendas.
+
 ## 5. Respaldos
 
 ### Lo que ya existe (no sirve para restaurar)

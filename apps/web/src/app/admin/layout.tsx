@@ -45,6 +45,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { SessionAlerts } from '@/components/admin/session-alerts'
+import { DomainRenewalBanner } from '@/components/admin/domain-renewal-banner'
 import { BRAND } from '@/config/brand'
 
 // adminOnly: oculta el enlace del menú a 'seller', igual que el software
@@ -532,7 +533,10 @@ export default function AdminLayout({
       {/* pt-14 en celular = alto de la barra superior fija. min-w-0: sin él,
           una tabla ancha estira el flex item más allá de la pantalla. */}
       <main className={cn('min-w-0 flex-1 pt-14 transition-[padding] duration-200 lg:pt-0', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8">
+          <DomainRenewalBanner />
+          {children}
+        </div>
       </main>
       <SessionAlerts />
     </div>
