@@ -28,6 +28,7 @@ const createMockProduct = (id: string, title: string, slug: string, priceCents: 
   price_cents: priceCents,
   cost_cents: 0,
   compare_at_price_cents: compareAtPriceCents,
+  client_min_markup_pct: null,
   category_id: categoryId,
   images: [],
   stock_qty: stockQty,

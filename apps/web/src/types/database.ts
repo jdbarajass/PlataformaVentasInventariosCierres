@@ -101,6 +101,9 @@ export interface Database {
           price_cents: number
           cost_cents: number
           compare_at_price_cents: number | null
+          // % sobre el costo para el precio mínimo al cliente final — solo
+          // admin lo define/ve (migración 00069). NULL = sin definir.
+          client_min_markup_pct: number | null
           category_id: string | null
           images: string[]
           stock_qty: number
@@ -127,6 +130,7 @@ export interface Database {
           price_cents: number
           cost_cents?: number
           compare_at_price_cents?: number | null
+          client_min_markup_pct?: number | null
           category_id?: string | null
           images?: string[]
           stock_qty?: number
@@ -149,6 +153,7 @@ export interface Database {
           price_cents?: number
           cost_cents?: number
           compare_at_price_cents?: number | null
+          client_min_markup_pct?: number | null
           category_id?: string | null
           images?: string[]
           stock_qty?: number

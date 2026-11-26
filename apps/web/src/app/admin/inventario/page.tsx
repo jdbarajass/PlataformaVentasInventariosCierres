@@ -38,6 +38,8 @@ import { BOGOTA_TZ, bogotaDateStr, formatBogotaTime } from '@/lib/bogota-time'
 import {
   TALLAS_DISPONIBLES,
   detectarCategoria,
+  prefijoDeCategoria,
+  sugerirSlugCategoria,
   generarCodigoBarrasAuto,
   generarSiguienteSerial,
   derivarCodigoBarrasHermano,
@@ -420,23 +422,31 @@ export default function InventarioPage() {
     barcode: string | null
     sku: string | null
     categoria: string
+    // Categoría asignada de verdad (category_id); null = "Sin categoría"
+    // (en ese caso `categoria` es la inferida por el nombre).
+    categoriaNombre: string | null
+    categoriaSlug: string | null
     lowStockThreshold: number
   }
   const [itemsInventario, setItemsInventario] = useState<ItemInventario[]>([])
+  // Categorías activas para el selector "Categoría" de Ingresar.
+  const [categoriasActivas, setCategoriasActivas] = useState<{ id: string; name: string; slug: string }[]>([])
   const [ingresarLoaded, setIngresarLoaded] = useState(false)
   const [loadingIngresar, setLoadingIngresar] = useState(false)
 
   const fetchIngresarData = useCallback(async () => {
     setLoadingIngresar(true)
     try {
-      const [{ data: allProducts }, { data: allVariants }] = await Promise.all([
+      const [{ data: allProducts }, { data: allVariants }, { data: cats }] = await Promise.all([
         supabase
           .from('products')
-          .select('id, title, sku, barcode, cost_cents, stock_qty, low_stock_threshold, categories(name)'),
+          .select('id, title, sku, barcode, cost_cents, stock_qty, low_stock_threshold, categories(name, slug)'),
         supabase
           .from('product_variants')
           .select('id, product_id, talla, sku, barcode, cost_cents, stock_qty, low_stock_threshold'),
+        supabase.from('categories').select('id, name, slug').eq('active', true).order('sort_order', { ascending: true }),
       ])
+      setCategoriasActivas((cats || []) as { id: string; name: string; slug: string }[])
       const variantsByProduct = new Map<string, any[]>()
       for (const v of (allVariants || []) as any[]) {
         const list = variantsByProduct.get(v.product_id) || []
@@ -446,6 +456,8 @@ export default function InventarioPage() {
       const items: ItemInventario[] = []
       for (const p of (allProducts || []) as any[]) {
         const categoria = p.categories?.name?.trim() ? p.categories.name.trim().toUpperCase() : inferCategoria(p.title)
+        const categoriaNombre: string | null = p.categories?.name?.trim() || null
+        const categoriaSlug: string | null = p.categories?.slug || null
         const variants = variantsByProduct.get(p.id)
         if (variants && variants.length > 0) {
           for (const v of ordenarPorTalla(variants)) {
@@ -459,6 +471,8 @@ export default function InventarioPage() {
               barcode: v.barcode,
               sku: v.sku,
               categoria,
+              categoriaNombre,
+              categoriaSlug,
               lowStockThreshold: v.low_stock_threshold,
             })
           }
@@ -473,6 +487,8 @@ export default function InventarioPage() {
             barcode: p.barcode,
             sku: p.sku,
             categoria,
+            categoriaNombre,
+            categoriaSlug,
             lowStockThreshold: p.low_stock_threshold,
           })
         }
@@ -634,6 +650,27 @@ export default function InventarioPage() {
   const [ingresarSerialManual, setIngresarSerialManual] = useState('')
   const [ingresarBarcodeManual, setIngresarBarcodeManual] = useState('')
   const [savingIngresar, setSavingIngresar] = useState(false)
+  // Categoría del producto nuevo. Se pre-elige sola por el nombre (ej.
+  // "CASCO ..." → Cascos) hasta que el usuario la cambie a mano.
+  const [ingresarCategoriaId, setIngresarCategoriaId] = useState('')
+  const [ingresarCategoriaTocada, setIngresarCategoriaTocada] = useState(false)
+
+  // Si el nombre ya existe, no se crea producto: se le suman tallas/stock y
+  // conserva la categoría que ya tiene (se cambia en Catálogo → Productos).
+  const productoExistenteIngresar = ingresarNombre.trim()
+    ? itemsInventario.find((i) => i.title.trim().toLowerCase() === ingresarNombre.trim().toLowerCase()) || null
+    : null
+
+  useEffect(() => {
+    if (ingresarCategoriaTocada) return
+    const slug = sugerirSlugCategoria(ingresarNombre)
+    setIngresarCategoriaId(categoriasActivas.find((c) => c.slug === slug)?.id || '')
+  }, [ingresarNombre, categoriasActivas, ingresarCategoriaTocada])
+
+  const categoriaElegida = categoriasActivas.find((c) => c.id === ingresarCategoriaId) || null
+  // Prefijo del código de barras: el de la categoría elegida (si tiene uno);
+  // si no, generarCodigoBarrasAuto lo detecta por el nombre como antes.
+  const ccIngresar = productoExistenteIngresar ? null : prefijoDeCategoria(categoriaElegida?.slug)
 
   // itemsInventario solo trae, por producto, las filas de sus VARIANTES
   // (talla/sku/barcode de cada una) — el sku/barcode del producto BASE se
@@ -645,12 +682,14 @@ export default function InventarioPage() {
   const skusExistentes = [...products.map((p) => p.sku), ...itemsInventario.map((i) => i.sku)]
   const serialSugerido = String(generarSiguienteSerial(skusExistentes))
   const barcodeSugerido = ingresarNombre.trim()
-    ? generarCodigoBarrasAuto(ingresarNombre, ingresarTalla, codigosExistentes)
+    ? generarCodigoBarrasAuto(ingresarNombre, ingresarTalla, codigosExistentes, ccIngresar)
     : ''
 
-  const categoriaDetectada = ingresarNombre.trim() ? detectarCategoria(ingresarNombre) : null
+  const categoriaDetectada = ingresarNombre.trim() ? ccIngresar || detectarCategoria(ingresarNombre) : null
   const productosSimilares = categoriaDetectada
-    ? itemsInventario.filter((i) => detectarCategoria(i.title) === categoriaDetectada)
+    ? itemsInventario.filter(
+        (i) => (prefijoDeCategoria(i.categoriaSlug) || detectarCategoria(i.title)) === categoriaDetectada
+      )
     : []
 
   const nombresSugeridos = Array.from(new Set(itemsInventario.map((i) => i.title))).filter((t) =>
@@ -667,6 +706,8 @@ export default function InventarioPage() {
     setIngresarManual(false)
     setIngresarSerialManual('')
     setIngresarBarcodeManual('')
+    setIngresarCategoriaId('')
+    setIngresarCategoriaTocada(false)
   }
 
   const handleIngresar = async () => {
@@ -685,6 +726,11 @@ export default function InventarioPage() {
       toast({ title: 'Error', description: 'La cantidad debe ser mayor a 0', variant: 'destructive' })
       return
     }
+    if (!productoExistenteIngresar && categoriasActivas.length > 0 && !ingresarCategoriaId) {
+      toast({ title: 'Error', description: 'Elige la categoría del producto', variant: 'destructive' })
+      return
+    }
+    const categoryId = ingresarCategoriaId || null
     const costCents = Math.round((parseFloat(ingresarCosto) || 0) * 100)
     const serial = ingresarManual ? ingresarSerialManual.trim() : serialSugerido
 
@@ -707,7 +753,7 @@ export default function InventarioPage() {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
             body: JSON.stringify({
               title: nombre, slug, price_cents: Math.round(costCents * 1.3) || 0, cost_cents: costCents,
-              stock_qty: 0, active: false, images: [], sku: serial, barcode: null,
+              stock_qty: 0, active: false, images: [], sku: serial, barcode: null, category_id: categoryId,
             }),
           })
           if (!res.ok) {
@@ -736,7 +782,7 @@ export default function InventarioPage() {
           if (codigoBase9) {
             barcodeTalla = `${codigoBase9}${tallaADigito(talla)}`
           } else {
-            barcodeTalla = generarCodigoBarrasAuto(nombre, talla, codigosExistentes)
+            barcodeTalla = generarCodigoBarrasAuto(nombre, talla, codigosExistentes, ccIngresar)
             codigoBase9 = barcodeTalla.slice(0, 9)
           }
 
@@ -821,6 +867,7 @@ export default function InventarioPage() {
               images: [],
               sku: serial,
               barcode: talla ? null : barcode,
+              category_id: categoryId,
             }),
           })
           if (!res.ok) {
@@ -2090,6 +2137,42 @@ export default function InventarioPage() {
                   <option key={n} value={n} />
                 ))}
               </datalist>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Categoría</label>
+              {productoExistenteIngresar ? (
+                <p className="rounded-xl border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  {productoExistenteIngresar.categoriaNombre || 'Sin categoría'} — este producto ya existe; su categoría
+                  se cambia en Catálogo → Productos.
+                </p>
+              ) : (
+                <>
+                  <select
+                    value={ingresarCategoriaId}
+                    onChange={(e) => {
+                      setIngresarCategoriaId(e.target.value)
+                      setIngresarCategoriaTocada(true)
+                    }}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
+                  >
+                    <option value="">Elige una categoría…</option>
+                    {categoriasActivas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {ingresarNombre.trim() && categoriaElegida && !ingresarCategoriaTocada && (
+                    <p className="mt-1 text-xs text-muted-foreground">Sugerida por el nombre; puedes cambiarla.</p>
+                  )}
+                  {categoriasActivas.length === 0 && !loadingIngresar && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No hay categorías activas. Créalas en Catálogo → Categorías.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             <label className="flex items-center gap-2 text-sm font-medium touch:min-h-11">

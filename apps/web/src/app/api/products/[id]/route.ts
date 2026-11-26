@@ -26,7 +26,11 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(product)
+    // Ruta pública: sin el % del precio mínimo al cliente (solo admin, se lee
+    // de /api/products). cost_cents sigue saliendo — pendiente en
+    // docs/PENDIENTES.md.
+    const { client_min_markup_pct: _pct, ...publicProduct } = product
+    return NextResponse.json(publicProduct)
   } catch (error) {
     console.error('Error fetching product:', error)
     return NextResponse.json(

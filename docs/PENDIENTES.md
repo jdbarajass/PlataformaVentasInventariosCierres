@@ -4,7 +4,7 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-25.
+> Última revisión: 2026-11-26.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
@@ -113,6 +113,15 @@ como operativo hasta el push.
 - [x] YJBMOTOCOM: revisado en vivo el 2026-11-21. Las categorías salen en la lista y los gastos guardados ya tienen el
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
+
+## 00b. ⚠️ Migraciones `00069` y `00070` (precio mínimo al cliente, 35% en YJBMOTOCOM) — antes del push
+
+Cambio del 2026-11-26 (unificación sección 107): precios por % en Catálogo → Productos y categoría en Ingresar.
+- [ ] YJBMOTOCOM: correr `00069_product_client_min_markup_pct.sql` y luego `00070_client_min_markup_default_35.sql`
+  (la consulta final debe dar `sin_pct = 0`). Después, push y revisar en vivo Catálogo → Productos.
+- [x] YBMOTOCOM: 00069 corrida el 2026-11-25 (allá no va la 00070; el % se elige por producto).
+- Pendiente en las dos: el costo todavía le llega al vendedor por `GET /api/products`, `GET /api/products/[id]`
+  (pública) y consultas directas a Supabase (RLS). Cerrarlo implica tocar Inventario y permisos de columnas.
 
 ## 00. ⚠️ Migración `00063_gmf_payments_transfers.sql` (4x1000 en abonos, transferencias y préstamos; fecha del abono) — falta YBMOTOCOM
 

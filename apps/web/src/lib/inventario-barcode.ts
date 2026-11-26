@@ -43,6 +43,38 @@ const TALLA_DIGITO: Record<string, string> = {
 
 export const TALLAS_DISPONIBLES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'N/A']
 
+// Prefijo CC del código de barras según la categoría de la base de datos
+// (slug de public.categories, ver scripts/categorias-como-yjbmotocom.sql).
+// Repuestos y Lubricantes no tienen prefijo propio: con ellas se sigue
+// detectando por el nombre. "Tech" (18) no tiene categoría propia.
+const SLUG_A_PREFIJO: Record<string, string> = {
+  accesorios: '10',
+  cascos: '11',
+  baules: '12',
+  chaquetas: '13',
+  cuellos: '14',
+  guantes: '15',
+  impermeables: '16',
+  'audio-intercomunicadores': '17',
+  sliders: '19',
+  parrillas: '20',
+}
+
+export function prefijoDeCategoria(slug: string | null | undefined): string | null {
+  return (slug && SLUG_A_PREFIJO[slug]) || null
+}
+
+// Slug de la categoría que se sugiere en "Ingresar" a partir del nombre.
+// Solo sugiere cuando alguna palabra clave coincide — el '10' por defecto
+// de detectarCategoria no cuenta como sugerencia.
+export function sugerirSlugCategoria(nombre: string): string | null {
+  const nombreLc = nombre.toLowerCase()
+  const kw = Object.keys(CAT_PREFIJOS).find((k) => nombreLc.includes(k))
+  if (!kw) return null
+  const cc = CAT_PREFIJOS[kw]
+  return Object.keys(SLUG_A_PREFIJO).find((s) => SLUG_A_PREFIJO[s] === cc) || null
+}
+
 export function detectarCategoria(nombre: string): string {
   const nombreLc = nombre.toLowerCase()
   for (const [kw, cc] of Object.entries(CAT_PREFIJOS)) {
@@ -83,9 +115,12 @@ function mmMasFrecuente(codigos: string[]): string | null {
 export function generarCodigoBarrasAuto(
   nombre: string,
   talla: string,
-  codigosExistentes: (string | null | undefined)[]
+  codigosExistentes: (string | null | undefined)[],
+  // Prefijo de la categoría elegida en el formulario; si no viene, se
+  // detecta por el nombre como siempre.
+  ccCategoria?: string | null
 ): string {
-  const cc = detectarCategoria(nombre)
+  const cc = ccCategoria || detectarCategoria(nombre)
   const tDigit = tallaADigito(talla)
   const codigosCat = codigosValidos(codigosExistentes).filter((c) => c.slice(0, 2) === cc)
   const codigosSet = new Set(codigosCat)

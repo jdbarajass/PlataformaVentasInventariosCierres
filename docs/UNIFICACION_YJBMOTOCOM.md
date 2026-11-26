@@ -3247,3 +3247,36 @@ Pruebas:
 
 Nota de entorno: en Windows, Vitest falla con "No test suite found" si la carpeta empieza por `c:` en minúscula. Hay
 que correrlo con la ruta en mayúscula (`C:\...`).
+
+## 107. Precios por % para el cliente y categoría en Ingresar, traídos de YBMOTOCOM (2026-11-26)
+
+Se trajo de YBMOTOCOM (commits `718b6b8`, `715a063` y `d087b97` de ese repo) el mismo código; los archivos de base eran
+idénticos salvo comentarios.
+
+**Precios en Catálogo → Productos** (migración **00069**, igual en las dos tiendas):
+
+| Columna | Fórmula | Admin | Vendedor |
+|---|---|---|---|
+| Costo | — | sí | no |
+| Mín. margen 30% | costo / 0,7 | sí | no |
+| Precio producto montado (+30%) | costo × 1,3 (antes "Mín. +30% costo") | sí | sí |
+| Precio mínimo a la venta cliente | costo × (1 + % del producto) | sí, y elige el % | sí (sin ver el %) |
+| Precio a la venta | `price_cents` (antes "Precio") | sí | sí |
+
+- El % se guarda en `products.client_min_markup_pct`; solo `admin` lo cambia (`PATCH /api/products/[id]/client-markup`).
+- El vendedor recibe los precios ya calculados de `GET /api/products/pricing` (sin costo ni %), redondeados hacia arriba
+  a $500. Si el precio a la venta queda por debajo del mínimo exacto, sale en rojo.
+- El % no sale en `GET /api/products` (salvo admin/admin_readonly) ni en `GET /api/products/[id]`.
+- Calculadora: "Mínimo — +30% sobre costo" pasa a "Precio producto montado (+30%)".
+
+**Solo YJBMOTOCOM — migración 00070:** por pedido del usuario, por ahora el % es **35 para todos**: pone 35 en los
+productos sin % y deja 35 como valor por defecto de la columna (los productos nuevos nacen con 35). Se puede cambiar
+producto por producto. YBMOTOCOM no tiene la 00070 (allá el % se elige por producto; NULL = "Sin definir").
+
+**Categoría en Inventario → Ingresar:** selector "Categoría" debajo del nombre, sugerido por el nombre ("casco" → Cascos)
+y obligatorio al crear un producto nuevo; se guarda en `category_id` y define el prefijo del código de barras
+(`prefijoDeCategoria`/`sugerirSlugCategoria` en `lib/inventario-barcode.ts`). Si el producto ya existe, se muestra su
+categoría (se cambia en Catálogo). Pruebas en `src/__tests__/lib/inventario-barcode.test.ts`.
+
+Orden: correr 00069 y luego 00070 en el SQL Editor **antes** del push (sin la columna, `/api/products/pricing` falla y
+el vendedor no ve los precios). `tsc`, lint y 273/273 pruebas OK.

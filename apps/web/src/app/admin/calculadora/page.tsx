@@ -371,7 +371,7 @@ export default function CalculadoraPage() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
-                  <p className="text-xs text-muted-foreground">Mínimo — +30% sobre costo</p>
+                  <p className="text-xs text-muted-foreground">Precio producto montado (+30%)</p>
                   <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">
                     {formatPrice(minPriceSelected.minMarkup30)}
                   </p>

@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
   // de datos seguiría devolviendo solo activos aunque el filtro de la app
   // se quite.
   let db = supabase
+  let isAdminViewer = false
   if (includeInactive) {
     const auth = await requireAuth(request, ['admin', 'seller'])
     if (!auth.success) return auth.response
     db = createAuthenticatedClient(auth.token)
+    isAdminViewer = auth.user.role === 'admin' || auth.user.role === 'admin_readonly'
   }
 
   let query = db
@@ -74,8 +76,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // El % del precio mínimo al cliente (migración 00069) es solo del admin:
+  // ni la tienda pública ni el vendedor lo reciben (el vendedor ve el precio
+  // ya calculado por /api/products/pricing). OJO: cost_cents todavía viaja
+  // aquí — pendiente en docs/PENDIENTES.md.
+  const products = isAdminViewer
+    ? data
+    : (data || []).map(({ client_min_markup_pct: _pct, ...rest }: any) => rest)
+
   return NextResponse.json({
-    products: data,
+    products,
     total: count,
     limit,
     offset,

@@ -14,6 +14,9 @@ import { formatPrice, getStockStatus } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
+import { OPCIONES_PCT_CLIENTE, precioMinimoCliente, precioMontado } from '@/lib/precios'
+
+type Rango = { min: number; max: number }
 
 function ProductThumbnail({ src, alt }: { src: string; alt: string }) {
   const [hasError, setHasError] = useState(false)
@@ -49,6 +52,10 @@ export default function ProductsPage() {
   const { userProfile } = useAuth()
   // Mismo criterio que Editar Producto: el rol 'seller' no ve el costo real.
   const canViewCost = userProfile?.role === 'admin' || userProfile?.role === 'admin_readonly'
+  // Solo el admin define el % del precio mínimo al cliente (admin_readonly
+  // lo ve, el vendedor solo ve el precio resultante).
+  const canEditClientPct = userProfile?.role === 'admin'
+  const isSeller = userProfile?.role === 'seller'
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [showIncompleteOnly, setShowIncompleteOnly] = useState(false)
@@ -63,6 +70,13 @@ export default function ProductsPage() {
   // "Costo" de la tabla necesita el rango real en vez de leer
   // product.cost_cents (que ahí no se usa).
   const [variantCostsByProduct, setVariantCostsByProduct] = useState<Map<string, number[]>>(new Map())
+  // Vendedor: "precio producto montado" y "precio mínimo a la venta cliente"
+  // ya calculados en el servidor (/api/products/pricing) — así no recibe ni
+  // el costo ni el % de cada producto.
+  const [sellerPricing, setSellerPricing] = useState<
+    Record<string, { montado: Rango; minimoCliente: Rango | null; bajoMinimo: boolean }>
+  >({})
+  const [savingPctId, setSavingPctId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProducts()
@@ -92,6 +106,26 @@ export default function ProductsPage() {
         setVariantCostsByProduct(costMap)
       })
   }, [canViewCost])
+
+  useEffect(() => {
+    if (!isSeller) {
+      setSellerPricing({})
+      return
+    }
+    const loadSellerPricing = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/products/pricing', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) return
+      const json = await res.json()
+      setSellerPricing(json.pricing || {})
+    }
+    loadSellerPricing()
+  }, [isSeller])
 
   const fetchProducts = async () => {
     try {
@@ -149,18 +183,87 @@ export default function ProductsPage() {
     return { min: Math.min(...variantCosts), max: Math.max(...variantCosts) }
   }
 
-  // Precios mínimos sugeridos a partir del costo — solo de referencia
-  // visual, no tocan formData.price ni se guardan en ningún lado:
+  // Precios de referencia a partir del costo — solo visuales, no tocan el
+  // precio de venta del producto:
   //   - margen 30% sobre el precio: costo / 0.7 (el costo queda siendo el
-  //     70% del precio de venta).
-  //   - +30% sobre el costo (markup): costo * 1.3.
+  //     70% del precio de venta). Solo admin.
+  //   - precio producto montado: costo × 1.3 (venta a los locales vecinos).
+  //   - precio mínimo a la venta cliente: costo × (1 + % del producto).
   const costoEntreMargen = (cents: number) => Math.round(cents / 0.7)
-  const costoMasMarkup = (cents: number) => Math.round(cents * 1.3)
 
-  const formatCostRange = (range: { min: number; max: number }, transform: (cents: number) => number) => {
-    const min = transform(range.min)
-    const max = transform(range.max)
-    return min === max ? formatPrice(min) : `${formatPrice(min)} - ${formatPrice(max)}`
+  const applyRange = (range: Rango, transform: (cents: number) => number): Rango => ({
+    min: transform(range.min),
+    max: transform(range.max),
+  })
+  const formatRange = (range: Rango) =>
+    range.min === range.max ? formatPrice(range.min) : `${formatPrice(range.min)} - ${formatPrice(range.max)}`
+
+  // Montado y mínimo cliente de un producto: el admin los calcula acá con el
+  // costo; el vendedor los recibe ya calculados del servidor.
+  // `bajoMinimo`: el precio a la venta no alcanza el mínimo al cliente (de la
+  // talla más cara, si tiene tallas) — se marca en rojo.
+  const getDerivedPrices = (
+    product: Product
+  ): { montado: Rango | null; minimoCliente: Rango | null; bajoMinimo: boolean } => {
+    if (canViewCost) {
+      const costRange = getProductCost(product)
+      const pct = product.client_min_markup_pct
+      const minimoCliente = pct == null ? null : applyRange(costRange, (c) => precioMinimoCliente(c, Number(pct)))
+      return {
+        montado: applyRange(costRange, precioMontado),
+        minimoCliente,
+        bajoMinimo: minimoCliente !== null && product.price_cents < minimoCliente.max,
+      }
+    }
+    // Vendedor: el servidor ya decide `bajoMinimo` con el mínimo exacto (el
+    // que le llega a él viene redondeado a $500 hacia arriba).
+    const p = sellerPricing[product.id]
+    return { montado: p?.montado ?? null, minimoCliente: p?.minimoCliente ?? null, bajoMinimo: p?.bajoMinimo ?? false }
+  }
+
+  const handleClientPctChange = async (product: Product, value: string) => {
+    let pct: number | null
+    if (value === '') {
+      pct = null
+    } else if (value === 'otro') {
+      const input = window.prompt('Porcentaje sobre el costo para el precio mínimo al cliente (ej. 35):')
+      if (input === null) return
+      pct = Number(input.replace(',', '.').replace('%', '').trim())
+      if (!input.trim() || !Number.isFinite(pct) || pct < 0 || pct > 1000) {
+        toast({ title: 'Porcentaje inválido', description: 'Escribe un número entre 0 y 1000', variant: 'destructive' })
+        return
+      }
+    } else {
+      pct = Number(value)
+    }
+
+    setSavingPctId(product.id)
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const res = await fetch(`/api/products/${product.id}/client-markup`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ pct }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'No se pudo guardar el porcentaje')
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, client_min_markup_pct: json.client_min_markup_pct } : p))
+      )
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'No se pudo guardar el porcentaje',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingPctId(null)
+    }
   }
 
   const filteredProducts = products.filter((product) => {
@@ -278,18 +381,24 @@ export default function ProductsPage() {
                   <tr className="border-b text-left text-sm text-muted-foreground">
                     <th className="pb-4 font-medium">Producto</th>
                     <th className="pb-4 font-medium">SKU</th>
-                    <th className="pb-4 font-medium">Precio</th>
                     {canViewCost && (
                       <>
                         <th className="pb-4 font-medium">Costo</th>
                         <th className="pb-4 font-medium" title="Costo ÷ 0.7 — el costo queda siendo el 70% del precio de venta">
                           Mín. margen 30%
                         </th>
-                        <th className="pb-4 font-medium" title="Costo × 1.3 — 30% de utilidad sobre el costo">
-                          Mín. +30% costo
-                        </th>
                       </>
                     )}
+                    <th className="pb-4 font-medium" title="Precio de venta a los locales vecinos (costo + 30%)">
+                      Precio producto montado (+30%)
+                    </th>
+                    <th
+                      className="pb-4 font-medium"
+                      title={canViewCost ? 'Costo + el % que elijas para cada producto' : 'Lo mínimo a lo que se le puede vender al cliente'}
+                    >
+                      Precio mínimo a la venta cliente
+                    </th>
+                    <th className="pb-4 font-medium">Precio a la venta</th>
                     <th className="pb-4 font-medium">Stock</th>
                     <th className="pb-4 font-medium">Estado</th>
                     <th className="pb-4 font-medium">Acciones</th>
@@ -302,6 +411,8 @@ export default function ProductsPage() {
                       product.low_stock_threshold
                     )
                     const costRange = canViewCost ? getProductCost(product) : null
+                    const { montado, minimoCliente, bajoMinimo: precioBajoMinimo } = getDerivedPrices(product)
+                    const clientPct = product.client_min_markup_pct
                     return (
                       <tr key={product.id} className="group">
                         <td className="py-4">
@@ -350,9 +461,51 @@ export default function ProductsPage() {
                         <td className="py-4 text-muted-foreground">
                           {product.sku || '-'}
                         </td>
+                        {canViewCost && costRange && (
+                          <>
+                            <td className="py-4 text-muted-foreground">{formatRange(costRange)}</td>
+                            <td className="py-4 text-muted-foreground">{formatRange(applyRange(costRange, costoEntreMargen))}</td>
+                          </>
+                        )}
+                        <td className="py-4 text-muted-foreground">{montado ? formatRange(montado) : '-'}</td>
+                        <td className="py-4">
+                          <div className="space-y-1">
+                            <p className={minimoCliente ? 'font-medium' : 'text-muted-foreground'}>
+                              {minimoCliente ? formatRange(minimoCliente) : canViewCost ? 'Sin definir' : '-'}
+                            </p>
+                            {canEditClientPct ? (
+                              <select
+                                className="h-7 rounded-md border bg-background px-2 text-xs disabled:opacity-50"
+                                value={clientPct == null ? '' : String(Number(clientPct))}
+                                disabled={savingPctId === product.id}
+                                onChange={(e) => handleClientPctChange(product, e.target.value)}
+                                aria-label="Porcentaje sobre el costo para el precio mínimo al cliente"
+                              >
+                                <option value="">Elegir %</option>
+                                {clientPct != null && !OPCIONES_PCT_CLIENTE.includes(Number(clientPct)) && (
+                                  <option value={String(Number(clientPct))}>+{Number(clientPct)}%</option>
+                                )}
+                                {OPCIONES_PCT_CLIENTE.map((pct) => (
+                                  <option key={pct} value={String(pct)}>
+                                    +{pct}%
+                                  </option>
+                                ))}
+                                <option value="otro">Otro…</option>
+                              </select>
+                            ) : (
+                              canViewCost &&
+                              clientPct != null && (
+                                <p className="text-xs text-muted-foreground">+{Number(clientPct)}% sobre costo</p>
+                              )
+                            )}
+                          </div>
+                        </td>
                         <td className="py-4">
                           <div>
-                            <p className="font-medium">
+                            <p
+                              className={precioBajoMinimo ? 'font-medium text-destructive' : 'font-medium'}
+                              title={precioBajoMinimo ? 'Está por debajo del precio mínimo a la venta cliente' : undefined}
+                            >
                               {formatPrice(product.price_cents)}
                             </p>
                             {product.compare_at_price_cents && (
@@ -362,13 +515,6 @@ export default function ProductsPage() {
                             )}
                           </div>
                         </td>
-                        {canViewCost && costRange && (
-                          <>
-                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, (c) => c)}</td>
-                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, costoEntreMargen)}</td>
-                            <td className="py-4 text-muted-foreground">{formatCostRange(costRange, costoMasMarkup)}</td>
-                          </>
-                        )}
                         <td className="py-4">
                           <Badge
                             variant={
