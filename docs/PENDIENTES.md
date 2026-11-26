@@ -34,8 +34,10 @@ Detalle en `docs/USO_Y_RESPALDOS.md`. Uso medido el 2026-11-26: todo por debajo 
 - [ ] Correr `scripts/respaldo-bd.ps1` y confirmar los dos `.dump` en la nube; programarlo (Programador de tareas).
 - [ ] Restauración de prueba en un proyecto aparte.
 - [x] Tarjeta en Vercel de YJBMOTOCOM: es solo para el dominio `yjbmotocom.com` (usuario, 2026-11-26).
-- [ ] Vercel de YJBMOTOCOM: completar la dirección de facturación (aviso "billing address missing") y confirmar en
-  Domains la fecha de renovación del dominio y que "Auto Renew" esté activo (se cobra cada año a esa tarjeta).
+- [x] Vercel de YJBMOTOCOM: dirección de facturación completada por el usuario el 2026-11-26 (captura: el aviso
+  "Action Required" ya no aparece).
+- [ ] Vercel de YJBMOTOCOM: confirmar en Domains la fecha de renovación de `yjbmotocom.com` y que "Auto Renew" esté
+  activo (se cobra cada año a esa tarjeta).
 
 ## Resumen rápido por tienda (verificado 2026-11-21)
 
