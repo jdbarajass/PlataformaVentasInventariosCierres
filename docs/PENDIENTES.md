@@ -26,6 +26,15 @@ navegador (`supabase.com/dashboard/project/<ID>`), no por el nombre:
 Cambiar el nombre en Supabase (Project Settings → General → Project name) es seguro: la página se conecta por el ID
 (dentro de `NEXT_PUBLIC_SUPABASE_URL`) y las llaves, que no cambian al renombrar. Ni el código ni Vercel usan el nombre.
 
+## Respaldos y uso de los planes gratis (2026-11-26) — las dos tiendas
+
+Detalle en `docs/USO_Y_RESPALDOS.md`. Uso medido el 2026-11-26: todo por debajo del 6 % de los límites gratis.
+- [ ] Instalar PostgreSQL 17 (solo Command Line Tools) para tener `pg_dump`.
+- [ ] Crear `scripts/respaldo-bd.config.local` con la carpeta de la nube y las URL "Session pooler" de las dos bases.
+- [ ] Correr `scripts/respaldo-bd.ps1` y confirmar los dos `.dump` en la nube; programarlo (Programador de tareas).
+- [ ] Restauración de prueba en un proyecto aparte.
+- [ ] Vercel de YJBMOTOCOM: aviso "billing address missing" — revisar en Settings → Billing que no haya nada pago.
+
 ## Resumen rápido por tienda (verificado 2026-11-21)
 
 **Estado de YJBMOTOCOM verificado el 2026-11-21:**
