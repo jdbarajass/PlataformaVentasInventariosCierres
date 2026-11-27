@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getActiveItems, safeNumber, formatCOP } from '@/lib/alegra'
 import { requireAlegraAdmin } from '@/lib/alegra-auth'
+import { enStockMinimo, STOCK_MINIMO_DEFECTO } from '@/lib/utils'
 
 interface RawAlegraItem {
   id: unknown
@@ -49,7 +50,9 @@ export async function GET() {
     })
 
     const outOfStock = items.filter((i) => i.quantity === 0)
-    const lowStock = items.filter((i) => i.quantity > 0 && i.quantity <= 5)
+    // Alegra no trae un mínimo por ítem: se usa el mínimo por defecto de la
+    // tienda con la misma regla que el resto del sistema (lib/utils.ts).
+    const lowStock = items.filter((i) => i.quantity > 0 && enStockMinimo(i.quantity, STOCK_MINIMO_DEFECTO))
 
     return NextResponse.json({
       success: true,

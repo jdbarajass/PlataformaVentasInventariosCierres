@@ -13,6 +13,7 @@ import WelcomeCouponEmail from '@/emails/welcome-coupon'
 import { getServiceSupabase } from './supabase'
 import { bogotaDateStr, BOGOTA_TZ } from './bogota-time'
 import { BRAND } from '@/config/brand'
+import { productoEnStockMinimo, tallasEnStockMinimo } from './utils'
 
 let _resend: Resend | null = null
 function getResend() {
@@ -256,7 +257,7 @@ export async function sendLowStockAlert(): Promise<boolean> {
     const supabase = getServiceSupabase()
     const { data: products, error } = await supabase
       .from('products')
-      .select('title, sku, stock_qty, low_stock_threshold, product_variants(stock_qty)')
+      .select('title, sku, stock_qty, low_stock_threshold, product_variants(talla, stock_qty, low_stock_threshold, active)')
       .eq('active', true)
 
     if (error) {
@@ -264,21 +265,25 @@ export async function sendLowStockAlert(): Promise<boolean> {
       return false
     }
 
-    // Un producto con tallas guarda su stock real en product_variants
-    // (products.stock_qty se queda en 0 sin uso, igual que en
-    // /admin/inventario y el Dashboard) — sin esto, CUALQUIER producto con
-    // tallas activaba esta alerta después de cada venta, porque 0 siempre
-    // es <= al umbral. Se compara el total consolidado de sus variantes
-    // contra el umbral del producto, no products.stock_qty directo.
+    // Qué productos avisan: regla única de lib/utils.ts (productoEnStockMinimo,
+    // 2026-11-26) — con tallas, alguna talla activa en su propio mínimo o por
+    // debajo; sin tallas, su propio stock contra su mínimo. El número que va
+    // en el correo es el total del producto (suma de sus tallas).
     const lowStockProducts = (products || [])
+      .filter((p: any) => productoEnStockMinimo(p, p.product_variants))
       .map((p: any) => {
         const hasVariants = p.product_variants && p.product_variants.length > 0
         const stock_qty = hasVariants
           ? p.product_variants.reduce((sum: number, v: any) => sum + v.stock_qty, 0)
           : p.stock_qty
-        return { title: p.title, sku: p.sku, stock_qty, low_stock_threshold: p.low_stock_threshold }
+        return {
+          title: p.title,
+          sku: p.sku,
+          stock_qty,
+          low_stock_threshold: p.low_stock_threshold,
+          tallas_en_minimo: tallasEnStockMinimo(p.product_variants || []).map((v: any) => v.talla || 'N/A'),
+        }
       })
-      .filter((p) => p.stock_qty <= (p.low_stock_threshold || 5))
 
     if (lowStockProducts.length === 0) {
       return true // No low stock, nothing to send

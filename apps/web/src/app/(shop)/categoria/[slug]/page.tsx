@@ -32,7 +32,7 @@ const createMockProduct = (id: string, title: string, slug: string, priceCents: 
   category_id: categoryId,
   images: [],
   stock_qty: stockQty,
-  low_stock_threshold: 5,
+  low_stock_threshold: 2,
   weight_grams: null,
   dimensions: null,
   tags: [],

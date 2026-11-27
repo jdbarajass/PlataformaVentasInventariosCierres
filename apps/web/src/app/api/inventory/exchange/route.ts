@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { requireAuth } from '@/lib/auth-helpers'
+import { STOCK_MINIMO_DEFECTO } from '@/lib/utils'
 import { randomUUID } from 'crypto'
 import { z } from 'zod'
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
       const { cost_cents, low_stock_threshold } = (sibling as { cost_cents: number; low_stock_threshold: number } | null) || {
         cost_cents: 0,
-        low_stock_threshold: 5,
+        low_stock_threshold: STOCK_MINIMO_DEFECTO,
       }
 
       const { data: created, error: createError } = await (supabase.from('product_variants') as any)

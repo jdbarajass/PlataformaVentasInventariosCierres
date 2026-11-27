@@ -31,7 +31,8 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
+import { cn, enStockMinimo, STOCK_MINIMO_DEFECTO } from '@/lib/utils'
+import { OPCIONES_PCT_CLIENTE, precioMinimoCliente, precioMontado } from '@/lib/precios'
 import { supabaseBrowser as supabase, withTimeout } from '@/lib/supabase-browser'
 import { compararTallas, ordenarPorTalla } from '@/lib/tallas'
 import { BOGOTA_TZ, bogotaDateStr, formatBogotaTime } from '@/lib/bogota-time'
@@ -49,7 +50,10 @@ import {
 // Tallas estándar preseleccionadas al crear un producto nuevo con tallas
 // desde "Ingresar" — cubre el caso más común (ropa/cascos/guantes); el
 // usuario puede desmarcar las que no aplican para ese producto puntual.
-const TALLAS_ESTANDAR = ['S', 'M', 'L', 'XL', '2XL']
+// XS se agregó el 2026-11-26 (migración 00072 la creó en 0 en los productos
+// que ya tenían tallas); viene en 0 unidades — ver cantidadDeTalla.
+const TALLAS_ESTANDAR = ['XS', 'S', 'M', 'L', 'XL', '2XL']
+const TALLA_EN_CERO = 'XS'
 
 interface ProductStock {
   id: string
@@ -68,6 +72,11 @@ interface ProductStock {
   title: string
   stock_qty: number
   low_stock_threshold: number
+  // Stock bajo según la regla única de lib/utils.ts: sin tallas, su stock
+  // contra su mínimo; con tallas, alguna talla activa en su propio mínimo.
+  bajoMinimo: boolean
+  // Tallas activas en su mínimo o por debajo (vacío si no tiene tallas).
+  tallasBajoMinimo: string[]
   price_cents: number
   cost_cents: number
   category: { name: string } | null
@@ -148,7 +157,7 @@ export default function InventarioPage() {
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
   const [variantsByProduct, setVariantsByProduct] = useState<Record<string, ProductVariant[]>>({})
   const [loadingVariants, setLoadingVariants] = useState(false)
-  const [newVariant, setNewVariant] = useState({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+  const [newVariant, setNewVariant] = useState({ talla: '', barcode: '', stock_qty: '', cost_cents: '', minimo: String(STOCK_MINIMO_DEFECTO), minimoTocado: false })
   // Último código sugerido automáticamente para "Agregar talla" — permite
   // recalcular la sugerencia en cada tecla de "Talla" (ver bug de la talla
   // XS quedando con dígito de "N/A": antes solo se sugería con la PRIMERA
@@ -213,13 +222,34 @@ export default function InventarioPage() {
       // suman por variante. Antes esta tabla mostraba directamente
       // products.stock_qty, por lo que un producto con variantes con stock
       // real aparecía como "0" aunque alguna talla sí tuviera unidades.
-      const { data: allVariants } = await supabase.from('product_variants').select('product_id, stock_qty, barcode')
+      const { data: allVariants } = await supabase
+        .from('product_variants')
+        .select('product_id, talla, stock_qty, low_stock_threshold, active, barcode')
       const stockPorProducto = new Map<string, number>()
       const barcodesPorProducto = new Map<string, string[]>()
       const conteoVariantesPorProducto = new Map<string, number>()
-      for (const v of (allVariants || []) as { product_id: string; stock_qty: number; barcode: string | null }[]) {
+      // Stock bajo por talla (regla única, lib/utils.ts): solo tallas activas,
+      // cada una contra su propio mínimo (mínimo 0 = no avisa).
+      const tallasActivasPorProducto = new Map<string, number>()
+      const tallasBajoPorProducto = new Map<string, string[]>()
+      for (const v of (allVariants || []) as {
+        product_id: string
+        talla: string | null
+        stock_qty: number
+        low_stock_threshold: number
+        active: boolean
+        barcode: string | null
+      }[]) {
         stockPorProducto.set(v.product_id, (stockPorProducto.get(v.product_id) || 0) + v.stock_qty)
         conteoVariantesPorProducto.set(v.product_id, (conteoVariantesPorProducto.get(v.product_id) || 0) + 1)
+        if (v.active !== false) {
+          tallasActivasPorProducto.set(v.product_id, (tallasActivasPorProducto.get(v.product_id) || 0) + 1)
+          if (enStockMinimo(v.stock_qty, v.low_stock_threshold)) {
+            const list = tallasBajoPorProducto.get(v.product_id) || []
+            list.push(v.talla || 'N/A')
+            tallasBajoPorProducto.set(v.product_id, list)
+          }
+        }
         if (v.barcode) {
           const list = barcodesPorProducto.get(v.product_id) || []
           list.push(v.barcode)
@@ -228,19 +258,26 @@ export default function InventarioPage() {
       }
 
       setProducts(
-        data.map((p: any) => ({
-          id: p.id,
-          sku: p.sku,
-          barcode: p.barcode ?? null,
-          variantBarcodes: barcodesPorProducto.get(p.id) || [],
-          variantCount: conteoVariantesPorProducto.get(p.id) || 0,
-          title: p.title,
-          stock_qty: stockPorProducto.has(p.id) ? stockPorProducto.get(p.id)! : p.stock_qty,
-          low_stock_threshold: p.low_stock_threshold,
-          price_cents: p.price_cents,
-          cost_cents: p.cost_cents || 0,
-          category: p.category || p.categories || null,
-        }))
+        data.map((p: any) => {
+          const stock = stockPorProducto.has(p.id) ? stockPorProducto.get(p.id)! : p.stock_qty
+          const tieneTallasActivas = (tallasActivasPorProducto.get(p.id) || 0) > 0
+          const tallasBajo = [...(tallasBajoPorProducto.get(p.id) || [])].sort(compararTallas)
+          return {
+            id: p.id,
+            sku: p.sku,
+            barcode: p.barcode ?? null,
+            variantBarcodes: barcodesPorProducto.get(p.id) || [],
+            variantCount: conteoVariantesPorProducto.get(p.id) || 0,
+            title: p.title,
+            stock_qty: stock,
+            low_stock_threshold: p.low_stock_threshold,
+            bajoMinimo: tieneTallasActivas ? tallasBajo.length > 0 : enStockMinimo(stock, p.low_stock_threshold),
+            tallasBajoMinimo: tallasBajo,
+            price_cents: p.price_cents,
+            cost_cents: p.cost_cents || 0,
+            category: p.category || p.categories || null,
+          }
+        })
       )
     } catch (error) {
       console.error('Error fetching products:', error)
@@ -429,6 +466,14 @@ export default function InventarioPage() {
     lowStockThreshold: number
   }
   const [itemsInventario, setItemsInventario] = useState<ItemInventario[]>([])
+  // Códigos de barras y seriales de productos BORRADOS (y de sus tallas): no
+  // salen en itemsInventario, pero el generador automático no debe repetirlos
+  // (el código de una talla es único en toda la base, aunque el producto esté
+  // borrado).
+  const [codigosDeBorrados, setCodigosDeBorrados] = useState<{ barcodes: (string | null)[]; skus: (string | null)[] }>({
+    barcodes: [],
+    skus: [],
+  })
   // Categorías activas para el selector "Categoría" de Ingresar.
   const [categoriasActivas, setCategoriasActivas] = useState<{ id: string; name: string; slug: string }[]>([])
   const [ingresarLoaded, setIngresarLoaded] = useState(false)
@@ -440,7 +485,7 @@ export default function InventarioPage() {
       const [{ data: allProducts }, { data: allVariants }, { data: cats }] = await Promise.all([
         supabase
           .from('products')
-          .select('id, title, sku, barcode, cost_cents, stock_qty, low_stock_threshold, categories(name, slug)'),
+          .select('id, title, sku, barcode, cost_cents, stock_qty, low_stock_threshold, deleted_at, categories(name, slug)'),
         supabase
           .from('product_variants')
           .select('id, product_id, talla, sku, barcode, cost_cents, stock_qty, low_stock_threshold'),
@@ -454,7 +499,22 @@ export default function InventarioPage() {
         variantsByProduct.set(v.product_id, list)
       }
       const items: ItemInventario[] = []
+      const borrados = { barcodes: [] as (string | null)[], skus: [] as (string | null)[] }
       for (const p of (allProducts || []) as any[]) {
+        // Producto borrado (deleted_at): fuera de Ingresar, "Productos
+        // similares", el ajuste de inventario y la exportación — antes salía
+        // ahí, y escribir su nombre en Ingresar le sumaba unidades a un
+        // producto que ya no se ve en ningún lado. Sus códigos se guardan
+        // aparte solo para no repetirlos.
+        if (p.deleted_at) {
+          borrados.barcodes.push(p.barcode)
+          borrados.skus.push(p.sku)
+          for (const v of variantsByProduct.get(p.id) || []) {
+            borrados.barcodes.push(v.barcode)
+            borrados.skus.push(v.sku)
+          }
+          continue
+        }
         const categoria = p.categories?.name?.trim() ? p.categories.name.trim().toUpperCase() : inferCategoria(p.title)
         const categoriaNombre: string | null = p.categories?.name?.trim() || null
         const categoriaSlug: string | null = p.categories?.slug || null
@@ -494,6 +554,7 @@ export default function InventarioPage() {
         }
       }
       setItemsInventario(items)
+      setCodigosDeBorrados(borrados)
       setIngresarLoaded(true)
     } finally {
       setLoadingIngresar(false)
@@ -646,6 +707,21 @@ export default function InventarioPage() {
   const [ingresarTallasSeleccionadas, setIngresarTallasSeleccionadas] = useState<string[]>(TALLAS_ESTANDAR)
   const [ingresarCosto, setIngresarCosto] = useState('')
   const [ingresarCantidad, setIngresarCantidad] = useState('1')
+  // Cantidad y stock mínimo POR TALLA (pedido del usuario, 2026-11-26): cada
+  // talla marcada lleva su propia cantidad (0 = crearla sin unidades) y su
+  // propio mínimo (2 por defecto; 0 = esa talla nunca avisa stock bajo).
+  const [ingresarCantidadesTalla, setIngresarCantidadesTalla] = useState<Record<string, string>>({})
+  const [ingresarMinimosTalla, setIngresarMinimosTalla] = useState<Record<string, string>>({})
+  // Stock mínimo cuando NO se marcan varias tallas (producto sin talla o una sola).
+  const [ingresarMinimo, setIngresarMinimo] = useState(String(STOCK_MINIMO_DEFECTO))
+  // Precios del producto nuevo (mismas columnas que Catálogo → Productos).
+  // Un solo precio para todo el producto: las tallas no cambian el precio.
+  // "Precio a la venta" es obligatorio y se sugiere solo con costo + 30%
+  // hasta que el usuario lo escriba a mano.
+  const [ingresarPctOpcion, setIngresarPctOpcion] = useState('')
+  const [ingresarPctOtro, setIngresarPctOtro] = useState('')
+  const [ingresarPrecio, setIngresarPrecio] = useState('')
+  const [ingresarPrecioTocado, setIngresarPrecioTocado] = useState(false)
   const [ingresarManual, setIngresarManual] = useState(false)
   const [ingresarSerialManual, setIngresarSerialManual] = useState('')
   const [ingresarBarcodeManual, setIngresarBarcodeManual] = useState('')
@@ -678,8 +754,12 @@ export default function InventarioPage() {
   // con `products` (que sí siempre trae el sku/barcode del producto base,
   // tenga o no variantes) para que la sugerencia de serial/código no repita
   // uno ya usado por un producto que ya tiene tallas.
-  const codigosExistentes = [...products.map((p) => p.barcode), ...itemsInventario.map((i) => i.barcode)]
-  const skusExistentes = [...products.map((p) => p.sku), ...itemsInventario.map((i) => i.sku)]
+  const codigosExistentes = [
+    ...products.map((p) => p.barcode),
+    ...itemsInventario.map((i) => i.barcode),
+    ...codigosDeBorrados.barcodes,
+  ]
+  const skusExistentes = [...products.map((p) => p.sku), ...itemsInventario.map((i) => i.sku), ...codigosDeBorrados.skus]
   const serialSugerido = String(generarSiguienteSerial(skusExistentes))
   const barcodeSugerido = ingresarNombre.trim()
     ? generarCodigoBarrasAuto(ingresarNombre, ingresarTalla, codigosExistentes, ccIngresar)
@@ -696,6 +776,59 @@ export default function InventarioPage() {
     ingresarNombre.trim() ? t.toLowerCase().includes(ingresarNombre.toLowerCase().trim()) : false
   )
 
+  // --- Precios (solo producto nuevo) — mismas fórmulas que Catálogo →
+  // Productos (lib/precios.ts y costoEntreMargen de admin/productos).
+  const ingresarCostoCents = Math.round((parseFloat(ingresarCosto) || 0) * 100)
+  const ingresarMargenCents = Math.round(ingresarCostoCents / 0.7)
+  const ingresarMontadoCents = precioMontado(ingresarCostoCents)
+  const ingresarPct: number | null =
+    ingresarPctOpcion === ''
+      ? null
+      : ingresarPctOpcion === 'otro'
+        ? ingresarPctOtro.trim() === ''
+          ? null
+          : Number(ingresarPctOtro)
+        : Number(ingresarPctOpcion)
+  const ingresarPctValido = ingresarPct === null || (Number.isFinite(ingresarPct) && ingresarPct >= 0 && ingresarPct <= 1000)
+  const ingresarMinClienteCents =
+    ingresarPct !== null && ingresarPctValido ? precioMinimoCliente(ingresarCostoCents, ingresarPct) : null
+  const ingresarPrecioCents = Math.round((parseFloat(ingresarPrecio) || 0) * 100)
+  const ingresarPrecioBajoMinimo =
+    ingresarMinClienteCents !== null && ingresarPrecioCents > 0 && ingresarPrecioCents < ingresarMinClienteCents
+
+  // Sugerencia del precio a la venta: costo + 30%, mientras el usuario no lo
+  // haya escrito a mano.
+  useEffect(() => {
+    if (ingresarPrecioTocado) return
+    setIngresarPrecio(ingresarCostoCents > 0 ? String(Math.round(precioMontado(ingresarCostoCents) / 100)) : '')
+  }, [ingresarCostoCents, ingresarPrecioTocado])
+
+  // Tallas que este producto ya tiene (si el nombre ya existe): a esas se les
+  // SUMA la cantidad en vez de crearlas de nuevo.
+  const tallasExistentesIngresar = new Set(
+    productoExistenteIngresar
+      ? itemsInventario
+          .filter((i) => i.productId === productoExistenteIngresar.productId && i.talla)
+          .map((i) => i.talla as string)
+      : []
+  )
+  const ingresarExisteMismaTalla = ingresarNombre.trim()
+    ? itemsInventario.some(
+        (i) =>
+          i.title.trim().toLowerCase() === ingresarNombre.trim().toLowerCase() &&
+          i.talla === (ingresarTalla === 'N/A' ? null : ingresarTalla)
+      )
+    : false
+  // XS viene marcada pero en 0 unidades y mínimo 0 (pedido del usuario,
+  // 2026-11-26): con mínimo 2 una XS vacía pondría el producto en rojo.
+  const cantidadDeTalla = (t: string) => ingresarCantidadesTalla[t] ?? (t === TALLA_EN_CERO ? '0' : '1')
+  const minimoDeTalla = (t: string) =>
+    ingresarMinimosTalla[t] ?? (t === TALLA_EN_CERO ? '0' : String(STOCK_MINIMO_DEFECTO))
+  const enteroNoNegativo = (v: string) => {
+    const n = parseInt(v, 10)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+
   const limpiarFormularioIngresar = () => {
     setIngresarNombre('')
     setIngresarTalla('N/A')
@@ -703,6 +836,13 @@ export default function InventarioPage() {
     setIngresarTallasSeleccionadas(TALLAS_ESTANDAR)
     setIngresarCosto('')
     setIngresarCantidad('1')
+    setIngresarCantidadesTalla({})
+    setIngresarMinimosTalla({})
+    setIngresarMinimo(String(STOCK_MINIMO_DEFECTO))
+    setIngresarPctOpcion('')
+    setIngresarPctOtro('')
+    setIngresarPrecio('')
+    setIngresarPrecioTocado(false)
     setIngresarManual(false)
     setIngresarSerialManual('')
     setIngresarBarcodeManual('')
@@ -730,8 +870,37 @@ export default function InventarioPage() {
       toast({ title: 'Error', description: 'Elige la categoría del producto', variant: 'destructive' })
       return
     }
+    // Precios: solo cuando el producto es nuevo (si ya existe, sus precios
+    // se cambian en Catálogo → Productos y aquí ni se muestran).
+    if (!productoExistenteIngresar) {
+      if (ingresarPrecioCents <= 0) {
+        toast({ title: 'Error', description: 'Escribe el precio a la venta', variant: 'destructive' })
+        return
+      }
+      if (!ingresarPctValido) {
+        toast({ title: 'Error', description: 'El % del precio mínimo al cliente debe estar entre 0 y 1000', variant: 'destructive' })
+        return
+      }
+    }
+    // Cantidades y mínimos: enteros, nunca negativos.
+    if (ingresarTieneTallas) {
+      for (const t of ingresarTallasSeleccionadas) {
+        if (enteroNoNegativo(cantidadDeTalla(t)) === null) {
+          toast({ title: 'Error', description: `La cantidad de la talla ${t} debe ser 0 o más`, variant: 'destructive' })
+          return
+        }
+        if (enteroNoNegativo(minimoDeTalla(t)) === null) {
+          toast({ title: 'Error', description: `El stock mínimo de la talla ${t} debe ser 0 o más`, variant: 'destructive' })
+          return
+        }
+      }
+    } else if (enteroNoNegativo(ingresarMinimo) === null) {
+      toast({ title: 'Error', description: 'El stock mínimo debe ser 0 o más', variant: 'destructive' })
+      return
+    }
+    const minimoSinTallas = enteroNoNegativo(ingresarMinimo) ?? STOCK_MINIMO_DEFECTO
     const categoryId = ingresarCategoriaId || null
-    const costCents = Math.round((parseFloat(ingresarCosto) || 0) * 100)
+    const costCents = ingresarCostoCents
     const serial = ingresarManual ? ingresarSerialManual.trim() : serialSugerido
 
     // --- Modo multi-talla: crea el producto (si no existe) y todas las
@@ -752,8 +921,10 @@ export default function InventarioPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
             body: JSON.stringify({
-              title: nombre, slug, price_cents: Math.round(costCents * 1.3) || 0, cost_cents: costCents,
-              stock_qty: 0, active: false, images: [], sku: serial, barcode: null, category_id: categoryId,
+              title: nombre, slug, price_cents: ingresarPrecioCents, cost_cents: costCents,
+              client_min_markup_pct: ingresarPct,
+              stock_qty: 0, low_stock_threshold: STOCK_MINIMO_DEFECTO,
+              active: false, images: [], sku: serial, barcode: null, category_id: categoryId,
             }),
           })
           if (!res.ok) {
@@ -773,10 +944,35 @@ export default function InventarioPage() {
             ?.barcode?.slice(0, 9) || null
 
         let creadas = 0
+        let sumadas = 0
         let saltadas = 0
         for (const talla of ingresarTallasSeleccionadas) {
-          const yaExiste = itemsInventario.some((i) => i.productId === productId && i.talla === talla)
-          if (yaExiste) { saltadas++; continue }
+          const cantidadTalla = enteroNoNegativo(cantidadDeTalla(talla)) ?? 0
+          const minimoTalla = enteroNoNegativo(minimoDeTalla(talla)) ?? STOCK_MINIMO_DEFECTO
+          const existente = itemsInventario.find((i) => i.productId === productId && i.talla === talla)
+          if (existente) {
+            // La talla ya existe: se le suman las unidades (su mínimo no se
+            // toca; se cambia en Detalle → Tallas). Con 0 no hay nada que sumar.
+            if (cantidadTalla <= 0 || !existente.variantId) { saltadas++; continue }
+            const res = await fetch('/api/inventory/adjust', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                product_id: productId,
+                variant_id: existente.variantId,
+                qty: cantidadTalla,
+                type: 'in',
+                note: 'Ingresado desde "Ingresar" — se sumó a una talla existente',
+                created_by: userProfile?.id,
+              }),
+            })
+            if (!res.ok) {
+              const error = await res.json()
+              throw new Error(error.error || `Error al sumar a la talla ${talla}`)
+            }
+            sumadas++
+            continue
+          }
 
           let barcodeTalla: string
           if (codigoBase9) {
@@ -789,7 +985,9 @@ export default function InventarioPage() {
           const res = await fetch(`/api/products/${productId}/variants`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ talla, barcode: barcodeTalla, stock_qty: cantidad, cost_cents: costCents }),
+            body: JSON.stringify({
+              talla, barcode: barcodeTalla, stock_qty: cantidadTalla, low_stock_threshold: minimoTalla, cost_cents: costCents,
+            }),
           })
           if (!res.ok) {
             const error = await res.json()
@@ -800,7 +998,10 @@ export default function InventarioPage() {
 
         toast({
           title: 'Producto ingresado',
-          description: `"${nombre}": ${creadas} talla(s) creada(s)${saltadas ? `, ${saltadas} ya existían y se omitieron` : ''}`,
+          description:
+            `"${nombre}": ${creadas} talla(s) creada(s)` +
+            (sumadas ? `, ${sumadas} existente(s) con unidades sumadas` : '') +
+            (saltadas ? `, ${saltadas} existente(s) sin cambios (cantidad 0)` : ''),
         })
         limpiarFormularioIngresar()
         await Promise.all([fetchProducts(), fetchInventoryValue(), fetchCategoryRollup(), fetchIngresarData()])
@@ -860,8 +1061,10 @@ export default function InventarioPage() {
             body: JSON.stringify({
               title: nombre,
               slug,
-              price_cents: Math.round(costCents * 1.3) || 0,
+              price_cents: ingresarPrecioCents,
               cost_cents: costCents,
+              client_min_markup_pct: ingresarPct,
+              low_stock_threshold: talla ? STOCK_MINIMO_DEFECTO : minimoSinTallas,
               stock_qty: talla ? 0 : cantidad,
               active: false,
               images: [],
@@ -903,6 +1106,7 @@ export default function InventarioPage() {
               talla,
               barcode,
               stock_qty: cantidad,
+              low_stock_threshold: minimoSinTallas,
               cost_cents: costCents,
             }),
           })
@@ -1096,11 +1300,22 @@ export default function InventarioPage() {
       return
     }
     setExpandedProduct(productId)
-    setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+    setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '', minimo: String(STOCK_MINIMO_DEFECTO), minimoTocado: false })
     newVariantBarcodeAutoRef.current = ''
     if (!variantsByProduct[productId]) {
       fetchVariants(productId)
     }
+  }
+
+  // Costo sugerido para una talla nueva (pedido del usuario, 2026-11-27): el
+  // de las otras tallas del producto (el mayor, igual que la migración 00072)
+  // o, si todavía no tiene tallas, el costo del producto. Así una talla
+  // agregada sin escribir el costo no queda en $0 (y el valor del inventario
+  // no sale mal).
+  const costoSugeridoTalla = (productId: string): number => {
+    const costos = (variantsByProduct[productId] || []).map((v) => v.cost_cents).filter((c) => c > 0)
+    if (costos.length > 0) return Math.max(...costos)
+    return products.find((p) => p.id === productId)?.cost_cents || 0
   }
 
   const handleAddVariant = async (productId: string) => {
@@ -1113,6 +1328,19 @@ export default function InventarioPage() {
       })
       return
     }
+    const stockInicial = newVariant.stock_qty.trim() === '' ? 0 : parseInt(newVariant.stock_qty, 10)
+    if (!Number.isFinite(stockInicial) || stockInicial < 0) {
+      toast({ title: 'Error', description: 'El stock inicial debe ser 0 o más', variant: 'destructive' })
+      return
+    }
+    const minimoTalla = newVariant.minimo.trim() === '' ? STOCK_MINIMO_DEFECTO : parseInt(newVariant.minimo, 10)
+    if (!Number.isFinite(minimoTalla) || minimoTalla < 0) {
+      toast({ title: 'Error', description: 'El stock mínimo debe ser 0 o más', variant: 'destructive' })
+      return
+    }
+    const costoTalla = newVariant.cost_cents.trim()
+      ? Math.round((parseFloat(newVariant.cost_cents) || 0) * 100)
+      : costoSugeridoTalla(productId)
 
     try {
       setSavingVariant(true)
@@ -1125,8 +1353,9 @@ export default function InventarioPage() {
         body: JSON.stringify({
           talla: newVariant.talla.trim() || null,
           barcode: newVariant.barcode.trim() || null,
-          stock_qty: parseInt(newVariant.stock_qty) || 0,
-          cost_cents: Math.round((parseFloat(newVariant.cost_cents) || 0) * 100),
+          stock_qty: stockInicial,
+          low_stock_threshold: minimoTalla,
+          cost_cents: costoTalla,
         }),
       })
 
@@ -1136,7 +1365,7 @@ export default function InventarioPage() {
       }
 
       toast({ title: 'Variante creada', description: 'Se agregó la talla al producto' })
-      setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '' })
+      setNewVariant({ talla: '', barcode: '', stock_qty: '', cost_cents: '', minimo: String(STOCK_MINIMO_DEFECTO), minimoTocado: false })
       newVariantBarcodeAutoRef.current = ''
       // products.stock_qty se recalcula solo (trigger de sincronización),
       // pero el estado `products` de esta pantalla no se actualiza solo —
@@ -1275,7 +1504,7 @@ export default function InventarioPage() {
           category_id: current.category_id,
           images: current.images || [],
           stock_qty: stockAnterior,
-          low_stock_threshold: parseInt(editProductForm.umbral) || 0,
+          low_stock_threshold: minimoDeFormulario(editProductForm.umbral),
           tags: current.tags || [],
           active: current.active,
           featured: current.featured,
@@ -1349,7 +1578,7 @@ export default function InventarioPage() {
           talla: editVariantForm.talla.trim() || null,
           barcode: editVariantForm.barcode.trim() || null,
           cost_cents: Math.round((parseFloat(editVariantForm.costo) || 0) * 100),
-          low_stock_threshold: parseInt(editVariantForm.umbral) || 0,
+          low_stock_threshold: minimoDeFormulario(editVariantForm.umbral),
         }),
       })
       if (!res.ok) {
@@ -1393,13 +1622,11 @@ export default function InventarioPage() {
       (product.sku?.toLowerCase().includes(q) ?? false) ||
       (product.barcode?.toLowerCase().includes(q) ?? false) ||
       product.variantBarcodes.some((b) => b.toLowerCase().includes(q))
-    const matchesLowStock = !showLowStock || product.stock_qty <= product.low_stock_threshold
+    const matchesLowStock = !showLowStock || product.bajoMinimo
     return matchesSearch && matchesLowStock
   })
 
-  const lowStockCount = products.filter(
-    (p) => p.stock_qty <= p.low_stock_threshold
-  ).length
+  const lowStockCount = products.filter((p) => p.bajoMinimo).length
 
   // Préstamos pendientes a otros locales (Nos deben). Desde la migración
   // 00062 prestar no descuenta inventario: la unidad sigue contada aquí
@@ -1489,12 +1716,15 @@ export default function InventarioPage() {
     })
   }
 
-  const getStockStatus = (qty: number, threshold: number) => {
-    if (qty === 0) {
-      return { label: 'Sin stock', color: 'bg-red-500/10 text-red-500 border-red-500/20' }
+  // "Stock bajo" en rojo (pedido del usuario, 2026-11-26); "Sin stock" en
+  // rojo más fuerte para distinguirlo. Qué cuenta como bajo lo decide la
+  // regla única de lib/utils.ts (ver ProductStock.bajoMinimo).
+  const getStockStatus = (qty: number, bajoMinimo: boolean) => {
+    if (qty <= 0) {
+      return { label: 'Sin stock', color: 'bg-red-600 text-white border-red-600' }
     }
-    if (qty <= threshold) {
-      return { label: 'Stock bajo', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' }
+    if (bajoMinimo) {
+      return { label: 'Stock bajo', color: 'bg-red-500/10 text-red-600 border-red-500/30' }
     }
     return { label: 'En stock', color: 'bg-green-500/10 text-green-500 border-green-500/20' }
   }
@@ -1522,9 +1752,15 @@ export default function InventarioPage() {
     new Set(itemsInventario.filter((i) => i.talla).map((i) => i.talla as string))
   ).sort(compararTallas)
 
-  const esBajoStock = (i: ItemInventario) =>
-    (i.lowStockThreshold > 0 && i.stockQty < i.lowStockThreshold) ||
-    (i.lowStockThreshold === 0 && i.stockQty > 0 && i.stockQty <= 2)
+  // Stock mínimo escrito en los formularios de editar: vacío o inválido NO
+  // se vuelve 0 (0 apaga la alerta), sino el valor por defecto.
+  function minimoDeFormulario(valor: string): number {
+    const n = parseInt(valor, 10)
+    return Number.isFinite(n) && n >= 0 ? n : STOCK_MINIMO_DEFECTO
+  }
+
+  // Misma regla única de lib/utils.ts: el mínimo o menos; mínimo 0 = no avisa.
+  const esBajoStock = (i: ItemInventario) => enStockMinimo(i.stockQty, i.lowStockThreshold)
 
   const itemsParaExportar = () => {
     let items = [...itemsInventario]
@@ -2013,11 +2249,11 @@ export default function InventarioPage() {
         </div>
         <div className="rounded-xl border bg-card p-3 sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-orange-500/10">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
+            <div className="hidden h-10 w-10 items-center justify-center rounded-lg sm:flex bg-red-500/10">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
             </div>
             <div>
-              <p className="text-lg font-bold sm:text-2xl">{lowStockCount}</p>
+              <p className={cn('text-lg font-bold sm:text-2xl', lowStockCount > 0 && 'text-red-600')}>{lowStockCount}</p>
               <p className="text-sm text-muted-foreground">Stock bajo</p>
             </div>
           </div>
@@ -2187,58 +2423,129 @@ export default function InventarioPage() {
             {ingresarTieneTallas ? (
               <div>
                 <label className="mb-1 block text-sm font-medium">Tallas a crear</label>
-                <div className="flex flex-wrap gap-3 rounded-xl border p-3">
-                  {TALLAS_ESTANDAR.map((t) => (
-                    <label key={t} className="flex items-center gap-1.5 text-sm touch:min-h-11 touch:px-1">
-                      <input
-                        type="checkbox"
-                        checked={ingresarTallasSeleccionadas.includes(t)}
-                        onChange={(e) =>
-                          setIngresarTallasSeleccionadas((prev) =>
-                            e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)
-                          )
-                        }
-                      />
-                      {t}
-                    </label>
-                  ))}
+                <div className="overflow-x-auto rounded-xl border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="px-3 py-2 font-medium">Talla</th>
+                        <th className="px-3 py-2 font-medium">Cantidad</th>
+                        <th className="px-3 py-2 font-medium" title="Sale en rojo cuando quedan estas unidades o menos. 0 = no avisar.">
+                          Stock mínimo
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TALLAS_ESTANDAR.map((t) => {
+                        const marcada = ingresarTallasSeleccionadas.includes(t)
+                        const yaExiste = tallasExistentesIngresar.has(t)
+                        return (
+                          <tr key={t} className={cn('border-b last:border-0', !marcada && 'opacity-50')}>
+                            <td className="px-3 py-1.5">
+                              <label className="flex items-center gap-1.5 touch:min-h-11">
+                                <input
+                                  type="checkbox"
+                                  checked={marcada}
+                                  onChange={(e) =>
+                                    setIngresarTallasSeleccionadas((prev) =>
+                                      e.target.checked ? [...prev, t] : prev.filter((x) => x !== t)
+                                    )
+                                  }
+                                />
+                                <span className="font-medium">{t}</span>
+                                {yaExiste && <span className="text-xs text-muted-foreground">(ya existe: se suma)</span>}
+                              </label>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={cantidadDeTalla(t)}
+                                disabled={!marcada}
+                                onChange={(e) => setIngresarCantidadesTalla((prev) => ({ ...prev, [t]: e.target.value }))}
+                                aria-label={`Cantidad talla ${t}`}
+                                className="h-9 w-24 rounded-lg touch:h-11"
+                              />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              {yaExiste ? (
+                                <span className="text-xs text-muted-foreground">Se cambia en Detalle</span>
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={minimoDeTalla(t)}
+                                  disabled={!marcada}
+                                  onChange={(e) => setIngresarMinimosTalla((prev) => ({ ...prev, [t]: e.target.value }))}
+                                  aria-label={`Stock mínimo talla ${t}`}
+                                  className="h-9 w-24 rounded-lg touch:h-11"
+                                />
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Se crea una variante por cada talla marcada, con código de barras automático (misma familia, solo cambia el dígito de talla). Desmarca las que no apliquen.
+                  Cada talla marcada se crea con su cantidad (puede ser 0) y código de barras automático (misma familia,
+                  solo cambia el dígito de talla). Stock mínimo: sale en rojo cuando quedan esas unidades o menos; 0 = no
+                  avisar (tallas que casi no se mueven). Desmarca las que no apliquen.
                 </p>
               </div>
             ) : (
-              <div>
-                <label className="mb-1 block text-sm font-medium">Talla</label>
-                <select
-                  value={ingresarTalla}
-                  onChange={(e) => setIngresarTalla(e.target.value)}
-                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
-                >
-                  {TALLAS_DISPONIBLES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Talla</label>
+                  <select
+                    value={ingresarTalla}
+                    onChange={(e) => setIngresarTalla(e.target.value)}
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
+                  >
+                    {TALLAS_DISPONIBLES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Cantidad a ingresar</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={ingresarCantidad}
+                      onChange={(e) => setIngresarCantidad(e.target.value)}
+                      className="rounded-xl touch:h-11"
+                    />
+                  </div>
+                  {!ingresarExisteMismaTalla && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium">Stock mínimo</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={ingresarMinimo}
+                        onChange={(e) => setIngresarMinimo(e.target.value)}
+                        className="rounded-xl touch:h-11"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">En rojo con esta cantidad o menos. 0 = no avisar.</p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             <div>
               <label className="mb-1 block text-sm font-medium">
-                {ingresarTieneTallas ? 'Cantidad por talla' : 'Cantidad a ingresar'}
+                Costo unitario{ingresarTieneTallas ? ' (igual para todas las tallas)' : ''}
               </label>
-              <Input
-                type="number"
-                min={ingresarTieneTallas ? '0' : '1'}
-                value={ingresarCantidad}
-                onChange={(e) => setIngresarCantidad(e.target.value)}
-                className="rounded-xl touch:h-11"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium">Costo unitario</label>
               <MoneyInput
                 value={ingresarCosto}
                 onChange={setIngresarCosto}
@@ -2246,6 +2553,121 @@ export default function InventarioPage() {
                 className="rounded-xl touch:h-11"
               />
             </div>
+
+            {productoExistenteIngresar ? (
+              <p className="rounded-xl border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                Este producto ya existe: solo se suman unidades. Sus precios no se tocan desde aquí; se cambian en
+                Catálogo → Productos.
+              </p>
+            ) : (
+              <div className="space-y-3 rounded-xl border p-3 sm:p-4">
+                <p className="text-sm font-semibold">
+                  Precios{ingresarTieneTallas ? ' (el mismo para todas las tallas)' : ''}
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      label: 'Mín. margen 30%',
+                      title: 'Costo ÷ 0.7 — el costo queda siendo el 70% del precio de venta',
+                      cents: ingresarMargenCents,
+                    },
+                    {
+                      label: 'Precio producto montado (+30%)',
+                      title: 'Precio de venta a los locales vecinos (costo + 30%)',
+                      cents: ingresarMontadoCents,
+                    },
+                  ].map((ref) => (
+                    <div key={ref.label} title={ref.title}>
+                      <p className="mb-1 text-sm font-medium text-muted-foreground">{ref.label}</p>
+                      <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/40 px-3 py-2 text-sm">
+                        <span className="font-medium">{ingresarCostoCents > 0 ? formatPrice(ref.cents) : '-'}</span>
+                        {ingresarCostoCents > 0 && (
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-primary hover:underline touch:min-h-11"
+                            onClick={() => {
+                              setIngresarPrecio(String(Math.round(ref.cents / 100)))
+                              setIngresarPrecioTocado(true)
+                            }}
+                          >
+                            Usar como precio
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-sm font-medium" title="Costo + el % que elijas para este producto">
+                    Precio mínimo a la venta cliente
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={ingresarPctOpcion}
+                      onChange={(e) => setIngresarPctOpcion(e.target.value)}
+                      aria-label="Porcentaje sobre el costo para el precio mínimo al cliente"
+                      className="rounded-xl border bg-background px-3 py-2 text-sm touch:h-11"
+                    >
+                      <option value="">Sin definir</option>
+                      {OPCIONES_PCT_CLIENTE.map((pct) => (
+                        <option key={pct} value={String(pct)}>
+                          +{pct}%
+                        </option>
+                      ))}
+                      <option value="otro">Otro…</option>
+                    </select>
+                    {ingresarPctOpcion === 'otro' && (
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1000"
+                        step="0.01"
+                        value={ingresarPctOtro}
+                        onChange={(e) => setIngresarPctOtro(e.target.value)}
+                        placeholder="%"
+                        aria-label="Otro porcentaje"
+                        className="h-9 w-24 rounded-lg touch:h-11"
+                      />
+                    )}
+                    <span className={cn('text-sm', ingresarMinClienteCents !== null ? 'font-medium' : 'text-muted-foreground')}>
+                      {!ingresarPctValido
+                        ? 'Entre 0 y 1000%'
+                        : ingresarMinClienteCents !== null && ingresarCostoCents > 0
+                          ? formatPrice(ingresarMinClienteCents)
+                          : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Precio a la venta *</label>
+                  <MoneyInput
+                    value={ingresarPrecio}
+                    onChange={(v) => {
+                      setIngresarPrecio(v)
+                      setIngresarPrecioTocado(true)
+                    }}
+                    placeholder="0"
+                    className={cn(
+                      'rounded-xl touch:h-11',
+                      ingresarPrecioBajoMinimo && 'border-destructive text-destructive focus-visible:ring-destructive'
+                    )}
+                  />
+                  {ingresarPrecioBajoMinimo ? (
+                    <p className="mt-1 text-xs font-medium text-destructive">
+                      Está por debajo del precio mínimo a la venta cliente ({formatPrice(ingresarMinClienteCents!)}).
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {ingresarPrecioTocado
+                        ? 'Puedes cambiarlo cuando quieras en Catálogo → Productos.'
+                        : 'Sugerido: costo + 30%. Puedes cambiarlo.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {ingresarTieneTallas ? null : (
             <>
@@ -2614,10 +3036,7 @@ export default function InventarioPage() {
                 </thead>
                 <tbody>
                   {filteredProducts.map((product) => {
-                    const status = getStockStatus(
-                      product.stock_qty,
-                      product.low_stock_threshold
-                    )
+                    const status = getStockStatus(product.stock_qty, product.bajoMinimo)
                     const isAdjusting = adjustingProduct === product.id
                     const isEditingProduct = editingProduct === product.id
                     const isExpanded = expandedProduct === product.id
@@ -2637,10 +3056,20 @@ export default function InventarioPage() {
                           {product.category?.name || 'Sin categoría'}
                         </td>
                         <td data-label="Stock" className="px-6 py-4 text-center">
-                          <span className="text-xl font-bold">{product.stock_qty}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {' '}/ mín {product.low_stock_threshold}
+                          <span className={cn('text-xl font-bold', product.bajoMinimo && 'text-red-600')}>
+                            {product.stock_qty}
                           </span>
+                          {product.variantCount > 0 ? (
+                            product.tallasBajoMinimo.length > 0 && (
+                              <span className="block text-xs text-red-600">
+                                Mínimo en: {product.tallasBajoMinimo.join(', ')}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {' '}/ mín {product.low_stock_threshold}
+                            </span>
+                          )}
                         </td>
                         <td data-label="Estado" className="px-6 py-4">
                           <Badge variant="outline" className={status.color}>
@@ -2704,10 +3133,17 @@ export default function InventarioPage() {
                                 />
                                 <Input
                                   type="number"
+                                  min="0"
                                   placeholder="Mín."
                                   value={editProductForm.umbral}
                                   onChange={(e) => setEditProductForm({ ...editProductForm, umbral: e.target.value })}
                                   className="h-7 touch:h-11 w-16 rounded-lg text-xs"
+                                  disabled={product.variantCount > 0}
+                                  title={
+                                    product.variantCount > 0
+                                      ? 'Este producto tiene tallas — el mínimo se pone en cada talla'
+                                      : 'Stock mínimo: en rojo con esta cantidad o menos (0 = no avisar)'
+                                  }
                                 />
                               </div>
                               <div className="flex gap-1">
@@ -2931,9 +3367,19 @@ export default function InventarioPage() {
                                               </code>
                                             </td>
                                             <td data-label="Stock" className="px-4 py-2 text-center">
-                                              <span className="font-bold">{variant.stock_qty}</span>
-                                              {variant.stock_qty <= variant.low_stock_threshold && (
-                                                <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-500 border-orange-500/20">
+                                              <span
+                                                className={cn(
+                                                  'font-bold',
+                                                  variant.active !== false &&
+                                                    enStockMinimo(variant.stock_qty, variant.low_stock_threshold) &&
+                                                    'text-red-600'
+                                                )}
+                                              >
+                                                {variant.stock_qty}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground"> / mín {variant.low_stock_threshold}</span>
+                                              {variant.active !== false && enStockMinimo(variant.stock_qty, variant.low_stock_threshold) && (
+                                                <Badge variant="outline" className="ml-2 bg-red-500/10 text-red-600 border-red-500/30">
                                                   Bajo
                                                 </Badge>
                                               )}
@@ -2969,7 +3415,9 @@ export default function InventarioPage() {
                                                     />
                                                     <Input
                                                       type="number"
+                                                      min="0"
                                                       placeholder="Mín."
+                                                      title="Stock mínimo de esta talla: en rojo con esta cantidad o menos (0 = no avisar)"
                                                       value={editVariantForm.umbral}
                                                       onChange={(e) => setEditVariantForm({ ...editVariantForm, umbral: e.target.value })}
                                                       className="h-7 touch:h-11 w-16 rounded-lg text-xs"
@@ -3109,6 +3557,13 @@ export default function InventarioPage() {
                                         ...prev,
                                         talla,
                                         barcode: tocoAMano ? prev.barcode : sugerido,
+                                        // Mínimo automático mientras no se toque a mano: XS en 0
+                                        // (igual que Ingresar y la migración 00072), el resto en 2.
+                                        minimo: prev.minimoTocado
+                                          ? prev.minimo
+                                          : talla.trim().toUpperCase() === TALLA_EN_CERO
+                                            ? '0'
+                                            : String(STOCK_MINIMO_DEFECTO),
                                       }
                                     })
                                     newVariantBarcodeAutoRef.current = sugerido
@@ -3129,12 +3584,29 @@ export default function InventarioPage() {
                                   onChange={(e) => setNewVariant({ ...newVariant, stock_qty: e.target.value })}
                                   className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                                 />
+                                <label className="flex items-center gap-1 text-xs text-muted-foreground max-sm:flex-1">
+                                  Mín.
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={newVariant.minimo}
+                                    onChange={(e) => setNewVariant({ ...newVariant, minimo: e.target.value, minimoTocado: true })}
+                                    title="Stock mínimo de la talla: en rojo con esta cantidad o menos (0 = no avisar)"
+                                    aria-label="Stock mínimo de la talla nueva"
+                                    className="h-8 w-16 rounded-lg text-xs touch:h-11 max-sm:flex-1"
+                                  />
+                                </label>
                                 {canViewCost && (
                                   <MoneyInput
-                                    placeholder="Costo unitario"
+                                    placeholder={
+                                      costoSugeridoTalla(product.id) > 0
+                                        ? `Costo: ${formatPrice(costoSugeridoTalla(product.id))}`
+                                        : 'Costo unitario'
+                                    }
+                                    title="Si lo dejas vacío se usa el costo de las otras tallas del producto"
                                     value={newVariant.cost_cents}
                                     onChange={(v) => setNewVariant({ ...newVariant, cost_cents: v })}
-                                    className="h-8 w-28 rounded-lg text-xs touch:h-11 max-sm:flex-1"
+                                    className="h-8 w-32 rounded-lg text-xs touch:h-11 max-sm:flex-1"
                                   />
                                 )}
                                 <Button

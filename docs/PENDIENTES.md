@@ -4,7 +4,7 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-26.
+> Última revisión: 2026-11-27.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
@@ -141,6 +141,34 @@ como operativo hasta el push.
 - [x] YJBMOTOCOM: revisado en vivo el 2026-11-21. Las categorías salen en la lista y los gastos guardados ya tienen el
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
+
+## 00c. ⚠️ Migraciones `00071` y `00072` (stock mínimo 2 por talla, talla XS en 0) — falta correrlas en YJBMOTOCOM
+
+Cambio llevado de YBMOTOCOM el 2026-11-27 (pedido del usuario: las dos tiendas con la misma lógica y **mínimo 2**).
+Son los commits de YB `3e37cab`, `ab6b950`, `f6ce2da`, `ade6e3a`, `78febcb` y `a4cf8bd`:
+- Ingresar con precios, cantidad y stock mínimo **por talla**; "Agregar talla" con costo sugerido.
+- **Regla única de stock bajo** (`lib/utils.ts`, `productoEnStockMinimo`): con tallas, sale si ALGUNA talla activa
+  está en su propio mínimo o por debajo; sin tallas, por su stock y mínimo. Mínimo 0 = no avisar. Se ve en **rojo**.
+  La usan Dashboard, Inventario, Catálogo, la exportación a Excel, Alegra y el correo de alerta (que ahora dice qué
+  tallas están en su mínimo).
+- Ingresar, ajuste y exportación ya no incluyen productos borrados.
+
+Las migraciones (en YB se llaman igual; la 00070 de esta tienda es otra):
+- `00071_stock_minimo_2.sql`: el mínimo por defecto pasa de 5 a 2 y los productos/tallas que tienen 5 quedan en 2.
+  Un mínimo puesto a mano con otro número no se toca.
+- `00072_talla_xs_en_cero.sql`: a los productos con tallas de letra (S, M, L, XL…) que no tienen XS se les crea la XS
+  con **0 unidades** y mínimo 0. No cambia stock, valor del inventario, precios ni ventas.
+
+Probadas en una base en memoria (PGlite) con las 70 migraciones anteriores y productos de ejemplo, corridas dos veces:
+stock, valor del inventario, precios, tallas existentes y pedidos sin cambio; sin XS duplicadas ni códigos repetidos.
+`tsc`, lint, 285/285 pruebas y `next build` OK.
+
+El orden no importa (el código funciona con o sin ellas), pero conviene correrlas antes del push.
+- [ ] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): correr la 00071 y después la 00072 en el SQL Editor. Verificación (debe dar
+  `en_5 = 0` y `sin_xs = 0`):
+  `SELECT (SELECT count(*) FROM products WHERE low_stock_threshold = 5) + (SELECT count(*) FROM product_variants WHERE low_stock_threshold = 5) AS en_5, (SELECT count(*) FROM products p WHERE p.deleted_at IS NULL AND EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.active AND upper(trim(v.talla)) IN ('S','M','L','XL','2XL','XXL','3XL','XXXL')) AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND upper(trim(v.talla)) = 'XS')) AS sin_xs;`
+- [ ] YJBMOTOCOM: push y revisar en vivo Inventario → Ingresar (con tallas, sin tallas, reingreso) y el Dashboard.
+- [x] YBMOTOCOM: las dos corridas y verificadas el 2026-11-26.
 
 ## 00b. ⚠️ Migraciones `00069` y `00070` (precio mínimo al cliente, 35% en YJBMOTOCOM) — antes del push
 

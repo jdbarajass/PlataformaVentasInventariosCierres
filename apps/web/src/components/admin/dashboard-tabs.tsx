@@ -266,7 +266,7 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
           <Card className="transition-colors hover:border-cyan-500/50 hover:bg-secondary/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -359,7 +359,7 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                <AlertTriangle className="h-5 w-5 text-red-500" />
                 Alerta de Stock Bajo
               </CardTitle>
               <Link
@@ -382,7 +382,8 @@ function ChannelPanel({ stats }: { stats: ChannelStats }) {
                         Stock: {product.stock_qty}
                       </p>
                     </div>
-                    <Badge variant={product.stock_qty === 0 ? 'error' : 'warning'}>
+                    {/* Rojo en los dos casos: pedido del usuario (2026-11-26). */}
+                    <Badge variant="error">
                       {product.stock_qty === 0 ? 'Agotado' : 'Bajo'}
                     </Badge>
                   </div>
@@ -501,7 +502,7 @@ export function DashboardTabs({
               <Card className="transition-colors hover:border-cyan-500/50 hover:bg-secondary/30">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{online.lowStockProducts.length}</div>

@@ -47,13 +47,49 @@ export function truncate(text: string, length: number): string {
   return text.slice(0, length) + '...'
 }
 
-export function getStockStatus(qty: number, threshold: number = 5): 'in-stock' | 'low-stock' | 'out-of-stock' {
-  if (qty === 0) return 'out-of-stock'
-  if (qty <= threshold) return 'low-stock'
+// ---------------------------------------------------------------------------
+// Stock mínimo ("stock bajo"). Regla única para Dashboard, Inventario,
+// Catálogo, exportación y el correo de alerta (pedido del usuario,
+// 2026-11-26):
+//   - Cada fila de inventario (producto sin tallas, o cada talla) tiene su
+//     mínimo (`low_stock_threshold`, 2 por defecto, migración 00071).
+//   - Sale en rojo cuando quedan el mínimo O MENOS (mínimo 2 → con 2, 1 o 0).
+//   - Mínimo 0 = no avisar nunca (tallas que casi no se mueven).
+//   - Un producto con tallas está en stock bajo si ALGUNA de sus tallas
+//     activas lo está — cada talla con su propio mínimo, no la suma.
+// ---------------------------------------------------------------------------
+
+export const STOCK_MINIMO_DEFECTO = 2
+
+export function enStockMinimo(qty: number, minimo: number | null | undefined): boolean {
+  const m = minimo ?? STOCK_MINIMO_DEFECTO
+  return m > 0 && qty <= m
+}
+
+type FilaStock = { stock_qty: number; low_stock_threshold: number | null; active?: boolean | null }
+
+/** Tallas activas de un producto que están en su mínimo o por debajo. */
+export function tallasEnStockMinimo<T extends FilaStock>(tallas: T[] | null | undefined): T[] {
+  return (tallas || []).filter((t) => t.active !== false && enStockMinimo(t.stock_qty, t.low_stock_threshold))
+}
+
+/**
+ * ¿El producto está en stock bajo? Con tallas (activas), por cada talla
+ * contra su propio mínimo; sin tallas, por su propio stock y mínimo.
+ */
+export function productoEnStockMinimo(producto: FilaStock, tallas?: FilaStock[] | null): boolean {
+  const activas = (tallas || []).filter((t) => t.active !== false)
+  if (activas.length > 0) return tallasEnStockMinimo(activas).length > 0
+  return enStockMinimo(producto.stock_qty, producto.low_stock_threshold)
+}
+
+export function getStockStatus(qty: number, threshold: number = STOCK_MINIMO_DEFECTO): 'in-stock' | 'low-stock' | 'out-of-stock' {
+  if (qty <= 0) return 'out-of-stock'
+  if (enStockMinimo(qty, threshold)) return 'low-stock'
   return 'in-stock'
 }
 
-export function getStockLabel(qty: number, threshold: number = 5): string {
+export function getStockLabel(qty: number, threshold: number = STOCK_MINIMO_DEFECTO): string {
   const status = getStockStatus(qty, threshold)
   switch (status) {
     case 'in-stock':

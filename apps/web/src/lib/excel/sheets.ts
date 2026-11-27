@@ -1,5 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { compararTallas } from '@/lib/tallas'
+import { STOCK_MINIMO_DEFECTO } from '@/lib/utils'
+
+// "Stock Mínimo" de una fila importada: 0 es válido (= no avisar nunca), así
+// que no se usa `|| defecto` (convertiría el 0 en el valor por defecto).
+function stockMinimoDeExcel(valor: unknown): number {
+  const n = parseInt(String(valor ?? ''), 10)
+  return Number.isFinite(n) && n >= 0 ? n : STOCK_MINIMO_DEFECTO
+}
 
 // Definición central de las 18 hojas del Excel maestro (equivalente al
 // YJBMOTOCOM_Historial.xlsx del software local). Cada hoja declara cómo se
@@ -91,7 +99,7 @@ export const sheetDefinitions: SheetDefinition[] = [
         talla: v['Talla'] || null,
         barcode: v['Código Barras'] || null,
         stock_qty: parseInt(v['Stock']) || 0,
-        low_stock_threshold: parseInt(v['Stock Mínimo']) || 5,
+        low_stock_threshold: stockMinimoDeExcel(v['Stock Mínimo']),
         cost_cents: pesosToCents(v['Costo Unitario']),
       }
     },

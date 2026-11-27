@@ -7,6 +7,9 @@ interface LowStockAlertProps {
     sku: string | null
     stock_qty: number
     low_stock_threshold: number
+    // Producto con tallas: las tallas que están en su mínimo (cada talla
+    // tiene su propio mínimo). Vacío o ausente = producto sin tallas.
+    tallas_en_minimo?: string[]
   }>
 }
 
@@ -32,7 +35,7 @@ export default function LowStockAlertEmail({ products }: LowStockAlertProps) {
               <th style={thCell}>Producto</th>
               <th style={thCell}>SKU</th>
               <th style={{ ...thCell, textAlign: 'center' }}>Stock</th>
-              <th style={{ ...thCell, textAlign: 'center' }}>Umbral</th>
+              <th style={{ ...thCell, textAlign: 'center' }}>Mínimo</th>
               <th style={{ ...thCell, textAlign: 'center' }}>Estado</th>
             </tr>
           </thead>
@@ -46,7 +49,11 @@ export default function LowStockAlertEmail({ products }: LowStockAlertProps) {
                     {product.stock_qty}
                   </span>
                 </td>
-                <td style={{ ...tdCell, textAlign: 'center' }}>{product.low_stock_threshold}</td>
+                <td style={{ ...tdCell, textAlign: 'center' }}>
+                  {product.tallas_en_minimo && product.tallas_en_minimo.length > 0
+                    ? `Tallas: ${product.tallas_en_minimo.join(', ')}`
+                    : product.low_stock_threshold}
+                </td>
                 <td style={{ ...tdCell, textAlign: 'center' }}>
                   {product.stock_qty === 0 ? (
                     <span style={criticalBadge}>AGOTADO</span>

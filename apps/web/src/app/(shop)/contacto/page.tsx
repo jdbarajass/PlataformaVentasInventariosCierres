@@ -22,11 +22,11 @@ const contactSchema = z.object({
 type ContactForm = z.infer<typeof contactSchema>
 
 const DEFAULT_CONTACT: ContactInfo = {
-  phone_primary: '+57 321 411 1371',
-  phone_secondary: '+57 314 406 5520',
-  email: 'yjbmotocom@gmail.com',
-  address: 'Av Caracas No. 17-47, Cc Megacentro, Local 127 Exterior',
-  city: 'Bogotá, Colombia',
+  phone_primary: BRAND.contact.phonePrimary,
+  phone_secondary: BRAND.contact.phoneSecondary,
+  email: BRAND.supportEmail,
+  address: BRAND.contact.address,
+  city: BRAND.contact.cityCountry,
   business_hours: {
     weekdays: 'Lunes a Sábado: 9:00 AM - 7:00 PM',
     saturday: '',

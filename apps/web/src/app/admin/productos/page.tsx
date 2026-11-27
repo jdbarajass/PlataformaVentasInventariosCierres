@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
-import { formatPrice, getStockStatus } from '@/lib/utils'
+import { formatPrice, productoEnStockMinimo } from '@/lib/utils'
 import { Product } from '@/types/database'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { useAuth } from '@/lib/auth-context'
@@ -65,6 +65,11 @@ export default function ProductsPage() {
   // vive por variante), así que buscar solo por product.barcode no
   // encontraba nada al escanear/escribir el código de una talla específica.
   const [variantBarcodesByProduct, setVariantBarcodesByProduct] = useState<Map<string, string[]>>(new Map())
+  // Stock y mínimo de cada talla: para la regla única de stock bajo
+  // (lib/utils.ts, productoEnStockMinimo) — con tallas, cada talla contra su
+  // propio mínimo, no el total del producto.
+  type TallaStock = { stock_qty: number; low_stock_threshold: number; active: boolean }
+  const [variantStockByProduct, setVariantStockByProduct] = useState<Map<string, TallaStock[]>>(new Map())
   // Costo por variante/talla, por producto — un producto con tallas no tiene
   // un solo costo (cada talla puede costar distinto), así que la columna
   // "Costo" de la tabla necesita el rango real en vez de leer
@@ -144,19 +149,24 @@ export default function ProductsPage() {
         fetch('/api/products?limit=2000&include_inactive=true', {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
         }),
-        supabase.from('product_variants').select('product_id, barcode'),
+        supabase.from('product_variants').select('product_id, barcode, stock_qty, low_stock_threshold, active'),
       ])
       const data = await response.json()
       setProducts(data.products || [])
 
       const map = new Map<string, string[]>()
-      for (const v of (allVariants || []) as { product_id: string; barcode: string | null }[]) {
+      const stockMap = new Map<string, TallaStock[]>()
+      for (const v of (allVariants || []) as ({ product_id: string; barcode: string | null } & TallaStock)[]) {
+        const tallas = stockMap.get(v.product_id) || []
+        tallas.push({ stock_qty: v.stock_qty, low_stock_threshold: v.low_stock_threshold, active: v.active })
+        stockMap.set(v.product_id, tallas)
         if (!v.barcode) continue
         const list = map.get(v.product_id) || []
         list.push(v.barcode)
         map.set(v.product_id, list)
       }
       setVariantBarcodesByProduct(map)
+      setVariantStockByProduct(stockMap)
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
@@ -406,10 +416,11 @@ export default function ProductsPage() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredProducts.map((product) => {
-                    const stockStatus = getStockStatus(
-                      product.stock_qty,
-                      product.low_stock_threshold
-                    )
+                    // Rojo si está en su stock mínimo o por debajo (regla única de
+                    // lib/utils.ts; con tallas, por cada talla) o sin unidades.
+                    const stockEnRojo =
+                      product.stock_qty <= 0 ||
+                      productoEnStockMinimo(product, variantStockByProduct.get(product.id))
                     const costRange = canViewCost ? getProductCost(product) : null
                     const { montado, minimoCliente, bajoMinimo: precioBajoMinimo } = getDerivedPrices(product)
                     const clientPct = product.client_min_markup_pct
@@ -516,15 +527,7 @@ export default function ProductsPage() {
                           </div>
                         </td>
                         <td className="py-4">
-                          <Badge
-                            variant={
-                              stockStatus === 'in-stock'
-                                ? 'success'
-                                : stockStatus === 'low-stock'
-                                ? 'warning'
-                                : 'error'
-                            }
-                          >
+                          <Badge variant={stockEnRojo ? 'error' : 'success'}>
                             {product.stock_qty}
                           </Badge>
                         </td>

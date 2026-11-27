@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     category_id             UUID        REFERENCES public.categories(id) ON DELETE SET NULL,
     images                  TEXT[]      DEFAULT '{}',
     stock_qty               INT         NOT NULL DEFAULT 0 CHECK (stock_qty >= 0),
-    low_stock_threshold     INT         DEFAULT 5,
+    low_stock_threshold     INT         DEFAULT 2,
     weight_grams            INT,
     dimensions              JSONB,
     tags                    TEXT[]      DEFAULT '{}',

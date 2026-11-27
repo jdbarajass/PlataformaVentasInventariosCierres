@@ -2,6 +2,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { Order } from '@/types/database'
 import { DashboardTabs } from '@/components/admin/dashboard-tabs'
 import { bogotaDateStr, bogotaToISO } from '@/lib/bogota-time'
+import { productoEnStockMinimo } from '@/lib/utils'
 
 // Sin esto, Next.js prerrenderiza esta página como estática en el build
 // (no detecta las consultas de Supabase como "dinámicas" — a diferencia de
@@ -152,21 +153,18 @@ async function getLowStockProducts() {
   // era la única del panel que no filtraba por deleted_at (a diferencia
   // de /admin/inventario, que sí lo hace).
   //
-  // Un producto con tallas se evalúa por su stock CONSOLIDADO (suma de
-  // todas sus variantes, igual que /admin/inventario) contra el umbral
-  // del producto — no el umbral de cada talla por separado. Antes se
-  // comparaba cada variante contra su propio low_stock_threshold, así que
-  // el número mostrado aquí no coincidía con "stock bajo" en Inventario:
-  // un producto con una sola talla con existencia (ej. 1 de 8 unidades
-  // totales, mínimo 5) podía no aparecer si esa talla nunca cruzaba su
-  // propio umbral, mientras que otro con 6 tallas de umbral bajo cada una
-  // podía sonar la alerta aunque el total fuera saludable.
+  // Regla única de stock bajo (lib/utils.ts, productoEnStockMinimo, pedido
+  // del usuario 2026-11-26): un producto con tallas sale si ALGUNA talla
+  // activa quedó en su propio mínimo o por debajo (mínimo 0 = esa talla no
+  // avisa); sin tallas, por su propio stock y mínimo. Es la misma regla de
+  // Inventario, Catálogo, la exportación y el correo de alerta. El número
+  // que se muestra sigue siendo el total del producto (suma de tallas).
   const { data: allProductsStock } = await supabase
     .from('products')
-    .select('id, title, stock_qty, low_stock_threshold, product_variants(stock_qty)')
+    .select('id, title, stock_qty, low_stock_threshold, product_variants(stock_qty, low_stock_threshold, active)')
     .is('deleted_at', null)
 
-  const consolidated: LowStockProduct[] = ((allProductsStock as any[]) || []).map((p) => {
+  const consolidated: (LowStockProduct & { bajo: boolean })[] = ((allProductsStock as any[]) || []).map((p) => {
     const hasVariants = p.product_variants && p.product_variants.length > 0
     const stock_qty = hasVariants
       ? p.product_variants.reduce((sum: number, v: any) => sum + v.stock_qty, 0)
@@ -176,6 +174,7 @@ async function getLowStockProducts() {
       title: p.title,
       stock_qty,
       low_stock_threshold: p.low_stock_threshold,
+      bajo: productoEnStockMinimo(p, p.product_variants),
     }
   })
 
@@ -184,7 +183,8 @@ async function getLowStockProducts() {
   // los primeros 5 para la vista previa se hace en DashboardTabs, que
   // también enlaza a /admin/inventario?stockBajo=1 para ver el resto.
   return consolidated
-    .filter((p) => p.stock_qty <= p.low_stock_threshold)
+    .filter((p) => p.bajo)
+    .map(({ bajo: _bajo, ...p }) => p)
     .sort((a, b) => a.stock_qty - b.stock_qty)
 }
 

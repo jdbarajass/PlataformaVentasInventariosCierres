@@ -7,6 +7,7 @@ import { productSchema, type ProductFormData } from '@/lib/validations/product'
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser'
 import { authenticatedFetch } from '@/lib/authenticated-fetch'
 import { Product, Category } from '@/types/database'
+import { STOCK_MINIMO_DEFECTO } from '@/lib/utils'
 
 interface UseProductFormParams {
   product?: Product
@@ -44,7 +45,7 @@ export function useProductForm({ product, mode, hasVariants }: UseProductFormPar
     categoryId: product?.category_id || '',
     images: product?.images || [],
     stock: product?.stock_qty.toString() || '0',
-    lowStockThreshold: product?.low_stock_threshold.toString() || '5',
+    lowStockThreshold: product?.low_stock_threshold.toString() ?? String(STOCK_MINIMO_DEFECTO),
     tags: product?.tags.join(', ') || '',
     active: product?.active ?? true,
     featured: product?.featured ?? false,
