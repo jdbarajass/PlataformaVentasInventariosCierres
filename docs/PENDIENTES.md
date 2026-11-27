@@ -142,7 +142,7 @@ como operativo hasta el push.
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
-## 00d. ⚠️ Migración `00073_inventario_blindaje.sql` (las 6 fallas de inventario) — correr en las DOS tiendas antes del push
+## 00d. Migración `00073_inventario_blindaje.sql` (las 6 fallas de inventario) — corrida en las dos tiendas
 
 Cambio del 2026-11-27 (auditoría sección 11): venta sin talla (B7), talla borrada (B8), aviso de ítem manual (B10),
 formulario que pisaba el stock (B11), ajustes con diferencia (B12) y reembolso online (B14). Solo funciones y un trigger:
@@ -151,8 +151,8 @@ no modifica ventas, inventario ni plata existentes. `audit.mjs` 62/62 OK, `tsc`,
 **Orden:** primero la migración en los dos Supabase, después el push (sin ella fallan los ajustes de inventario y la
 cancelación de órdenes online). Verificación (debe dar 5 filas):
 `SELECT proname FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname IN ('_inv_has_tallas', '_inv_return_item_stock', 'refund_online_order', 'adjust_inventory', 'keep_talla_name_on_variant_delete');`
-- [ ] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): correr la 00073.
-- [ ] YBMOTOCOM (`ccoehayafcvfrnqnuhfa`): correr la 00073.
+- [x] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): 00073 corrida por el usuario el 2026-11-27. Verificado por API sin escribir datos: las funciones responden (ajuste rechaza total con tallas y negativos; reembolso rechaza mostrador; venta sin talla rechazada) y la base quedó idéntica.
+- [x] YBMOTOCOM (`ccoehayafcvfrnqnuhfa`): 00073 corrida por el usuario el 2026-11-27; misma verificación, todo OK.
 - [ ] Push de los dos repos y probar en vivo: un ajuste de inventario, editar un producto y cancelar una venta.
 
 ## 00c. Migraciones `00071` y `00072` (stock mínimo 2 por talla, talla XS en 0) — corridas en las dos tiendas
