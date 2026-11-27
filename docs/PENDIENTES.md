@@ -169,7 +169,17 @@ El orden no importa (el código funciona con o sin ellas), pero conviene correrl
   con mínimo 0 (las 27 XS nuevas: 0 unidades, todas con código de familia terminado en 1 y costo de una hermana, ej.
   SPARTAN FENIX `1006013011`); 0 XS duplicadas, 0 códigos repetidos, 0 stock negativo. Consulta usada:
   `SELECT (SELECT count(*) FROM products WHERE low_stock_threshold = 5) + (SELECT count(*) FROM product_variants WHERE low_stock_threshold = 5) AS en_5, (SELECT count(*) FROM products p WHERE p.deleted_at IS NULL AND EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.active AND upper(trim(v.talla)) IN ('S','M','L','XL','2XL','XXL','3XL','XXXL')) AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND upper(trim(v.talla)) = 'XS')) AS sin_xs;`
-- [ ] YJBMOTOCOM: push y revisar en vivo Inventario → Ingresar (con tallas, sin tallas, reingreso) y el Dashboard.
+- [x] YJBMOTOCOM: push el 2026-11-27 (`c2bb495`, `27eb77d`), Vercel "Deployment has completed".
+- [x] **Barrido del 2026-11-27 (solo lectura):** datos sin stock negativo, sin mínimos vacíos, sin tallas repetidas,
+  sin códigos repetidos ni tallas activas con costo $0; las 27 XS con código de familia y costo de la hermana más cara.
+  Batería `scripts/auditoria-ventas/audit.mjs`: misma salida con y sin 00071/00072 (52 OK, 6 FALLA, las de la
+  sección 3). En vivo: páginas públicas en 200, rutas de admin piden sesión (401/307), en la ficha del producto la
+  XS sale tachada como "agotada" (no se puede comprar).
+- **Para tener en cuenta:** con la regla por talla, 125 de 148 productos vivos salen en stock bajo (78 de 79 con
+  tallas; 47 de 69 sin tallas). Con la regla vieja eran 114. Las tallas que disparan: S 62, M 66, L 56, XL 57, 2XL 50,
+  XS 50 (XS que ya existían antes, con mínimo 2). En YBMOTOCOM pasa igual (58 de 58 con tallas). Si se quiere menos
+  ruido, poner mínimo 0 a las tallas que casi no se mueven (Inventario → Detalle → tallas).
+- [ ] YJBMOTOCOM: probar en vivo con el admin Inventario → Ingresar (con tallas, sin tallas, reingreso) y el Dashboard.
 - [x] YBMOTOCOM: las dos corridas y verificadas el 2026-11-26.
 
 ## 00b. ⚠️ Migraciones `00069` y `00070` (precio mínimo al cliente, 35% en YJBMOTOCOM) — antes del push
