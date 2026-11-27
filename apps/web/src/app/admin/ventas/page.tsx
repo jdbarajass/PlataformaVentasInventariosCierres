@@ -31,6 +31,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { AdminAuthorizationDialog } from '@/components/admin/admin-authorization-dialog'
 import { bogotaDateStr, bogotaDayRange, bogotaTimeStr, bogotaToISO, formatBogotaTime } from '@/lib/bogota-time'
+import { buscarCoincidenciaCatalogo } from '@/lib/coincidencia-catalogo'
 
 interface ProductVariant {
   id: string
@@ -253,6 +254,11 @@ export default function VentasPage() {
   const [manualTitle, setManualTitle] = useState('')
   const [manualPrice, setManualPrice] = useState('')
   const [manualCost, setManualCost] = useState('')
+  // Producto del catálogo que se llama igual que el ítem manual escrito
+  // (auditoría B10): se avisa sin bloquear — revender de otro local es válido,
+  // pero si es nuestro, venderlo como manual no baja el inventario.
+  const [manualCoincide, setManualCoincide] = useState<ProductResult | null>(null)
+  const manualMatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Elegir talla de un producto con variantes — panel flotante sobre la
   // grilla en vez de expandir cada card (más simple de mantener en un grid).
@@ -382,6 +388,26 @@ export default function VentasPage() {
       }
     }, 250)
   }, [query, categoryId, session?.access_token, authHeaders])
+
+  useEffect(() => {
+    if (manualMatchTimer.current) clearTimeout(manualMatchTimer.current)
+    const nombre = manualTitle.trim()
+    if (!showManualForm || nombre.length < 4) {
+      setManualCoincide(null)
+      return
+    }
+    manualMatchTimer.current = setTimeout(async () => {
+      if (!session?.access_token) return
+      try {
+        const res = await fetch(`/api/pos/search?q=${encodeURIComponent(nombre)}`, { headers: authHeaders() })
+        if (!res.ok) return
+        const { data } = await res.json()
+        setManualCoincide(buscarCoincidenciaCatalogo(nombre, (data || []) as ProductResult[]))
+      } catch {
+        setManualCoincide(null)
+      }
+    }, 400)
+  }, [manualTitle, showManualForm, session?.access_token, authHeaders])
 
   useEffect(() => {
     if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
@@ -1006,6 +1032,32 @@ export default function VentasPage() {
                   <MoneyInput placeholder="Precio de venta" value={manualPrice} onChange={setManualPrice} className="rounded-lg" />
                   <MoneyInput placeholder="Costo (obligatorio)" aria-label="Costo (obligatorio)" value={manualCost} onChange={setManualCost} className="rounded-lg" />
                 </div>
+                {manualCoincide && (
+                  <div role="status" className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+                    <p>
+                      <strong>{manualCoincide.title}</strong> está en el catálogo (stock {manualCoincide.stock_qty}). Si es de
+                      este local, agrégalo desde el catálogo para que descuente el inventario. Si lo trajiste de otro local
+                      para revender, puedes seguir como producto fuera de catálogo.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg touch:h-11"
+                      onClick={() => {
+                        const producto = manualCoincide
+                        setShowManualForm(false)
+                        setManualTitle('')
+                        setManualPrice('')
+                        setManualCost('')
+                        setManualCoincide(null)
+                        handleCardClick(producto)
+                      }}
+                    >
+                      Usar el del catálogo
+                    </Button>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button size="sm" className="rounded-lg touch:h-11 max-sm:flex-1" onClick={addManualItem}>
                     <Plus className="mr-1 h-3 w-3" /> Agregar al carrito

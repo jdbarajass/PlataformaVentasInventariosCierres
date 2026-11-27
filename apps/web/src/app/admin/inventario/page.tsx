@@ -140,6 +140,10 @@ export default function InventarioPage() {
     stock: '',
     umbral: '',
     barcode: '',
+    // Stock que mostró el formulario al abrirse (auditoría B11/B12): solo se
+    // ajusta si la cantidad del formulario cambió respecto a este número, y
+    // se aplica la diferencia sobre el stock actual.
+    stockAlAbrir: 0,
   })
   const [savingProductEdit, setSavingProductEdit] = useState(false)
 
@@ -150,6 +154,7 @@ export default function InventarioPage() {
     stock: '',
     umbral: '',
     barcode: '',
+    stockAlAbrir: 0,
   })
   const [savingVariantEdit, setSavingVariantEdit] = useState(false)
 
@@ -669,6 +674,9 @@ export default function InventarioPage() {
             ...(row.item.variantId ? { variant_id: row.item.variantId } : {}),
             qty: ajusteCantidadFinal(row),
             type: 'adjustment',
+            // El incremento/disminución se aplica sobre el stock actual, no
+            // sobre el que se cargó al abrir (una venta en medio no se borra).
+            expected_qty: row.item.stockQty,
             note: `Ajuste de inventario (${loteId}) — ${row.tipo === 'incremento' ? 'Incremento' : 'Disminución'} de ${ajusteDelta(row)}`,
             created_by: userProfile?.id,
           }),
@@ -1199,6 +1207,9 @@ export default function InventarioPage() {
           product_id: adjustingProduct,
           qty,
           type: adjustmentType,
+          // "Ajuste" deja la cantidad escrita como final respecto al stock que
+          // se veía en la fila; si entró una venta en medio, se respeta.
+          ...(adjustmentType === 'adjustment' && productoActual ? { expected_qty: productoActual.stock_qty } : {}),
           note: adjustmentNote || `Ajuste manual - ${typeLabels[adjustmentType]}`,
           created_by: userProfile?.id,
         }),
@@ -1407,6 +1418,7 @@ export default function InventarioPage() {
 
   const handleAdjustVariant = async (productId: string, variantId: string) => {
     if (!session?.access_token || !variantAdjQty) return
+    const tallaVista = (variantsByProduct[productId] || []).find((v) => v.id === variantId)
     const qty = parseInt(variantAdjQty)
     if (isNaN(qty) || qty <= 0) {
       toast({
@@ -1430,6 +1442,7 @@ export default function InventarioPage() {
           variant_id: variantId,
           qty,
           type: variantAdjType,
+          ...(variantAdjType === 'adjustment' && tallaVista ? { expected_qty: tallaVista.stock_qty } : {}),
           note: `Ajuste manual variante - ${typeLabels[variantAdjType]}`,
           created_by: userProfile?.id,
         }),
@@ -1469,7 +1482,34 @@ export default function InventarioPage() {
       stock: product.stock_qty.toString(),
       umbral: product.low_stock_threshold.toString(),
       barcode: product.barcode || '',
+      stockAlAbrir: product.stock_qty,
     })
+  }
+
+  // Ajuste con diferencia (B11/B12): manda la cantidad nueva y la que se vio,
+  // y avisa si el stock cambió mientras el formulario estaba abierto.
+  const ajustarConDiferencia = async (body: {
+    product_id: string
+    variant_id?: string
+    qty: number
+    expected_qty: number
+    note: string
+  }) => {
+    if (!session?.access_token) return
+    const res = await fetch('/api/inventory/adjust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ...body, type: 'adjustment', created_by: userProfile?.id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || 'No se pudo ajustar la cantidad')
+    const enMedio = data?.product?.changed_meanwhile || 0
+    if (enMedio !== 0) {
+      toast({
+        title: 'El stock cambió mientras editabas',
+        description: `Hubo ${Math.abs(enMedio)} unidad(es) de movimiento (ventas u otros ajustes) desde que abriste el formulario. Se aplicó solo tu cambio: quedó en ${data.product.new_stock}.`,
+      })
+    }
   }
 
   const handleSaveProductEdit = async (productId: string) => {
@@ -1524,24 +1564,24 @@ export default function InventarioPage() {
       // de cualquier talla (el trigger de sincronización lo recalcula y lo
       // pisa sin avisar). Mismo criterio que ya usa requireTallaSelection
       // para los botones rápidos de Entrada/Salida/Ajuste.
+      // Se compara contra lo que mostró el formulario al abrirse, no contra el
+      // stock de este momento: si entró una venta mientras estaba abierto y
+      // no se tocó la cantidad, no hay nada que ajustar (antes se volvía a
+      // escribir el número viejo y la venta desaparecía — auditoría B11).
+      const stockAlAbrir = editProductForm.stockAlAbrir
       const productoEditado = products.find((p) => p.id === productId)
-      if (nuevoStock !== stockAnterior && productoEditado?.variantCount) {
+      if (nuevoStock !== stockAlAbrir && productoEditado?.variantCount) {
         toast({
           title: 'Cantidad no actualizada',
           description: 'Este producto tiene tallas — ajusta el stock desde la sección de Tallas, no desde aquí.',
           variant: 'destructive',
         })
-      } else if (nuevoStock !== stockAnterior) {
-        await fetch('/api/inventory/adjust', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            product_id: productId,
-            qty: nuevoStock,
-            type: 'adjustment',
-            note: 'Ajuste manual desde edición de producto',
-            created_by: userProfile?.id,
-          }),
+      } else if (nuevoStock !== stockAlAbrir) {
+        await ajustarConDiferencia({
+          product_id: productId,
+          qty: nuevoStock,
+          expected_qty: stockAlAbrir,
+          note: 'Ajuste manual desde edición de producto',
         })
       }
 
@@ -1563,6 +1603,7 @@ export default function InventarioPage() {
       stock: variant.stock_qty.toString(),
       umbral: variant.low_stock_threshold.toString(),
       barcode: variant.barcode || '',
+      stockAlAbrir: variant.stock_qty,
     })
   }
 
@@ -1586,18 +1627,15 @@ export default function InventarioPage() {
         throw new Error(error.error || 'Error al actualizar la variante')
       }
 
-      if (nuevoStock !== stockAnterior) {
-        await fetch('/api/inventory/adjust', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            product_id: productId,
-            variant_id: variantId,
-            qty: nuevoStock,
-            type: 'adjustment',
-            note: 'Ajuste manual desde edición de variante',
-            created_by: userProfile?.id,
-          }),
+      // Igual que en editar producto: contra lo que mostró el formulario.
+      const stockAlAbrir = editVariantForm.stockAlAbrir ?? stockAnterior
+      if (nuevoStock !== stockAlAbrir) {
+        await ajustarConDiferencia({
+          product_id: productId,
+          variant_id: variantId,
+          qty: nuevoStock,
+          expected_qty: stockAlAbrir,
+          note: 'Ajuste manual desde edición de variante',
         })
       }
 

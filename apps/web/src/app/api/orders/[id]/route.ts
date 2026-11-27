@@ -42,51 +42,42 @@ export async function PUT(
   const { status, tracking_number, tracking_url, mark_paid } = body
 
   // Update order status
-  if (status) {
-    // Se lee el estado ANTES de actualizar para decidir si hay que revertir
-    // stock: solo si la orden estaba realmente pagada (el stock ya se había
-    // descontado, vía webhook o pago manual) y no estaba cancelada ya antes
-    // (evita revertir dos veces si el botón se pulsa más de una vez).
-    const { data: previousOrder } = await supabase
-      .from('orders')
-      .select('status, payment_status, order_number')
-      .eq('id', id)
-      .single()
+  if (status === 'cancelled' || status === 'refunded') {
+    // Cancelar o reembolsar una orden online: refund_online_order (00073)
+    // cambia el estado y, si estaba pagada y activa, devuelve el stock — todo
+    // en una transacción y una sola vez (aunque el botón se pulse dos veces o
+    // el webhook de la pasarela ya la haya reembolsado). Marca
+    // payment_status='refunded' para que Reportes/Historial Mensual (que
+    // filtran por 'paid') dejen de contarla como ingreso. Si la talla vendida
+    // se borró, la unidad vuelve a una talla con ese nombre (auditoría B8/B14).
+    const { data: restored, error } = await (supabase.rpc as any)('refund_online_order', {
+      p_order_id: id,
+      p_status: status,
+    })
 
-    const wasPaidAndNotCancelled =
-      status === 'cancelled' &&
-      (previousOrder as any)?.payment_status === 'paid' &&
-      (previousOrder as any)?.status !== 'cancelled'
+    if (error) {
+      const message: string = error.message || ''
+      const isRule = message.includes('mostrador') || message.includes('no encontrada')
+      return NextResponse.json({ error: message }, { status: isRule ? 400 : 500 })
+    }
 
+    if (restored) {
+      const { data: order } = await supabase.from('orders').select('order_number').eq('id', id).single()
+      await (supabase.from('audit_logs') as any).insert({
+        actor_id: auth.user.id,
+        action: 'order_stock_restored',
+        table_name: 'orders',
+        record_id: id,
+        new_data: { order_number: (order as any)?.order_number, status },
+      })
+    }
+  } else if (status) {
     const { error } = await (supabase.from('orders') as any)
-      .update(wasPaidAndNotCancelled ? { status, payment_status: 'refunded' } : { status })
+      .update({ status })
       .eq('id', id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    // Cancelar una orden online ya pagada no revertía el stock (a diferencia
-    // de cancel_pos_sale para mostrador) — el inventario quedaba descontado
-    // para siempre. Se restaura aquí con la misma función/patrón que usa
-    // POS (ver restore_stock_for_cancelled_order, migración 00046). También
-    // se marca payment_status='refunded' arriba para que Reportes/Historial
-    // Mensual (que filtran por payment_status='paid') dejen de contarla
-    // como ingreso real.
-    if (wasPaidAndNotCancelled) {
-      const { error: restoreError } = await (supabase.rpc as any)('restore_stock_for_cancelled_order', {
-        p_order_id: id,
-      })
-      if (restoreError) {
-        console.error('Error restoring stock for cancelled order:', restoreError)
-      }
-
-      await (supabase.from('audit_logs') as any).insert({
-        action: 'order_stock_restored',
-        table_name: 'orders',
-        record_id: id,
-        new_data: { order_number: (previousOrder as any)?.order_number },
-      })
     }
 
     // Marca cuándo quedó 'delivered' (una sola vez) — lo usa el cron de

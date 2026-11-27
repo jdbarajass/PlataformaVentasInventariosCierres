@@ -276,9 +276,17 @@ export async function POST(request: NextRequest) {
       console.log(`[MP Webhook] Payment in progress (${mpStatus}) for order ${orderId}`)
 
     } else if (mpStatus === 'refunded' || mpStatus === 'charged_back') {
-      await (serviceSupabase.from('orders') as any)
-        .update({ status: 'refunded', payment_status: 'refunded' })
-        .eq('id', orderId)
+      // Orden reembolsada y su stock devuelto, en una transacción y una sola
+      // vez aunque MercadoPago repita la notificación (refund_online_order,
+      // 00073 — auditoría B14: antes solo cambiaba el estado).
+      const { error: refundError } = await (serviceSupabase.rpc as any)('refund_online_order', {
+        p_order_id: orderId,
+        p_status: 'refunded',
+      })
+      if (refundError) {
+        console.error('[MP Webhook] Error refunding order:', refundError)
+        throw refundError
+      }
 
       await (serviceSupabase.from('payments') as any)
         .update({ status: 'refunded' })

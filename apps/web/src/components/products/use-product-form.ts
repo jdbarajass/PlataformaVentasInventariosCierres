@@ -119,11 +119,43 @@ export function useProductForm({ product, mode, hasVariants }: UseProductFormPar
           method: 'PUT',
           body: JSON.stringify({ ...validatedData, slug }),
         })
-        toast({
-          title: 'Producto actualizado',
-          description: 'Los cambios se guardaron exitosamente',
-          variant: 'success',
-        })
+
+        // Guardar el producto ya no escribe el stock (auditoría B11: el
+        // formulario abierto pisaba las ventas que entraban mientras tanto).
+        // Si se cambió la cantidad, se manda como ajuste con la diferencia
+        // respecto a lo que mostró el formulario al abrirse.
+        const stockNuevo = parseInt(formData.stock)
+        let stockNoGuardado: string | null = null
+        if (!hasVariants && Number.isFinite(stockNuevo) && stockNuevo !== product!.stock_qty) {
+          try {
+            await authenticatedFetch('/api/inventory/adjust', {
+              method: 'POST',
+              body: JSON.stringify({
+                product_id: product!.id,
+                qty: stockNuevo,
+                type: 'adjustment',
+                expected_qty: product!.stock_qty,
+                note: 'Ajuste manual desde Catálogo → editar producto',
+              }),
+            })
+          } catch (err) {
+            stockNoGuardado = err instanceof Error ? err.message : 'Error al ajustar la cantidad'
+          }
+        }
+
+        if (stockNoGuardado) {
+          toast({
+            title: 'Producto guardado, pero la cantidad no',
+            description: `${stockNoGuardado}. El stock se ajusta desde Inventario (solo admin).`,
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: 'Producto actualizado',
+            description: 'Los cambios se guardaron exitosamente',
+            variant: 'success',
+          })
+        }
       }
 
       router.push('/admin/productos')

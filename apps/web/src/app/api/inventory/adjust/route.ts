@@ -8,9 +8,18 @@ const adjustmentSchema = z.object({
   variant_id: z.string().uuid().optional(),
   qty: z.number().int(),
   type: z.enum(['in', 'out', 'adjustment', 'return']),
+  // Solo para 'adjustment': el stock que la persona vio al contar o al abrir
+  // el formulario. Con él se aplica la DIFERENCIA (qty - expected_qty) sobre
+  // el stock actual, así una venta que entró en medio no se borra
+  // (auditoría B11/B12). Sin él, 'adjustment' deja qty como cantidad final.
+  expected_qty: z.number().int().min(0).optional(),
   note: z.string().optional(),
   created_by: z.string().uuid().optional(),
 })
+
+// Mensajes de regla de negocio de adjust_inventory (migración 00073) que se
+// muestran tal cual al usuario.
+const RULE_ERRORS = ['negativo', 'tiene tallas', 'no encontrad', 'no válido']
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,110 +40,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { product_id, variant_id, qty, type, note, created_by } = validation.data
+    const { product_id, variant_id, qty, type, expected_qty, note, created_by } = validation.data
     // Use service role for system operations
     const supabase = getServiceSupabase()
 
-    // Get current product stock
-    const { data: productData, error: productError } = await supabase
-      .from('products')
-      .select('id, title, stock_qty')
-      .eq('id', product_id)
-      .single()
-
-    if (productError || !productData) {
-      return NextResponse.json(
-        { error: 'Producto no encontrado' },
-        { status: 404 }
-      )
-    }
-
-    const product = productData as { id: string; title: string; stock_qty: number }
-
-    // Si se especifica variant_id, el ajuste aplica sobre el stock de esa
-    // variante (talla) y no sobre products.stock_qty — igual que hace el
-    // software local, que descuenta stock filtrando por talla.
-    let variant: { id: string; stock_qty: number } | null = null
-    if (variant_id) {
-      const { data: variantData, error: variantError } = await supabase
-        .from('product_variants')
-        .select('id, stock_qty')
-        .eq('id', variant_id)
-        .eq('product_id', product_id)
-        .single()
-
-      if (variantError || !variantData) {
-        return NextResponse.json(
-          { error: 'Variante no encontrada para este producto' },
-          { status: 404 }
-        )
-      }
-      variant = variantData as { id: string; stock_qty: number }
-    }
-
-    const currentStock = variant ? variant.stock_qty : product.stock_qty
-
-    // Calculate new stock
-    let newStock = currentStock
-    if (type === 'in' || type === 'return') {
-      newStock += Math.abs(qty)
-    } else if (type === 'out') {
-      newStock -= Math.abs(qty)
-    } else {
-      // adjustment - qty can be positive or negative
-      newStock = qty
-    }
-
-    // Prevent negative stock
-    if (newStock < 0) {
-      return NextResponse.json(
-        { error: 'El stock no puede ser negativo' },
-        { status: 400 }
-      )
-    }
-
-    // Start transaction-like operation
-    // 1. Create inventory movement
-    const movementData = {
-      product_id,
-      variant_id: variant_id || null,
-      qty: type === 'adjustment' ? qty - currentStock : qty,
-      type,
-      note,
-      created_by,
-    }
-    const { data: movement, error: movementError } = await (supabase
-      .from('inventory_movements') as any)
-      .insert(movementData)
-      .select()
-      .single()
-
-    if (movementError) {
-      throw movementError
-    }
-
-    // 2. Update stock (de la variante si aplica, o del producto)
-    const { error: updateError } = variant
-      ? await (supabase.from('product_variants') as any)
-          .update({ stock_qty: newStock })
-          .eq('id', variant.id)
-      : await (supabase.from('products') as any)
-          .update({ stock_qty: newStock })
-          .eq('id', product_id)
-
-    if (updateError) {
-      throw updateError
-    }
-
-    // 3. Create audit log
-    await (supabase.from('audit_logs') as any).insert({
-      actor_id: created_by,
-      action: 'inventory_adjustment',
-      table_name: variant ? 'product_variants' : 'products',
-      record_id: variant ? variant.id : product_id,
-      old_data: { stock_qty: currentStock },
-      new_data: { stock_qty: newStock },
+    // Todo en una sola transacción de la base (adjust_inventory, 00073):
+    // bloquea la fila, calcula el nuevo stock sobre el valor ACTUAL y deja el
+    // movimiento y la auditoría igual que antes. Antes se leía el stock, se
+    // calculaba aquí y se escribía después, así que una venta en medio quedaba
+    // borrada. Con variant_id aplica sobre esa talla; un producto con tallas
+    // no se ajusta en el total (el trigger de sincronización lo pisaría).
+    const { data, error } = await (supabase.rpc as any)('adjust_inventory', {
+      p_product_id: product_id,
+      p_variant_id: variant_id ?? null,
+      p_type: type,
+      p_qty: qty,
+      p_expected: type === 'adjustment' ? expected_qty ?? null : null,
+      p_note: note ?? null,
+      p_created_by: created_by ?? null,
     })
+
+    if (error) {
+      const message: string = error.message || ''
+      if (RULE_ERRORS.some((s) => message.includes(s))) {
+        return NextResponse.json({ error: message }, { status: message.includes('no encontrad') ? 404 : 400 })
+      }
+      throw error
+    }
+
+    const result = (Array.isArray(data) ? data[0] : data) as {
+      previous_stock: number
+      new_stock: number
+      movement_id: string
+      sold_meanwhile: number
+    }
 
     // La notificación de reabasto ya no se dispara aquí — un trigger de
     // base de datos (migración 00036) detecta la transición 0 → positivo
@@ -144,12 +83,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      movement,
+      movement: { id: result.movement_id },
       product: {
         id: product_id,
-        variant_id: variant?.id ?? null,
-        previous_stock: currentStock,
-        new_stock: newStock,
+        variant_id: variant_id ?? null,
+        previous_stock: result.previous_stock,
+        new_stock: result.new_stock,
+        // Unidades que cambiaron entre que se vio el stock y se guardó
+        // (ventas en medio). La pantalla lo avisa.
+        changed_meanwhile: result.sold_meanwhile,
       },
     })
   } catch (error) {

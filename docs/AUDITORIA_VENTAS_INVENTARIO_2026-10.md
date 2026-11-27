@@ -182,3 +182,23 @@ idéntica con las migraciones de YBMOTOCOM.
 
 **Orden de despliegue:** correr la 00068 en cada Supabase **antes** del push. Sin ella, el cambio masivo falla (la
 función no existe).
+
+## 11. Corrección de las fallas de inventario: migración 00073 (2026-11-27)
+
+`supabase/migrations/00073_inventario_blindaje.sql`, igual en las dos tiendas. Pedido del usuario: corregir las 6 fallas
+que quedaban. Resultado de `audit.mjs`: **62 casos, 62 OK** (antes 52 de 58).
+
+| Caso | Corrección |
+|---|---|
+| B7 | `create_pos_sale` rechaza vender un producto con tallas sin elegir talla ("tiene tallas: elige la talla"). En `edit_pos_sale` un ítem así solo se acepta si ya venía en la venta (las 34 ventas viejas de YJBMOTOCOM, de antes de que esos productos tuvieran tallas) y no mueve stock ni a la ida ni a la vuelta. Caso nuevo B7b. |
+| B8 | Al cancelar (mostrador u online) la unidad vuelve a la talla con el mismo nombre (`order_items.product_talla`); si la talla se borró, se vuelve a crear con esa unidad. Las ventas guardan el nombre de la talla desde la base, y antes de borrar una talla se copia su nombre a los ítems que la usaban. Si la venta no tiene nombre de talla (ventas viejas), no se inventa una unidad: queda un aviso `stock_return_sin_talla` en Auditoría para ajustarla a mano. Caso nuevo B8b. |
+| B10 | Por decisión del usuario el ítem manual se sigue permitiendo sin confirmación. Registrar Venta ahora **avisa** (sin bloquear) si el nombre coincide con un producto del catálogo y ofrece "Usar el del catálogo" (`lib/coincidencia-catalogo.ts`, con pruebas). |
+| B11 | Guardar un producto (`PUT /api/products/[id]`) ya no escribe el stock. Los formularios (Inventario → Detalle y Catálogo) solo ajustan si la cantidad cambió respecto a la que mostraron al abrirse, y mandan la diferencia. |
+| B12 | `adjust_inventory`: ajuste atómico en la base. Con el stock que se vio (`expected_qty`) aplica la diferencia sobre el stock actual, así una venta en medio no se borra; avisa cuántas unidades cambiaron. Lo usan el ajuste por lotes, los ajustes rápidos y los formularios. No deja ajustar el total de un producto con tallas. Caso nuevo B12b. |
+| B14 | `refund_online_order`: el reembolso de Stripe/MercadoPago y la cancelación del admin cambian el estado y devuelven el stock en una transacción, una sola vez (webhook repetido o cancelación después del reembolso no devuelven dos veces). Un reembolso parcial de Stripe ya no marca la orden entera como reembolsada: queda en Auditoría. Caso nuevo B14b. |
+
+En el diagnóstico (`diagnostico.sql`) bajan a 0 la fila 10 (vendido sin talla) y la 23 (online reembolsada sin devolver
+stock). El resto de casos de `audit.mjs` y `transicion-00062.mjs` dan lo mismo que antes.
+
+**Orden de despliegue:** correr la 00073 en cada Supabase **antes** del push. Sin ella, los ajustes de inventario y la
+cancelación de órdenes online fallan (las funciones no existen).

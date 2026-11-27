@@ -58,8 +58,13 @@ export async function PUT(
 
     const body = await request.json()
 
-    // Validar datos con Zod
-    const validatedData = productSchema.parse(body)
+    // Validar datos con Zod.
+    // stock_qty se descarta a propósito (auditoría B11): un formulario abierto
+    // mandaba el número que tenía al abrirse y borraba las ventas que entraron
+    // mientras tanto, sin dejar movimiento. El stock solo cambia por ventas,
+    // Ingresar o /api/inventory/adjust (con su movimiento y auditoría).
+    const { stock_qty: stockIgnorado, ...validatedData } = productSchema.parse(body)
+    void stockIgnorado
 
     // Actualizar producto
     // @ts-ignore - Supabase type inference issue

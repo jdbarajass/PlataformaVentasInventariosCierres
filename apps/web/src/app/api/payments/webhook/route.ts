@@ -283,14 +283,31 @@ export async function POST(request: NextRequest) {
 
         const payment = paymentData as any
 
-        // Update order status
-        await (serviceSupabase
-          .from('orders') as any)
-          .update({
-            status: 'refunded',
-            payment_status: 'refunded',
+        // Reembolso parcial (charge.refunded = false): no se reembolsa la orden
+        // completa, así que ni cambia de estado ni se devuelve el inventario.
+        // Queda en Auditoría para que el admin lo maneje a mano.
+        if (!charge.refunded) {
+          await (serviceSupabase.from('audit_logs') as any).insert({
+            action: 'payment_partially_refunded',
+            table_name: 'orders',
+            record_id: payment.order_id,
+            new_data: { amount_refunded: charge.amount_refunded, payment_intent_id: paymentIntentId },
           })
-          .eq('id', payment.order_id)
+          console.log(`[Webhook] Partial refund for order ${payment.order_id}: ${charge.amount_refunded}`)
+          break
+        }
+
+        // Orden reembolsada y su stock devuelto, en una transacción y una sola
+        // vez aunque Stripe repita el evento (refund_online_order, 00073 —
+        // auditoría B14: antes solo cambiaba el estado y el stock no volvía).
+        const { error: refundError } = await (serviceSupabase.rpc as any)('refund_online_order', {
+          p_order_id: payment.order_id,
+          p_status: 'refunded',
+        })
+        if (refundError) {
+          console.error('[Webhook] Error refunding order:', refundError)
+          throw refundError
+        }
 
         // Update payment status
         await (serviceSupabase

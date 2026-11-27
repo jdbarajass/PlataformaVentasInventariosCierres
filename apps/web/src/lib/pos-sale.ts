@@ -206,5 +206,6 @@ export function isPosRuleError(message: string | undefined): boolean {
     'Stock insuficiente',
     'no encontrada',
     'no encontrado',
+    'tiene tallas', // 00073: producto con tallas vendido sin elegir talla (auditoría B7)
   ].some((s) => message.includes(s))
 }

@@ -142,6 +142,19 @@ como operativo hasta el push.
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
+## 00d. ⚠️ Migración `00073_inventario_blindaje.sql` (las 6 fallas de inventario) — correr en las DOS tiendas antes del push
+
+Cambio del 2026-11-27 (auditoría sección 11): venta sin talla (B7), talla borrada (B8), aviso de ítem manual (B10),
+formulario que pisaba el stock (B11), ajustes con diferencia (B12) y reembolso online (B14). Solo funciones y un trigger:
+no modifica ventas, inventario ni plata existentes. `audit.mjs` 62/62 OK, `tsc`, lint, 290/290 pruebas y `next build` OK.
+
+**Orden:** primero la migración en los dos Supabase, después el push (sin ella fallan los ajustes de inventario y la
+cancelación de órdenes online). Verificación (debe dar 5 filas):
+`SELECT proname FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname IN ('_inv_has_tallas', '_inv_return_item_stock', 'refund_online_order', 'adjust_inventory', 'keep_talla_name_on_variant_delete');`
+- [ ] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): correr la 00073.
+- [ ] YBMOTOCOM (`ccoehayafcvfrnqnuhfa`): correr la 00073.
+- [ ] Push de los dos repos y probar en vivo: un ajuste de inventario, editar un producto y cancelar una venta.
+
 ## 00c. Migraciones `00071` y `00072` (stock mínimo 2 por talla, talla XS en 0) — corridas en las dos tiendas
 
 Cambio llevado de YBMOTOCOM el 2026-11-27 (pedido del usuario: las dos tiendas con la misma lógica y **mínimo 2**).
@@ -391,7 +404,7 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
   - [x] YJBMOTOCOM: 00068 corrida por el usuario el 2026-11-25 ("Success"); verificado por Claude: `change_pos_payment_method` y `cancel_pos_sale` responden y la llave pública recibe "permission denied".
   - [x] YBMOTOCOM: 00068 corrida por el usuario el 2026-11-25 ("Success"); misma verificación.
   - [ ] Push de los dos repos y probar en vivo: cancelar, editar y cambio masivo.
-- **Inventario:** falta blindar la doble cancelación, las ventas sin talla, los ajustes y el formulario de producto, que puede pisar el stock.
+- ~~**Inventario:**~~ **corregido en código el 2026-11-27** con la migración `00073_inventario_blindaje.sql` (auditoría sección 11; `audit.mjs` 62/62 OK). Ver sección 00d.
 
 ## Resueltos
 
