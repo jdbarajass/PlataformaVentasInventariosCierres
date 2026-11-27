@@ -151,7 +151,8 @@ CREATE TRIGGER update_orders_updated_at
 CREATE OR REPLACE FUNCTION generate_order_number()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.order_number = 'YJBM-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' ||
+    -- Prefijo por tienda (store_settings.order_prefix, migración 00074): YJBM o YBM.
+    NEW.order_number = COALESCE((SELECT NULLIF(order_prefix, '') FROM public.store_settings WHERE id = 1), 'YJBM') || '-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' ||
                        LPAD(CAST(FLOOR(RANDOM() * 10000) AS TEXT), 4, '0');
     RETURN NEW;
 END;
@@ -276,6 +277,7 @@ CREATE TRIGGER update_coupons_updated_at
 CREATE TABLE IF NOT EXISTS public.store_settings (
     id                INT         PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     store_name        TEXT        NOT NULL DEFAULT 'YJBMOTOCOM',
+    order_prefix      TEXT        NOT NULL DEFAULT 'YJBM' CHECK (order_prefix ~ '^[A-Z0-9]{2,8}$'),
     store_description TEXT        DEFAULT 'Tu tienda de confianza para accesorios y equipamiento de motos.',
     contact_info      JSONB       NOT NULL DEFAULT '{"phone_primary":"+57 321 411 1371","phone_secondary":"+57 314 406 5520","email":"yjbmotocom@gmail.com","address":"Av Caracas No. 17-47 Local 111 Isla S, Cc Megacentro Puerta 2","city":"Bogotá, Colombia"}'::jsonb,
     shipping_config   JSONB       NOT NULL DEFAULT '{"free_shipping_threshold_cents":20000000,"default_shipping_cost_cents":1500000,"enabled":true}'::jsonb,

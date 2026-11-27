@@ -142,6 +142,18 @@ como operativo hasta el push.
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
+## 00e. ⚠️ Migración `00074_prefijo_numero_venta.sql` (prefijo del número de venta) — correr en las DOS tiendas
+
+Las ventas de YBMOTOCOM se numeraban `YJBM-…` porque el prefijo estaba fijo en la función de la 00001. Ahora sale de
+`store_settings.order_prefix`: YJBMOTOCOM sigue con `YJBM` y YBMOTOCOM pasa a `YBM` (la migración la reconoce por
+`store_name`). Solo pedidos nuevos: las 5 ventas de YB del 2026-11-27 conservan su número (ya tienen recibo). Probada en
+memoria para las dos tiendas; `audit.mjs` 62/62 OK. No depende del código: el orden con el push no importa.
+Verificación: `SELECT store_name, order_prefix FROM store_settings;` → YJBMOTOCOM/YJBM y YBMOTOCOM/YBM.
+- [ ] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): correr la 00074 (debe seguir en YJBM).
+- [ ] YBMOTOCOM (`ccoehayafcvfrnqnuhfa`): correr la 00074 (debe quedar en YBM) y revisar que la próxima venta salga `YBM-…`.
+- El correo de mostrador por defecto (`mostrador@yjbmotocom.com`) se deja igual en las dos: es interno, no se muestra
+  (la factura y el Dashboard lo filtran por ese valor exacto) y cambiarlo rompería esos filtros.
+
 ## 00d. Migración `00073_inventario_blindaje.sql` (las 6 fallas de inventario) — corrida en las dos tiendas
 
 Cambio del 2026-11-27 (auditoría sección 11): venta sin talla (B7), talla borrada (B8), aviso de ítem manual (B10),
