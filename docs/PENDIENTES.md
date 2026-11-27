@@ -142,6 +142,21 @@ como operativo hasta el push.
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
+## 00f. Verificación final de los cambios del 2026-11-27 (las dos tiendas)
+
+- Código igual en las dos tiendas (solo difieren `brand.ts`, FAQ, Términos, Privacidad, el contacto de `schema.sql`,
+  íconos y la 00070 de YJB). `tsc`, lint (solo la advertencia vieja de Productos), 290/290 pruebas y `next build` OK;
+  `audit.mjs` 62/62 OK con las migraciones de cada tienda; `transicion-00062.mjs` OK; prueba de la 00074 OK.
+- Corregido en la revisión: el aviso de "fuera de catálogo" de Registrar Venta ya no puede mostrar una coincidencia
+  vieja si se escribe rápido (cada búsqueda lleva turno).
+- Datos en vivo, solo lectura: YJBMOTOCOM sin novedades (totales = suma de tallas, sin negativos, sin códigos o tallas
+  repetidas, mínimos sin 5, todas con XS).
+- **YBMOTOCOM, para decidir:** lo cargado el 26-27 de noviembre DESPUÉS de las migraciones no lo tocan la 00071/00072:
+  93 tallas de 4 guantes WPZ11 (NEGRO TOTAL, ROJO, MORADO y otro) y 2 porta celulares con mínimo 5 (escrito en el
+  formulario; lo de después tiene 2), y 14 productos con tallas sin XS (se desmarcó al crearlos o se agregaron tallas
+  una a una). Si se quiere igualar: volver a correr la 00071 (pasa los 5 a 2) y la 00072 (crea la XS en 0) en YB;
+  las dos son idempotentes y no tocan stock ni ventas.
+
 ## 00e. Migración `00074_prefijo_numero_venta.sql` (prefijo del número de venta) — corrida en las dos tiendas
 
 Las ventas de YBMOTOCOM se numeraban `YJBM-…` porque el prefijo estaba fijo en la función de la 00001. Ahora sale de

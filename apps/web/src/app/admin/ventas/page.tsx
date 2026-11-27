@@ -259,6 +259,9 @@ export default function VentasPage() {
   // pero si es nuestro, venderlo como manual no baja el inventario.
   const [manualCoincide, setManualCoincide] = useState<ProductResult | null>(null)
   const manualMatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Turno de la última búsqueda: una respuesta vieja que llegue tarde (se
+  // siguió escribiendo) no debe pisar el aviso del nombre actual.
+  const manualMatchSeq = useRef(0)
 
   // Elegir talla de un producto con variantes — panel flotante sobre la
   // grilla en vez de expandir cada card (más simple de mantener en un grid).
@@ -391,6 +394,7 @@ export default function VentasPage() {
 
   useEffect(() => {
     if (manualMatchTimer.current) clearTimeout(manualMatchTimer.current)
+    const turno = ++manualMatchSeq.current
     const nombre = manualTitle.trim()
     if (!showManualForm || nombre.length < 4) {
       setManualCoincide(null)
@@ -400,13 +404,17 @@ export default function VentasPage() {
       if (!session?.access_token) return
       try {
         const res = await fetch(`/api/pos/search?q=${encodeURIComponent(nombre)}`, { headers: authHeaders() })
-        if (!res.ok) return
+        if (!res.ok || turno !== manualMatchSeq.current) return
         const { data } = await res.json()
+        if (turno !== manualMatchSeq.current) return
         setManualCoincide(buscarCoincidenciaCatalogo(nombre, (data || []) as ProductResult[]))
       } catch {
-        setManualCoincide(null)
+        if (turno === manualMatchSeq.current) setManualCoincide(null)
       }
     }, 400)
+    return () => {
+      if (manualMatchTimer.current) clearTimeout(manualMatchTimer.current)
+    }
   }, [manualTitle, showManualForm, session?.access_token, authHeaders])
 
   useEffect(() => {
