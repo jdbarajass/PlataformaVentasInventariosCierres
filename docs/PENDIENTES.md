@@ -142,7 +142,7 @@ como operativo hasta el push.
   nombre nuevo.
 - [ ] YBMOTOCOM: replicar y correr después de la 00063.
 
-## 00c. ⚠️ Migraciones `00071` y `00072` (stock mínimo 2 por talla, talla XS en 0) — falta correrlas en YJBMOTOCOM
+## 00c. Migraciones `00071` y `00072` (stock mínimo 2 por talla, talla XS en 0) — corridas en las dos tiendas
 
 Cambio llevado de YBMOTOCOM el 2026-11-27 (pedido del usuario: las dos tiendas con la misma lógica y **mínimo 2**).
 Son los commits de YB `3e37cab`, `ab6b950`, `f6ce2da`, `ade6e3a`, `78febcb` y `a4cf8bd`:
@@ -164,8 +164,10 @@ stock, valor del inventario, precios, tallas existentes y pedidos sin cambio; si
 `tsc`, lint, 285/285 pruebas y `next build` OK.
 
 El orden no importa (el código funciona con o sin ellas), pero conviene correrlas antes del push.
-- [ ] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): correr la 00071 y después la 00072 en el SQL Editor. Verificación (debe dar
-  `en_5 = 0` y `sin_xs = 0`):
+- [x] YJBMOTOCOM (`agwjqetdlgmqtnepaqzj`): 00071 y 00072 corridas por el usuario el 2026-11-27. **Verificado por API
+  (solo lectura) el mismo día:** `en_5 = 0`, `sin_xs = 0`; 239 productos con mínimo 2; 855 tallas con mínimo 2 y 27
+  con mínimo 0 (las 27 XS nuevas: 0 unidades, todas con código de familia terminado en 1 y costo de una hermana, ej.
+  SPARTAN FENIX `1006013011`); 0 XS duplicadas, 0 códigos repetidos, 0 stock negativo. Consulta usada:
   `SELECT (SELECT count(*) FROM products WHERE low_stock_threshold = 5) + (SELECT count(*) FROM product_variants WHERE low_stock_threshold = 5) AS en_5, (SELECT count(*) FROM products p WHERE p.deleted_at IS NULL AND EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.active AND upper(trim(v.talla)) IN ('S','M','L','XL','2XL','XXL','3XL','XXXL')) AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND upper(trim(v.talla)) = 'XS')) AS sin_xs;`
 - [ ] YJBMOTOCOM: push y revisar en vivo Inventario → Ingresar (con tallas, sin tallas, reingreso) y el Dashboard.
 - [x] YBMOTOCOM: las dos corridas y verificadas el 2026-11-26.
