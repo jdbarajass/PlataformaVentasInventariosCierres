@@ -11,14 +11,22 @@
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
 
-## Ingresar: el % del precio mínimo al cliente quedaba "Sin definir" (2026-11-28) — corregido en código, falta push
+## Ingresar: el % del precio mínimo al cliente quedaba "Sin definir" (2026-11-28) — subido en las dos tiendas
 
 Inventario → Ingresar mandaba `client_min_markup_pct: null` cuando no se elegía %, y eso pisaba el valor por defecto 35
 de la 00070. Corregido en `admin/inventario/page.tsx` (modo multi-talla y sin tallas): sin % no se manda el campo y la
 base pone su defecto. Verificado por API: hoy no hay ningún producto vivo sin % (no hizo daño todavía). `tsc` y lint OK.
-- [ ] Push de YJBMOTOCOM.
-- [ ] Llevar el mismo cambio a YBMOTOCOM para que el código siga igual (allá no cambia nada: no hay defecto y queda
-  NULL = "Sin definir" igual que antes).
+- [x] YJBMOTOCOM: push `ee4ddcd..927cced` el 2026-11-28 (sin cambios nuevos en la nube antes de subir).
+- [x] YBMOTOCOM (repo `C:/Users/ACER/Pictures/ybmotocom-web` en el PC de la casa): primero se trajeron los 8 commits
+  de la nube (`5f1ed93..3b6cfbf`), luego push `3b6cfbf..7fabbf9` (autor YBMOTOCOM). Solo las dos líneas: el archivo
+  conserva sus 8 diferencias propias (nombre de la tienda en comentarios y en el PDF de inventario). Allá no cambia
+  nada para el usuario (no hay defecto; queda NULL = "Sin definir" igual que antes). `ESTADO_YBMOTOCOM.md` al día.
+- [ ] Revisar en Vercel que los dos despliegues digan "Deployment has completed", y en YJBMOTOCOM crear el próximo
+  producto por Ingresar sin elegir %: debe salir con 35 en Catálogo → Productos.
+- `tsc` y lint OK en las dos. Pruebas 289/290 en las dos en el PC de la casa: falla `loans.test.ts` ("rechaza un
+  préstamo sin nombre…"), **también sin estos cambios** y aun con `--no-file-parallelism`. En el PC del trabajo daba
+  290/290: es de las dependencias instaladas aquí (el `package-lock.json` local tiene un cambio sin subir), no del
+  código. Revisarlo si vuelve a salir en el PC del trabajo.
 
 ## Cómo saber en qué Supabase se está (2026-11-26)
 
