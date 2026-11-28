@@ -3280,3 +3280,22 @@ categoría (se cambia en Catálogo). Pruebas en `src/__tests__/lib/inventario-ba
 
 Orden: correr 00069 y luego 00070 en el SQL Editor **antes** del push (sin la columna, `/api/products/pricing` falla y
 el vendedor no ve los precios). `tsc`, lint y 273/273 pruebas OK.
+
+## 108. Ingresar respeta el % por defecto del precio mínimo al cliente (2026-11-28)
+
+**Falla:** Inventario → Ingresar mandaba `client_min_markup_pct: null` a `POST /api/products` cuando no se elegía %.
+El null explícito pisaba el valor por defecto de la columna (35 en YJBMOTOCOM, migración 00070), así que todo producto
+nuevo creado por Ingresar quedaba "Sin definir" en vez de 35, al contrario de lo que dice la sección 107.
+
+**Arreglo** (`admin/inventario/page.tsx`, modo multi-talla y modo sin tallas): `client_min_markup_pct: ingresarPct ??
+undefined`. `JSON.stringify` no manda las claves `undefined`, así que la base aplica su defecto. Si se elige un %, se
+guarda ese como antes. Sin migración.
+- YJBMOTOCOM: productos nuevos sin % elegido nacen con 35. Revisado por API antes del arreglo: 0 productos vivos sin %
+  (la falla no alcanzó a dejar datos malos).
+- YBMOTOCOM: mismo cambio para que el código siga igual. Allá la columna no tiene defecto, así que sigue quedando NULL
+  ("Sin definir"): no cambia nada para el usuario.
+
+**Producto creado el mismo día:** GUANTE MAD MOTOR IMPERMEABLE en YJBMOTOCOM (serial 45, Guantes, costo $45.000, precio
+$85.000, 35%, tallas XS-2XL en 0, códigos `1504004011`-`1504004016`), por API con las mismas funciones de Ingresar.
+`scripts/crear-producto-con-tallas.sql` quedó al día con la regla actual (mínimo por talla de la 00071/00072 y % de la
+00069/00070) para crear productos desde el SQL Editor.

@@ -23,7 +23,9 @@ export const dynamic = 'force-dynamic'
 // ("Anyone can view active products") dejaban esta consulta viendo 0
 // órdenes y solo los 4 productos activos de demo — el dashboard entero
 // mostraba ceros. La ruta ya está protegida por middleware (exige sesión).
-const supabase = getServiceSupabase()
+// Se crea dentro de cada función (en la petición) y no al cargar el módulo:
+// así `next build` no exige SUPABASE_SERVICE_ROLE_KEY (el CI de GitHub no la
+// tiene, y no debe tenerla solo para compilar).
 
 interface SalesData {
   total_cents: number
@@ -51,6 +53,7 @@ type SalesChannel = 'online' | 'pos'
 // "mostrador@yjbmotocom.com") aparecía mezclada ahí, aunque la pestaña
 // dijera "Tienda Online". Ahora cada pestaña filtra `channel` de verdad.
 async function getChannelStats(channel: SalesChannel) {
+  const supabase = getServiceSupabase()
   const now = new Date()
   const todayStr = bogotaDateStr(now)
   const startOfDay = bogotaToISO(todayStr, '00:00')
@@ -145,6 +148,7 @@ async function getChannelStats(channel: SalesChannel) {
 // Stock bajo es inventario compartido, no depende del canal de venta —
 // se calcula una sola vez y se muestra igual en ambas pestañas de canal.
 async function getLowStockProducts() {
+  const supabase = getServiceSupabase()
   // No se filtra por active: el stock bajo debe alertar sobre cualquier
   // producto con inventario real, esté publicado en la tienda o no (ver
   // comentario junto al cliente de servicio arriba). Sí se excluyen los
@@ -200,6 +204,7 @@ interface VentasOrderRow {
 // método) + tendencia 7 días, igual que el Dashboard del software local.
 // Ventas online + de mostrador unificadas, consistente con Reportes/Historial.
 async function getVentasStats() {
+  const supabase = getServiceSupabase()
   const now = new Date()
   const todayStr = bogotaDateStr(now)
   const startOfDay = bogotaToISO(todayStr, '00:00')
@@ -313,6 +318,7 @@ interface StaleOrder {
 // reglas que /api/admin/session-alerts (facturas ≤7 días, notas ≤3 días,
 // fiados >30 días) para no duplicar el criterio de negocio en dos lugares.
 async function getBusinessAlerts() {
+  const supabase = getServiceSupabase()
   const now = new Date()
   const in7Days = bogotaDateStr(new Date(now.getTime() + 7 * 86_400_000))
   const in3Days = bogotaDateStr(new Date(now.getTime() + 3 * 86_400_000))

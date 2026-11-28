@@ -930,7 +930,10 @@ export default function InventarioPage() {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
             body: JSON.stringify({
               title: nombre, slug, price_cents: ingresarPrecioCents, cost_cents: costCents,
-              client_min_markup_pct: ingresarPct,
+              // Sin % elegido no se manda (undefined no viaja en el JSON): así
+              // la base pone su valor por defecto (35 en YJBMOTOCOM, 00070). Un
+              // null explícito lo pisaba y el producto quedaba "Sin definir".
+              client_min_markup_pct: ingresarPct ?? undefined,
               stock_qty: 0, low_stock_threshold: STOCK_MINIMO_DEFECTO,
               active: false, images: [], sku: serial, barcode: null, category_id: categoryId,
             }),
@@ -1071,7 +1074,7 @@ export default function InventarioPage() {
               slug,
               price_cents: ingresarPrecioCents,
               cost_cents: costCents,
-              client_min_markup_pct: ingresarPct,
+              client_min_markup_pct: ingresarPct ?? undefined, // ver el modo multi-talla arriba
               low_stock_threshold: talla ? STOCK_MINIMO_DEFECTO : minimoSinTallas,
               stock_qty: talla ? 0 : cantidad,
               active: false,

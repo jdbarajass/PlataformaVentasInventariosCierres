@@ -4,12 +4,21 @@
 > inicio de cada sesión y la recuerda. Cuando algo se resuelva, se marca como
 > hecho (con fecha) en la sección de abajo, en vez de borrarlo.
 >
-> Última revisión: 2026-11-27.
+> Última revisión: 2026-11-28.
 >
 > **Regla del usuario (2026-11-09):** lo de YBMOTOCOM (Vercel sin publicar, migraciones de la sección 1,
 > `CRON_SECRET`) se recuerda en cada sesión y al cerrar cada tarea **hasta que el usuario lo confirme con
 > evidencia** (captura de Vercel/Supabase o verificación en vivo). Decir "ya lo hice" no basta para pasarlo
 > a Resueltos.
+
+## Ingresar: el % del precio mínimo al cliente quedaba "Sin definir" (2026-11-28) — corregido en código, falta push
+
+Inventario → Ingresar mandaba `client_min_markup_pct: null` cuando no se elegía %, y eso pisaba el valor por defecto 35
+de la 00070. Corregido en `admin/inventario/page.tsx` (modo multi-talla y sin tallas): sin % no se manda el campo y la
+base pone su defecto. Verificado por API: hoy no hay ningún producto vivo sin % (no hizo daño todavía). `tsc` y lint OK.
+- [ ] Push de YJBMOTOCOM.
+- [ ] Llevar el mismo cambio a YBMOTOCOM para que el código siga igual (allá no cambia nada: no hay defecto y queda
+  NULL = "Sin definir" igual que antes).
 
 ## Cómo saber en qué Supabase se está (2026-11-26)
 
@@ -435,6 +444,14 @@ Detalle, pruebas y plan en `docs/AUDITORIA_VENTAS_INVENTARIO_2026-10.md`. Nada d
 - ~~**Inventario:**~~ **corregido en código el 2026-11-27** con la migración `00073_inventario_blindaje.sql` (auditoría sección 11; `audit.mjs` 62/62 OK). Ver sección 00d.
 
 ## Resueltos
+
+- **GUANTE MAD MOTOR IMPERMEABLE (2026-11-28):** creado en YJBMOTOCOM por Claude por API (llave de servicio del nuevo
+  `apps/web/.env.local` del PC de la casa, copiada de Vercel), con las mismas funciones de Ingresar
+  (`generarSiguienteSerial`, `generarCodigoBarrasAuto`): serial **45**, categoría Guantes, costo $45.000, precio
+  $85.000 (elegido por el usuario), 35% de precio mínimo al cliente ($60.750), sin publicar, tallas XS-2XL en 0 con
+  códigos `1504004011`-`1504004016` (mínimo 0 en XS y 2 en las demás). Antes de crear se revisó: 239 productos, ningún
+  "MAD", ningún código repetido. `scripts/crear-producto-con-tallas.sql` quedó actualizado con esta regla para usarlo
+  desde el SQL Editor (probado en PGlite, idempotente). Falta cargarle unidades por Inventario → Ingresar.
 
 - **GUANTE ALPINESTARS GP PRO CAÑA LARGA (2026-11-25):** creado en YJBMOTOCOM por Claude con la regla de
   Inventario → Ingresar: serial **44**, categoría Guantes, costo $160.000, precio $229.000 (costo / 0,7 = 228.571,
